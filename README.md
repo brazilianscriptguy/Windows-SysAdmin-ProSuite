@@ -124,4 +124,4 @@ Stay informed about updates and releases at the [Windows-SysAdmin-ProSuite Relea
 
 ---
 
-Thank you for choosing the **Windows-SysAdmin-ProSuite** to enhance your IT administration workflow. These tools are crafted to boost your productivity and improve system efficiency.  
+Thank you for choosing the **Windows-SysAdmin-ProSuite** to enhance your IT administration workflow. These tools are crafted to boost your productivity and improve system efficiency. 
