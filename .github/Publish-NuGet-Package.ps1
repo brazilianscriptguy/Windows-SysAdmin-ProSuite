@@ -396,7 +396,7 @@ $buttonRun.Add_Click({
 })
 
 # Show GUI Form
-$form.ShowDialog()
+
 
 # Function: Fetch-ExistingPackages
 function Fetch-ExistingPackages {
@@ -566,7 +566,7 @@ $buttonRun.Add_Click({
 })
 
 # Finalizing the Script
-$form.ShowDialog()
+
 
 # =========================
 # END OF BLOCK 3 (500 LINES)
@@ -756,7 +756,7 @@ try {
     Log-Message "Backup Directory: $backupDir"
 
     # Launch GUI
-    $form.ShowDialog()
+    
 }
 catch {
     Log-Message "An unexpected error occurred: $_" -MessageType "ERROR"
@@ -1875,7 +1875,7 @@ $buttonCleanup.Add_Click({
 $form.Height += 80
 
 # Show the GUI Form
-$form.ShowDialog()
+
 
 # =========================
 # END OF BLOCK 10 (500 LINES)
@@ -2062,7 +2062,7 @@ $buttonInitialize.Add_Click({
 $form.Height += 160
 
 # Show the Updated GUI Form
-$form.ShowDialog()
+
 
 # =========================
 # END OF BLOCK 11 (500 LINES)
