@@ -1,4 +1,3 @@
-
 # Hide PowerShell console window for a cleaner GUI experience
 Add-Type @"
 using System;
