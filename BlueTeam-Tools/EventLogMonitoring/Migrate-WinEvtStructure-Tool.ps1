@@ -6,7 +6,7 @@
     Provides a graphical user interface (GUI) for users to confirm the target drive.
     Moves the default paths of Windows Event Logs to the specified drive root and updates the registry accordingly.
     Stops the Event Log service to move locked .evtx files and ensures necessary permissions are set on the new drive.
-    Stores script execution logs in 'C:\Logs-TEMP'.
+    Stores script execution logs in 'C:\Logs-TEMP\'.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
