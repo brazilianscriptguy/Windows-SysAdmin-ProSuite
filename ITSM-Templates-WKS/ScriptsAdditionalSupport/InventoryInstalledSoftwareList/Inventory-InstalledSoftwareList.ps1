@@ -1,6 +1,26 @@
-﻿# PowerShell Script to Retrieve Installed Software x86 and x64 with GUID and Enhanced GUI
-# Author: Luiz Hamilton Silva
-# Updated: July 12, 2024
+<#
+.SYNOPSIS
+    PowerShell Script to Retrieve Installed Software (x86 and x64) with GUID and Enhanced GUI
+
+.DESCRIPTION
+    This script provides a graphical user interface (GUI) that allows users to export a comprehensive list of installed software on a Windows system. It retrieves both 32-bit and 64-bit installed applications, including their Display Name, Display Version, Identifying Number (GUID), and Architecture. Users can choose to save the exported list to the default Documents folder or specify a custom output path.
+
+.AUTHOR
+    Luiz Hamilton Silva - @brazilianscriptguy
+
+.VERSION
+    1.0.0 - December 06, 2025
+
+.NOTES
+    - Requires running with administrative privileges to access certain registry keys.
+    - The script hides the PowerShell console window during execution for a cleaner user experience.
+    - Outputs are saved in CSV format with filenames that include the computer name and timestamp.
+    - Ensures that the specified custom output path is valid and accessible.
+    - Handles both default and custom path selections through the GUI.
+    - Provides error handling and user feedback via message boxes for successful exports and encountered issues.
+    - Utilizes PowerShell cmdlets like `Get-ItemProperty` and `Export-Csv` to gather and export data.
+    - Designed for compatibility with both 32-bit and 64-bit Windows environments.
+#>
 
 # Hide the PowerShell console window
 Add-Type @"
