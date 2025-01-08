@@ -50,20 +50,44 @@
   This repository is organized into five comprehensive sections, each focusing on distinct aspects of IT management and compliance:
 </p>
 <ul>
-  <li><strong>BlueTeam-Tools:</strong> For forensic analysis, incident response, and log parsing.</li>
-  <li><strong>Core-ScriptLibrary:</strong> Foundational scripts for automation and advanced PowerShell solutions.</li>
-  <li><strong>ITSM-Templates-SVR:</strong> Server-side templates for ITSM compliance, hardening, and automation.</li>
-  <li><strong>ITSM-Templates-WKS:</strong> Workstation-side templates for ITSM compliance on Windows 10/11.</li>
-  <li><strong>SysAdmin-Tools:</strong> Active Directory and infrastructure management, GPO tools, and security optimizations.</li>
+  <li>
+    <img src="https://img.shields.io/badge/Forensic%20Analysis-orange?style=flat-square&logo=security" alt="Forensic Analysis Badge">
+    For forensic analysis, incident response, and log parsing.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Automation-Asset-red?style=flat-square&logo=vscode" alt="Automation Badge">
+    Foundational scripts for automation and advanced PowerShell solutions.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Server%20Hardening-purple?style=flat-square&logo=server" alt="Server Hardening Badge">
+    Server-side templates for ITSM compliance, hardening, and automation.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Workstation%20Compliance-green?style=flat-square&logo=windows" alt="Workstation Compliance Badge">
+    Workstation-side templates for ITSM compliance on Windows 10/11.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Management%20Tools-blue?style=flat-square&logo=windows" alt="Management Tools Badge">
+    Active Directory and infrastructure management, GPO tools, and security optimizations.
+  </li>
 </ul>
 
 <hr />
 
 <h2>🌟 Key Highlights</h2>
 <ul>
-  <li><strong>GUI-Driven Solutions:</strong> Intuitive graphical interfaces make these tools accessible to users at all skill levels.</li>
-  <li><strong>Advanced Logging:</strong> Detailed <code>.log</code> files provide operational transparency, and <code>.csv</code> files offer actionable reporting.</li>
-  <li><strong>Customizable:</strong> Scripts are highly configurable, allowing adjustments to parameters, paths, and execution behaviors to align with your organization's specific requirements.</li>
+  <li>
+    <img src="https://img.shields.io/badge/GUI%20Driven-yellow?style=flat-square&logo=windows" alt="GUI Driven Badge">
+    Intuitive graphical interfaces make these tools accessible to users at all skill levels.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Advanced%20Logging-orange?style=flat-square&logo=logs" alt="Advanced Logging Badge">
+    Detailed <code>.log</code> files provide operational transparency, and <code>.csv</code> files offer actionable reporting.
+  </li>
+  <li>
+    <img src="https://img.shields.io/badge/Customizable-green?style=flat-square&logo=gear" alt="Customizable Badge">
+    Scripts are highly configurable, allowing adjustments to parameters, paths, and execution behaviors to align with your organization's specific requirements.
+  </li>
 </ul>
 
 <hr />
@@ -89,7 +113,7 @@
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
   </a>
-  <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+  <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon">
   </a>
   <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases" target="_blank" rel="noopener noreferrer">
