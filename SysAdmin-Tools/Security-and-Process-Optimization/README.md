@@ -1,59 +1,122 @@
-# 🔒 Security and Process Optimization Tools
+<div>
+  <h1>🌐 Network and Infrastructure Management Tools</h1>
 
-## 📄 Overview
+  <h2>📄 Overview</h2>
+  <p>
+    This folder contains a suite of PowerShell scripts aimed at simplifying and automating the management of network services such as DNS, DHCP, and WSUS, as well as maintaining key infrastructure components. These tools are designed to enhance reliability, improve efficiency, and ensure accurate configurations across your IT environment.
+  </p>
 
-This folder contains scripts designed to enhance system security, enforce compliance, and optimize IT processes through automation.
+  <hr />
 
----
+  <h2>📜 Script List and Descriptions</h2>
+  <table border="1" style="border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr>
+        <th style="padding: 8px; text-align: left;">Script Name</th>
+        <th style="padding: 8px; text-align: left;">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Check-ServicesPort-Connectivity.ps1</td>
+        <td>
+          Verifies the real-time connectivity of specific service ports, ensuring that critical services are reachable and properly configured.
+        </td>
+      </tr>
+      <tr>
+        <td>Create-NewDHCPReservations.ps1</td>
+        <td>
+          Streamlines the creation of new DHCP reservations, enabling domain and scope selection along with available IP allocation.
+        </td>
+      </tr>
+      <tr>
+        <td>Inventory-WSUSConfigs-Tool.ps1</td>
+        <td>
+          Collects and exports WSUS server details, including update statistics, computer group configurations, and log file sizes, through an interactive GUI.
+        </td>
+      </tr>
+      <tr>
+        <td>Restart-NetworkAdapter.ps1</td>
+        <td>
+          Provides a user-friendly GUI to restart network adapters, ensuring consistent connectivity with minimal user effort.
+        </td>
+      </tr>
+      <tr>
+        <td>Restart-SpoolerPoolServices.ps1</td>
+        <td>
+          Restarts Spooler and LPD services with enhanced logging for troubleshooting and auditing purposes.
+        </td>
+      </tr>
+      <tr>
+        <td>Retrieve-DHCPReservations.ps1</td>
+        <td>
+          Retrieves DHCP reservations, allowing filtering by hostname or description to ensure accurate resource documentation.
+        </td>
+      </tr>
+      <tr>
+        <td>Retrieve-Empty-DNSReverseLookupZone.ps1</td>
+        <td>
+          Identifies empty DNS reverse lookup zones, aiding in DNS cleanup and ensuring proper configuration.
+        </td>
+      </tr>
+      <tr>
+        <td>Retrieve-ServersDiskSpace.ps1</td>
+        <td>
+          Collects disk space usage data from servers, providing actionable insights for resource management and compliance.
+        </td>
+      </tr>
+      <tr>
+        <td>Synchronize-ADComputerTime.ps1</td>
+        <td>
+          Ensures consistent time synchronization across AD computers, accommodating different time zones to maintain network reliability.
+        </td>
+      </tr>
+      <tr>
+        <td>Transfer-DHCPScopes.ps1</td>
+        <td>
+          Facilitates the export and import of DHCP scopes between servers, featuring error handling, progress tracking, and inactivation options.
+        </td>
+      </tr>
+      <tr>
+        <td>Update-DNS-and-Sites-Services.ps1</td>
+        <td>
+          Automates updates to DNS zones and AD Sites and Services subnets based on DHCP data, ensuring accurate and up-to-date network configurations.
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
-## 📜 Script List and Descriptions
+  <hr />
 
-1. **Cleanup-CertificateAuthority-Tool.ps1**  
-   Provides an interactive tool for managing expired certificates in a Windows Certificate Authority environment.
+  <h2>🔍 How to Use</h2>
+  <p>
+    Each script includes a comprehensive header with detailed instructions. Open the script in a PowerShell editor to review its prerequisites, parameters, and execution steps. Follow the provided comments to customize and execute the scripts effectively.
+  </p>
 
-2. **Cleanup-Repository-ExpiredCertificates-Tool.ps1**  
-   Detects and removes expired certificates from the repository, maintaining a secure and up-to-date certificate infrastructure.
+  <hr />
 
-3. **Initiate-MultipleRDPSessions.ps1**  
-   Enables simultaneous RDP sessions to multiple servers, enhancing remote management.
-
-4. **Organize-CERTs-Repository.ps1**  
-   Organizes SSL/TLS certificates by issuer for better management and compliance.
-
-5. **Purge-ExpiredInstalledCertificates-Tool.ps1**  
-   Automates the selective removal of expired Certificate Authorities (CAs) to reduce security risks.
-
-6. **Purge-ExpiredInstalledCertificates-viaGPO.ps1**  
-   Removes expired Certificate Authorities across domain machines using Group Policy.
-
-7. **Remove-EmptyFiles-or-DateRange.ps1**  
-   Detects and removes empty files or files within a specified date range to optimize storage usage.
-
-8. **Retrieve-Windows-ProductKey.ps1**  
-   Retrieves Windows product keys from the registry to ensure licensing compliance.
-
-9. **Shorten-LongFileNames-Tool.ps1**  
-   Automatically shortens file names that exceed a specified length, preventing file system errors.
-
-10. **Unjoin-ADComputer-and-Cleanup.ps1**  
-    Unjoins computers from the domain and performs cleanup tasks, including DNS cache clearing and domain profile removal.
-
----
-
-## 🔍 How to Use
-
-Refer to the detailed instructions provided in each script header for setup and execution steps. Most scripts require administrative privileges to run.
-
----
-
-## 🛠️ Prerequisites
-
-1. **PowerShell Version:** Ensure PowerShell 5.1 or later is installed.  
-2. **Administrator Rights:** Scripts require elevated permissions to perform operations.  
-3. **Dependencies:** Check for required modules or system configurations as outlined in each script.
-
----
-
-## 📣 Feedback and Contributions
-
-For feedback or contributions, please open an issue or submit a pull request in the GitHub repository. Your collaboration is welcome!
+  <h2>🛠️ Prerequisites</h2>
+  <p>
+    Before using the scripts, ensure the following prerequisites are met:
+  </p>
+  <ul>
+    <li>
+      <strong>PowerShell Version:</strong> PowerShell 5.1 or later is required for script execution. Check your PowerShell version with the following command:
+      <pre style="background: #f4f4f4; padding: 10px;">$PSVersionTable.PSVersion</pre>
+    </li>
+    <li>
+      <strong>Remote Server Administration Tools (RSAT):</strong> Install RSAT components for managing DNS, DHCP, and WSUS roles. Use the following command on Windows 10/11 to install:
+      <pre style="background: #f4f4f4; padding: 10px;">Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</pre>
+    </li>
+    <li>
+      <strong>Execution Policy:</strong> Temporarily set the execution policy to allow running scripts. Use the following command:
+      <pre style="background: #f4f4f4; padding: 10px;">Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</pre>
+    </li>
+    <li>
+      <strong>Administrator Privileges:</strong> Most scripts require elevated permissions to access and configure network services.
+    </li>
+    <li>
+      <strong>Required Modules:</strong> Ensure necessary modules such as <code>ActiveDirectory</code> and <code>DNSServer</code> are installed and imported as needed.
+    </li>
+  </ul>
+</div>
