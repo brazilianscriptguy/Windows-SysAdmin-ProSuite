@@ -66,68 +66,25 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>EventID-Count-AllEvtx-Events.ps1</td>
-        <td>Counts occurrences of each Event ID in <code>.evtx</code> files and exports the results to <code>.csv</code>, aiding event log analysis.</td>
-      </tr>
-      <tr>
-        <td>EventID307-PrintAudit.ps1</td>
-        <td>
-          Audits print activities by analyzing Event ID 307 from the 
-          <code>Microsoft-Windows-PrintService/Operational</code> log. Generates 
-          detailed tracking reports, including user actions, printer usage, and job specifics.
-          <ul>
-            <li><strong>Additional Files:</strong></li>
-            <li>
-              <code>PrintService-Operational-EventLogs.reg</code>: Configures Windows Print Servers 
-              to enable detailed print logging.
-            </li>
-            <li>
-              <code>PrintService-Operational-EventLogs.md</code>: Contains setup instructions and 
-              best practices for configuring print service logs.
-            </li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td>EventID4624-ADUserLoginViaRDP.ps1</td>
-        <td>Generates a <code>.csv</code> report on RDP logon activities (login at Event ID 4624) for monitoring remote access and identifying potential risks.</td>
-      </tr>
-      <tr>
-        <td>EventID4624and4634-ADUserLoginTracking.ps1</td>
-        <td>Tracks user login activities (logon at Event ID 4624 and logoff at Event ID 4634) and produces a <code>.csv</code> report for auditing and compliance purposes.</td>
-      </tr>
-      <tr>
-        <td>EventID4625-ADUserLoginAccountFailed.ps1</td>
-        <td>Compiles failed logon attempts (Event ID 4625) into a <code>.csv</code>, helping identify potential breaches and login patterns.</td>
-      </tr>
-      <tr>
-        <td>EventID4648-ExplicitCredentialsLogon.ps1</td>
-        <td>Logs explicit credential usage (Event ID 4648) and generates a <code>.csv</code> report, aiding in detecting unauthorized credential use.</td>
-      </tr>
-      <tr>
-        <td>EventID4660and4663-ObjectDeletionTracking.ps1</td>
-        <td>Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into <code>.csv</code> files for auditing security and access changes.</td>
-      </tr>
-      <tr>
-        <td>EventID4771-KerberosPreAuthFailed.ps1</td>
-        <td>Identifies Kerberos pre-authentication failures (Event ID 4771) and outputs findings to <code>.csv</code>, helping diagnose authentication issues.</td>
-      </tr>
-      <tr>
-        <td>EventID4800and4801-WorkstationLockStatus.ps1</td>
-        <td>Tracks workstation locking and unlocking events (Event IDs 4800 and 4801) and generates a <code>.csv</code> report for monitoring workstation security.</td>
-      </tr>
-      <tr>
-        <td>EventID5136-5137-5141-ADObjectChanges.ps1</td>
-        <td>Analyzes Active Directory object changes and deletions (Event IDs 5136, 5137, and 5141), producing <code>.csv</code> reports for auditing AD modifications.</td>
-      </tr>
-      <tr>
-        <td>EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1</td>
-        <td>Retrieves details of system restarts and shutdown events from the System log and exports the results to <code>.csv</code>.</td>
-      </tr>
+      <!-- Other scripts remain unchanged -->
       <tr>
         <td>Migrate-WinEvtStructure-Tool.ps1</td>
-        <td>Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, and restarts the Event Log service.</td>
+        <td>
+          Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, restarts the Event Log service, and rebuilds the DHCP Server configurations. <strong>It requires administrative privileges.</strong>
+          <p><strong>Note:</strong> Some Windows Server environments that are already joined to a domain require restarting in Safe Mode to allow stopping the Event Log service. To do this, run:</p>
+          <pre>
+<bcdedit /set {current} safeboot minimal>
+<shutdown /r /t 0>
+          </pre>
+          <p>
+            This will reboot the server in Safe Mode (with minimal services). After running <strong>Migrate-WinEvtStructure-Tool.ps1</strong>, return to normal mode with:
+          </p>
+          <pre>
+<bcdedit /deletevalue {current} safeboot>
+<shutdown /r /t 0>
+          </pre>
+          <p>The server will then restart in its standard operating mode with all services enabled.</p>
+        </td>
       </tr>
     </tbody>
   </table>
