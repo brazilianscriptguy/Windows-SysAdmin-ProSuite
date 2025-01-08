@@ -188,7 +188,7 @@
 
   <h2>📄 Complementary Files Overview</h2>
   <ul>
-    <li><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> A GUI-based tool for configuring and previewing logon messages for deployment via GPO.</li>
+    <li><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> An editable HTML file designed for configuring and previewing logon messages, ready for deployment via Group Policy Object (GPO)..</li>
     <li><strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> Customizable configuration file for enriching desktop displays with BGInfo.</li>
     <li><strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> A plain text file listing unauthorized software to be uninstalled by the associated script.</li>
   </ul>
