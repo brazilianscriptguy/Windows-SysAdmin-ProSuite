@@ -1,144 +1,137 @@
-<div>
-  <h1>🔵 BlueTeam-Tools - EventLog Monitoring Suite</h1>
+# 🔵 BlueTeam-Tools - EventLog Monitoring Suite
 
-  <h2>📝 Overview</h2>
-  <p>
-    The <strong>EventLogMonitoring Folder</strong> contains a suite of 
-    <strong>PowerShell scripts</strong> designed to process and analyze 
-    <strong>Windows Event Log files (.evtx)</strong>. These tools automate event 
+## 📝 Overview
+
+The **EventLogMonitoring Folder** contains a suite of **PowerShell scripts** designed to process and analyze **Windows Event Log files (.evtx)**. These tools automate event log analysis, generate actionable insights, and produce detailed reports to help administrators maintain security, track system activities, and ensure compliance.
+
+### Key Features:
+- **User-Friendly GUI:** Simplifies interaction with intuitive graphical interfaces.  
+- **Detailed Logging:** All scripts generate `.log` files for comprehensive tracking and troubleshooting.  
+- **Exportable Reports:** Outputs in `.csv` format for streamlined analysis and reporting.  
+- **Proactive Event Management:** Automates log monitoring and analysis, enhancing system visibility and security.
+
+---
+
+## 🛠️ Prerequisites
+
+Ensure the following requirements are met before running the scripts:
+
+1. **⚙️ PowerShell**
+   - PowerShell must be enabled on your system.
+   - The following module may need to be imported where applicable:
+     - **Active Directory:** `Import-Module ActiveDirectory`
+
+2. **🔑 Administrator Privileges**
+   - Scripts may require elevated permissions to access sensitive configurations, analyze logs, or modify system settings.
+
+3. **🖥️ Remote Server Administration Tools (RSAT)**
+   - Install RSAT on your Windows 10/11 workstation to enable remote management of Active Directory and server roles.
+
+4. **⚙️ Microsoft Log Parser Utility**  
+   - **Download:** Visit the [Log Parser 2.2 page](https://www.microsoft.com/en-us/download/details.aspx?id=24659) to download LogParser.msi.  
+   - **Installation:** Required for advanced querying and analysis of various log formats.
+
+---
+
+## 📄 Script Descriptions (Alphabetical Order)
+
+1. **EventID-Count-AllEvtx-Events.ps1**  
+   Counts occurrences of each Event ID in `.evtx` files and exports the results to `.csv`, aiding event log analysis.
+
+2. **EventID307-PrintAudit.ps1**  
+   Audits print activities by analyzing Event ID 307 from the `Microsoft-Windows-PrintService/Operational` log. Generates detailed tracking reports, including user actions, printer usage, and job specifics.  
+
+   - **Additional Files:**  
+     - **PrintService-Operational-EventLogs.reg**: Configures Windows Print Servers to enable detailed print logging.  
+     - **PrintService-Operational-EventLogs.md**: Contains setup instructions and best practices for configuring print service logs.
+
+3. **EventID4624-ADUserLoginViaRDP.ps1**  
+   Generates a `.csv` report on RDP logon activities (login at Event ID 4624) for monitoring remote access and identifying potential risks.
+
+4. **EventID4624and4634-ADUserLoginTracking.ps1**  
+   Tracks user login activities (logon at Event ID 4624) and (logoff at Event ID 4634)and produces a `.csv` report for auditing and compliance purposes.
+
+5. **EventID4625-ADUserLoginAccountFailed.ps1**  
+   Compiles failed logon attempts (Event ID 4625) into a `.csv`, helping identify potential breaches and login patterns.
+
+6. **EventID4648-ExplicitCredentialsLogon.ps1**  
+   Logs explicit credential usage (Event ID 4648) and generates a `.csv` report, aiding in detecting unauthorized credential use.
+
+7. **EventID4660and4663-ObjectDeletionTracking.ps1**  
+   Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into `.csv` files for auditing security and access changes.
+
+8. **EventID4771-KerberosPreAuthFailed.ps1**  
+   Identifies Kerberos pre-authentication failures (Event ID 4771) and outputs findings to `.csv`, helping diagnose authentication issues.
+
+9. **EventID4800and4801-WorkstationLockStatus.ps1**  
+   Tracks workstation locking and unlocking events (Event IDs 4800 and 4801) and generates a `.csv` report for monitoring workstation security.
+
+10. **EventID5136-5137-5141-ADObjectChanges.ps1**  
+    Analyzes Active Directory object changes and deletions (Event IDs 5136, 5137, and 5141), producing `.csv` reports for auditing AD modifications.
+
+11. **EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1**  
+    Retrieves details of system restarts and shutdown events from the System log and exports the results to `.csv`.
+
+12. **Migrate-WinEvtStructure-Tool.ps1**  
+Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, restarts the Event Log service and rebuild the DHCP Server configs. **It requires administrative privileges.**
+
+> **Note:** Some Windows Server environments that are already joined to a domain require restarting in Safe Mode to allow stopping the Event Log service. To do this, run:
+
+```cmd
+bcdedit /set {current} safeboot minimal
+shutdown /r /t 0
+```
+
+This will reboot the server in Safe Mode (with minimal services). After running **Migrate-WinEvtStructure-Tool.ps1**, return to normal mode with:
+
+```cmd
+bcdedit /deletevalue {current} safeboot
+shutdown /r /t 0
+```
+
+The server will then restart in its standard operating mode with all services enabled.
+
+---
+
+## 🚀 Usage Instructions
+
+### General Steps:
+1. **Run the Script:** Launch the desired script using the `Run With PowerShell`option.  
+2. **Provide Inputs:** Follow on-screen prompts or select log files as required.  
+3. **Review Outputs:** Check generated `.log` files and exported `.csv` reports for results.
+
+### Example Scenarios:
+
+- **EventID-Count-AllEvtx-Events.ps1**  
+   - Run the script to count occurrences of Event IDs in `.evtx` files. Export results to `.csv` for analysis.
+
+- **EventID307-PrintAudit.ps1**  
+   - Merge the `PrintService-Operational-EventLogs.reg` file into the Windows registry to enable detailed logging.  
+   - Run the script to audit print activities, generating a `.csv` report for review.
+
+- **EventID4624-ADUserLoginViaRDP.ps1***  
+   - Execute the script with administrative privileges to monitor RDP logon activities and identify potential risks.
+
+- **EventID5136-5137-5141-ADObjectChanges.ps1**  
+   - Analyze Active Directory object changes and deletions by running this script. Exported `.csv` reports provide detailed auditing information.
+
+- **Migrate-WinEvtStructure-Tool.ps1**  
+   - Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, restarts the Event Log service and rebuild the DHCP Server configs. **Administrative privileges are required**.
+
+---
+
+## 📝 Logging and Output
+
+- **📄 Logs:** Each script generates detailed logs in `.LOG` format, documenting actions performed and errors encountered.  
+- **📊 Reports:** Scripts export data in `.CSV` format, providing actionable insights for audits and reporting.
+
+---
+
+## 💡 Tips for Optimization
+
+- **Automate Execution:** Schedule scripts to run periodically for consistent log monitoring and analysis.  
+- **Centralize Logs:** Store `.log` and `.csv` files in a shared repository for collaborative analysis and audits.  
+- **Customize Analysis:** Adjust script parameters to align with your organization's security policies and monitoring needs.
     log analysis, generate actionable insights, and produce detailed reports to 
     help administrators maintain security, track system activities, and ensure 
-    compliance.
-  </p>
-
-  <h3>Key Features:</h3>
-  <ul>
-    <li><strong>User-Friendly GUI:</strong> Simplifies interaction with intuitive graphical interfaces.</li>
-    <li><strong>Detailed Logging:</strong> All scripts generate <code>.log</code> files for comprehensive tracking and troubleshooting.</li>
-    <li><strong>Exportable Reports:</strong> Outputs in <code>.csv</code> format for streamlined analysis and reporting.</li>
-    <li><strong>Proactive Event Management:</strong> Automates log monitoring and analysis, enhancing system visibility and security.</li>
-  </ul>
-
-  <hr />
-
-  <h2>🛠️ Prerequisites</h2>
-  <ol>
-    <li>
-      <strong>⚙️ PowerShell</strong>
-      <ul>
-        <li>PowerShell must be enabled on your system.</li>
-        <li>
-          The following module may need to be imported where applicable:
-          <code>Import-Module ActiveDirectory</code>
-        </li>
-      </ul>
-    </li>
-    <li>
-      <strong>🔑 Administrator Privileges</strong>
-      <p>Scripts may require elevated permissions to access sensitive configurations, analyze logs, or modify system settings.</p>
-    </li>
-    <li>
-      <strong>🖥️ Remote Server Administration Tools (RSAT)</strong>
-      <p>Install RSAT on your Windows 10/11 workstation to enable remote management of Active Directory and server roles.</p>
-    </li>
-    <li>
-      <strong>⚙️ Microsoft Log Parser Utility</strong>
-      <ul>
-        <li>
-          <strong>Download:</strong> Visit the 
-          <a href="https://www.microsoft.com/en-us/download/details.aspx?id=24659" target="_blank">Log Parser 2.2 page</a> 
-          to download LogParser.msi.
-        </li>
-        <li><strong>Installation:</strong> Required for advanced querying and analysis of various log formats.</li>
-      </ul>
-    </li>
-  </ol>
-
-  <hr />
-
-  <h2>📄 Script Descriptions</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>EventID-Count-AllEvtx-Events.ps1</td>
-        <td>Counts occurrences of each Event ID in <code>.evtx</code> files and exports the results to <code>.csv</code>, aiding event log analysis.</td>
-      </tr>
-      <tr>
-        <td>EventID307-PrintAudit.ps1</td>
-        <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log.</td>
-      </tr>
-      <tr>
-        <td>EventID4624-ADUserLoginViaRDP.ps1</td>
-        <td>Generates a <code>.csv</code> report on RDP logon activities (login at Event ID 4624) for monitoring remote access and identifying potential risks.</td>
-      </tr>
-      <tr>
-        <td>EventID4624and4634-ADUserLoginTracking.ps1</td>
-        <td>Tracks user login activities (logon at Event ID 4624 and logoff at Event ID 4634) and produces a <code>.csv</code> report for auditing and compliance purposes.</td>
-      </tr>
-      <tr>
-        <td>EventID4625-ADUserLoginAccountFailed.ps1</td>
-        <td>Compiles failed logon attempts (Event ID 4625) into a <code>.csv</code>, helping identify potential breaches and login patterns.</td>
-      </tr>
-      <tr>
-        <td>EventID4648-ExplicitCredentialsLogon.ps1</td>
-        <td>Logs explicit credential usage (Event ID 4648) and generates a <code>.csv</code> report, aiding in detecting unauthorized credential use.</td>
-      </tr>
-      <tr>
-        <td>EventID4660and4663-ObjectDeletionTracking.ps1</td>
-        <td>Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into <code>.csv</code> files for auditing security and access changes.</td>
-      </tr>
-      <tr>
-        <td>EventID4771-KerberosPreAuthFailed.ps1</td>
-        <td>Identifies Kerberos pre-authentication failures (Event ID 4771) and outputs findings to <code>.csv</code>, helping diagnose authentication issues.</td>
-      </tr>
-      <tr>
-        <td>EventID4800and4801-WorkstationLockStatus.ps1</td>
-        <td>Tracks workstation locking and unlocking events (Event IDs 4800 and 4801) and generates a <code>.csv</code> report for monitoring workstation security.</td>
-      </tr>
-      <tr>
-        <td>EventID5136-5137-5141-ADObjectChanges.ps1</td>
-        <td>Analyzes Active Directory object changes and deletions (Event IDs 5136, 5137, and 5141), producing <code>.csv</code> reports for auditing AD modifications.</td>
-      </tr>
-      <tr>
-        <td>EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1</td>
-        <td>Retrieves details of system restarts and shutdown events from the System log and exports the results to <code>.csv</code>.</td>
-      </tr>
-      <tr>
-        <td>Migrate-WinEvtStructure-Tool.ps1</td>
-        <td>Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, and restarts the Event Log service.</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <hr />
-
-  <h2>🚀 Usage Instructions</h2>
-  <ol>
-    <li><strong>Run the Script:</strong> Launch the desired script using the <code>Run With PowerShell</code> option.</li>
-    <li><strong>Provide Inputs:</strong> Follow on-screen prompts or select log files as required.</li>
-    <li><strong>Review Outputs:</strong> Check generated <code>.log</code> files and exported <code>.csv</code> reports for results.</li>
-  </ol>
-
-  <hr />
-
-  <h2>📝 Logging and Output</h2>
-  <ul>
-    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.LOG</code> format, documenting actions performed and errors encountered.</li>
-    <li><strong>📊 Reports:</strong> Scripts export data in <code>.CSV</code> format, providing actionable insights for audits and reporting.</li>
-  </ul>
-
-  <hr />
-
-  <h2>💡 Tips for Optimization</h2>
-  <ul>
-    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically for consistent log monitoring and analysis.</li>
-    <li><strong>Centralize Logs:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository for collaborative analysis and audits.</li>
-    <li><strong>Customize Analysis:</strong> Adjust script parameters to align with your organization's security policies and monitoring needs.</li>
-  </ul>
-</div>
+    compliance.  
