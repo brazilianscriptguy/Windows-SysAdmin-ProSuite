@@ -20,99 +20,109 @@
   <hr />
 
   <h2>📋 Script Descriptions</h2>
-
-  <h3>1. ActivateAllAdminShare</h3>
-  <p><strong>Script:</strong> <code>Activate-All-AdminShares.ps1</code></p>
-  <p>
-    Enables administrative shares, activates Remote Desktop Protocol (RDP), disables Windows Firewall, and deactivates Windows Defender 
-    to facilitate administrative access. Includes a GUI for task management.
-  </p>
-
-  <h3>2. ExportCustomThemesFiles</h3>
-  <p><strong>Script:</strong> <code>Exports-CustomThemes-Files.ps1</code></p>
-  <p>
-    Standardizes desktop and user interface configurations by exporting custom Windows theme files, such as <code>LayoutModification.xml</code>, 
-    <code>.msstyles</code>, and <code>.deskthemepack</code>, across the network.
-  </p>
-
-  <h3>3. FixPrinterDriverIssues</h3>
-  <p><strong>Script:</strong> <code>Fix-PrinterDriver-Issues.ps1</code></p>
-  <p>
-    Troubleshoots common printer-related issues by:
-    <ul>
-      <li>Resetting the print spooler</li>
-      <li>Clearing print jobs</li>
-      <li>Managing printer drivers</li>
-    </ul>
-    Includes multiple resolution methods and a GUI for ease of use.
-  </p>
-
-  <h3>4. GetSID</h3>
-  <p><strong>Tool:</strong> <code>PsGetsid64.exe</code> (MS Sysinternals)</p>
-  <p>
-    Translates <strong>Security Identifiers (SID)</strong> to display names and vice versa. Useful for diagnosing and managing builtin accounts, 
-    domain accounts, and local accounts.
-  </p>
-
-  <h3>5. InventoryInstalledSoftwareList</h3>
-  <p><strong>Script:</strong> <code>Inventory-InstalledSoftwareList.ps1</code></p>
-  <p>
-    Inventories all installed software on the workstation, generating a comprehensive report for auditing and compliance purposes.
-  </p>
-
-  <h3>6. LegacyWorkstationIngress</h3>
-  <p><strong>Script:</strong> <code>LSA-NetJoin-Legacy.ps1</code></p>
-  <p>
-    Modifies registry settings to enable legacy operating systems to join modern domains. Fully compatible with Windows Server 2019 and newer.
-  </p>
-
-  <h3>7. RecallKESCert</h3>
-  <p><strong>Script:</strong> <code>RecallKESCert.ps1</code></p>
-  <p>
-    Repoints the workstation to the antivirus server and renews the required certificate, ensuring continued protection and secure operations.
-  </p>
-
-  <h3>8. RenameDiskVolumes</h3>
-  <p><strong>Script:</strong> <code>ChangeDiskVolumesNames.ps1</code></p>
-  <p>
-    Renames disk volumes:
-    <ul>
-      <li><strong>C:</strong> drive is labeled with the hostname.</li>
-      <li><strong>D:</strong> drive is labeled for personal data or custom use.</li>
-    </ul>
-    Detailed logs ensure traceability.
-  </p>
-
-  <h3>9. ResyncGPOsDataStore</h3>
-  <p><strong>Script:</strong> <code>Resync-GPOs-DataStore.ps1</code></p>
-  <p>
-    Resets all Group Policy Objects (GPOs) on the workstation and synchronizes them with domain policies. A GUI assists users and logs all actions 
-    for accountability.
-  </p>
-
-  <h3>10. UnjoinADComputer-and-Cleanup</h3>
-  <p><strong>Script:</strong> <code>Unjoin-ADComputer-and-Cleanup.ps1</code></p>
-  <p>
-    Unjoins the workstation from the domain and performs cleanup tasks, such as:
-    <ul>
-      <li>Clearing DNS cache</li>
-      <li>Removing old domain profiles</li>
-      <li>Resetting environment variables</li>
-    </ul>
-  </p>
-
-  <h3>11. WorkStationConfigReport</h3>
-  <p><strong>Script:</strong> <code>Workstation-Data-Report.ps1</code></p>
-  <p>
-    Compiles system configuration details, including OS, BIOS, and network information, into a <code>.CSV</code> file. Designed with a GUI for user 
-    feedback and error handling.
-  </p>
-
-  <h3>12. WorkstationTimeSync</h3>
-  <p><strong>Script:</strong> <code>Workstation-TimeSync.ps1</code></p>
-  <p>
-    Synchronizes the workstation’s time, date, and time zone with the domain controllers, ensuring network-wide consistency.
-  </p>
+  <table border="1" style="border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr>
+        <th style="padding: 8px; text-align: left;">Script Name</th>
+        <th style="padding: 8px; text-align: left;">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 8px;"><code>Activate-All-AdminShares.ps1</code></td>
+        <td style="padding: 8px;">
+          Enables administrative shares, activates Remote Desktop Protocol (RDP), disables Windows Firewall, and deactivates Windows Defender 
+          to facilitate administrative access. Includes a GUI for task management.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Exports-CustomThemes-Files.ps1</code></td>
+        <td style="padding: 8px;">
+          Standardizes desktop and user interface configurations by exporting custom Windows theme files, such as 
+          <code>LayoutModification.xml</code>, <code>.msstyles</code>, and <code>.deskthemepack</code>, across the network.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Fix-PrinterDriver-Issues.ps1</code></td>
+        <td style="padding: 8px;">
+          Troubleshoots common printer-related issues by:
+          <ul>
+            <li>Resetting the print spooler</li>
+            <li>Clearing print jobs</li>
+            <li>Managing printer drivers</li>
+          </ul>
+          Includes multiple resolution methods and a GUI for ease of use.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>PsGetsid64.exe</code></td>
+        <td style="padding: 8px;">
+          Translates <strong>Security Identifiers (SID)</strong> to display names and vice versa. Useful for diagnosing and managing 
+          builtin accounts, domain accounts, and local accounts.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Inventory-InstalledSoftwareList.ps1</code></td>
+        <td style="padding: 8px;">
+          Inventories all installed software on the workstation, generating a comprehensive report for auditing and compliance purposes.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>LSA-NetJoin-Legacy.ps1</code></td>
+        <td style="padding: 8px;">
+          Modifies registry settings to enable legacy operating systems to join modern domains. Fully compatible with Windows Server 2019 and newer.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>RecallKESCert.ps1</code></td>
+        <td style="padding: 8px;">
+          Repoints the workstation to the antivirus server and renews the required certificate, ensuring continued protection and secure operations.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>ChangeDiskVolumesNames.ps1</code></td>
+        <td style="padding: 8px;">
+          Renames disk volumes:
+          <ul>
+            <li><strong>C:</strong> drive is labeled with the hostname.</li>
+            <li><strong>D:</strong> drive is labeled for personal data or custom use.</li>
+          </ul>
+          Detailed logs ensure traceability.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Resync-GPOs-DataStore.ps1</code></td>
+        <td style="padding: 8px;">
+          Resets all Group Policy Objects (GPOs) on the workstation and synchronizes them with domain policies. A GUI assists users and logs all 
+          actions for accountability.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Unjoin-ADComputer-and-Cleanup.ps1</code></td>
+        <td style="padding: 8px;">
+          Unjoins the workstation from the domain and performs cleanup tasks, such as:
+          <ul>
+            <li>Clearing DNS cache</li>
+            <li>Removing old domain profiles</li>
+            <li>Resetting environment variables</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Workstation-Data-Report.ps1</code></td>
+        <td style="padding: 8px;">
+          Compiles system configuration details, including OS, BIOS, and network information, into a <code>.CSV</code> file. Designed with a GUI 
+          for user feedback and error handling.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;"><code>Workstation-TimeSync.ps1</code></td>
+        <td style="padding: 8px;">
+          Synchronizes the workstation’s time, date, and time zone with the domain controllers, ensuring network-wide consistency.
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
   <hr />
 
@@ -156,7 +166,7 @@
     <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
     </a>
-    <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
     </a>
     <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
