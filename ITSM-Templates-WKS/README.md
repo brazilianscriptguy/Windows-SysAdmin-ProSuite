@@ -171,14 +171,25 @@
 
   <hr />
 
-  <h2>🔗 References</h2>
-  <p>
-    <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators" target="_blank">
-      <img src="https://img.shields.io/badge/View%20Repository-GitHub-blue?style=flat-square&logo=github" alt="View Repository Badge">
-    </a>
-  </p>
+ <h2>❓ Additional Assistance</h2>
+<p>
+  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
+</p>
 
-  <hr />
+<div align="center">
+  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+  </a>
+  <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
+  </a>
+  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+  </a>
+  <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+  </a>
+</div>
 
   <h3>Document Classification</h3>
   <p>This document is <strong>RESTRICTED</strong> for internal use within the Company’s network.</p>
