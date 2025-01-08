@@ -46,8 +46,7 @@
     <li><code>wsus-update-workstation-MODEL</code></li>
   </ul>
   <p>
-    📄 
-    <a href="GPOs-Templates/README.md" target="_blank">
+      <a href="GPOs-Templates/README.md" target="_blank">
       <img src="https://img.shields.io/badge/View%20GPO%20Templates-README-blue?style=flat-square&logo=github" 
       alt="GPOs-Templates README Badge">
     </a>
@@ -64,7 +63,6 @@
     <li><code>Restart-NetworkAdapter.ps1</code></li>
   </ul>
   <p>
-    📄 
     <a href="Network-and-Infrastructure-Management/README.md" target="_blank">
       <img src="https://img.shields.io/badge/View%20Network%20Management-README-blue?style=flat-square&logo=github" 
       alt="Network Management README Badge">
@@ -82,7 +80,6 @@
     <li><code>Remove-EmptyFiles-or-DateRange.ps1</code></li>
   </ul>
   <p>
-    📄 
     <a href="Security-and-Process-Optimization/README.md" target="_blank">
       <img src="https://img.shields.io/badge/View%20Security%20Optimization-README-blue?style=flat-square&logo=github" 
       alt="Security Optimization README Badge">
@@ -100,7 +97,6 @@
     <li><code>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</code></li>
   </ul>
   <p>
-    📄 
     <a href="SystemConfiguration-and-Deployment/README.md" target="_blank">
       <img src="https://img.shields.io/badge/View%20System%20Deployment-README-blue?style=flat-square&logo=github" 
       alt="System Deployment README Badge">
@@ -157,12 +153,22 @@
 
   <hr />
 
-  <h2>❓ Support and Contributions</h2>
-  <p>
-    For questions or contributions:
-    <ul>
-      <li>Open an issue or submit a pull request on GitHub.</li>
-      <li>Your feedback and collaboration are always welcome!</li>
-    </ul>
-  </p>
+ <h2>❓ Additional Assistance</h2>
+<p>
+  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
+</p>
+
+<div align="center">
+  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+  </a>
+  <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
+  </a>
+  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+  </a>
+  <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+  </a>
 </div>
