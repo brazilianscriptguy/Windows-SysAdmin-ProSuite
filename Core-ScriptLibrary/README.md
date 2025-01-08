@@ -47,7 +47,7 @@
   <hr />
 
   <h2>📄 Script Descriptions (Alphabetical Order)</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%;">
+  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
         <th style="padding: 8px;">Script Name</th>
@@ -56,27 +56,27 @@
     </thead>
     <tbody>
       <tr>
-        <td>📋 Create-Script-DefaultHeader.ps1</td>
+        <td>📋 <strong>Create-Script-DefaultHeader.ps1</strong></td>
         <td>Generates standardized headers for PowerShell scripts, ensuring uniformity and best practices.</td>
       </tr>
       <tr>
-        <td>📊 Create-Script-LoggingMethod.ps1</td>
+        <td>📊 <strong>Create-Script-LoggingMethod.ps1</strong></td>
         <td>Implements a standardized logging mechanism to enhance traceability and debugging.</td>
       </tr>
       <tr>
-        <td>🛠️ Create-Script-MainCore.ps1</td>
+        <td>🛠️ <strong>Create-Script-MainCore.ps1</strong></td>
         <td>Provides a reusable template for creating structured PowerShell scripts with headers, logging, and modular functionality.</td>
       </tr>
       <tr>
-        <td>💻 Create-Script-MainGUI.ps1</td>
+        <td>💻 <strong>Create-Script-MainGUI.ps1</strong></td>
         <td>Enables the creation of graphical user interfaces (GUIs) for improved user interaction.</td>
       </tr>
       <tr>
-        <td>📄 Extract-Script-Headers.ps1</td>
+        <td>📄 <strong>Extract-Script-Headers.ps1</strong></td>
         <td>Extracts headers from <code>.ps1</code> files and organizes them into folder-specific <code>.txt</code> files for easy documentation.</td>
       </tr>
       <tr>
-        <td>📝 Launch-Script-AutomaticMenu.ps1</td>
+        <td>📝 <strong>Launch-Script-AutomaticMenu.ps1</strong></td>
         <td>Serves as a dynamic GUI launcher for browsing and executing PowerShell scripts organized in folder tabs.</td>
       </tr>
     </tbody>
