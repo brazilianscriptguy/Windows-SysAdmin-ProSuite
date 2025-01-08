@@ -194,9 +194,3 @@
   </ul>
 
   <hr />
-
-  <h2>📣 Feedback and Contributions</h2>
-  <p>
-    Feedback and contributions are welcome! If you have suggestions, encounter issues, or want to add new features, submit an issue or pull request on the GitHub repository.
-  </p>
-</div>
