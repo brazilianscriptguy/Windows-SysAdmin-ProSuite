@@ -192,5 +192,3 @@
     <li><strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> Customizable configuration file for enriching desktop displays with BGInfo.</li>
     <li><strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> A plain text file listing unauthorized software to be uninstalled by the associated script.</li>
   </ul>
-
-  <hr />
