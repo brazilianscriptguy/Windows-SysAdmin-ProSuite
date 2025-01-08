@@ -1,5 +1,4 @@
 <div align="center">
-
   <h1>🚀 Complete PowerShell and VBScript Toolkit for Managing Windows Servers and Workstations</h1>
   <h3>ITSM Compliance on Windows 10/11 Workstations and Windows Server 2019/2022</h3>
 
@@ -8,7 +7,6 @@
   </p>
 
   <p>✨ All scripts include a graphical user interface (GUI) to simplify user interaction. Each script generates detailed <code>.log</code> files for operational tracking, with some scripts exporting results to <code>.csv</code> files for seamless integration with reporting tools.</p>
-
 </div>
 
 <hr />
@@ -18,11 +16,31 @@
   This repository is a powerful collection of tools and scripts meticulously crafted to streamline the management of Windows Server environments and Windows 10/11 workstations. Whether you're optimizing system performance, enhancing security, or simplifying administrative workflows, the tools in the following folders are designed to meet your IT management needs effectively:
 </p>
 <ul>
-  <li><strong>BlueTeam-Tools</strong></li>
-  <li><strong>Core-ScriptLibrary</strong></li>
-  <li><strong>ITSM-Templates-SVR</strong></li>
-  <li><strong>ITSM-Templates-WKS</strong></li>
-  <li><strong>SysAdmin-Tools</strong></li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Asset-red?style=flat-square&logo=vscode" alt="Core-ScriptLibrary Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=flat-square&logo=server" alt="ITSM-Templates-SVR Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=flat-square&logo=windows" alt="ITSM-Templates-WKS Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=flat-square&logo=windows" alt="SysAdmin-Tools Badge">
+    </a>
+  </li>
 </ul>
 
 <hr />
