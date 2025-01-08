@@ -88,6 +88,33 @@
 
   <hr />
 
+  <h2>🛠️ Prerequisites</h2>
+  <p>
+    Before using the scripts, ensure the following prerequisites are met:
+  </p>
+  <ul>
+    <li>
+      <strong>PowerShell Version:</strong> PowerShell 5.1 or later is required for script execution. Check your PowerShell version with the following command:
+      <pre style="background: #f4f4f4; padding: 10px;">$PSVersionTable.PSVersion</pre>
+    </li>
+    <li>
+      <strong>Remote Server Administration Tools (RSAT):</strong> Install RSAT components for managing DNS, DHCP, and WSUS roles. Use the following command on Windows 10/11 to install:
+      <pre style="background: #f4f4f4; padding: 10px;">Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</pre>
+    </li>
+    <li>
+      <strong>Execution Policy:</strong> Temporarily set the execution policy to allow running scripts. Use the following command:
+      <pre style="background: #f4f4f4; padding: 10px;">Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</pre>
+    </li>
+    <li>
+      <strong>Administrator Privileges:</strong> Most scripts require elevated permissions to access and configure network services.
+    </li>
+    <li>
+      <strong>Required Modules:</strong> Ensure necessary modules such as <code>ActiveDirectory</code> and <code>DNSServer</code> are installed and imported as needed.
+    </li>
+  </ul>
+
+  <hr />
+
   <h2>🔍 How to Use</h2>
   <p>
     Each script includes a comprehensive header with detailed instructions. Open the script in a PowerShell editor to review its prerequisites, parameters, and execution steps. Follow the provided comments to customize and execute the scripts effectively.
