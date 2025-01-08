@@ -20,7 +20,7 @@
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
     </a>
-    <span>Toolkit for forensic analysis, incident response, and log parsing.</span>
+    <span> Toolkit for forensic analysis, incident response, and log parsing.</span>
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
