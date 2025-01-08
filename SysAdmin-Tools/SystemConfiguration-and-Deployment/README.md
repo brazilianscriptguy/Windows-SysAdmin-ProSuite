@@ -186,9 +186,26 @@
 
   <hr />
 
-  <h2>📄 Complementary Files Overview</h2>
-  <ul>
-    <li><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> An editable HTML file designed for configuring and previewing logon messages, ready for deployment via Group Policy Object (GPO)..</li>
-    <li><strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> Customizable configuration file for enriching desktop displays with BGInfo.</li>
-    <li><strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> A plain text file listing unauthorized software to be uninstalled by the associated script.</li>
-  </ul>
+<h2>📄 Complementary Files Overview</h2>
+<ul>
+  <li>
+    <strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> 
+    An editable HTML file designed for configuring and previewing logon messages, ready for deployment via Group Policy Object (GPO).
+  </li>
+  <li>
+    <strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> 
+    Customizable configuration file, editable with BgInfo64.exe 
+    <a href="https://download.sysinternals.com/files/BGInfo.zip" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Download-BGInfo-blue?style=flat-square&logo=microsoft" alt="Download BGInfo Zip">
+    </a> 
+    or learn more about it on the official Microsoft documentation 
+    <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/bginfo" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Read%20More-BGInfo-blue?style=flat-square&logo=microsoft" alt="Microsoft Documentation Badge">
+    </a>, for enriching desktop displays with BGInfo.
+  </li>
+  <li>
+    <strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> 
+    A plain text file listing unauthorized software to be uninstalled by the associated script.
+  </li>
+</ul>
+
