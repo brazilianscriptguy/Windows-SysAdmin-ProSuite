@@ -46,8 +46,9 @@
       <ul>
         <li>
           <strong>Download:</strong> Visit the 
-          <a href="https://www.microsoft.com/en-us/download/details.aspx?id=24659" target="_blank">Log Parser 2.2 page</a> 
-          to download LogParser.msi.
+          <a href="https://www.microsoft.com/en-us/download/details.aspx?id=24659" target="_blank">
+            Log Parser 2.2 page
+          </a> to download LogParser.msi.
         </li>
         <li><strong>Installation:</strong> Required for advanced querying and analysis of various log formats.</li>
       </ul>
@@ -56,7 +57,7 @@
 
   <hr />
 
-  <h2>📄 Script Descriptions</h2>
+  <h2>📄 Script Descriptions (Alphabetical Order)</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
@@ -71,7 +72,22 @@
       </tr>
       <tr>
         <td>EventID307-PrintAudit.ps1</td>
-        <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports, including user actions, printer usage, and job specifics.</td>
+        <td>
+          Audits print activities by analyzing Event ID 307 from the 
+          <code>Microsoft-Windows-PrintService/Operational</code> log. Generates 
+          detailed tracking reports, including user actions, printer usage, and job specifics.
+          <ul>
+            <li><strong>Additional Files:</strong></li>
+            <li>
+              <code>PrintService-Operational-EventLogs.reg</code>: Configures Windows Print Servers 
+              to enable detailed print logging.
+            </li>
+            <li>
+              <code>PrintService-Operational-EventLogs.md</code>: Contains setup instructions and 
+              best practices for configuring print service logs.
+            </li>
+          </ul>
+        </td>
       </tr>
       <tr>
         <td>EventID4624-ADUserLoginViaRDP.ps1</td>
@@ -111,7 +127,7 @@
       </tr>
       <tr>
         <td>Migrate-WinEvtStructure-Tool.ps1</td>
-        <td>Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, restarts the Event Log service, and rebuilds the DHCP Server configs.</td>
+        <td>Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs, and restarts the Event Log service.</td>
       </tr>
     </tbody>
   </table>
@@ -129,4 +145,16 @@
 
   <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.LOG</code> format, documenting actions performed and errors encountered
+    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.LOG</code> format, documenting actions performed and errors encountered.</li>
+    <li><strong>📊 Reports:</strong> Scripts export data in <code>.CSV</code> format, providing actionable insights for audits and reporting.</li>
+  </ul>
+
+  <hr />
+
+  <h2>💡 Tips for Optimization</h2>
+  <ul>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically for consistent log monitoring and analysis.</li>
+    <li><strong>Centralize Logs:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository for collaborative analysis and audits.</li>
+    <li><strong>Customize Analysis:</strong> Adjust script parameters to align with your organization's security policies and monitoring needs.</li>
+  </ul>
+</div>
