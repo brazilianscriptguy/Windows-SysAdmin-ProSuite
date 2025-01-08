@@ -110,7 +110,20 @@
       </tr>
       <tr>
         <td>Migrate-WinEvtStructure-Tool.ps1</td>
-        <td>Moves Windows Event Log files to a new directory, updates registry paths, preserves ACLs.</td>
+        <td>
+          Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
+          <br><br>
+          <strong>Note:</strong> Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. To do this, run:
+          <pre><code>
+bcdedit /set {current} safeboot minimal
+shutdown /r /t 0
+          </code></pre>
+          After running the script, return to normal mode:
+          <pre><code>
+bcdedit /deletevalue {current} safeboot
+shutdown /r /t 0
+          </code></pre>
+        </td>
       </tr>
     </tbody>
   </table>
