@@ -3,8 +3,8 @@
 
   <h2>📄 Overview</h2>
   <p>
-    This folder contains a curated collection of <strong>Group Policy Object (GPO) templates</strong> designed to streamline and standardize the configuration of 
-    <strong>Windows Server Forest and Domain</strong> structures. These templates address a broad range of use cases, enhancing 
+    This folder contains a curated collection of <strong>Group Policy Object (GPO) templates</strong> designed to streamline and standardize the configuration of
+    <strong>Windows Server Forest and Domain</strong> structures. These templates address a broad range of use cases, enhancing
     <strong>security</strong>, <strong>productivity</strong>, and <strong>compliance</strong> within your IT infrastructure.
   </p>
 
@@ -56,51 +56,55 @@
     </thead>
     <tbody>
       <tr>
-        <td style="padding: 8px;">admin-entire-Forest-LEVEL3</td>
-        <td style="padding: 8px;">Grants elevated administrative privileges across the AD Forest for restricted groups with ITSM Level 3 profiles.</td>
+        <td>admin-entire-Forest-LEVEL3</td>
+        <td>Grants elevated administrative privileges across the AD Forest for restricted groups with ITSM Level 3 profiles.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">admin-local-Workstations-LEVEL1-2</td>
-        <td style="padding: 8px;">Assigns local administrative rights to IT team members with ITSM Level 1 and Level 2 profiles for workstation support.</td>
+        <td>admin-local-Workstations-LEVEL1-2</td>
+        <td>Assigns local administrative rights to IT team members with ITSM Level 1 and Level 2 profiles for workstation support.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">deploy-printer-template</td>
-        <td style="padding: 8px;">Automates printer deployment across specified Organizational Units (OUs).</td>
+        <td>deploy-printer-template</td>
+        <td>Automates printer deployment across specified Organizational Units (OUs).</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">disable-firewall-domain-workstations</td>
-        <td style="padding: 8px;">Disables the Windows Firewall on domain-joined workstations in antivirus-managed environments.</td>
+        <td>disable-firewall-domain-workstations</td>
+        <td>Disables the Windows Firewall on domain-joined workstations in antivirus-managed environments.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-audit-logs-DC-servers</td>
-        <td style="padding: 8px;">Enables auditing logs on domain controllers for enhanced security monitoring.</td>
+        <td>enable-audit-logs-DC-servers</td>
+        <td>Enables auditing logs on domain controllers for enhanced security monitoring.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-audit-logs-FILE-servers</td>
-        <td style="padding: 8px;">Configures file server auditing logs to track access and modifications.</td>
+        <td>enable-audit-logs-FILE-servers</td>
+        <td>Configures file server auditing logs to track access and modifications.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-biometrics-logon</td>
-        <td style="padding: 8px;">Activates biometric authentication methods, such as tokens, fingerprint readers, and image recognition.</td>
+        <td>enable-biometrics-logon</td>
+        <td>Activates biometric authentication methods, such as tokens, fingerprint readers, and image recognition.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-ldap-bind-servers</td>
-        <td style="padding: 8px;">Configures secure LDAP binding to improve directory security.</td>
+        <td>enable-ldap-bind-servers</td>
+        <td>Configures secure LDAP binding to improve directory security.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-licensing-RDS</td>
-        <td style="padding: 8px;">Configures licensing for Remote Desktop Services (RDS) across the domain.</td>
+        <td>enable-licensing-RDS</td>
+        <td>Configures licensing for Remote Desktop Services (RDS) across the domain.</td>
       </tr>
       <tr>
-        <td style="padding: 8px;">enable-logon-message-workstations</td>
-        <td style="padding: 8px;">
+        <td>enable-logon-message-workstations</td>
+        <td>
           Displays custom logon messages on workstations. Associated script:
           <code>SysAdmin-Tools/SystemConfiguration-and-Deployment/Broadcast-ADUser-LogonMessage-viaGPO.ps1</code>.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">install-cmdb-fusioninventory-agent</td>
-        <td style="padding: 8px;">
+        <td>enable-network-discovery</td>
+        <td>Activates network discovery for better connectivity within the domain.</td>
+      </tr>
+      <tr>
+        <td>install-cmdb-fusioninventory-agent</td>
+        <td>
           Automates the installation of FusionInventory Agent for asset management. Associated script:
           <code>SysAdmin-Tools/SystemConfiguration-and-Deployment/Deploy-FusionInventoryAgent-viaGPO.ps1</code>.
         </td>
