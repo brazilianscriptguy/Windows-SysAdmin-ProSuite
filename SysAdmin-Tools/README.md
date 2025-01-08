@@ -28,7 +28,6 @@
     <li><code>Synchronize-ADForestDCs.ps1</code></li>
   </ul>
   <p>
-    📄 
     <a href="ActiveDirectory-Management/README.md" target="_blank">
       <img src="https://img.shields.io/badge/View%20ActiveDirectory%20Management-README-blue?style=flat-square&logo=github" 
       alt="ActiveDirectory-Management README Badge">
