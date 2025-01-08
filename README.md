@@ -20,26 +20,31 @@
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
     </a>
+    <span>Toolkit for forensic analysis, incident response, and log parsing.</span>
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Asset-red?style=flat-square&logo=vscode" alt="Core-ScriptLibrary Badge">
     </a>
+    <span>Foundational scripts for automation and advanced PowerShell solutions.</span>
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=flat-square&logo=server" alt="ITSM-Templates-SVR Badge">
     </a>
+    <span>Server-side templates for ITSM compliance, hardening, and automation.</span>
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=flat-square&logo=windows" alt="ITSM-Templates-WKS Badge">
     </a>
+    <span>Workstation-side templates for ITSM compliance on Windows 10/11.</span>
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=flat-square&logo=windows" alt="SysAdmin-Tools Badge">
     </a>
+    <span>Active Directory and infrastructure management, GPO tools, and security optimizations.</span>
   </li>
 </ul>
 
