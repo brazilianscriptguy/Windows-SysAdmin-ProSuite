@@ -50,7 +50,7 @@
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
-        <th style="padding: 8px;">Script Name</th>
+        <th style="padding: 8px;"><strong>Script Name</strong></th>
         <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
@@ -64,12 +64,8 @@
         <td>Implements a standardized logging mechanism to enhance traceability and debugging.</td>
       </tr>
       <tr>
-        <td><strong>Create-Script-MainCore.ps1</strong></td>
+        <td><strong>Create-Script-MainStructure-Core.ps1</strong></td>
         <td>Provides a reusable template for creating structured PowerShell scripts with headers, logging, and modular functionality.</td>
-      </tr>
-      <tr>
-        <td><strong>Create-Script-MainGUI.ps1</strong></td>
-        <td>Enables the creation of graphical user interfaces (GUIs) for improved user interaction.</td>
       </tr>
       <tr>
         <td><strong>Extract-Script-Headers.ps1</strong></td>
@@ -87,35 +83,28 @@
   <h2>🚀 Usage Instructions</h2>
   <ol>
     <li>
-      <strong>📋 Create-Script-DefaultHeader.ps1</strong>
+      <strong>Create-Script-DefaultHeader.ps1</strong>
       <p>Run the script and provide inputs for author, version, and description. Copy the generated header into your PowerShell scripts.</p>
     </li>
     <li>
-      <strong>📊 Create-Script-LoggingMethod.ps1</strong>
+      <strong>Create-Script-LoggingMethod.ps1</strong>
       <p>
         Integrate the provided logging function into your scripts. Specify log file paths for consistent traceability.
         Use logs to review events, errors, and debugging information.
       </p>
     </li>
     <li>
-      <strong>🛠️ Create-Script-MainCore.ps1</strong>
+      <strong>Create-Script-MainStructure-Core.ps1</strong>
       <p>Use the provided template as the foundation for your PowerShell projects. Customize the core functionalities and logging as needed.</p>
     </li>
     <li>
-      <strong>💻 Create-Script-MainGUI.ps1</strong>
-      <p>
-        Customize GUI components (buttons, input fields) directly within the script. Add logic for handling user interactions and events.
-        Run the script to test the GUI interface.
-      </p>
-    </li>
-    <li>
-      <strong>📄 Extract-Script-Headers.ps1</strong>
+      <strong>Extract-Script-Headers.ps1</strong>
       <p>
         Specify a root folder containing <code>.ps1</code> files. Run the script to extract headers and save them into categorized <code>.txt</code> files.
       </p>
     </li>
     <li>
-      <strong>📝 Launch-Script-AutomaticMenu.ps1</strong>
+      <strong>Launch-Script-AutomaticMenu.ps1</strong>
       <p>
         Place the <code>Launch-Script-AutomaticMenu.ps1</code> in the root directory containing your PowerShell scripts.
         Right-click the script and select <strong>"Run with PowerShell"</strong>. Use the intuitive GUI to browse folders and execute your scripts effortlessly.
@@ -127,8 +116,8 @@
 
   <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>📄 Logs:</strong> Scripts generate <code>.LOG</code> files that document executed actions and errors encountered.</li>
-    <li><strong>📊 Reports:</strong> Some scripts produce <code>.CSV</code> files for detailed analysis and auditing.</li>
+    <li><strong>Logs:</strong> Scripts generate <code>.LOG</code> files that document executed actions and errors encountered.</li>
+    <li><strong>Reports:</strong> Some scripts produce <code>.CSV</code> files for detailed analysis and auditing.</li>
   </ul>
 
   <hr />
