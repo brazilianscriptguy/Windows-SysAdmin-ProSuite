@@ -123,6 +123,10 @@ shutdown /r /t 0
           </code></pre>
          <strong>Note:</strong> For domain-joined machines like DHCP servers, backup configurations first:
           <pre><code>netsh dhcp server export C:\Backup\dhcpconfig.dat all</code></pre>
+<strong>Note:</strong> And afterwards moving the default events logs, restore the DHCP configs:
+ <pre><code>netsh dhcp server import C:\Backup\dhcpconfig.dat all</code></pre>
+ <pre><code>
+        
         </td>
       </tr>
     </tbody>
