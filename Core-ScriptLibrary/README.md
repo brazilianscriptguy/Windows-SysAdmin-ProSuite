@@ -8,61 +8,13 @@
 
   <hr />
 
-  <h2>📄 Overview</h2>
-  <p>
-    The <strong>Core-ScriptLibrary</strong> provides reusable templates and automation tools that help administrators standardize their PowerShell workflows. From creating consistent script headers to automating GUI-based script execution, these tools are essential for efficient script development and management.
-  </p>
+  <h2>🌟 Key Features</h2>
   <ul>
     <li><strong>User-Friendly GUIs:</strong> Enhance user interaction with intuitive graphical interfaces.</li>
     <li><strong>Standardized Logging:</strong> Maintain consistent, traceable logs for improved debugging and auditing.</li>
-    <li><strong>Exportable Results:</strong> Generate actionable <code>.csv</code> outputs for streamlined analysis and reporting.</li>
+    <li><strong>Exportable Results:</strong> Generate actionable <code>.CSV</code> outputs for streamlined analysis and reporting.</li>
     <li><strong>Efficient Automation:</strong> Quickly build and deploy PowerShell libraries with reusable templates.</li>
   </ul>
-
-  <hr />
-
-  <h2>📂 Folder Structure</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;">Folder Name</th>
-        <th style="padding: 8px;">Description</th>
-        <th style="padding: 8px;">Folder Link</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>ScriptTemplates</strong></td>
-        <td>Contains reusable templates for creating consistent PowerShell scripts with standardized headers and logging mechanisms.</td>
-        <td>
-          <a href="ScriptTemplates/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Script%20Templates-README-blue?style=for-the-badge&logo=github" 
-            alt="Script Templates README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>ExecutionTools</strong></td>
-        <td>Tools for executing and managing PowerShell scripts through GUI-based interfaces and dynamic menus.</td>
-        <td>
-          <a href="ExecutionTools/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Execution%20Tools-README-blue?style=for-the-badge&logo=github" 
-            alt="Execution Tools README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>HeaderExtractors</strong></td>
-        <td>Scripts to extract and document PowerShell script headers for organized documentation and review.</td>
-        <td>
-          <a href="HeaderExtractors/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Header%20Extractors-README-blue?style=for-the-badge&logo=github" 
-            alt="Header Extractors README Badge">
-          </a>
-        </td>
-      </tr>
-    </tbody>
-  </table>
 
   <hr />
 
@@ -103,24 +55,32 @@
   <h2>🚀 Usage Instructions</h2>
   <ol>
     <li>
-      <strong>Create-Script-DefaultHeader.ps1:</strong>
+      <strong>Create-Script-DefaultHeader.ps1</strong>
       <p>Run the script and provide inputs for author, version, and description. Copy the generated header into your PowerShell scripts.</p>
     </li>
     <li>
-      <strong>Create-Script-LoggingMethod.ps1:</strong>
-      <p>Integrate the provided logging function into your scripts. Specify log file paths for consistent traceability. Use logs to review events, errors, and debugging information.</p>
+      <strong>Create-Script-LoggingMethod.ps1</strong>
+      <p>
+        Integrate the provided logging function into your scripts. Specify log file paths for consistent traceability.
+        Use logs to review events, errors, and debugging information.
+      </p>
     </li>
     <li>
-      <strong>Create-Script-MainStructure-Core.ps1:</strong>
+      <strong>Create-Script-MainStructure-Core.ps1</strong>
       <p>Use the provided template as the foundation for your PowerShell projects. Customize the core functionalities and logging as needed.</p>
     </li>
     <li>
-      <strong>Extract-Script-Headers.ps1:</strong>
-      <p>Specify a root folder containing <code>.ps1</code> files. Run the script to extract headers and save them into categorized <code>.txt</code> files.</p>
+      <strong>Extract-Script-Headers.ps1</strong>
+      <p>
+        Specify a root folder containing <code>.ps1</code> files. Run the script to extract headers and save them into categorized <code>.txt</code> files.
+      </p>
     </li>
     <li>
-      <strong>Launch-Script-AutomaticMenu.ps1:</strong>
-      <p>Place the <code>Launch-Script-AutomaticMenu.ps1</code> in the root directory containing your PowerShell scripts. Use the intuitive GUI to browse folders and execute your scripts effortlessly.</p>
+      <strong>Launch-Script-AutomaticMenu.ps1</strong>
+      <p>
+        Place the <code>Launch-Script-AutomaticMenu.ps1</code> in the root directory containing your PowerShell scripts.
+        Right-click the script and select <strong>"Run with PowerShell"</strong>. Use the intuitive GUI to browse folders and execute your scripts effortlessly.
+      </p>
     </li>
   </ol>
 
@@ -143,9 +103,7 @@
 
   <hr />
 
-  <p>
-    Explore the <strong>Core-ScriptLibrary</strong> and streamline your PowerShell scripting experience. These tools are crafted to make creating, managing, and automating workflows a breeze. Enjoy! 🎉
-  </p>
+  <p>Explore the <strong>Core-ScriptLibrary</strong> and streamline your PowerShell scripting experience. These tools are crafted to make creating, managing, and automating workflows a breeze. Enjoy! 🎉</p>
 
   <hr />
 
