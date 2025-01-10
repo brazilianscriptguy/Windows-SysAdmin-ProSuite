@@ -1,82 +1,23 @@
 <div>
   <h1>🖥️ Efficient Server Management and ITSM Compliance on Windows Server Environments</h1>
-
-  <h2>📄 Description</h2>
   <p>
-    The <strong>ITSM-Templates-SVR</strong> repository is a comprehensive collection of PowerShell and VBScript tools designed for 
-    IT Service Management (ITSM) in Windows Server environments. These tools enable IT administrators to automate server configurations, 
-    enhance operational efficiency, and maintain compliance with organizational policies.
+    Welcome to the <strong>ITSM-Templates-SVR</strong> repository! This collection includes essential 
+    <strong>PowerShell and VBScript tools</strong> designed for IT Service Management (ITSM) in Windows Server environments. By automating server configurations, enhancing operational efficiency, and maintaining compliance, these tools provide a robust framework for managing Windows servers effectively.
   </p>
+
+  <hr />
+
+  <h2>🌟 Key Features</h2>
   <ul>
-    <li><strong>Server-Specific Configurations:</strong> Streamlined ITSM implementation.</li>
-    <li><strong>Automated Processes:</strong> Domain services, roles, and server hardening.</li>
-    <li><strong>Detailed Logs and Reports:</strong> Track and audit execution outcomes.</li>
+    <li><strong>Server-Specific Configurations:</strong> Streamlined ITSM implementation tailored to server needs.</li>
+    <li><strong>Automated Processes:</strong> Automate domain services, role configurations, and server hardening.</li>
+    <li><strong>Standardized Logs and Reports:</strong> Maintain traceable logs and generate actionable reports for auditing and compliance.</li>
+    <li><strong>Reusable Templates:</strong> Quickly deploy and customize server configurations with modular scripts.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Overview</h2>
-  <p>The <strong>Check-List for Applying ITSM-Templates-SVR</strong> standardizes configurations for servers, improving compliance, security, and operational efficiency.</p>
-
-  <h3>Objectives:</h3>
-  <ul>
-    <li>Maintain high server availability and reliability.</li>
-    <li>Automate critical server-side ITSM tasks.</li>
-    <li>Ensure compliance with security and governance policies.</li>
-  </ul>
-
-  <hr />
-
-  <h2>📋 Steps to Use ITSM-Templates-SVR Scripts</h2>
-  <ol>
-    <li>
-      <strong>Clone the Repository:</strong>
-      <p>Clone the repository to your local machine:</p>
-      <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
-    </li>
-    <li>
-      <strong>Navigate to the Repository Folder:</strong>
-      <p>Access the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> folder for all script files and templates.</p>
-    </li>
-    <li>
-      <strong>Deploy Locally to Servers:</strong>
-      <p>
-        Copy the <code>ITSM-Templates-SVR</code> folder from the repository to the <code>C:\</code> drive of each server to enable local execution.
-        Running scripts locally reduces dependency on network connectivity and ensures smooth operation.
-      </p>
-    </li>
-    <li>
-      <strong>Maintain an Updated Repository:</strong>
-      <p>Keep the repository up-to-date with the latest ITSM-Templates-SVR scripts to align server configurations with current standards.</p>
-    </li>
-    <li>
-      <strong>Configure Using Administrator Accounts:</strong>
-      <p>Use the server’s local administrator account or a domain admin account for configurations, ensuring security and consistency.</p>
-    </li>
-    <li>
-      <strong>Follow the Checklist:</strong>
-      <p>Refer to the <code>Check-List for Applying ITSM-Templates on Windows Server Environments.pdf</code> for detailed guidance.</p>
-    </li>
-    <li>
-      <strong>Customize Scripts:</strong>
-      <p>Modify PowerShell and VBScript tools to fit your organization's specific server management requirements.</p>
-    </li>
-  </ol>
-
-  <hr />
-
-  <h2>📂 ITSM-Templates-SVR Folder Structure and Scripts</h2>
-
-  <h3>Folder Descriptions:</h3>
-  <ul>
-    <li><strong>Certificates:</strong> Contains SSL/TLS and root certificates for secure server communication.</li>
-    <li><strong>ConfigurationScripts:</strong> Scripts for configuring server roles and features.</li>
-    <li><strong>MainDocs:</strong> Editable documentation, including the server configuration checklist.</li>
-    <li><strong>ModifyReg:</strong> Registry modification scripts for initial server setup and hardening.</li>
-    <li><strong>PostIngress:</strong> Scripts executed after a server joins a domain, finalizing configurations.</li>
-    <li><strong>ScriptsAdditionalSupport:</strong> Tools for troubleshooting and resolving server configuration issues.</li>
-  </ul>
-
+  <h2>📄 Script Descriptions</h2>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
@@ -87,19 +28,19 @@
     <tbody>
       <tr>
         <td><strong>ITSM-DefaultServerConfig.ps1</strong></td>
-        <td>Applies essential configurations for server setup, including DNS settings, hardening roles, and administrative shares setup.</td>
+        <td>Applies essential configurations for server setup, including DNS settings, role hardening, and administrative shares setup.</td>
       </tr>
       <tr>
         <td><strong>ITSM-ModifyServerRegistry.ps1</strong></td>
-        <td>Modifies registry settings to enforce security and compliance, including disabling SMBv1 and configuring Windows Updates.</td>
+        <td>Modifies registry settings to enforce security and compliance standards, including disabling SMBv1 and configuring Windows Updates.</td>
       </tr>
       <tr>
         <td><strong>ITSM-DNSRegistration.ps1</strong></td>
-        <td>Ensures proper DNS registration for Active Directory integration.</td>
+        <td>Ensures proper DNS registration for seamless Active Directory integration.</td>
       </tr>
       <tr>
         <td><strong>ITSM-HardenServer.ps1</strong></td>
-        <td>Applies security hardening configurations after the server joins the domain.</td>
+        <td>Applies security hardening configurations after domain join.</td>
       </tr>
       <tr>
         <td><strong>CheckServerRoles.ps1</strong></td>
@@ -107,7 +48,7 @@
       </tr>
       <tr>
         <td><strong>ExportServerConfig.ps1</strong></td>
-        <td>Exports the server’s configuration to a <code>.csv</code> file for documentation.</td>
+        <td>Exports the server’s configuration to a <code>.csv</code> file for documentation and review.</td>
       </tr>
       <tr>
         <td><strong>FixNTFSPermissions.ps1</strong></td>
@@ -119,7 +60,7 @@
       </tr>
       <tr>
         <td><strong>ResetGPOSettings.ps1</strong></td>
-        <td>Resets GPO-related configurations to default values.</td>
+        <td>Resets Group Policy Object (GPO)-related configurations to default values.</td>
       </tr>
       <tr>
         <td><strong>ServerTimeSync.ps1</strong></td>
@@ -130,30 +71,66 @@
 
   <hr />
 
-  <h2>🚀 Next Releases</h2>
+  <h2>🚀 Usage Instructions</h2>
+  <ol>
+    <li>
+      <strong>Clone the Repository:</strong>
+      <p>Clone the repository to your local machine:</p>
+      <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
+    </li>
+    <li>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> folder for all script files and templates.</li>
+    <li>Review the provided <code>README.md</code> file for detailed script descriptions and usage instructions.</li>
+    <li>Run scripts locally using PowerShell:
+      <pre><code>.\ScriptName.ps1</code></pre>
+    </li>
+  </ol>
+
+  <hr />
+
+  <h2>📝 Logging and Reporting</h2>
   <ul>
-    <li>Automated patch management tools.</li>
-    <li>Enhanced reporting features for server compliance audits.</li>
-    <li>Scripts for integrating cloud-based server services.</li>
+    <li><strong>Logs:</strong> All scripts generate <code>.log</code> files that document executed actions and errors encountered.</li>
+    <li><strong>Reports:</strong> Scripts export data in <code>.csv</code> format for analysis and compliance audits.</li>
   </ul>
 
   <hr />
 
-  <h2>📝 Logging and Output</h2>
+  <h2>💡 Tips for Optimization</h2>
   <ul>
-    <li><strong>Logs:</strong> All scripts generate <code>.log</code> files documenting execution steps and errors.</li>
-    <li><strong>Reports:</strong> Scripts export data in <code>.csv</code> format for detailed analysis and compliance reporting.</li>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using task schedulers to ensure consistent results.</li>
+    <li><strong>Centralize Logs and Reports:</strong> Save generated <code>.log</code> and <code>.csv</code> files in shared directories for collaborative analysis and auditing.</li>
+    <li><strong>Customize Templates:</strong> Tailor script templates to fit specific organizational workflows and security requirements.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Log File Locations</h2>
-  <p>Logs are stored in <code>C:\ITSM-Logs-SVR\</code> and include:</p>
-  <ul>
-    <li>DNS registration logs.</li>
-    <li>Server role configuration logs.</li>
-    <li>Domain join/removal logs.</li>
-  </ul>
+  <p>Explore the <strong>ITSM-Templates-SVR</strong> repository and streamline your server management processes. With these tools, achieving ITSM compliance and operational efficiency has never been easier! 🎉</p>
+
+  <hr />
+
+  <h2>🛠️ Prerequisites</h2>
+  <ol>
+    <li>
+      <strong>🖥️ Remote Server Administration Tools (RSAT):</strong>
+      <p>Install RSAT components for managing AD, DNS, DHCP, and other server roles.</p>
+      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
+    </li>
+    <li>
+      <strong>⚙️ PowerShell Version:</strong>
+      <p>Use PowerShell 5.1 or later. Verify your version:</p>
+      <pre><code>$PSVersionTable.PSVersion</code></pre>
+    </li>
+    <li><strong>🔑 Administrator Privileges:</strong> Scripts require elevated permissions to perform administrative tasks.</li>
+    <li>
+      <strong>🔧 Execution Policy:</strong>
+      <p>Temporarily allow script execution with:</p>
+      <pre><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</code></pre>
+    </li>
+    <li>
+      <strong>📦 Dependencies:</strong>
+      <p>Ensure all required software components and modules (e.g., <code>ActiveDirectory</code>, <code>DHCPServer</code>) are installed.</p>
+    </li>
+  </ol>
 
   <hr />
 
@@ -166,7 +143,7 @@
     <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
     </a>
-    <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
     </a>
     <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
@@ -176,9 +153,9 @@
       <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
     </a>
   </div>
+</div>
 
   <hr />
-
   <h3>Document Classification</h3>
   <p>This document is <strong>RESTRICTED</strong> for internal use within the Company’s network.</p>
 </div>
