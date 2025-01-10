@@ -112,17 +112,17 @@
         <td>Migrate-WinEvtStructure-Tool.ps1</td>
         <td>
           Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
-          <br><br>
+          <br /><br />
           <strong>Note:</strong> Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. To do this, run:
-          <pre><code>
-bcdedit /set {current} safeboot minimal
+          <pre><code>bcdedit /set {current} safeboot minimal
 shutdown /r /t 0
           </code></pre>
           After running the script, return to normal mode:
-          <pre><code>
-bcdedit /deletevalue {current} safeboot
+          <pre><code>bcdedit /deletevalue {current} safeboot
 shutdown /r /t 0
           </code></pre>
+         <strong>Note:</strong> For domain-joined machines like DHCP servers, backup configurations first:
+          <pre><code>netsh dhcp server export C:\Backup\dhcpconfig.dat all</code></pre>
         </td>
       </tr>
     </tbody>
@@ -141,8 +141,8 @@ shutdown /r /t 0
 
   <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.LOG</code> format.</li>
-    <li><strong>📊 Reports:</strong> Scripts export data in <code>.CSV</code> format for audits and reporting.</li>
+    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.log</code> format.</li>
+    <li><strong>📊 Reports:</strong> Scripts export data in <code>.csv</code> format for audits and reporting.</li>
   </ul>
 
   <hr />
