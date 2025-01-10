@@ -18,39 +18,11 @@
 
   <hr />
 
-  <h2>🛠️ Prerequisites</h2>
-  <ol>
-    <li>
-      <strong>⚙️ PowerShell</strong>
-      <ul>
-        <li>PowerShell must be installed and enabled on your system.</li>
-        <li>Import required modules where applicable, such as:</li>
-        <li><code>Import-Module ActiveDirectory</code></li>
-        <li><code>Import-Module DHCPServer</code></li>
-      </ul>
-    </li>
-    <li>
-      <strong>🔑 Administrator Privileges</strong>
-      <p>Necessary for executing tasks involving sensitive configurations or system management.</p>
-    </li>
-    <li>
-      <strong>🖥️ Remote Server Administration Tools (RSAT)</strong>
-      <p>
-        Install RSAT on Windows 10/11 to enable remote management of Active Directory, DHCP, and other server roles.
-        <a href="https://www.microsoft.com/en-us/download/details.aspx?id=45520" target="_blank">
-          <img src="https://img.shields.io/badge/Download-RSAT-blue?style=flat-square&logo=microsoft" alt="Download RSAT Badge">
-        </a>
-      </p>
-    </li>
-  </ol>
-
-  <hr />
-
-  <h2>📄 Script Descriptions (Alphabetical Order)</h2>
+  <h2>📄 Script Descriptions</h2>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
-        <th style="padding: 8px;"><strong>Script Name</strong></th>
+        <th style="padding: 8px;">Script Name</th>
         <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
@@ -114,10 +86,10 @@
 
   <hr />
 
-  <h2>📝 Logging and Output</h2>
+  <h2>📝 Logging and Reporting</h2>
   <ul>
-    <li><strong>Logs:</strong> Scripts generate <code>.LOG</code> files that document executed actions and errors encountered.</li>
-    <li><strong>Reports:</strong> Some scripts produce <code>.CSV</code> files for detailed analysis and auditing.</li>
+    <li><strong>Logs:</strong> Scripts generate <code>.log</code> files that document executed actions and errors encountered.</li>
+    <li><strong>Reports:</strong> Some scripts produce <code>.csv</code> files for detailed analysis and auditing.</li>
   </ul>
 
   <hr />
@@ -125,30 +97,33 @@
   <h2>💡 Tips for Optimization</h2>
   <ul>
     <li><strong>Automate Execution:</strong> Schedule your scripts to run periodically for consistent results.</li>
-    <li><strong>Centralize Logs and Reports:</strong> Save <code>.LOG</code> and <code>.CSV</code> files in shared directories for collaborative analysis.</li>
+    <li><strong>Centralize Logs and Reports:</strong> Save <code>.log</code> and <code>.csv</code> files in shared directories for collaborative analysis.</li>
     <li><strong>Customize Templates:</strong> Tailor script templates to align with your specific workflows and organizational needs.</li>
   </ul>
 
   <hr />
+
   <p>Explore the <strong>Core-ScriptLibrary</strong> and streamline your PowerShell scripting experience. These tools are crafted to make creating, managing, and automating workflows a breeze. Enjoy! 🎉</p>
-</div>
 
-<h2>❓ Additional Assistance</h2>
-<p>
-  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
-</p>
+  <hr />
 
-<div align="center">
-  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
-  </a>
-  <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
-  </a>
-  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
-  </a>
-  <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
-  </a>
+  <h2>❓ Additional Assistance</h2>
+  <p>
+    These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
+  </p>
+
+  <div align="center">
+    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+    </a>
+    <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
+    </a>
+    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+    </a>
+    <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+    </a>
+  </div>
 </div>
