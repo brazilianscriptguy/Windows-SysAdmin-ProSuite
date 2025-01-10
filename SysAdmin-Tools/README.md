@@ -1,22 +1,24 @@
 <div>
   <h1>🔧 SysAdmin-Tools Suite</h1>
-
-  <h2>📄 Overview</h2>
   <p>
-    The <strong>SysAdmin-Tools</strong> suite provides a powerful collection of PowerShell scripts designed to streamline and automate the management of 
-    Active Directory (AD), Windows Server roles, network infrastructure, and workstation configurations. These scripts simplify complex administrative tasks, 
-    enhance operational efficiency, and ensure compliance and security across IT environments.
+    Welcome to the <strong>SysAdmin-Tools</strong> suite! This powerful collection of 
+    <strong>PowerShell scripts</strong> is designed to streamline and automate the management of Active Directory (AD), Windows Server roles, 
+    network infrastructure, and workstation configurations. These tools simplify complex administrative tasks, enhance operational efficiency, 
+    and ensure compliance and security across IT environments.
   </p>
+
+  <hr />
+
+  <h2>🌟 Key Features</h2>
   <ul>
     <li><strong>User-Friendly Interfaces:</strong> All scripts include a GUI for intuitive use.</li>
-    <li><strong>Detailed Logging:</strong> All scripts generate <code>.log</code> files for audit trails and troubleshooting.</li>
-    <li><strong>Exportable Reports:</strong> Reports are often exported in <code>.csv</code> format for integration with Reporting and Analytics Tools.</li>
+    <li><strong>Detailed Logging:</strong> Generate <code>.log</code> files for audit trails and troubleshooting.</li>
+    <li><strong>Exportable Reports:</strong> Export results in <code>.csv</code> format for reporting and integration with analytics tools.</li>
   </ul>
 
   <hr />
 
-  <h2>📂 Folder Structure and Categories</h2>
-
+  <h2>📄 Folder Structure and Categories</h2>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
@@ -129,23 +131,23 @@
 
   <hr />
 
- <h2>❓ Additional Assistance</h2>
-<p>
-  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
-</p>
+  <h2>❓ Additional Assistance</h2>
+  <p>
+    These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with specific tools, refer to the included <code>README.md</code> or the detailed documentation available in each subfolder.
+  </p>
 
-<div align="center">
-  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
-  </a>
-  <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
-  </a>
-  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
-  </a>
-  <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
-  </a>
-</div>
+  <div align="center">
+    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+    </a>
+    <a href="https://www.patreon.com/c/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon Badge">
+    </a>
+    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+    </a>
+    <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+    </a>
+  </div>
 </div>
