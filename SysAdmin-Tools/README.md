@@ -21,7 +21,7 @@
       <tr>
         <th style="padding: 8px;"><strong>Folder Name</strong></th>
         <th style="padding: 8px;">Description</th>
-        <th style="padding: 8px;">Scripts</th>
+        <th style="padding: 8px;"><strong>Folder Link</strong></th>
       </tr>
     </thead>
     <tbody>
@@ -29,60 +29,35 @@
         <td style="padding: 8px;"><strong>ActiveDirectory-Management</strong></td>
         <td style="padding: 8px;">Tools for managing Active Directory, including user accounts, computer accounts, group policies, and directory synchronization.</td>
         <td style="padding: 8px;">
-          <ul>
-            <li><code>Add-ADComputers-GrantPermissions.ps1</code></li>
-            <li><code>Manage-FSMOs-Roles.ps1</code></li>
-            <li><code>Inventory-ADUserLastLogon.ps1</code></li>
-            <li><code>Synchronize-ADForestDCs.ps1</code></li>
-          </ul>
+          <a href="ActiveDirectory-Management/README.md" target="_blank">View ActiveDirectory-Management</a>
         </td>
       </tr>
       <tr>
         <td style="padding: 8px;"><strong>GroupPolicyObjects-Templates</strong></td>
         <td style="padding: 8px;">A collection of ready-to-use GPO templates designed for seamless import into a new Windows Server Forest and Domain structure.</td>
         <td style="padding: 8px;">
-          <ul>
-            <li><code>enable-logon-message-workstations</code></li>
-            <li><code>itsm-template-ALL-workstations</code></li>
-            <li><code>install-cmdb-fusioninventory-agent</code></li>
-            <li><code>wsus-update-workstation-MODEL</code></li>
-          </ul>
+          <a href="GPOs-Templates/README.md" target="_blank">View GroupPolicyObjects-Templates</a>
         </td>
       </tr>
       <tr>
         <td style="padding: 8px;"><strong>Network-and-Infrastructure-Management</strong></td>
         <td style="padding: 8px;">Scripts for managing network services (e.g., DHCP, DNS, WSUS) and ensuring reliable infrastructure operations.</td>
         <td style="padding: 8px;">
-          <ul>
-            <li><code>Create-NewDHCPReservations.ps1</code></li>
-            <li><code>Update-DNS-and-Sites-Services.ps1</code></li>
-            <li><code>Transfer-DHCPScopes.ps1</code></li>
-            <li><code>Restart-NetworkAdapter.ps1</code></li>
-          </ul>
+          <a href="Network-and-Infrastructure-Management/README.md" target="_blank">View Network-and-Infrastructure-Management</a>
         </td>
       </tr>
       <tr>
         <td style="padding: 8px;"><strong>Security-and-Process-Optimization</strong></td>
         <td style="padding: 8px;">Tools for optimizing system performance, enforcing compliance, and enhancing security.</td>
         <td style="padding: 8px;">
-          <ul>
-            <li><code>Remove-Softwares-NonCompliance-Tool.ps1</code></li>
-            <li><code>Unjoin-ADComputer-and-Cleanup.ps1</code></li>
-            <li><code>Initiate-MultipleRDPSessions.ps1</code></li>
-            <li><code>Remove-EmptyFiles-or-DateRange.ps1</code></li>
-          </ul>
+          <a href="Security-and-Process-Optimization/README.md" target="_blank">View Security-and-Process-Optimization</a>
         </td>
       </tr>
       <tr>
         <td style="padding: 8px;"><strong>SystemConfiguration-and-Deployment</strong></td>
         <td style="padding: 8px;">Tools for deploying and configuring software, managing group policies, and maintaining consistent system settings across the domain.</td>
         <td style="padding: 8px;">
-          <ul>
-            <li><code>Deploy-FusionInventoryAgent-viaGPO.ps1</code></li>
-            <li><code>Install-KMSLicensingServer-Tool.ps1</code></li>
-            <li><code>Clear-and-ReSyncGPOs-ADComputers.ps1</code></li>
-            <li><code>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</code></li>
-          </ul>
+          <a href="SystemConfiguration-and-Deployment/README.md" target="_blank">View SystemConfiguration-and-Deployment</a>
         </td>
       </tr>
     </tbody>
