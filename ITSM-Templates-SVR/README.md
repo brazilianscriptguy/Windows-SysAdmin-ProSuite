@@ -31,18 +31,23 @@
   <ol>
     <li>
       <strong>Clone the Repository:</strong>
-      <p>Clone the <code>ITSM-Templates-SVR</code> folder to your organization’s <strong>Definitive Media Library (DML)</strong> for centralized access and secure storage.</p>
+      <p>Clone the repository to your local machine:</p>
+      <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
+    </li>
+    <li>
+      <strong>Navigate to the Repository Folder:</strong>
+      <p>Access the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> folder for all script files and templates.</p>
     </li>
     <li>
       <strong>Deploy Locally to Servers:</strong>
       <p>
-        Copy the <code>ITSM-Templates-SVR</code> folder from the DML to the <code>C:\</code> drive of each server to enable local execution.
+        Copy the <code>ITSM-Templates-SVR</code> folder from the repository to the <code>C:\</code> drive of each server to enable local execution.
         Running scripts locally reduces dependency on network connectivity and ensures smooth operation.
       </p>
     </li>
     <li>
-      <strong>Maintain an Updated DML:</strong>
-      <p>Keep the DML repository up-to-date with the latest ITSM-Templates-SVR scripts to align server configurations with current standards.</p>
+      <strong>Maintain an Updated Repository:</strong>
+      <p>Keep the repository up-to-date with the latest ITSM-Templates-SVR scripts to align server configurations with current standards.</p>
     </li>
     <li>
       <strong>Configure Using Administrator Accounts:</strong>
