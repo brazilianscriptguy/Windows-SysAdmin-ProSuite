@@ -82,26 +82,30 @@
 
   <hr />
 
-  <h2>🚀 Getting Started</h2>
+<h2>🚀 Getting Started</h2>
   <ol>
-   <li>
+      <li>
       <strong>Clone or download the Main Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li><strong>Navigate to the <code>Windows-SysAdmin-ProSuite/BlueTeam-Tools</code> folder.</strong></li>
-    <li>Review the provided <code>README.md</code> file for detailed script descriptions and usage instructions.</li>
-    <li>Run scripts using PowerShell:
+    <li>
+      <strong>Navigate to the Repository Folder:</strong>
+      <p>Navigate to the <code>Windows-SysAdmin-ProSuite/BlueTeam-Tools/</code> directory that contains the desired scripts.</p>
+    </li>
+    <li>
+      <strong>Review Documentation:</strong>
+      <p>Open the <code>README.md</code> file in the chosen subfolder for detailed script descriptions and usage instructions.</p>
+    </li>
+    <li>
+      <strong>Run the Script:</strong>
+      <p>Execute the desired PowerShell script with the following command:</p>
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
+    <li>
+      <strong>Verify Logs and Reports:</strong>
+      <p>Check the generated <code>.log</code> files for details on script execution and exported <code>.csv</code> files for results.</p>
+    </li>
   </ol>
-
-  <hr />
-
-  <h2>📝 Logging and Reporting</h2>
-  <ul>
-    <li><strong>Logs:</strong> Each script generates <code>.log</code> files for tracking operations and debugging.</li>
-    <li><strong>Reports:</strong> Many scripts export results in <code>.csv</code> format for reporting and analysis.</li>
-  </ul>
 
   <hr />
 
