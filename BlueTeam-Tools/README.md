@@ -88,8 +88,7 @@
       <strong>Clone or download the Main Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li>
-    <li><strong>>Navigate to the <code>Windows-SysAdmin-ProSuite/BlueTeam-Tools</code> folder.</strong></li>
+    <li><strong>Navigate to the <code>Windows-SysAdmin-ProSuite/BlueTeam-Tools</code> folder.</strong></li>
     <li>Review the provided <code>README.md</code> file for detailed script descriptions and usage instructions.</li>
     <li>Run scripts using PowerShell:
       <pre><code>.\ScriptName.ps1</code></pre>
