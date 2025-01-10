@@ -17,7 +17,7 @@
 
   <h2>📂 ITSM-Templates-WKS Folder Structure and Scripts</h2>
 
-  <h3>Folder: <code>/Folder UniqueScripts/</code></h3>
+  <h3>Folder: <code>/UniqueScripts/</code></h3>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
@@ -37,7 +37,7 @@
     </tbody>
   </table>
 
-  <h3>Folder: <code>/Folder PostIngress/</code></h3>
+  <h3>Folder: <code>/PostIngress/</code></h3>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
