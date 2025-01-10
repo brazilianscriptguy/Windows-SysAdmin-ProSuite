@@ -65,74 +65,76 @@
     </thead>
     <tbody>
       <tr>
-        <td>EventID-Count-AllEvtx-Events.ps1</td>
+        <td><strong>EventID-Count-AllEvtx-Events.ps1</strong></td>
         <td>Counts occurrences of each Event ID in <code>.evtx</code> files and exports the results to <code>.csv</code>, aiding event log analysis.</td>
       </tr>
       <tr>
-        <td>EventID307-PrintAudit.ps1</td>
+        <td><strong>EventID307-PrintAudit.ps1</strong></td>
         <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports.</td>
       </tr>
       <tr>
-        <td>EventID4624-ADUserLoginViaRDP.ps1</td>
+        <td><strong>EventID4624-ADUserLoginViaRDP.ps1</strong></td>
         <td>Generates a <code>.csv</code> report on RDP logon activities (login at Event ID 4624) for monitoring remote access.</td>
       </tr>
       <tr>
-        <td>EventID4624and4634-ADUserLoginTracking.ps1</td>
+        <td><strong>EventID4624and4634-ADUserLoginTracking.ps1</strong></td>
         <td>Tracks user login activities (Event ID 4624 and 4634) and produces a <code>.csv</code> report for auditing purposes.</td>
       </tr>
       <tr>
-        <td>EventID4625-ADUserLoginAccountFailed.ps1</td>
+        <td><strong>EventID4625-ADUserLoginAccountFailed.ps1</strong></td>
         <td>Compiles failed logon attempts (Event ID 4625) into a <code>.csv</code>, helping identify potential breaches.</td>
       </tr>
       <tr>
-        <td>EventID4648-ExplicitCredentialsLogon.ps1</td>
+        <td><strong>EventID4648-ExplicitCredentialsLogon.ps1</strong></td>
         <td>Logs explicit credential usage (Event ID 4648) and generates a <code>.csv</code> report, aiding in detecting unauthorized credential use.</td>
       </tr>
       <tr>
-        <td>EventID4660and4663-ObjectDeletionTracking.ps1</td>
+        <td><strong>EventID4660and4663-ObjectDeletionTracking.ps1</strong></td>
         <td>Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into <code>.csv</code> files for auditing.</td>
       </tr>
       <tr>
-        <td>EventID4771-KerberosPreAuthFailed.ps1</td>
+        <td><strong>EventID4771-KerberosPreAuthFailed.ps1</strong></td>
         <td>Identifies Kerberos pre-authentication failures (Event ID 4771) and outputs findings to <code>.csv</code>.</td>
       </tr>
       <tr>
-        <td>EventID4800and4801-WorkstationLockStatus.ps1</td>
+        <td><strong>EventID4800and4801-WorkstationLockStatus.ps1</strong></td>
         <td>Tracks workstation locking and unlocking events (Event IDs 4800 and 4801) and generates a <code>.csv</code> report.</td>
       </tr>
       <tr>
-        <td>EventID5136-5137-5141-ADObjectChanges.ps1</td>
+        <td><strong>EventID5136-5137-5141-ADObjectChanges.ps1</strong></td>
         <td>Analyzes Active Directory object changes and deletions (Event IDs 5136, 5137, 5141).</td>
       </tr>
       <tr>
-        <td>EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1</td>
+        <td><strong>EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1</strong></td>
         <td>Retrieves details of system restarts and shutdown events from the System log and exports the results to <code>.csv</code>.</td>
       </tr>
       <tr>
-    <td>Migrate-WinEvtStructure-Tool.ps1</td>
-    <td>
-        Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
-        <br /><br />
-        <strong>Note:</strong> Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. 
-        To do this, run:
-        <pre><code>
-bcdedit /set {current} safeboot minimal
+        <td><strong>Migrate-WinEvtStructure-Tool.ps1</strong></td>
+        <td>
+          Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <strong>Notes for Migrate-WinEvtStructure-Tool.ps1:</strong>
+          <ul>
+            <li>Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. To do this, run:
+              <pre><code>bcdedit /set {current} safeboot minimal
 shutdown /r /t 0
-        </code></pre>
-        After running the script, return to normal mode:
-        <pre><code>
-bcdedit /deletevalue {current} safeboot
+              </code></pre>
+              After running the script, return to normal mode:
+              <pre><code>bcdedit /deletevalue {current} safeboot
 shutdown /r /t 0
-        </code></pre>
-        <strong>Note:</strong> For domain-joined machines like DHCP servers, backup configurations first:
-        <pre><code>
-netsh dhcp server export C:\Backup\dhcpconfig.dat all
-        </code></pre>
-        <strong>Note:</strong> After moving the default event logs, restore the DHCP configurations:
-        <pre><code>
-netsh dhcp server import C:\Backup\dhcpconfig.dat all
-        </code></pre>
-    </td>
+              </code></pre>
+            </li>
+            <li>For domain-joined machines like DHCP servers, backup configurations first:
+              <pre><code>netsh dhcp server export C:\Backup\dhcpconfig.dat all</code></pre>
+            </li>
+            <li>After moving the default event logs, restore the DHCP configurations:
+              <pre><code>netsh dhcp server import C:\Backup\dhcpconfig.dat all</code></pre>
+            </li>
+          </ul>
+        </td>
       </tr>
     </tbody>
   </table>
