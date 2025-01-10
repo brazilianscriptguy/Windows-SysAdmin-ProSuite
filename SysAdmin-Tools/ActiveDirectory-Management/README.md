@@ -73,8 +73,16 @@
         <td>Updates expiration dates for AD user accounts, ensuring compliance with organizational policies.</td>
       </tr>
       <tr>
+        <td><strong>Check-Shorter-ADComputerNames.ps1</strong></td>
+        <td>Identifies AD computer names that do not meet minimum length requirements, helping enforce naming conventions.</td>
+      </tr>
+      <tr>
         <td><strong>Cleanup-Inactive-ADComputerAccounts.ps1</strong></td>
         <td>Detects and removes inactive AD computer accounts to improve security and directory organization.</td>
+      </tr>
+      <tr>
+        <td><strong>Cleanup-MetaData-ADForest-Tool.ps1</strong></td>
+        <td>Removes orphaned objects and synchronizes metadata across Domain Controllers for optimal performance.</td>
       </tr>
       <tr>
         <td><strong>Create-OUsDefaultADStructure.ps1</strong></td>
@@ -97,16 +105,64 @@
         <td>Retrieves group membership details to assist in audits and compliance checks.</td>
       </tr>
       <tr>
+        <td><strong>Inventory-ADMemberServers.ps1</strong></td>
+        <td>Produces detailed reports on member servers in the AD domain for simplified management.</td>
+      </tr>
+      <tr>
+        <td><strong>Inventory-ADUserAttributes.ps1</strong></td>
+        <td>Extracts user attributes from AD, helping administrators manage and report user data more effectively.</td>
+      </tr>
+      <tr>
         <td><strong>Inventory-ADUserLastLogon.ps1</strong></td>
         <td>Tracks user last logon times, helping identify inactive accounts.</td>
+      </tr>
+      <tr>
+        <td><strong>Inventory-ADUserWithNonExpiringPasswords.ps1</strong></td>
+        <td>Lists users with non-expiring passwords, enabling enforcement of password policies.</td>
+      </tr>
+      <tr>
+        <td><strong>Inventory-InactiveADComputerAccounts.ps1</strong></td>
+        <td>Identifies inactive AD computer accounts for cleanup and organization.</td>
       </tr>
       <tr>
         <td><strong>Manage-Disabled-Expired-ADUserAccounts.ps1</strong></td>
         <td>Automates the disabling of expired AD user accounts for improved security and compliance.</td>
       </tr>
       <tr>
+        <td><strong>Manage-FSMOs-Roles.ps1</strong></td>
+        <td>Simplifies managing and transferring Flexible Single Master Operation (FSMO) roles within the AD forest.</td>
+      </tr>
+      <tr>
         <td><strong>Move-ADComputer-betweenOUs.ps1</strong></td>
         <td>Automates moving AD computers between OUs based on policies.</td>
+      </tr>
+      <tr>
+        <td><strong>Move-ADUser-betweenOUs.ps1</strong></td>
+        <td>Facilitates moving AD users between OUs to maintain directory organization.</td>
+      </tr>
+      <tr>
+        <td><strong>Reset-ADUserPasswordsToDefault.ps1</strong></td>
+        <td>Resets user passwords to a default value for bulk operations or compliance purposes.</td>
+      </tr>
+      <tr>
+        <td><strong>Retrieve-ADComputer-SharedFolders.ps1</strong></td>
+        <td>Lists shared folders on AD computers for audit and compliance reviews.</td>
+      </tr>
+      <tr>
+        <td><strong>Retrieve-ADDomain-AuditPolicy-Configuration.ps1</strong></td>
+        <td>Extracts audit policy configurations for the entire AD domain for compliance reporting.</td>
+      </tr>
+      <tr>
+        <td><strong>Retrieve-Elevated-ADForestInfo.ps1</strong></td>
+        <td>Provides detailed information on AD forests, including elevated privileges and configurations.</td>
+      </tr>
+      <tr>
+        <td><strong>Synchronize-ADForestDCs.ps1</strong></td>
+        <td>Synchronizes Domain Controllers across the AD forest for optimal performance.</td>
+      </tr>
+      <tr>
+        <td><strong>Unlock-SMBShareADUserAccess.ps1</strong></td>
+        <td>Unlocks SMB shared folder access for specific AD users.</td>
       </tr>
       <tr>
         <td><strong>Update-ADComputer-Descriptions.ps1</strong></td>
