@@ -12,7 +12,7 @@
   <ul>
     <li><strong>User-Friendly GUIs:</strong> Enhance user interaction with intuitive graphical interfaces.</li>
     <li><strong>Standardized Logging:</strong> Maintain consistent, traceable logs for improved debugging and auditing.</li>
-    <li><strong>Exportable Results:</strong> Generate actionable <code>.CSV</code> outputs for streamlined analysis and reporting.</li>
+    <li><strong>Exportable Results:</strong> Generate actionable <code>.csv</code> outputs for streamlined analysis and reporting.</li>
     <li><strong>Efficient Automation:</strong> Quickly build and deploy PowerShell libraries with reusable templates.</li>
   </ul>
 
