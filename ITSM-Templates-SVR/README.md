@@ -71,17 +71,28 @@
 
   <hr />
 
-  <h2>🚀 Usage Instructions</h2>
+<h2>🚀 Getting Started</h2>
   <ol>
-    <li>
-      <strong>Clone the Repository:</strong>
-      <p>Clone the repository to your local machine:</p>
+      <li>
+      <strong>Clone or download the Main Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> folder for all script files and templates.</li>
-    <li>Review the provided <code>README.md</code> file for detailed script descriptions and usage instructions.</li>
-    <li>Run scripts locally using PowerShell:
+    <li>
+      <strong>Navigate to the Repository Folder:</strong>
+      <p>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> directory that contains the desired scripts.</p>
+    </li>
+    <li>
+      <strong>Review Documentation:</strong>
+      <p>Open the <code>README.md</code> file in the chosen subfolder for detailed script descriptions and usage instructions.</p>
+    </li>
+    <li>
+      <strong>Run the Script:</strong>
+      <p>Execute the desired PowerShell script with the following command:</p>
       <pre><code>.\ScriptName.ps1</code></pre>
+    </li>
+    <li>
+      <strong>Verify Logs and Reports:</strong>
+      <p>Check the generated <code>.log</code> files for details on script execution and exported <code>.csv</code> files for results.</p>
     </li>
   </ol>
 
