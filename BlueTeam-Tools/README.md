@@ -25,7 +25,7 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>📄 EventLogMonitoring</strong></td>
+        <td><strong>EventLogMonitoring</strong></td>
         <td>Tools for processing and analyzing Windows Event Logs. Focuses on detecting anomalies, auditing logs, and generating actionable reports for key system events.</td>
         <td>
           <a href="EventLogMonitoring/README.md" target="_blank">
@@ -35,7 +35,7 @@
         </td>
       </tr>
       <tr>
-        <td><strong>🛡️ IncidentResponse</strong></td>
+        <td><strong>IncidentResponse</strong></td>
         <td>A suite of scripts designed to facilitate rapid response to security incidents. Assists in collecting and analyzing critical data during active investigations.</td>
         <td>
           <a href="IncidentResponse/README.md" target="_blank">
