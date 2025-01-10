@@ -1,21 +1,24 @@
 <div>
   <h1>🖥️ Efficient Workstation Management, Configuration, and ITSM Compliance on Windows 10 and 11</h1>
-
-  <h2>📄 Description</h2>
   <p>
-    This repository contains a curated collection of VBScript and PowerShell tools specifically designed to streamline the management and 
-    configuration of Windows 10 and 11 workstations within an IT Service Management (ITSM) framework. These tools automate essential 
-    administrative tasks, enabling IT professionals to enhance workflows, ensure consistency, and maintain compliance across the organization.
+    Welcome to the <strong>ITSM-Templates-WKS</strong> repository! This curated collection of 
+    <strong>VBScript and PowerShell tools</strong> is specifically designed to streamline the management and configuration 
+    of Windows 10 and 11 workstations. These tools enhance workflows, ensure consistency, and maintain compliance across 
+    the organization, enabling IT professionals to automate essential administrative tasks effectively.
   </p>
+
+  <hr />
+
+  <h2>🌟 Key Features</h2>
   <ul>
-    <li><strong>Graphical User Interfaces (GUI):</strong> For user-friendly operation.</li>
-    <li><strong>Comprehensive <code>.log</code> Files:</strong> For transparent process tracking.</li>
-    <li><strong>Export to <code>.csv</code>:</strong> For streamlined reporting and auditing.</li>
+    <li><strong>Graphical User Interfaces (GUI):</strong> Simplify operation with intuitive user-friendly interfaces.</li>
+    <li><strong>Comprehensive Logs:</strong> Generate transparent <code>.log</code> files for process tracking and troubleshooting.</li>
+    <li><strong>Exportable Results:</strong> Automate reporting and auditing with results in <code>.csv</code> format.</li>
   </ul>
 
   <hr />
 
-  <h2>📂 ITSM-Templates-WKS Folder Structure and Scripts</h2>
+  <h2>📄 Script Descriptions</h2>
 
   <h3>Folder: <code>/UniqueScripts/</code></h3>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
@@ -28,11 +31,11 @@
     <tbody>
       <tr>
         <td><strong>ITSM-DefaultVBSing.vbs</strong></td>
-        <td>Automates ten (10) key configurations to standardize workstation settings and prepare the environment for domain integration.</td>
+        <td>Automates key configurations to standardize workstation settings and prepare for domain integration.</td>
       </tr>
       <tr>
         <td><strong>ITSM-ModifyREGing.vbs</strong></td>
-        <td>Applies ten (10) registry modifications to align workstation configuration with organizational standards.</td>
+        <td>Applies registry modifications to align workstation configurations with organizational standards.</td>
       </tr>
     </tbody>
   </table>
@@ -48,22 +51,51 @@
     <tbody>
       <tr>
         <td><strong>ITSM-NewDNSRegistering.vbs</strong></td>
-        <td>Updates the workstation’s hostname and domain details in Active Directory DNS servers for accurate registration.</td>
+        <td>Updates workstation hostname and domain details in Active Directory DNS servers.</td>
       </tr>
       <tr>
         <td><strong>ITSM-ProfileImprinting.vbs</strong></td>
-        <td>Registers user domain profiles after three login cycles to ensure adherence to organizational policies.</td>
+        <td>Registers user domain profiles after three login cycles to ensure compliance.</td>
       </tr>
     </tbody>
   </table>
 
   <hr />
 
-  <h2>📝 Logging and Output</h2>
+  <h2>🚀 Usage Instructions</h2>
+  <ol>
+    <li>
+      <strong>Clone the Repository:</strong>
+      <p>Clone the repository to your local machine:</p>
+      <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
+    </li>
+    <li>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/</code> folder for all script files and templates.</li>
+    <li>Review the provided <code>README.md</code> file for detailed script descriptions and usage instructions.</li>
+    <li>Run scripts locally using VBScript or PowerShell:
+      <pre><code>cscript ScriptName.vbs</code> or <code>.\ScriptName.ps1</code></pre>
+    </li>
+  </ol>
+
+  <hr />
+
+  <h2>📝 Logging and Reporting</h2>
   <ul>
-    <li><strong>Logging:</strong> Scripts generate <code>.log</code> files documenting execution processes and errors.</li>
-    <li><strong>Export Functionality:</strong> Results are exported in <code>.csv</code> format for audits and reporting.</li>
+    <li><strong>Logs:</strong> Scripts generate <code>.log</code> files to document execution processes and errors.</li>
+    <li><strong>Reports:</strong> Results are exported in <code>.csv</code> format for audits and reporting.</li>
   </ul>
+
+  <hr />
+
+  <h2>💡 Tips for Optimization</h2>
+  <ul>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using task schedulers for consistent results.</li>
+    <li><strong>Centralize Logs and Reports:</strong> Save generated <code>.log</code> and <code>.csv</code> files in shared directories for collaborative analysis and auditing.</li>
+    <li><strong>Customize Templates:</strong> Tailor script templates to fit specific organizational workflows and security requirements.</li>
+  </ul>
+
+  <hr />
+
+  <p>Explore the <strong>ITSM-Templates-WKS</strong> repository and elevate your workstation management processes. These tools make ITSM compliance and configuration a seamless experience! 🎉</p>
 
   <hr />
 
