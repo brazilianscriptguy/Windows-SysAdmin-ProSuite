@@ -102,20 +102,27 @@
 
   <hr />
 
-  <h2>🛠️ Prerequisites</h2>
+  <h2>🚀 Usage Instructions</h2>
+  <ol>
+    <li><strong>Run the Script:</strong> Launch the desired script using the <code>Run With PowerShell</code> option.</li>
+    <li><strong>Provide Inputs:</strong> Follow on-screen prompts or select log files as required.</li>
+    <li><strong>Review Outputs:</strong> Check generated <code>.log</code> files and exported <code>.csv</code> reports for results.</li>
+  </ol>
+
+  <hr />
+
+  <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>Active Directory Environment:</strong> A functioning AD Forest and Domain structure.</li>
-    <li><strong>PowerShell 5.1 or Later:</strong> Required for executing scripts. Verify with:</li>
-    <pre><code>$PSVersionTable.PSVersion</code></pre>
-    <li><strong>Administrator Privileges:</strong> Required for GPO management.</li>
-    <li><strong>Required Modules:</strong> Ensure the <code>GroupPolicy</code> module is installed.</li>
+    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.log</code> format.</li>
+    <li><strong>📊 Reports:</strong> Scripts export data in <code>.csv</code> format for audits and reporting.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Complementary Resources</h2>
+  <h2>💡 Tips for Optimization</h2>
   <ul>
-    <li><strong>Documentation:</strong> Detailed comments in each template.</li>
-    <li><strong>Feedback and Contributions:</strong> Submit issues or pull requests to improve the repository.</li>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically.</li>
+    <li><strong>Centralize Logs:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository.</li>
+    <li><strong>Customize Analysis:</strong> Adjust script parameters as needed.</li>
   </ul>
 </div>
