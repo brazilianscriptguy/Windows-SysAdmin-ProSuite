@@ -1,211 +1,173 @@
 <div>
   <h1>⚙️ System Configuration and Deployment Tools</h1>
 
-  <h2>📄 Overview</h2>
+  <h2>📝 Overview</h2>
   <p>
-    This folder includes a collection of PowerShell scripts for deploying and configuring software, group policies, and system settings, ensuring consistent and efficient management of workstations and servers in Active Directory (AD) environments.
+    The <strong>System Configuration and Deployment Folder</strong> includes a collection of 
+    <strong>PowerShell scripts</strong> designed for deploying and configuring software, group policies, and system settings. 
+    These tools ensure consistent and efficient management of workstations and servers in Active Directory (AD) environments.
   </p>
+
+  <h3>Key Features:</h3>
+  <ul>
+    <li><strong>User-Friendly GUI:</strong> Simplifies configuration and deployment tasks for administrators.</li>
+    <li><strong>Detailed Logging:</strong> All scripts generate <code>.log</code> files for comprehensive tracking and troubleshooting.</li>
+    <li><strong>Efficient Deployment:</strong> Automates software installation, updates, and policy synchronization across devices.</li>
+    <li><strong>Compliance Management:</strong> Ensures adherence to organizational policies by removing unauthorized software and standardizing configurations.</li>
+  </ul>
 
   <hr />
 
-  <h2>📜 Script List and Descriptions</h2>
+  <h2>🛠️ Prerequisites</h2>
+  <ol>
+    <li>
+      <strong>⚙️ PowerShell</strong>
+      <ul>
+        <li>PowerShell 5.1 or later must be enabled on your system.</li>
+        <li>Verify your version with:
+          <pre><code>$PSVersionTable.PSVersion</code></pre>
+        </li>
+      </ul>
+    </li>
+    <li>
+      <strong>🔑 Administrator Privileges</strong>
+      <p>Necessary for deploying software, managing GPOs, and accessing sensitive configurations.</p>
+    </li>
+    <li>
+      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.</li>
+  </ol>
+
+  <hr />
+
+  <h2>📄 Script Descriptions (Alphabetical Order)</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
-        <th style="padding: 8px; text-align: left;">Script Name</th>
-        <th style="padding: 8px; text-align: left;">Description</th>
+        <th style="padding: 8px;">Script Name</th>
+        <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>Broadcast-ADUser-LogonMessage-viaGPO.ps1</td>
-        <td>
-          Displays customizable logon messages to users via Group Policy Object (GPO), facilitating communication across managed environments.
-          <br /><strong>Complementary File:</strong>
-          <ul>
-            <li>Broadcast-ADUser-LogonMessage-viaGPO.hta: A GUI file for configuring and previewing the logon messages.</li>
-          </ul>
-        </td>
+        <td><strong>Broadcast-ADUser-LogonMessage-viaGPO.ps1</strong></td>
+        <td>Displays customizable logon messages to users via Group Policy Object (GPO).</td>
       </tr>
       <tr>
-        <td>Cleanup-WebBrowsers-Tool.ps1</td>
-        <td>
-          Thoroughly removes cookies, cache, session data, history, and other residual files from web browsers (e.g., Firefox, Chrome, Edge) and WhatsApp, improving system performance and privacy.
-        </td>
+        <td><strong>Cleanup-WebBrowsers-Tool.ps1</strong></td>
+        <td>Removes cookies, cache, session data, and other residual files from browsers, improving performance and privacy.</td>
       </tr>
       <tr>
-        <td>Clear-and-ReSyncGPOs-ADComputers.ps1</td>
-        <td>
-          Resets and re-synchronizes Group Policy Objects (GPOs) across domain computers to ensure consistent policy application.
-        </td>
+        <td><strong>Clear-and-ReSyncGPOs-ADComputers.ps1</strong></td>
+        <td>Resets and re-synchronizes Group Policy Objects (GPOs) across domain computers for consistency.</td>
       </tr>
       <tr>
-        <td>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</td>
-        <td>
-          Synchronizes folders from a network location to AD computers, ensuring only updated files are copied while outdated files are removed. Full logging is included for traceability.
-        </td>
+        <td><strong>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</strong></td>
+        <td>Synchronizes folders from a network location to AD computers with full logging for traceability.</td>
       </tr>
       <tr>
-        <td>Deploy-FortiClientVPN-viaGPO.ps1</td>
-        <td>
-          Automates the deployment of FortiClient VPN software via GPO to support secure remote access. Handles version checks, uninstalling outdated versions, and configuring VPN tunnels.
-        </td>
+        <td><strong>Deploy-FortiClientVPN-viaGPO.ps1</strong></td>
+        <td>Automates FortiClient VPN deployment via GPO, ensuring secure remote access.</td>
       </tr>
       <tr>
-        <td>Deploy-FusionInventoryAgent-viaGPO.ps1</td>
-        <td>
-          Deploys the FusionInventory Agent to workstations for seamless inventory management and reporting.
-        </td>
+        <td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td>
+        <td>Deploys the FusionInventory Agent for inventory management and reporting.</td>
       </tr>
       <tr>
-        <td>Deploy-KasperskyAV-viaGPO.ps1</td>
-        <td>
-          Automates the installation and configuration of Kaspersky Endpoint Security (KES) and Network Agent on domain workstations using GPO. Includes MSI validation and version management.
-        </td>
+        <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
+        <td>Automates Kaspersky Endpoint Security (KES) installation and configuration via GPO.</td>
       </tr>
       <tr>
-        <td>Deploy-PowerShell-viaGPO.ps1</td>
-        <td>
-          Simplifies the deployment of PowerShell to workstations and servers via GPO. Ensures proper version checks, uninstalls older versions, and installs updates as needed.
-        </td>
+        <td><strong>Deploy-PowerShell-viaGPO.ps1</strong></td>
+        <td>Ensures proper deployment and updates of PowerShell across workstations.</td>
       </tr>
       <tr>
-        <td>Deploy-ZoomWorkplace-viaGPO.ps1</td>
-        <td>
-          Automates the deployment of Zoom software on workstations via GPO for streamlined collaboration.
-        </td>
+        <td><strong>Deploy-ZoomWorkplace-viaGPO.ps1</strong></td>
+        <td>Automates Zoom deployment on workstations for streamlined collaboration.</td>
       </tr>
       <tr>
-        <td>Enhance-BGInfoDisplay-viaGPO.ps1</td>
-        <td>
-          Integrates BGInfo with GPO to display critical system information on desktops.
-          <br /><strong>Complementary File:</strong>
-          <ul>
-            <li>Enhance-BGInfoDisplay-viaGPO.bgi: Configuration file for customizing BGInfo desktop displays.</li>
-          </ul>
-        </td>
+        <td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td>
+        <td>Integrates BGInfo with GPO to display critical system information on desktops.</td>
       </tr>
       <tr>
-        <td>Install-KMSLicensingServer-Tool.ps1</td>
-        <td>
-          Installs and configures a Key Management Service (KMS) Licensing Server in an AD forest. Includes a GUI for ease of use and standardized logging.
-        </td>
+        <td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td>
+        <td>Installs and configures a Key Management Service (KMS) Licensing Server in an AD forest.</td>
       </tr>
       <tr>
-        <td>Install-RDSLicensingServer-Tool.ps1</td>
-        <td>
-          Configures a Remote Desktop Services (RDS) Licensing Server to manage client access licenses (CALs). Includes error handling and detailed logs for compliance.
-        </td>
+        <td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td>
+        <td>Configures a Remote Desktop Services (RDS) Licensing Server to manage client access licenses (CALs).</td>
       </tr>
       <tr>
-        <td>Rename-DiskVolumes-viaGPO.ps1</td>
-        <td>
-          Renames disk volumes uniformly across workstations using GPO, improving consistency in disk management.
-        </td>
+        <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
+        <td>Renames disk volumes uniformly across workstations for consistency.</td>
       </tr>
       <tr>
-        <td>Reset-and-Sync-DomainGPOs-viaGPO.ps1</td>
-        <td>
-          Resets and re-synchronizes domain GPOs to maintain compliance and uniform policy application across workstations.
-        </td>
+        <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
+        <td>Resets and re-synchronizes domain GPOs for uniform policy application.</td>
       </tr>
       <tr>
-        <td>Retrieve-LocalMachine-InstalledSoftwareList.ps1</td>
-        <td>
-          Audits installed software across Active Directory computers, generating detailed reports to verify compliance with software policies.
-        </td>
+        <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
+        <td>Audits installed software across Active Directory computers.</td>
       </tr>
       <tr>
-        <td>Remove-SharedFolders-and-Drives-viaGPO.ps1</td>
-        <td>
-          Removes unauthorized shared folders and drives using GPO, ensuring data-sharing compliance and mitigating data breach risks.
-        </td>
+        <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
+        <td>Removes unauthorized shared folders and drives using GPO.</td>
       </tr>
       <tr>
-        <td>Remove-Softwares-NonCompliance-Tool.ps1</td>
-        <td>
-          Uninstalls non-compliant or unauthorized software on workstations to ensure adherence to organizational policies.
-          <br /><strong>Complementary File:</strong>
-          <ul>
-            <li>Remove-Softwares-NonCompliance-Tool.txt: A configuration file listing the software to be uninstalled.</li>
-          </ul>
-        </td>
+        <td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td>
+        <td>Uninstalls non-compliant or unauthorized software to ensure policy adherence.</td>
       </tr>
       <tr>
-        <td>Remove-Softwares-NonCompliance-viaGPO.ps1</td>
-        <td>
-          Enforces software compliance by removing unauthorized applications via GPO across domain machines.
-        </td>
+        <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
+        <td>Removes unauthorized applications across domain machines using GPO.</td>
       </tr>
       <tr>
-        <td>Uninstall-SelectedApp-Tool.ps1</td>
-        <td>
-          Provides a GUI for selecting and uninstalling unwanted applications, automating software removal with minimal manual intervention.
-        </td>
+        <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
+        <td>Provides a GUI for uninstalling selected applications.</td>
       </tr>
       <tr>
-        <td>Update-ADComputer-Winget-Explicit.ps1</td>
-        <td>
-          Updates software on workstations explicitly using the <code>winget</code> tool, ensuring that systems run the latest software versions.
-        </td>
+        <td><strong>Update-ADComputer-Winget-Explicit.ps1</strong></td>
+        <td>Updates software on workstations explicitly using the <code>winget</code> tool.</td>
       </tr>
       <tr>
-        <td>Update-ADComputer-Winget-viaGPO.ps1</td>
-        <td>
-          Automates software updates across workstations using <code>winget</code> with deployment managed via GPO.
-        </td>
+        <td><strong>Update-ADComputer-Winget-viaGPO.ps1</strong></td>
+        <td>Automates software updates using <code>winget</code> with deployment via GPO.</td>
       </tr>
     </tbody>
   </table>
 
   <hr />
 
-  <h2>🔍 How to Use</h2>
-  <p>
-    Each script includes detailed headers with usage instructions. Open the scripts in a PowerShell editor to review prerequisites, permissions, and execution steps. Use the complementary files as necessary to configure or enhance the script’s operation.
-  </p>
+  <h2>🚀 Usage Instructions</h2>
+  <ol>
+    <li><strong>Run the Script:</strong> Launch the desired script using the <code>Run With PowerShell</code> option.</li>
+    <li><strong>Provide Inputs:</strong> Follow on-screen prompts or customize parameters as required.</li>
+    <li><strong>Review Outputs:</strong> Check generated <code>.log</code> files and exported <code>.csv</code> reports for results.</li>
+  </ol>
 
   <hr />
 
-  <h2>🛠️ Prerequisites</h2>
-  <p>
-    Before using the scripts, ensure the following prerequisites are met:
-  </p>
+  <h2>📄 Complementary Files Overview</h2>
   <ul>
     <li>
-      <strong>PowerShell 5.1 or Later:</strong> Required for script execution. Verify your version with:
-      <pre style="background: #f4f4f4; padding: 10px;">$PSVersionTable.PSVersion</pre>
+      <strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> 
+      An editable HTML file for configuring and previewing logon messages via GPO.
     </li>
     <li>
-      <strong>Administrative Privileges:</strong> Necessary for deploying software, managing GPOs, and accessing sensitive configurations.
+      <strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> 
+      A customizable configuration file for BGInfo desktop displays.
     </li>
     <li>
-      <strong>Dependencies:</strong> Ensure the required modules, such as <code>GroupPolicy</code>, are installed and available.
+      <strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> 
+      A configuration file listing unauthorized software for removal.
     </li>
   </ul>
 
   <hr />
 
-<h2>📄 Complementary Files Overview</h2>
-<ul>
-  <li>
-    <strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> 
-    An editable HTML file designed for configuring and previewing logon messages, ready for deployment via Group Policy Object (GPO).
-  </li>
-  <li>
-    <strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> 
-    Customizable configuration file, editable with BgInfo64.exe 
-    <a href="https://download.sysinternals.com/files/BGInfo.zip" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Download-BGInfo-blue?style=flat-square&logo=microsoft" alt="Download BGInfo Zip">
-    </a> 
-    or learn more about it on the official Microsoft documentation 
-    <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/bginfo" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Read%20More-BGInfo-blue?style=flat-square&logo=microsoft" alt="Microsoft Documentation Badge">
-    </a>, for enriching desktop displays with BGInfo.
-  </li>
-  <li>
-    <strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> 
-    A plain text file listing unauthorized software to be uninstalled by the associated script.
-  </li>
-</ul>
-
+  <h2>💡 Tips for Optimization</h2>
+  <ul>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using Task Scheduler.</li>
+    <li><strong>Centralize Logs and Reports:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository for collaboration and analysis.</li>
+    <li><strong>Customize Scripts:</strong> Adjust parameters to meet organizational needs.</li>
+  </ul>
+</div>
