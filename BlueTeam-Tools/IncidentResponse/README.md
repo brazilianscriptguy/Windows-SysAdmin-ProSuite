@@ -51,11 +51,11 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>🔍 Decipher-EML-MailMessages-Tool.ps1</strong></td>
+        <td><strong>Decipher-EML-MailMessages-Tool.ps1</strong></td>
         <td>Decodes suspicious email messages using techniques like offset subtraction, encoding conversions, ROT13, and Caesar cipher brute force. Analyzes and identifies hidden threats in email content.</td>
       </tr>
       <tr>
-        <td><strong>🗑️ Delete-FilesByExtensionBulk-Tool.ps1</strong></td>
+        <td><strong>Delete-FilesByExtensionBulk-Tool.ps1</strong></td>
         <td>Deletes files in bulk based on specified extensions, ideal for post-incident cleanup or routine maintenance. Uses <code>Delete-FilesByExtension-List.txt</code> for customizable cleanup parameters.</td>
       </tr>
     </tbody>
