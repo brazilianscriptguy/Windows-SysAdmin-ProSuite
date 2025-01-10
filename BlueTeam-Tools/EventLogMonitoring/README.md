@@ -109,25 +109,30 @@
         <td>Retrieves details of system restarts and shutdown events from the System log and exports the results to <code>.csv</code>.</td>
       </tr>
       <tr>
-        <td>Migrate-WinEvtStructure-Tool.ps1</td>
-        <td>
-          Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
-          <br /><br />
-          <strong>Note:</strong> Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. To do this, run:
-          <pre><code>bcdedit /set {current} safeboot minimal
+    <td>Migrate-WinEvtStructure-Tool.ps1</td>
+    <td>
+        Moves Windows Event Log files to a new directory, updates registry paths, and preserves ACLs.
+        <br /><br />
+        <strong>Note:</strong> Some Windows Server environments require restarting in Safe Mode to stop the Event Log service. 
+        To do this, run:
+        <pre><code>
+bcdedit /set {current} safeboot minimal
 shutdown /r /t 0
-          </code></pre>
-          After running the script, return to normal mode:
-          <pre><code>bcdedit /deletevalue {current} safeboot
+        </code></pre>
+        After running the script, return to normal mode:
+        <pre><code>
+bcdedit /deletevalue {current} safeboot
 shutdown /r /t 0
-          </code></pre>
-         <strong>Note:</strong> For domain-joined machines like DHCP servers, backup configurations first:
-          <pre><code>netsh dhcp server export C:\Backup\dhcpconfig.dat all</code></pre>
-<strong>Note:</strong> And afterwards moving the default events logs, restore the DHCP configs:
- <pre><code>netsh dhcp server import C:\Backup\dhcpconfig.dat all</code></pre>
- <pre><code>
-        
-        </td>
+        </code></pre>
+        <strong>Note:</strong> For domain-joined machines like DHCP servers, backup configurations first:
+        <pre><code>
+netsh dhcp server export C:\Backup\dhcpconfig.dat all
+        </code></pre>
+        <strong>Note:</strong> After moving the default event logs, restore the DHCP configurations:
+        <pre><code>
+netsh dhcp server import C:\Backup\dhcpconfig.dat all
+        </code></pre>
+    </td>
       </tr>
     </tbody>
   </table>
