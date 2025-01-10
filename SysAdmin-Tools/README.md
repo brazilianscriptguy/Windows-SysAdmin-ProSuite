@@ -112,7 +112,7 @@
   <h2>🚀 Getting Started</h2>
   <ol>
       <li>
-      <strong>Clone or download the main repository:</strong>
+      <strong>Clone or download the Main Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
     <li>
