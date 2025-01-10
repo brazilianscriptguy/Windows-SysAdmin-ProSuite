@@ -29,21 +29,21 @@
     </thead>
     <tbody>
       <tr>
-        <td style="padding: 8px;">Activate-All-AdminShares.ps1</td>
+        <td style="padding: 8px;"><strong>Activate-All-AdminShares.ps1</strong></td>
         <td style="padding: 8px;">
           Enables administrative shares, activates Remote Desktop Protocol (RDP), disables Windows Firewall, and deactivates Windows Defender 
           to facilitate administrative access. Includes a GUI for task management.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Exports-CustomThemes-Files.ps1</td>
+        <td style="padding: 8px;"><strong>Exports-CustomThemes-Files.ps1</strong></td>
         <td style="padding: 8px;">
           Standardizes desktop and user interface configurations by exporting custom Windows theme files, such as 
           <code>LayoutModification.xml</code>, <code>.msstyles</code>, and <code>.deskthemepack</code>, across the network.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Fix-PrinterDriver-Issues.ps1</td>
+        <td style="padding: 8px;"><strong>Fix-PrinterDriver-Issues.ps1</strong></td>
         <td style="padding: 8px;">
           Troubleshoots common printer-related issues by:
           <ul>
@@ -55,32 +55,32 @@
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">PsGetsid64.exe</td>
+        <td style="padding: 8px;"><strong>PsGetsid64.exe</strong></td>
         <td style="padding: 8px;">
           Translates <strong>Security Identifiers (SID)</strong> to display names and vice versa. Useful for diagnosing and managing 
           builtin accounts, domain accounts, and local accounts.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Inventory-InstalledSoftwareList.ps1</td>
+        <td style="padding: 8px;"><strong>Inventory-InstalledSoftwareList.ps1</strong></td>
         <td style="padding: 8px;">
           Inventories all installed software on the workstation, generating a comprehensive report for auditing and compliance purposes.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">LSA-NetJoin-Legacy.ps1</td>
+        <td style="padding: 8px;"><strong>LSA-NetJoin-Legacy.ps1</strong></td>
         <td style="padding: 8px;">
           Modifies registry settings to enable legacy operating systems to join modern domains. Fully compatible with Windows Server 2019 and newer.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">RecallKESCert.ps1</td>
+        <td style="padding: 8px;"><strong>RecallKESCert.ps1</strong></td>
         <td style="padding: 8px;">
           Repoints the workstation to the antivirus server and renews the required certificate, ensuring continued protection and secure operations.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">ChangeDiskVolumesNames.ps1</td>
+        <td style="padding: 8px;"><strong>ChangeDiskVolumesNames.ps1</strong></td>
         <td style="padding: 8px;">
           Renames disk volumes:
           <ul>
@@ -91,14 +91,14 @@
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Resync-GPOs-DataStore.ps1</td>
+        <td style="padding: 8px;"><strong>Resync-GPOs-DataStore.ps1</strong></td>
         <td style="padding: 8px;">
           Resets all Group Policy Objects (GPOs) on the workstation and synchronizes them with domain policies. A GUI assists users and logs all 
           actions for accountability.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Unjoin-ADComputer-and-Cleanup.ps1</td>
+        <td style="padding: 8px;"><strong>Unjoin-ADComputer-and-Cleanup.ps1</strong></td>
         <td style="padding: 8px;">
           Unjoins the workstation from the domain and performs cleanup tasks, such as:
           <ul>
@@ -109,14 +109,14 @@
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Workstation-Data-Report.ps1</td>
+        <td style="padding: 8px;"><strong>Workstation-Data-Report.ps1</strong></td>
         <td style="padding: 8px;">
           Compiles system configuration details, including OS, BIOS, and network information, into a <code>.CSV</code> file. Designed with a GUI 
           for user feedback and error handling.
         </td>
       </tr>
       <tr>
-        <td style="padding: 8px;">Workstation-TimeSync.ps1</td>
+        <td style="padding: 8px;"><strong>Workstation-TimeSync.ps1</strong></td>
         <td style="padding: 8px;">
           Synchronizes the workstation’s time, date, and time zone with the domain controllers, ensuring network-wide consistency.
         </td>
