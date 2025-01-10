@@ -31,7 +31,7 @@
         <td>Tools for managing Active Directory, including user accounts, computer accounts, group policies, and directory synchronization.</td>
         <td>
           <a href="ActiveDirectory-Management/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/View%20ActiveDirectory%20Management-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/ActiveDirectory%20Management-README-blue?style=for-the-badge&logo=github" 
             alt="ActiveDirectory-Management README Badge">
           </a>
         </td>
@@ -41,7 +41,7 @@
         <td>A collection of ready-to-use GPO templates designed for seamless import into a new Windows Server Forest and Domain structure.</td>
         <td>
           <a href="GroupPolicyObjects-Templates/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/View%20GPO%20Templates-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/GPO%20Templates-README-blue?style=for-the-badge&logo=github" 
             alt="GPOs-Templates README Badge">
           </a>
         </td>
@@ -51,7 +51,7 @@
         <td>Scripts for managing network services (e.g., DHCP, DNS, WSUS) and ensuring reliable infrastructure operations.</td>
         <td>
           <a href="Network-and-Infrastructure-Management/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/View%20Network%20Management-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/Network%20Management-README-blue?style=for-the-badge&logo=github" 
             alt="Network Management README Badge">
           </a>
         </td>
@@ -61,7 +61,7 @@
         <td>Tools for optimizing system performance, enforcing compliance, and enhancing security.</td>
         <td>
           <a href="Security-and-Process-Optimization/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/View%20Security%20Optimization-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/Security%20Optimization-README-blue?style=for-the-badge&logo=github" 
             alt="Security Optimization README Badge">
           </a>
         </td>
@@ -71,7 +71,7 @@
         <td>Tools for deploying and configuring software, managing group policies, and maintaining consistent system settings across the domain.</td>
         <td>
           <a href="SystemConfiguration-and-Deployment/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/View%20System%20Deployment-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/System%20Deployment-README-blue?style=for-the-badge&logo=github" 
             alt="System Deployment README Badge">
           </a>
         </td>
