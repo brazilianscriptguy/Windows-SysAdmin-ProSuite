@@ -31,7 +31,7 @@
         <td>Tools for managing Active Directory, including user accounts, computer accounts, group policies, and directory synchronization.</td>
         <td>
           <a href="ActiveDirectory-Management/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/ActiveDirectory%20Management-README-blue?style=for-the-badge&logo=github" 
+            <img src="https://img.shields.io/badge/AD%20Management-README-blue?style=for-the-badge&logo=github" 
             alt="ActiveDirectory-Management README Badge">
           </a>
         </td>
