@@ -112,7 +112,7 @@
   <h2>🚀 Getting Started</h2>
   <ol>
     <li>
-     Clone or download this repository:
+     <strong>Clone or download this repository:</strong>strong>
       <p>Clone the <code>SysAdmin-Tools</code> repository to your local machine:</p>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
