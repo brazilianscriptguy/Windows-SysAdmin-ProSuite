@@ -75,49 +75,49 @@
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
-        <th style="padding: 8px;">Script Name</th>
+        <th style="padding: 8px;"><strong>Script Name</strong></th>
         <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>ITSM-DefaultServerConfig.ps1</td>
+        <td><strong>ITSM-DefaultServerConfig.ps1</strong></td>
         <td>Applies essential configurations for server setup, including DNS settings, hardening roles, and administrative shares setup.</td>
       </tr>
       <tr>
-        <td>ITSM-ModifyServerRegistry.ps1</td>
+        <td><strong>ITSM-ModifyServerRegistry.ps1</strong></td>
         <td>Modifies registry settings to enforce security and compliance, including disabling SMBv1 and configuring Windows Updates.</td>
       </tr>
       <tr>
-        <td>ITSM-DNSRegistration.ps1</td>
+        <td><strong>ITSM-DNSRegistration.ps1</strong></td>
         <td>Ensures proper DNS registration for Active Directory integration.</td>
       </tr>
       <tr>
-        <td>ITSM-HardenServer.ps1</td>
+        <td><strong>ITSM-HardenServer.ps1</strong></td>
         <td>Applies security hardening configurations after the server joins the domain.</td>
       </tr>
       <tr>
-        <td>CheckServerRoles.ps1</td>
+        <td><strong>CheckServerRoles.ps1</strong></td>
         <td>Lists all installed roles and features on the server.</td>
       </tr>
       <tr>
-        <td>ExportServerConfig.ps1</td>
+        <td><strong>ExportServerConfig.ps1</strong></td>
         <td>Exports the server’s configuration to a <code>.csv</code> file for documentation.</td>
       </tr>
       <tr>
-        <td>FixNTFSPermissions.ps1</td>
+        <td><strong>FixNTFSPermissions.ps1</strong></td>
         <td>Corrects NTFS permission inconsistencies.</td>
       </tr>
       <tr>
-        <td>InventoryServerSoftware.ps1</td>
+        <td><strong>InventoryServerSoftware.ps1</strong></td>
         <td>Creates an inventory of installed software on the server.</td>
       </tr>
       <tr>
-        <td>ResetGPOSettings.ps1</td>
+        <td><strong>ResetGPOSettings.ps1</strong></td>
         <td>Resets GPO-related configurations to default values.</td>
       </tr>
       <tr>
-        <td>ServerTimeSync.ps1</td>
+        <td><strong>ServerTimeSync.ps1</strong></td>
         <td>Synchronizes server time with a domain time source.</td>
       </tr>
     </tbody>
