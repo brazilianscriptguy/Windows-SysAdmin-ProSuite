@@ -100,13 +100,28 @@
 <h2>💻 Getting Started</h2>
 <p>Follow these steps to begin:</p>
 <ol>
-  <li>Clone the repository: <code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></li>
-  <li>Organize the scripts into directories for easier access and management.</li>
-  <li>Explore the folders: <code>BlueTeam-Tools, Core-ScriptLibrary, ITSM-Templates-SVR, ITSM-Templates-WKS, SysAdmin-Tools</code>.</li>
-  <li>Run the scripts:
+  <li>
+    Clone the repository: 
+    <code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code>
+  </li>
+  <li>
+    Organize the scripts into directories for easier access and management.
+  </li>
+  <li>
+    Explore the folders: 
+    <code>BlueTeam-Tools, Core-ScriptLibrary, ITSM-Templates-SVR, ITSM-Templates-WKS, SysAdmin-Tools</code>.
+  </li>
+  <li>
+    Run the scripts:
     <ul>
-      <li><strong>PowerShell Scripts (<code>.ps1</code>):</strong> Right-click and select "Run with PowerShell".</li>
-      <li><strong>VBScript Files (<code>.vbs</code>):</strong> Right-click and select "Run with Command Prompt".</li>
+      <li>
+        <strong>PowerShell Scripts (<code>.ps1</code>):</strong> 
+        Right-click and select "Run with PowerShell".
+      </li>
+      <li>
+        <strong>VBScript Files (<code>.vbs</code>):</strong> 
+        Right-click and select "Run with Command Prompt".
+      </li>
     </ul>
   </li>
 </ol>
