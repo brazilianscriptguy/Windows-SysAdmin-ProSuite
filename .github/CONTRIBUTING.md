@@ -68,7 +68,7 @@
   <ul>
     <li>
       <strong>📜 Code of Conduct:</strong> Please refer to our 
-      <a href="CODE_OF_CONDUCT.html" target="_blank">Code of Conduct</a> for guidelines on how to interact with the community.
+      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CODE_OF_CONDUCT.md" target="_blank">Code of Conduct</a> for guidelines on how to interact with the community.
     </li>
     <li>
       <strong>📖 Getting Started:</strong> If you're new to the project, start by reviewing the 
