@@ -50,7 +50,7 @@
 
 <hr />
 
-<h2>🚀 Features</h2>
+<h2>💻 Features</h2>
 <p>
   This repository is organized into five comprehensive sections, each focusing on distinct aspects of IT management and compliance:
 </p>
@@ -97,7 +97,7 @@
 
 <hr />
 
-<h2>💻 Getting Started</h2>
+<h2>🚀 Getting Started</h2>
 <ol>
   <li>
     <strong>Clone or download the Main Repository:</strong>
