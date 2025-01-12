@@ -127,7 +127,7 @@ shutdown /r /t 0
 shutdown /r /t 0
               </code></pre>
             </li>
-            <li>For domain-joined machines like DHCP servers, backup configurations first:
+            <li>DHCP Server issues. For domain-joined Servers like DHCP servers, backup configurations first:
               <pre><code>netsh dhcp server export C:\Backup\dhcpconfig.dat all</code></pre>
             </li>
             <li>After moving the default event logs, restore the DHCP configurations:
