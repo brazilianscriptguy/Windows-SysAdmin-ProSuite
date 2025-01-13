@@ -160,7 +160,7 @@
   <ul>
     <li><strong>📄 BlueTeam-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/BlueTeam-Tools/README.md">View Documentation</a></li>
     <li><strong>📄 Core-ScriptLibrary Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/Core-ScriptLibrary/README.md">View Documentation</a></li>
-    <li><strong>📄 ITSM-Templates-SRV Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SRV/README.md">View Documentation</a></li>
+    <li><strong>📄 ITSM-Templates-SVR Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SVR/README.md">View Documentation</a></li>
     <li><strong>📄 ITSM-Templates-WKS Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md">View Documentation</a></li>
     <li><strong>📄 SysAdmin-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/SysAdmin-Tools/README.md">View Documentation</a></li>
   </ul> 
