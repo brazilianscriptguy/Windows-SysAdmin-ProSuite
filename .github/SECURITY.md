@@ -158,11 +158,12 @@
 
   <h2>📚 Additional Resources</h2>
   <ul>
-    <li><strong>📄 ADAdmin-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators/blob/main/ADAdmin-Tools/README.md">View Documentation</a></li>
-    <li><strong>📄 BlueTeam-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators/blob/main/BlueTeam-Tools/README.md">View Documentation</a></li>
-    <li><strong>📄 Core-ScriptLibrary Documentation:</strong> <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators/blob/main/Core-ScriptLibrary/README.md">View Documentation</a></li>
-    <li><strong>📄 ITSM-Templates Documentation:</strong> <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators/blob/main/ITSM-Templates/README.md">View Documentation</a></li>
-  </ul>
+    <li><strong>📄 BlueTeam-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/BlueTeam-Tools/README.md">View Documentation</a></li>
+    <li><strong>📄 Core-ScriptLibrary Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/Core-ScriptLibrary/README.md">View Documentation</a></li>
+    <li><strong>📄 ITSM-Templates-SRV Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SRV/README.md">View Documentation</a></li>
+    <li><strong>📄 ITSM-Templates-WKS Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md">View Documentation</a></li>
+    <li><strong>📄 SysAdmin-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/SysAdmin-Tools/README.md">View Documentation</a></li>
+  </ul> 
 
   <h2>🗂️ Version History</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
