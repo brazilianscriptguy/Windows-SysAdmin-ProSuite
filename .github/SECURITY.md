@@ -4,7 +4,7 @@
 
 <h2>📌 Supported Versions</h2>
 <p>
-  The following versions of the <strong>PowerShell ToolSet</strong> (ADAdmin-Tools, BlueTeam-Tools, Core-ScriptLibrary) for Windows Server Administration and the <strong>VBScript Repository</strong> (ITSM-Templates) for Windows Workstations 10/11 are supported with security updates. These scripts are designed to work with specific versions of Windows Workstations and Windows Server.
+  The following versions of the <strong>PowerShell ToolSet</strong> (BlueTeam-Tools, Core-ScriptLibrary, ITSM-Templates-SVR, ITSM-Templates-WKS, SysAdmin-Tools) for Windows Server Administration and the <strong>VBScript Repository</strong> (ITSM-Templates-WKS) for Windows Workstations 10/11 are supported with security updates. These scripts are designed to work with specific versions of Windows Workstations and Windows Server.
 </p>
 
 <h3>💻 PowerShell ToolSet Versions</h3>
@@ -188,7 +188,9 @@
     </a>
   </li>
   <li>
-    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md" target="_blank" rel="noopener noreferrer">
+    <a href="https
+
+://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/ITSM%20Templates-WKS%20Documentation-green?style=flat-square&logo=readthedocs" alt="ITSM-Templates-WKS Documentation Badge">
     </a>
   </li>
