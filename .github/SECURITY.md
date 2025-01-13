@@ -9,11 +9,36 @@
 
 <h3>💻 PowerShell ToolSet Versions</h3>
 <ul>
-  <li><strong>BlueTeam-Tools:</strong> Security measures, monitoring, and incident response for Windows Server.</li>
-  <li><strong>Core-ScriptLibrary:</strong> Essential scripts for dynamic UIs, automation, and complex solutions.</li>
-  <li><strong>ITSM-Templates-SVR:</strong> ITSM-focused scripts for managing Windows Server environments.</li>
-  <li><strong>ITSM-Templates-WKS:</strong> Scripts for managing Windows 10/11 workstations in ITSM frameworks.</li>
-  <li><strong>SysAdmin-Tools:</strong> Tools for Active Directory, user management, and security configurations.</li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
+    </a>
+    <span>Security measures, monitoring, and incident response for Windows Server.</span>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Asset-red?style=flat-square&logo=vscode" alt="Core-ScriptLibrary Badge">
+    </a>
+    <span>Essential scripts for dynamic UIs, automation, and complex solutions.</span>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=flat-square&logo=server" alt="ITSM-Templates-SVR Badge">
+    </a>
+    <span>ITSM-focused scripts for managing Windows Server environments.</span>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=flat-square&logo=windows" alt="ITSM-Templates-WKS Badge">
+    </a>
+    <span>Scripts for managing Windows 10/11 workstations in ITSM frameworks.</span>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=flat-square&logo=windows" alt="SysAdmin-Tools Badge">
+    </a>
+    <span>Tools for Active Directory, user management, and security configurations.</span>
+  </li>
 </ul>
 
 <table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
@@ -147,11 +172,31 @@
 
 <h2>📚 Additional Resources</h2>
 <ul>
-  <li><strong>📄 BlueTeam-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/BlueTeam-Tools/README.md">View Documentation</a></li>
-  <li><strong>📄 Core-ScriptLibrary Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/Core-ScriptLibrary/README.md">View Documentation</a></li>
-  <li><strong>📄 ITSM-Templates-SVR Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SVR/README.md">View Documentation</a></li>
-  <li><strong>📄 ITSM-Templates-WKS Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md">View Documentation</a></li>
-  <li><strong>📄 SysAdmin-Tools Documentation:</strong> <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/SysAdmin-Tools/README.md">View Documentation</a></li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/BlueTeam-Tools/README.md" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/BlueTeam%20Tools-Documentation-orange?style=flat-square&logo=readthedocs" alt="BlueTeam-Tools Documentation Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/Core-ScriptLibrary/README.md" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Documentation-red?style=flat-square&logo=readthedocs" alt="Core-ScriptLibrary Documentation Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SVR/README.md" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-SVR%20Documentation-purple?style=flat-square&logo=readthedocs" alt="ITSM-Templates-SVR Documentation Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/ITSM%20Templates-WKS%20Documentation-green?style=flat-square&logo=readthedocs" alt="ITSM-Templates-WKS Documentation Badge">
+    </a>
+  </li>
+  <li>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/SysAdmin-Tools/README.md" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/badge/SysAdmin%20Tools-Documentation-blue?style=flat-square&logo=readthedocs" alt="SysAdmin-Tools Documentation Badge">
+    </a>
+  </li>
 </ul>
 
 <h2>🗂️ Version History</h2>
