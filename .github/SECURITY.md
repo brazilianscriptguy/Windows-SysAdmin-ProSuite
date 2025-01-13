@@ -150,7 +150,7 @@
 
   <h2>⬆️ Upgrading Your ToolSet</h2>
   <ol>
-    <li><strong>⬇️ Download the Latest Version:</strong> Visit the <a href="https://github.com/brazilianscriptguy/PowerShell-codes-for-Windows-Server-Administrators/releases/tag/SysAdminToolSet">official repository</a>.</li>
+    <li><strong>⬇️ Download the Latest Version:</strong> Visit the <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases">official repository</a>.</li>
     <li><strong>💾 Backup Existing Scripts:</strong> Back up your current scripts to prevent data loss.</li>
     <li><strong>🔧 Install the Update:</strong> Follow the installation guide in the repository.</li>
     <li><strong>✅ Verify Installation:</strong> Confirm the installation by checking the version number.</li>
