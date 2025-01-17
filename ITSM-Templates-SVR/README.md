@@ -2,7 +2,7 @@
   <h1>🖥️ Efficient Server Management and ITSM Compliance on Windows Server Environments</h1>
   <p>
     Welcome to the <strong>ITSM-Templates-SVR</strong> repository! This collection includes essential 
-    <strong>PowerShell and VBScript tools</strong> designed for IT Service Management (ITSM) in Windows Server environments. By automating server configurations, enhancing operational efficiency, and maintaining compliance, these tools provide a robust framework for managing Windows servers effectively.
+    <code>PowerShell</code> and <code>VBScript tools</code> designed for IT Service Management (ITSM) in Windows Server environments. By automating server configurations, enhancing operational efficiency, and maintaining compliance, these tools provide a robust framework for managing Windows servers effectively.
   </p>
 
   <hr />
