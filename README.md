@@ -141,27 +141,43 @@
 <hr />
 
 <div>
-  <h2 align="center">🤝 Support and Contributions</h2>
-  <p align="center">
-    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" aria-label="Email Luiz Hamilton">
-      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Luiz Hamilton">
-    </a>
-    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" aria-label="Support on Patreon">
-      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon">
-    </a>
-    <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank" aria-label="Buy Me a Coffee">
-      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee" alt="Buy Me a Coffee">
-    </a>
-    <a href="https://ko-fi.com/brazilianscriptguy" target="_blank" aria-label="Support on Ko-fi">
-      <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" alt="Support on Ko-fi">
-    </a>
-    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases" target="_blank" aria-label="Project Releases">
-      <img src="https://img.shields.io/badge/Releases-Windows%20SysAdmin%20ProSuite-blue?style=for-the-badge&logo=github" alt="Project Releases">
-    </a>
-    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" aria-label="Join WhatsApp Channel">
-      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="Join WhatsApp Channel">
-    </a>
-  </p>
+<h2>🤝 Support and Contributions</h2>
+<p style="text-align: justify; font-size: 16px; line-height: 1.6;">
+  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with 
+  specific tools, please refer to the included <code>README.md</code> files or explore the detailed documentation available 
+  in each subfolder.
+</p>
+
+<div align="center">
+  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer" aria-label="Email Luiz Hamilton">
+    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" 
+         alt="Contact via Email">
+  </a>
+  <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Support on Patreon">
+    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" 
+         alt="Support on Patreon">
+  </a>
+  <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Buy Me a Coffee">
+    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee" 
+         alt="Buy Me a Coffee">
+  </a>
+  <a href="https://ko-fi.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Support on Ko-fi">
+    <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" 
+         alt="Support on Ko-fi">
+  </a>
+  <a href="https://gofund.me/4599d3e6" target="_blank" rel="noopener noreferrer" aria-label="Donate via GoFundMe">
+    <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" 
+         alt="Donate via GoFundMe">
+  </a>
+  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer" aria-label="Join WhatsApp Channel">
+    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" 
+         alt="Join WhatsApp Channel">
+  </a>
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md" 
+     target="_blank" rel="noopener noreferrer" aria-label="Report Issues on GitHub">
+    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" 
+         alt="Report Issues on GitHub">
+  </a>
 </div>
 
 <p style="text-align: center; font-size: 18px;">
