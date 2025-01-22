@@ -133,7 +133,7 @@
     <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" 
          alt="Support on Ko-fi">
   </a>
-  <a href="https://gofund.me/4599d3e6" target="_blank" rel="noopener noreferrer" aria-label="Donate via GoFundMe">
+  <a href="https://www.gofundme.com/f/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Donate via GoFundMe">
     <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" 
          alt="Donate via GoFundMe">
   </a>
