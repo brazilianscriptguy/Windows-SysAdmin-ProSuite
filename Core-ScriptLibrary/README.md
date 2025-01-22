@@ -150,6 +150,10 @@
     <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" 
          alt="Support on Ko-fi">
   </a>
+  <a href="https://gofund.me/4599d3e6" target="_blank" rel="noopener noreferrer" aria-label="Donate via GoFundMe">
+    <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" 
+         alt="Donate via GoFundMe">
+  </a>
   <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer" aria-label="Join WhatsApp Channel">
     <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" 
          alt="Join WhatsApp Channel">
