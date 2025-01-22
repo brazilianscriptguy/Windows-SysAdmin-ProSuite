@@ -140,20 +140,33 @@
 
 <hr />
 
-<h2>🤝 Support and Contributions</h2>
-<p align="center">
-  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
-  </a>
-  <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon">
-  </a>
-  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Releases-Windows%20SysAdmin%20ProSuite-blue?style=for-the-badge&logo=github" alt="Releases">
-  </a>
-  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="Join WhatsApp Channel">
-  </a>
+<div>
+  <h2 align="center">🤝 Support and Contributions</h2>
+  <p align="center">
+    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" aria-label="Email Luiz Hamilton">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Luiz Hamilton">
+    </a>
+    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" aria-label="Support on Patreon">
+      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Support on Patreon">
+    </a>
+    <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank" aria-label="Buy Me a Coffee">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee" alt="Buy Me a Coffee">
+    </a>
+    <a href="https://ko-fi.com/brazilianscriptguy" target="_blank" aria-label="Support on Ko-fi">
+      <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" alt="Support on Ko-fi">
+    </a>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases" target="_blank" aria-label="Project Releases">
+      <img src="https://img.shields.io/badge/Releases-Windows%20SysAdmin%20ProSuite-blue?style=for-the-badge&logo=github" alt="Project Releases">
+    </a>
+    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" aria-label="Join WhatsApp Channel">
+      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="Join WhatsApp Channel">
+    </a>
+  </p>
+</div>
+
+<p style="text-align: center; font-size: 18px;">
+  Thank you for choosing <strong>Windows-SysAdmin-ProSuite</strong> to enhance your IT administration workflow. 
+  These tools are crafted to boost your productivity and improve system efficiency.
 </p>
 
-<p>Thank you for choosing the <strong>Windows-SysAdmin-ProSuite</strong> to enhance your IT administration workflow. These tools are crafted to boost your productivity and improve system efficiency.</p>
+<p align="center">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
