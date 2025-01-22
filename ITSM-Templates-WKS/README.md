@@ -154,7 +154,7 @@
   </a>
 </div>
 
-
+ <hr />
   <h3>Document Classification</h3>
   <p>This document is <strong>RESTRICTED</strong> for internal use within the Company’s network.</p>
 </div>
