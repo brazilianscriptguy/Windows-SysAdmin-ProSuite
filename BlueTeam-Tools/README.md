@@ -137,9 +137,9 @@
     <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" 
          alt="Join WhatsApp Channel">
   </a>
-  <a href="https://github.com/brazilianscriptguy/BlueTeam-Tools/issues" target="_blank" rel="noopener noreferrer" aria-label="Report Issues on GitHub">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md" 
+     target="_blank" rel="noopener noreferrer" aria-label="Report Issues on GitHub">
     <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" 
          alt="Report Issues on GitHub">
   </a>
 </div>
-
