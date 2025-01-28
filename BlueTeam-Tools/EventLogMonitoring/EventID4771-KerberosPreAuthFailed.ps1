@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: January 28, 2025
 #>
 
 Param(
@@ -151,7 +151,7 @@ function Search-EventID4771 {
 
         Log-Message "Finished searching $EvtxFilePath"
     } catch {
-        $errorMsg = "Error searching Event ID 4771 in $EvtxFilePath: $($_.Exception.Message)"
+        $errorMsg = "Error searching Event ID 4771 in ${EvtxFilePath}: $($_.Exception.Message)"
         Log-Message $errorMsg
         Show-MessageBox -Message $errorMsg -Title "Search Error"
     }
@@ -171,7 +171,7 @@ function Export-SearchResultsToCSV {
         $Results | Export-Csv -Path $OutputFilePath -NoTypeInformation
         Log-Message "Exported results to $OutputFilePath"
     } catch {
-        $errorMsg = "Error exporting results to $OutputFilePath: $($_.Exception.Message)"
+        $errorMsg = "Error exporting results to ${OutputFilePath}: $($_.Exception.Message)"
         Log-Message $errorMsg
         Show-MessageBox -Message $errorMsg -Title "Export Error"
     }
@@ -193,7 +193,7 @@ function Consolidate-SearchResults {
         $allResults | Export-Csv -Path $ConsolidatedFilePath -NoTypeInformation
         Log-Message "Consolidated results exported to $ConsolidatedFilePath"
     } catch {
-        $errorMsg = "Error consolidating results to $ConsolidatedFilePath: $($_.Exception.Message)"
+        $errorMsg = "Error consolidating results to ${ConsolidatedFilePath}: $($_.Exception.Message)"
         Log-Message $errorMsg
         Show-MessageBox -Message $errorMsg -Title "Consolidation Error"
     }
