@@ -93,6 +93,11 @@
         <td>Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into <code>.csv</code> files for auditing.</td>
       </tr>
       <tr>
+        <td><strong>EventID4720-4732-4735-4728-4756-4672-4724-PrivilegedAccessTracking.ps1</strong></td>
+        <td>Tracks privileged account creation, group membership changes, and administrative actions (Event IDs 4720, 4732, 4735, 4728, 4756, 4672, and 4724) and exports the results to a <code>.csv</code> file.</td>
+      </tr>
+      <tr>
+      <tr>
         <td><strong>EventID4771-KerberosPreAuthFailed.ps1</strong></td>
         <td>Identifies Kerberos pre-authentication failures (Event ID 4771) and outputs findings to <code>.csv</code>.</td>
       </tr>
