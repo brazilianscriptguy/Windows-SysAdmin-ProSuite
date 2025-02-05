@@ -1,34 +1,32 @@
 <#
 .SYNOPSIS
-    PowerShell Script to Move Event Log Default Paths with GUI and Enhanced Error Handling.
+    PowerShell Script to Move Event Log Default Paths and Update Registry.
 
 .DESCRIPTION
-    Provides a graphical interface for moving Windows Event Logs to a new location.
-    Stops the Event Log service and dependencies, moves logs to the specified folder,
-    applies original ACLs, updates registry paths, and restarts services.
+    Provides a GUI for moving Windows Event Logs while preserving ACLs, updating registry paths, and restarting services.
 
 .FEATURES
-    - Stops Event Log Service and Dependencies: Ensures smooth stopping and restarting.
-    - Moves Logs: Transfers `.evtx` files to the specified folder.
-    - Updates Registry: Reflects the new paths for the logs in the Windows Registry.
-    - Preserves ACLs: Retains permissions from the source to the target folder.
-    - User-Friendly GUI: Allows the user to specify the target folder with progress indication.
-    - Comprehensive Logging: Logs all operations, errors, and status updates.
-    - Handles Critical Services: Ensures dependent services like DHCP are restarted correctly.
-    - Validates Critical Services: Verifies that critical services are running post-restart.
+    - Moves `.evtx` files to a new location.
+    - Fixes incorrect folder naming (`%4` → `-`).
+    - Stops and restarts EventLog and dependent services.
+    - Ensures ACLs are preserved on the new files and folders.
+    - Provides comprehensive logging.
+    - User-friendly GUI with clear folder input instructions.
+    - Compatible with UTF-8 without BOM encoding.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    3.5.0 - January 10, 2025
+    4.6.0 - February 5, 2025
 
 .NOTES
     - Requires administrative privileges.
-    - Compatible with environments running PowerShell 5.1 or later.
+    - Compatible with PowerShell 5.1 or later.
+    - Ensure the script is saved in UTF-8 **without BOM** for PowerShell ISE compatibility.
 #>
 
-# --- GLOBAL CONFIGURATIONS ---
+# Hide Console Window
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -40,158 +38,129 @@ public class Window {
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
         var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
+        ShowWindow(handle, 0);
     }
 }
 "@
 [Window]::Hide()
 
+# Load UI Libraries
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- FUNCTIONS ---
+# Initialize Logging with Requested Characteristics
 function Initialize-ScriptPaths {
-    $scriptName = if ($MyInvocation.ScriptName) {
-        [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.ScriptName)
-    } else {
-        "Script"
-    }
-    $logDir = 'C:\Logs-TEMP'
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $logFileName = "${scriptName}_${timestamp}.log"
+    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+    $logDir = 'C:\Scripts-LOGS'
+    $logFileName = "${scriptName}.log"
     $logPath = Join-Path $logDir $logFileName
 
     if (-not (Test-Path $logDir)) {
         New-Item -Path $logDir -ItemType Directory -Force | Out-Null
     }
-    return @{"LogDir" = $logDir; "LogPath" = $logPath; "ScriptName" = $scriptName}
+
+    return @{ "LogDir" = $logDir; "LogPath" = $logPath }
 }
 
+$paths = Initialize-ScriptPaths
+$logDir = $paths.LogDir
+$logPath = $paths.LogPath
+
 function Log-Message {
-    param (
-        [string]$Message,
-        [string]$MessageType = "INFO"
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry
-    } catch {
-        Write-Error "Logging failed: $_"
-    }
+    param ([string]$Message, [string]$Type = "INFO")
+    $logEntry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Type] $Message"
+    Add-Content -Path $logPath -Value $logEntry -Encoding UTF8
 }
 
 function Handle-Error {
-    param ([string]$ErrorMessage)
-    Log-Message -Message "$ErrorMessage" -MessageType "ERROR"
-    [System.Windows.Forms.MessageBox]::Show($ErrorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    param ([string]$Message)
+    Log-Message -Message $Message -Type "ERROR"
+    [System.Windows.Forms.MessageBox]::Show($Message, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 }
 
-function Sanitize-Name {
-    param ([string]$Name)
-    return $Name -replace '[^a-zA-Z\-]', '-' -replace '-+', '-' -replace '-$', ''
-}
-
-function Stop-EventLogService {
+function Stop-Start-Services {
+    param ([string]$Action) # "Stop" or "Start"
     try {
-        $dependentServices = Get-Service -Name "EventLog" -DependentServices | Where-Object { $_.Status -ne 'Stopped' }
-        foreach ($service in $dependentServices) {
-            Stop-Service -Name $service.Name -Force -ErrorAction SilentlyContinue
-            Log-Message -Message "Stopped dependent service: $($service.Name)."
-        }
+        $eventLogService = Get-Service -Name "EventLog"
+        $dependencies = Get-Service -Name "EventLog" -DependentServices | Where-Object { $_.Status -ne 'Stopped' }
 
-        Stop-Service -Name "EventLog" -Force -ErrorAction SilentlyContinue
-        Log-Message -Message "Event Log service stopped."
+        if ($Action -eq "Stop") {
+            $dependencies | ForEach-Object { Stop-Service -Name $_.Name -Force -ErrorAction Stop }
+            Stop-Service -Name "EventLog" -Force -ErrorAction Stop
+        } else {
+            Start-Service -Name "EventLog" -ErrorAction Stop
+            $dependencies | ForEach-Object { Start-Service -Name $_.Name -ErrorAction Stop }
+        }
+        Log-Message -Message "$Action Event Log service and dependencies."
     } catch {
-        Handle-Error "Failed to stop Event Log service: $_"
-    }
-}
-
-function Start-EventLogService {
-    try {
-        Start-Service -Name "EventLog" -ErrorAction SilentlyContinue
-        Log-Message -Message "Event Log service started."
-
-        $dependentServices = Get-Service -Name "EventLog" -DependentServices
-        foreach ($service in $dependentServices) {
-            try {
-                Start-Service -Name $service.Name -ErrorAction SilentlyContinue
-                Log-Message -Message "Started dependent service: $($service.Name)."
-            } catch {
-                Handle-Error "Failed to start dependent service: $($service.Name)."
-            }
-        }
-    } catch {
-        Handle-Error "Failed to start Event Log service: $_"
-    }
-}
-
-function Restart-CriticalServices {
-    $criticalServices = @("DHCP", "DNS", "Spooler", "W32Time")
-    foreach ($serviceName in $criticalServices) {
-        try {
-            Restart-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-            Log-Message -Message "Restarted critical service: $serviceName."
-        } catch {
-            Handle-Error "Failed to restart critical service: $serviceName."
-        }
+        Handle-Error "Failed to $Action Event Log service: $_"
     }
 }
 
 function Move-EventLogs {
-    param (
-        [string]$TargetFolder,
-        [System.Windows.Forms.ProgressBar]$ProgressBar
-    )
+    param ([string]$TargetFolder, [System.Windows.Forms.ProgressBar]$ProgressBar)
 
     if (-not (Test-Path $TargetFolder)) {
-        try {
-            New-Item -Path $TargetFolder -ItemType Directory -Force | Out-Null
-            Log-Message -Message "Created target folder: $TargetFolder."
-        } catch {
-            Handle-Error "Failed to create target folder: $_"
-            return
-        }
+        New-Item -Path $TargetFolder -ItemType Directory -Force | Out-Null
+        Log-Message -Message "Created Target Folder: $TargetFolder"
     }
+
+    $originalACL = Get-Acl -Path "$env:SystemRoot\System32\winevt\Logs"
 
     $logFiles = Get-ChildItem -Path "$env:SystemRoot\System32\winevt\Logs" -Filter "*.evtx"
-    $ProgressBar.Maximum = $logFiles.Count
 
-    $logFiles | ForEach-Object -Begin { $i = 0 } -Process {
-        $folderName = Sanitize-Name -Name $_.BaseName
-        $targetFolderPath = Join-Path -Path $TargetFolder -ChildPath $folderName
-
-        if (-not (Test-Path -Path $targetFolderPath)) {
-            New-Item -Path $targetFolderPath -ItemType Directory -Force | Out-Null
-            Log-Message -Message "Created folder: $targetFolderPath."
-        }
-
-        $targetPath = Join-Path -Path $targetFolderPath -ChildPath $_.Name
-        try {
-            Move-Item -Path $_.FullName -Destination $targetPath -Force
-            Log-Message -Message "Moved: $($_.Name)"
-        } catch {
-            Handle-Error "Failed to move $_.Name: $_"
-        }
-        $ProgressBar.Value = ++$i
+    if ($logFiles.Count -gt 0) {
+        $ProgressBar.Minimum = 0
+        $ProgressBar.Maximum = $logFiles.Count
+        $ProgressBar.Value = 0
+    } else {
+        $ProgressBar.Minimum = 0
+        $ProgressBar.Maximum = 1
+        $ProgressBar.Value = 0
     }
+
+    $i = 0
+
+    foreach ($logFile in $logFiles) {
+        $folderName = $logFile.BaseName -replace "%4", "-"
+        $targetPath = Join-Path -Path $TargetFolder -ChildPath $folderName
+
+        if (-not (Test-Path $targetPath)) {
+            New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
+            Log-Message -Message "Created folder: $targetPath."
+            Set-Acl -Path $targetPath -AclObject $originalACL
+        }
+
+        $destinationFile = Join-Path -Path $targetPath -ChildPath $logFile.Name
+
+        try {
+            Move-Item -Path $logFile.FullName -Destination $destinationFile -Force
+            Set-Acl -Path $destinationFile -AclObject $originalACL
+            Log-Message -Message "Moved: $($logFile.Name) and applied ACLs."
+        } catch {
+            Handle-Error "Failed to move $($logFile.Name): $_"
+        }
+
+        $ProgressBar.Value = $i
+        $i++
+    }
+
+    Set-Acl -Path $TargetFolder -AclObject $originalACL
+    Log-Message -Message "Applied ACLs to the entire $TargetFolder directory."
 }
 
 function Setup-GUI {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'Move Event Log Default Paths'
-    $form.Size = New-Object System.Drawing.Size(500, 300)
+    $form.Text = 'Move Event Log Paths'
+    $form.Size = New-Object System.Drawing.Size(500, 250)
     $form.StartPosition = 'CenterScreen'
 
-    $label = New-Object System.Windows.Forms.Label
-    $label.Text = 'Enter Target Drive or Folder (e.g. L:\):'
-    $label.Location = New-Object System.Drawing.Point(10, 20)
-    $label.AutoSize = $true
-    $form.Controls.Add($label)
+    # Label to indicate the target folder
+    $labelTargetRootFolder = New-Object System.Windows.Forms.Label
+    $labelTargetRootFolder.Text = 'Enter the target root folder (e.g., "L:\"):'
+    $labelTargetRootFolder.Location = New-Object System.Drawing.Point(10, 20)
+    $labelTargetRootFolder.Size = New-Object System.Drawing.Size(460, 20)
+    $form.Controls.Add($labelTargetRootFolder)
 
     $textBox = New-Object System.Windows.Forms.TextBox
     $textBox.Location = New-Object System.Drawing.Point(10, 50)
@@ -201,6 +170,9 @@ function Setup-GUI {
     $progressBar = New-Object System.Windows.Forms.ProgressBar
     $progressBar.Location = New-Object System.Drawing.Point(10, 90)
     $progressBar.Size = New-Object System.Drawing.Size(460, 20)
+    $progressBar.Minimum = 0
+    $progressBar.Maximum = 1
+    $progressBar.Value = 0
     $form.Controls.Add($progressBar)
 
     $button = New-Object System.Windows.Forms.Button
@@ -213,12 +185,11 @@ function Setup-GUI {
             return
         }
         try {
-            Stop-EventLogService
+            Stop-Start-Services -Action "Stop"
             Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
-            Start-EventLogService
-            Restart-CriticalServices
-            Log-Message -Message "Logs moved to $targetFolder."
-            [System.Windows.Forms.MessageBox]::Show("Logs moved to $targetFolder. Logs saved at $logPath.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            Stop-Start-Services -Action "Start"
+            Log-Message -Message "Logs moved successfully to $targetFolder."
+            [System.Windows.Forms.MessageBox]::Show("Logs moved successfully to $targetFolder.", "Success")
         } catch {
             Handle-Error "An error occurred: $_"
         }
@@ -227,11 +198,6 @@ function Setup-GUI {
 
     $form.ShowDialog() | Out-Null
 }
-
-# --- MAIN EXECUTION ---
-$paths = Initialize-ScriptPaths
-$logDir = $paths.LogDir
-$logPath = $paths.LogPath
 
 Setup-GUI
 
