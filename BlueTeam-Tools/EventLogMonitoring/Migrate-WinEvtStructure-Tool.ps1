@@ -1,27 +1,24 @@
 <#
 .SYNOPSIS
-    Moves Windows Event Logs to a new location and updates registry paths.
+    Moves Windows Event Logs from C:\Windows\System32\winevt\Logs to a new target folder and updates registry paths.
 
 .DESCRIPTION
-    - Moves `.evtx` files while preserving ACLs.
-    - Updates Event Log registry paths under 
-      `HKLM:\SYSTEM\CurrentControlSet\Services\EventLog` so that the "File" value becomes:
-      
-          <TargetRootFolder>\<EventLogName>\<EventLogName>.evtx
-
-    - Fixes incorrect folder naming (`%4` → `-`).
-    - Stops and restarts Event Log services properly.
-    - Handles locked log files to avoid script failure.
-    - Provides a GUI interface for user interaction.
-
-    For each event log, a subfolder is created in the target folder using the event log’s name.
-    The log file is then moved into that subfolder and the registry key is updated accordingly.
+    This script:
+      - Moves all .evtx files from the default folder (C:\Windows\System32\winevt\Logs) while preserving ACLs.
+      - For each event log, uses a subfolder in the target folder (named after the log).
+      - If the subfolder already exists, reuses it; if a .evtx file already exists in that folder, renames it (backs it up) before copying.
+      - Updates the registry keys under 
+            HKLM:\SYSTEM\CurrentControlSet\Services\EventLog
+        so that the "File" property becomes:
+            <TargetFolder>\<EventLogName>\<EventLogName>.evtx
+      - Stops and restarts the Event Log service (a full reboot might be required for all changes to take effect).
+      - Provides a GUI for user input and progress indication.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    5.0.3 - February 5, 2025
+    5.0.4 - February 5, 2025
 
 .NOTES
     - Requires administrative privileges.
@@ -100,7 +97,6 @@ function Write-Log {
         Write-Error "Failed to write to log: $_"
     }
 }
-
 # For backward compatibility, alias Write-Log as Log-Message.
 function Log-Message {
     param (
@@ -110,7 +106,6 @@ function Log-Message {
     Write-Log -Message $Message -Level $Type
 }
 
-# Write an initial log entry.
 Write-Log -Message "Script started." -Level "INFO"
 
 # --- Error Handling ---
@@ -142,7 +137,6 @@ function Stop-Start-Services {
     try {
         $eventLogService = Get-Service -Name "EventLog"
         $dependencies = Get-Service -Name "EventLog" -DependentServices | Where-Object { $_.Status -ne 'Stopped' }
-
         if ($Action -eq "Stop") {
             $dependencies | ForEach-Object { Stop-Service -Name $_.Name -Force -ErrorAction Stop }
             Stop-Service -Name "EventLog" -Force -ErrorAction Stop
@@ -150,7 +144,7 @@ function Stop-Start-Services {
             Start-Service -Name "EventLog" -ErrorAction Stop
             $dependencies | ForEach-Object { Start-Service -Name $_.Name -ErrorAction Stop }
         }
-        Log-Message -Message "$Action Event Log service and dependencies."
+        Log-Message -Message "$Action Event Log service and dependencies." -Type "INFO"
     }
     catch {
         Handle-Error -Message "Failed to $Action Event Log service." -Exception $_
@@ -163,19 +157,17 @@ function Move-EventLogs {
         [string]$TargetFolder,
         [System.Windows.Forms.ProgressBar]$ProgressBar
     )
-
     # Ensure target folder exists.
     if (-not (Test-Path $TargetFolder)) {
         try {
             New-Item -Path $TargetFolder -ItemType Directory -Force | Out-Null
-            Log-Message -Message "Created Target Folder: $TargetFolder"
+            Log-Message -Message "Created Target Folder: $TargetFolder" -Type "INFO"
         }
         catch {
             Handle-Error -Message "Failed to create target folder: $TargetFolder" -Exception $_
             return
         }
     }
-
     # Get original ACL from the default logs folder.
     try {
         $originalACL = Get-Acl -Path "$env:SystemRoot\System32\winevt\Logs"
@@ -184,7 +176,6 @@ function Move-EventLogs {
         Handle-Error -Message "Failed to retrieve ACL from default logs folder." -Exception $_
         return
     }
-
     # Retrieve all .evtx files from the default logs folder.
     try {
         $logFiles = Get-ChildItem -Path "$env:SystemRoot\System32\winevt\Logs" -Filter "*.evtx"
@@ -193,35 +184,44 @@ function Move-EventLogs {
         Handle-Error -Message "Failed to retrieve event log files." -Exception $_
         return
     }
-
     # Initialize the progress bar on the UI thread.
     $ProgressBar.Invoke([Action] { $ProgressBar.Minimum = 0 })
     $ProgressBar.Invoke([Action] { $ProgressBar.Maximum = $logFiles.Count })
     $ProgressBar.Invoke([Action] { $ProgressBar.Value   = 0 })
-
     $i = 0
     foreach ($logFile in $logFiles) {
         try {
-            # Clean up the folder name by replacing "%4" with "-" if needed.
+            # Use the log file's base name (with "%4" replaced) as the folder name.
             $folderName = $logFile.BaseName -replace "%4", "-"
             $targetPath = Join-Path -Path $TargetFolder -ChildPath $folderName
 
+            # Reuse the folder if it already exists; otherwise, create it.
             if (-not (Test-Path $targetPath)) {
                 New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
-                Log-Message -Message "Created folder: $targetPath"
+                Log-Message -Message "Created folder: $targetPath" -Type "INFO"
                 Set-Acl -Path $targetPath -AclObject $originalACL
+            } else {
+                Log-Message -Message "Folder already exists: $targetPath" -Type "INFO"
             }
 
+            # Define the destination file path.
             $destinationFile = Join-Path -Path $targetPath -ChildPath $logFile.Name
+
+            # If the destination file exists, rename it as a backup.
+            if (Test-Path $destinationFile) {
+                $backupFile = "$destinationFile.bak_$(Get-Date -Format 'yyyyMMddHHmmss')"
+                Rename-Item -Path $destinationFile -NewName $backupFile -Force
+                Log-Message -Message "Renamed existing file: $destinationFile to $backupFile" -Type "INFO"
+            }
 
             try {
                 Copy-Item -Path $logFile.FullName -Destination $destinationFile -Force -ErrorAction Stop
                 Remove-Item -Path $logFile.FullName -Force -ErrorAction Stop
                 Set-Acl -Path $destinationFile -AclObject $originalACL
-                Log-Message -Message "Moved: $($logFile.Name) to $targetPath and applied ACLs."
+                Log-Message -Message "Moved: $($logFile.Name) to $targetPath and applied ACLs." -Type "INFO"
             }
             catch {
-                Log-Message -Message "Skipped locked or inaccessible file: $($logFile.Name)" -Type "WARNING"
+                Log-Message -Message "Skipped locked or inaccessible file: $($logFile.Name)" -Type "ERROR"
             }
         }
         catch {
@@ -233,10 +233,9 @@ function Move-EventLogs {
             $i++
         }
     }
-
     try {
         Set-Acl -Path $TargetFolder -AclObject $originalACL
-        Log-Message -Message "Applied ACLs to the entire $TargetFolder directory."
+        Log-Message -Message "Applied ACLs to the entire $TargetFolder directory." -Type "INFO"
     }
     catch {
         Handle-Error -Message "Failed to apply ACLs to $TargetFolder" -Exception $_
@@ -246,24 +245,23 @@ function Move-EventLogs {
 # --- Update Registry Paths ---
 function Update-RegistryPaths {
     param ([string]$NewPath)
-
     $registryBasePath = "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog"
-
     try {
-        # Iterate recursively over all keys under the EventLog base.
-        $keysWithFile = Get-ChildItem -Path $registryBasePath -Recurse | Where-Object {
-            (Get-ItemProperty -Path $_.PSPath -Name "File" -ErrorAction SilentlyContinue) -ne $null
+        # Enumerate each immediate subkey under EventLog (e.g. Application, System, etc.).
+        $subKeys = Get-ChildItem -Path $registryBasePath
+        foreach ($subKey in $subKeys) {
+            # Check if the subkey has a "File" property.
+            $fileProp = Get-ItemProperty -Path $subKey.PSPath -Name "File" -ErrorAction SilentlyContinue
+            if ($fileProp -ne $null) {
+                $logName = $subKey.PSChildName
+                # Build the new file location: <NewPath>\<logName>\<logName>.evtx
+                $newFolderPath = Join-Path -Path $NewPath -ChildPath $logName
+                $newLogFilePath = Join-Path -Path $newFolderPath -ChildPath ("$logName.evtx")
+                Set-ItemProperty -Path $subKey.PSPath -Name "File" -Value $newLogFilePath -ErrorAction Stop
+                Log-Message -Message "Updated registry: $($subKey.PSPath) -> $newLogFilePath" -Type "INFO"
+            }
         }
-        foreach ($key in $keysWithFile) {
-            # Use the key's leaf name as the log name.
-            $logName = Split-Path -Path $key.PSPath -Leaf
-            # Build the new file location: <NewPath>\<logName>\<logName>.evtx
-            $newFolderPath = Join-Path -Path $NewPath -ChildPath $logName
-            $newLogFilePath = Join-Path -Path $newFolderPath -ChildPath ("$logName.evtx")
-            Set-ItemProperty -Path $key.PSPath -Name "File" -Value $newLogFilePath -ErrorAction Stop
-            Log-Message -Message "Updated registry: $($key.PSPath) -> $newLogFilePath"
-        }
-        Log-Message -Message "All event log paths updated in the registry."
+        Log-Message -Message "All event log paths updated in the registry." -Type "INFO"
     }
     catch {
         Handle-Error -Message "Failed to update registry paths." -Exception $_
@@ -276,23 +274,23 @@ function Setup-GUI {
     $form.Text = 'Move Event Log Paths'
     $form.Size = New-Object System.Drawing.Size(500, 250)
     $form.StartPosition = 'CenterScreen'
-
+    
     $labelTargetRootFolder = New-Object System.Windows.Forms.Label
     $labelTargetRootFolder.Text = 'Enter the target root folder (e.g., "L:\"):'
     $labelTargetRootFolder.Location = New-Object System.Drawing.Point(10, 20)
     $labelTargetRootFolder.Size = New-Object System.Drawing.Size(460, 20)
     $form.Controls.Add($labelTargetRootFolder)
-
+    
     $textBox = New-Object System.Windows.Forms.TextBox
     $textBox.Location = New-Object System.Drawing.Point(10, 50)
     $textBox.Size = New-Object System.Drawing.Size(460, 20)
     $form.Controls.Add($textBox)
-
+    
     $progressBar = New-Object System.Windows.Forms.ProgressBar
     $progressBar.Location = New-Object System.Drawing.Point(10, 90)
     $progressBar.Size = New-Object System.Drawing.Size(460, 20)
     $form.Controls.Add($progressBar)
-
+    
     $button = New-Object System.Windows.Forms.Button
     $button.Text = "Move Logs"
     $button.Location = New-Object System.Drawing.Point(200, 130)
@@ -308,15 +306,15 @@ function Setup-GUI {
             Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
             Update-RegistryPaths -NewPath $targetFolder
             Stop-Start-Services -Action "Start"
-            [System.Windows.Forms.MessageBox]::Show("Event logs have been moved to '$targetFolder'.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            Log-Message -Message "Event logs successfully moved to $targetFolder."
+            [System.Windows.Forms.MessageBox]::Show("Event logs have been moved to '$targetFolder'.`nA reboot may be required for changes to take effect.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            Log-Message -Message "Event logs successfully moved to $targetFolder." -Type "INFO"
         }
         catch {
             Handle-Error -Message "An error occurred during the log moving process." -Exception $_
         }
     })
     $form.Controls.Add($button)
-
+    
     $form.ShowDialog() | Out-Null
 }
 
