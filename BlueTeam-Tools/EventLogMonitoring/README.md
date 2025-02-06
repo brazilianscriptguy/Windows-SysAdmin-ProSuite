@@ -69,10 +69,14 @@
       <td>Counts occurrences of each Event ID in <code>.evtx</code> files and exports the results to <code>.csv</code>, aiding event log analysis.</td>
     </tr>
     <tr>
-      <td><strong>EventID307-PrintAudit.ps1</strong></td>
-      <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports.
-      Must refers to <code>PrintService-Operacional-EventLogs.md</code> to obtain detailed information about how config the collect EventID 309 (PrintAudit). </td>
-    </tr>
+  <td><strong>EventID307-PrintAudit.ps1</strong></td>
+  <td>
+    Audits print activities by analyzing <strong>Event ID 307</strong> from the 
+    <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports 
+    to monitor print events. Refer to <code>PrintService-Operacional-EventLogs.md</code> for 
+    instructions on configuring the collection of <strong>Event ID 309 (PrintAudit)</strong>.
+  </td>
+</tr>
     <tr>
       <td><strong>EventID4624-ADUserLoginViaRDP.ps1</strong></td>
       <td>Generates a <code>.csv</code> report on RDP logon activities (Event ID 4624) for monitoring remote access.</td>
