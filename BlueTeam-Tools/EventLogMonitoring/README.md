@@ -70,7 +70,8 @@
     </tr>
     <tr>
       <td><strong>EventID307-PrintAudit.ps1</strong></td>
-      <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports.</td>
+      <td>Audits print activities by analyzing Event ID 307 from the <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports.
+      Must refers to <code>PrintService-Operacional-EventLogs.md</code> to obtain detailed information about how config the collect EventID 309 (PrintAudit). </td>
     </tr>
     <tr>
       <td><strong>EventID4624-ADUserLoginViaRDP.ps1</strong></td>
