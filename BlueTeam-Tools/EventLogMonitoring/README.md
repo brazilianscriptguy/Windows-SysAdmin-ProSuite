@@ -74,7 +74,7 @@
     Audits print activities by analyzing <strong>Event ID 307</strong> from the 
     <code>Microsoft-Windows-PrintService/Operational</code> log. Generates detailed tracking reports 
     to monitor print events. Refer to <code>PrintService-Operacional-EventLogs.md</code> for 
-    instructions on configuring the collection of <strong>Event ID 309 (PrintAudit)</strong>.
+    instructions on configuring the collection of <strong>Event ID 307 (PrintAudit)</strong>.
   </td>
 </tr>
     <tr>
