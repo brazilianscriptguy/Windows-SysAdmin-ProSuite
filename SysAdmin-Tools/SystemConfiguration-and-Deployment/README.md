@@ -45,53 +45,113 @@
     <thead>
       <tr>
         <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Description</th>
+        <th style="padding: 8px;">Last Update</th>
       </tr>
     </thead>
     <tbody>
       <tr>
+        <td><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
         <td><strong>Broadcast-ADUser-LogonMessage-viaGPO.ps1</strong></td>
-        <td>Displays customizable logon messages to users via Group Policy Object (GPO).</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Cleanup-WebBrowsers-Tool.ps1</strong></td>
-        <td>Removes cookies, cache, session data, and other residual files from browsers, improving performance and privacy.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Clear-and-ReSyncGPOs-ADComputers.ps1</strong></td>
-        <td>Resets and re-synchronizes Group Policy Objects (GPOs) across domain computers for consistency.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</strong></td>
-        <td>Synchronizes folders from a network location to AD computers with full logging for traceability.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-FortiClientVPN-viaGPO.ps1</strong></td>
-        <td>Automates FortiClient VPN deployment via GPO, ensuring secure remote access.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td>
-        <td>Deploys the FusionInventory Agent for inventory management and reporting.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td>
-        <td>Deploys the GLPI Agent for inventory management and reporting.</td>
+        <td>13 minutes ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
-        <td>Automates Kaspersky Endpoint Security (KES) installation and configuration via GPO.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-PowerShell-viaGPO.ps1</strong></td>
-        <td>Ensures proper deployment and updates of PowerShell across workstations.</td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Deploy-ZoomWorkplace-viaGPO.ps1</strong></td>
-        <td>Automates Zoom deployment on workstations for streamlined collaboration.</td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Enhance-BGInfoDisplay-viaGPO.bgi</strong></td>
+        <td>3 months ago</td>
       </tr>
       <tr>
         <td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td>
-        <td>Integrates BGInfo with GPO to display critical system information on desktops.</td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>README.md</strong></td>
+        <td>Now</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-Softwares-NonCompliance-Tool.txt</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Update-ADComputer-Winget-Explicit.ps1</strong></td>
+        <td>3 months ago</td>
+      </tr>
+      <tr>
+        <td><strong>Update-ADComputer-Winget-viaGPO.ps1</strong></td>
+        <td>3 months ago</td>
       </tr>
     </tbody>
   </table>
@@ -104,24 +164,6 @@
     <li><strong>Provide Inputs:</strong> Follow on-screen prompts or customize parameters as required.</li>
     <li><strong>Review Outputs:</strong> Check generated <code>.log</code> files and exported <code>.csv</code> reports for results.</li>
   </ol>
-
-  <hr />
-
-  <h2>📄 Complementary Files Overview</h2>
-  <ul>
-    <li>
-      <strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> 
-      An editable HTML file for configuring and previewing logon messages via GPO.
-    </li>
-    <li>
-      <strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> 
-      A customizable configuration file for BGInfo desktop displays.
-    </li>
-    <li>
-      <strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> 
-      A configuration file listing unauthorized software for removal.
-    </li>
-  </ul>
 
   <hr />
 
