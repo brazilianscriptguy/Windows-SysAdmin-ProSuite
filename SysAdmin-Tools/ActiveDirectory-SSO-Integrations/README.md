@@ -1,9 +1,21 @@
+  <title>🔹 ActiveDirectory-SSO-Integrations</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; }
+    code { background: #f4f4f4; padding: 2px 4px; }
+    h1, h2, h3 { color: #333; }
+    a { color: #007acc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
   <h1>🔹 ActiveDirectory-SSO-Integrations</h1>
   <p>
     Welcome to the <strong>ActiveDirectory-SSO-Integrations</strong> repository. This repository demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP. All modules use a standardized configuration approach for consistency across different technology stacks.
   </p>
 
-    <h2>📁 Folder Structure</h2>
+  <h2>📁 Folder Structure</h2>
   <pre>
 ActiveDirectory-SSO-Integrations/
 │
@@ -62,10 +74,10 @@ ActiveDirectory-SSO-Integrations/
     <li>Set the <code>LDAP_PASSWORD</code> environment variable before running any module.</li>
     <li>Modify configuration files as needed:
       <ul>
-        <li><code>application.yml</code> (SpringBoot-API)</li>
-        <li><code>ldap.config.json</code> (NodeJS-API)</li>
         <li><code>appsettings.json</code> (DotNet-API)</li>
+        <li><code>ldap.config.json</code> (NodeJS-API)</li>
         <li><code>config.py</code> (Python-API)</li>
+        <li><code>application.yml</code> (SpringBoot-API)</li>
       </ul>
     </li>
   </ul>
