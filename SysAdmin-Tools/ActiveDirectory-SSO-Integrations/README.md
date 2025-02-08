@@ -115,18 +115,3 @@ ActiveDirectory-SSO-Integrations/
 </p>
 
 <hr />
-
-<h2>📝 Logging and Output</h2>
-<ul>
-  <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.log</code> format.</li>
-  <li><strong>📊 Reports:</strong> Scripts export data in <code>.csv</code> format for auditing and reporting.</li>
-</ul>
-
-<hr />
-
-<h2>💡 Tips for Optimization</h2>
-<ul>
-  <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using Task Scheduler.</li>
-  <li><strong>Centralize Logs and Reports:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository for collaboration and analysis.</li>
-  <li><strong>Customize Scripts:</strong> Adjust script parameters to align with your organization's specific needs.</li>
-</ul>
