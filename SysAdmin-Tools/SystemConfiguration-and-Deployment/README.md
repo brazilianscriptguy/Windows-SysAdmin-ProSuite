@@ -34,8 +34,7 @@
       <p>Necessary for deploying software, managing GPOs, and accessing sensitive configurations.</p>
     </li>
     <li>
-      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.
-    </li>
+      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.</li>
   </ol>
 
   <hr />
@@ -45,113 +44,97 @@
     <thead>
       <tr>
         <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Last Update</th>
+        <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
         <td><strong>Broadcast-ADUser-LogonMessage-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Displays customizable logon messages to users via Group Policy Object (GPO).</td>
       </tr>
       <tr>
         <td><strong>Cleanup-WebBrowsers-Tool.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Removes cookies, cache, session data, and other residual files from browsers, improving performance and privacy.</td>
       </tr>
       <tr>
         <td><strong>Clear-and-ReSyncGPOs-ADComputers.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Resets and re-synchronizes Group Policy Objects (GPOs) across domain computers for consistency.</td>
       </tr>
       <tr>
         <td><strong>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Synchronizes folders from a network location to AD computers with full logging for traceability.</td>
       </tr>
       <tr>
         <td><strong>Deploy-FortiClientVPN-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Automates FortiClient VPN deployment via GPO, ensuring secure remote access.</td>
       </tr>
       <tr>
         <td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Deploys the FusionInventory Agent for inventory management and reporting.</td>
       </tr>
       <tr>
         <td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td>
-        <td>13 minutes ago</td>
+        <td>Deploys the GLPI Agent for inventory management and reporting.</td>
       </tr>
       <tr>
         <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Automates Kaspersky Endpoint Security (KES) installation and configuration via GPO.</td>
       </tr>
       <tr>
         <td><strong>Deploy-PowerShell-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Ensures proper deployment and updates of PowerShell across workstations.</td>
       </tr>
       <tr>
         <td><strong>Deploy-ZoomWorkplace-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
-        <td><strong>Enhance-BGInfoDisplay-viaGPO.bgi</strong></td>
-        <td>3 months ago</td>
+        <td>Automates Zoom deployment on workstations for streamlined collaboration.</td>
       </tr>
       <tr>
         <td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Integrates BGInfo with GPO to display critical system information on desktops.</td>
       </tr>
       <tr>
         <td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Installs and configures a Key Management Service (KMS) Licensing Server in an AD forest.</td>
       </tr>
       <tr>
         <td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
-        <td><strong>README.md</strong></td>
-        <td>Now</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-Softwares-NonCompliance-Tool.txt</strong></td>
-        <td>3 months ago</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Configures a Remote Desktop Services (RDS) Licensing Server to manage client access licenses (CALs).</td>
       </tr>
       <tr>
         <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Renames disk volumes uniformly across workstations for consistency.</td>
       </tr>
       <tr>
         <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Resets and re-synchronizes domain GPOs for uniform policy application.</td>
       </tr>
       <tr>
         <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Audits installed software across Active Directory computers.</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
+        <td>Removes unauthorized shared folders and drives using GPO.</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td>
+        <td>Uninstalls non-compliant or unauthorized software to ensure policy adherence.</td>
+      </tr>
+      <tr>
+        <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
+        <td>Removes unauthorized applications across domain machines using GPO.</td>
       </tr>
       <tr>
         <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Provides a GUI for uninstalling selected applications.</td>
       </tr>
       <tr>
         <td><strong>Update-ADComputer-Winget-Explicit.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Updates software on workstations explicitly using the <code>winget</code> tool.</td>
       </tr>
       <tr>
         <td><strong>Update-ADComputer-Winget-viaGPO.ps1</strong></td>
-        <td>3 months ago</td>
+        <td>Automates software updates using <code>winget</code> with deployment via GPO.</td>
       </tr>
     </tbody>
   </table>
