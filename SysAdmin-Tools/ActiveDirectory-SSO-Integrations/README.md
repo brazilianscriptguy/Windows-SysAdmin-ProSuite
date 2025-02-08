@@ -7,8 +7,12 @@
   <pre>
 ActiveDirectory-SSO-Integrations
 │
-├── SpringBoot-API
-│   └── (Spring Boot integration using application.yml)
+├── DotNet-API
+│   ├── DotNetSSO.sln
+│   ├── DotNetSSO.API
+│   │   ├── appsettings.json
+│   │   └── Startup.cs
+│   └── README.md
 │
 ├── NodeJS-API
 │   ├── package.json
@@ -17,18 +21,14 @@ ActiveDirectory-SSO-Integrations
 │   │   └── ldap.config.json
 │   └── README.md
 │
-├── DotNet-API
-│   ├── DotNetSSO.sln
-│   ├── DotNetSSO.API
-│   │   ├── appsettings.json
-│   │   └── Startup.cs
+├── Python-API
+│   ├── requirements.txt
+│   ├── app.py
+│   ├── config.py
 │   └── README.md
 │
-└── Python-API
-    ├── requirements.txt
-    ├── app.py
-    ├── config.py
-    └── README.md
+└── SpringBoot-API
+    └── (Spring Boot integration using application.yml)
   </pre>
 
   <h2>📝 Overview</h2>
@@ -70,10 +70,10 @@ ActiveDirectory-SSO-Integrations
     </li>
   </ul>
 
-  <h3>SpringBoot-API</h3>
+  <h3>DotNet-API</h3>
   <ul>
-    <li>Navigate to the <code>SpringBoot-API</code> folder.</li>
-    <li>Use Maven or Gradle to build and run the application.</li>
+    <li>Navigate to the <code>DotNet-API</code> folder.</li>
+    <li>Open the <code>.sln</code> file in Visual Studio or use the .NET CLI to build and run.</li>
   </ul>
 
   <h3>NodeJS-API</h3>
@@ -83,17 +83,17 @@ ActiveDirectory-SSO-Integrations
     <li>Start the server with <code>npm start</code> (default port: 3000).</li>
   </ul>
 
-  <h3>DotNet-API</h3>
-  <ul>
-    <li>Navigate to the <code>DotNet-API</code> folder.</li>
-    <li>Open the <code>.sln</code> file in Visual Studio or use the .NET CLI to build and run.</li>
-  </ul>
-
   <h3>Python-API</h3>
   <ul>
     <li>Navigate to the <code>Python-API</code> folder.</li>
     <li>Install dependencies: <code>pip install -r requirements.txt</code>.</li>
     <li>Run the app: <code>python app.py</code> (default port: 5000).</li>
+  </ul>
+
+  <h3>SpringBoot-API</h3>
+  <ul>
+    <li>Navigate to the <code>SpringBoot-API</code> folder.</li>
+    <li>Use Maven or Gradle to build and run the application.</li>
   </ul>
 
   <h2>📌 Additional Information</h2>
