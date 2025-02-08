@@ -32,6 +32,7 @@ ActiveDirectory-SSO-Integrations/
 │
 └── 📂 SpringBoot-API/            # Java Spring Boot API with LDAP authentication
     └── ⚙️ application.yml        # Configuration file for LDAP settings
+    └── 📖 README.md              # Documentation for SpringBoot-API
 </pre>
 
 <h2>📝 Overview</h2>
