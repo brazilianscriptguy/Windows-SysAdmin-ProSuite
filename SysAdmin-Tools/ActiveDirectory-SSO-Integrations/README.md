@@ -106,12 +106,16 @@ ActiveDirectory-SSO-Integrations/
 
 <h2>📜 License</h2>
 <p>
-  This project is licensed under the MIT License. See the <a href="LICENSE" target="_blank">LICENSE</a> file for details.
+  <a href="LICENSE" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
+  </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  Contributions are welcome! Follow the guidelines in the <a href="CONTRIBUTING.md" target="_blank">CONTRIBUTING.md</a> file.
+  <a href="CONTRIBUTING.md" target="_blank">
+    <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg" alt="Contributions Welcome">
+  </a>
 </p>
 
 <hr />
