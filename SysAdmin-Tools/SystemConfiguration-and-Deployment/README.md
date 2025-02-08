@@ -34,7 +34,8 @@
       <p>Necessary for deploying software, managing GPOs, and accessing sensitive configurations.</p>
     </li>
     <li>
-      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.</li>
+      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.
+    </li>
   </ol>
 
   <hr />
