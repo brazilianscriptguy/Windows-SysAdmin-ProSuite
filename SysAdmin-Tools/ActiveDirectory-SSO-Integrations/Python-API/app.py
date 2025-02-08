@@ -7,7 +7,7 @@ app.config.from_object(Config)
 
 def ldap_authenticate(username, password):
     server = Server(app.config['LDAP_SERVER'], get_info=ALL)
-    # Construct user DN; in a real scenario, you may need to perform a search
+    # Construct user DN; in a real scenario, you may perform a search to get the DN
     user_dn = f"CN={username},{app.config['LDAP_BASE_DN']}"
     try:
         # Bind using provided credentials
