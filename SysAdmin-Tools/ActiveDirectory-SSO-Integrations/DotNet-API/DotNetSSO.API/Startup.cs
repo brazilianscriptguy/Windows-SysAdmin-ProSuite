@@ -14,13 +14,14 @@ namespace DotNetSSO.API
         }
 
         public IConfiguration Configuration { get; }
-
+        
         public void ConfigureServices(IServiceCollection services)
         {
-            // Configure custom LDAP authentication (implementation of LdapAuthenticationHandler is needed)
+            // Add a custom LDAP authentication scheme.
+            // You need to implement LdapAuthenticationHandler to handle LDAP authentication using the provided configuration.
             services.AddAuthentication("Basic")
-                    .AddScheme<AuthenticationSchemeOptions, LdapAuthenticationHandler>("Basic", null);
-
+                    .AddScheme<AuthenticationSchemeOptions, LdapAuthenticationHandler>("Basic", options => { });
+            
             services.AddControllers();
         }
 
