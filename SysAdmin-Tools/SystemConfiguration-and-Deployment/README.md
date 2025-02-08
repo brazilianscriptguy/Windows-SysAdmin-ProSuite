@@ -34,8 +34,7 @@
       <p>Necessary for deploying software, managing GPOs, and accessing sensitive configurations.</p>
     </li>
     <li>
-      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.
-    </li>
+      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.</li>
   </ol>
 
   <hr />
@@ -72,10 +71,6 @@
       <tr>
         <td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td>
         <td>Deploys the FusionInventory Agent for inventory management and reporting.</td>
-      </tr>
-      <tr>
-        <td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td>
-        <td>Deploys the GLPI Agent for inventory management and reporting.</td>
       </tr>
       <tr>
         <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
@@ -148,6 +143,24 @@
     <li><strong>Provide Inputs:</strong> Follow on-screen prompts or customize parameters as required.</li>
     <li><strong>Review Outputs:</strong> Check generated <code>.log</code> files and exported <code>.csv</code> reports for results.</li>
   </ol>
+
+  <hr />
+
+  <h2>📄 Complementary Files Overview</h2>
+  <ul>
+    <li>
+      <strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> 
+      An editable HTML file for configuring and previewing logon messages via GPO.
+    </li>
+    <li>
+      <strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> 
+      A customizable configuration file for BGInfo desktop displays.
+    </li>
+    <li>
+      <strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> 
+      A configuration file listing unauthorized software for removal.
+    </li>
+  </ul>
 
   <hr />
 
