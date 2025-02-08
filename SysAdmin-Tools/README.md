@@ -18,70 +18,80 @@
 
   <hr />
 
-  <h2>📄 Folder Structure and Categories</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;">Folder Name</th>
-        <th style="padding: 8px;">Description</th>
-        <th style="padding: 8px;">Folder Link</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>ActiveDirectory-Management</strong></td>
-        <td>Tools for managing Active Directory, including user accounts, computer accounts, group policies, and directory synchronization.</td>
-        <td>
-          <a href="ActiveDirectory-Management/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/AD%20Management-README-blue?style=for-the-badge&logo=github" 
-            alt="ActiveDirectory-Management README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>GroupPolicyObjects-Templates</strong></td>
-        <td>A collection of ready-to-use GPO templates designed for seamless import into a new Windows Server Forest and Domain structure.</td>
-        <td>
-          <a href="GroupPolicyObjects-Templates/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/GPO%20Templates-README-blue?style=for-the-badge&logo=github" 
-            alt="GPOs-Templates README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>Network-and-Infrastructure-Management</strong></td>
-        <td>Scripts for managing network services (e.g., DHCP, DNS, WSUS) and ensuring reliable infrastructure operations.</td>
-        <td>
-          <a href="Network-and-Infrastructure-Management/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Network%20Management-README-blue?style=for-the-badge&logo=github" 
-            alt="Network Management README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>Security-and-Process-Optimization</strong></td>
-        <td>Tools for optimizing system performance, enforcing compliance, and enhancing security.</td>
-        <td>
-          <a href="Security-and-Process-Optimization/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Security%20Optimization-README-blue?style=for-the-badge&logo=github" 
-            alt="Security Optimization README Badge">
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td><strong>SystemConfiguration-and-Deployment</strong></td>
-        <td>Tools for deploying and configuring software, managing group policies, and maintaining consistent system settings across the domain.</td>
-        <td>
-          <a href="SystemConfiguration-and-Deployment/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/System%20Deployment-README-blue?style=for-the-badge&logo=github" 
-            alt="System Deployment README Badge">
-          </a>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+ <h2>📄 Folder Structure and Categories</h2>
+<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+  <thead>
+    <tr>
+      <th style="padding: 8px;">Folder Name</th>
+      <th style="padding: 8px;">Description</th>
+      <th style="padding: 8px;">Folder Link</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ActiveDirectory-Management</strong></td>
+      <td>Tools for managing Active Directory, including user accounts, computer accounts, group policies, and directory synchronization.</td>
+      <td>
+        <a href="ActiveDirectory-Management/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/AD%20Management-README-blue?style=for-the-badge&logo=github" 
+          alt="ActiveDirectory-Management README Badge">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>ActiveDirectory-SSO-Integrations</strong></td>
+      <td>Integration models for Single Sign-On (SSO) using Active Directory via LDAP.</td>
+      <td>
+        <a href="ActiveDirectory-SSO-Integrations/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/SSO%20Integrations-README-blue?style=for-the-badge&logo=github" 
+          alt="ActiveDirectory-SSO-Integrations README Badge">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>GroupPolicyObjects-Templates</strong></td>
+      <td>A collection of ready-to-use GPO templates designed for seamless import into a new Windows Server Forest and Domain structure.</td>
+      <td>
+        <a href="GroupPolicyObjects-Templates/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/GPO%20Templates-README-blue?style=for-the-badge&logo=github" 
+          alt="GPOs-Templates README Badge">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Network-and-Infrastructure-Management</strong></td>
+      <td>Scripts for managing network services (e.g., DHCP, DNS, WSUS) and ensuring reliable infrastructure operations.</td>
+      <td>
+        <a href="Network-and-Infrastructure-Management/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/Network%20Management-README-blue?style=for-the-badge&logo=github" 
+          alt="Network Management README Badge">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Security-and-Process-Optimization</strong></td>
+      <td>Tools for optimizing system performance, enforcing compliance, and enhancing security.</td>
+      <td>
+        <a href="Security-and-Process-Optimization/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/Security%20Optimization-README-blue?style=for-the-badge&logo=github" 
+          alt="Security Optimization README Badge">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>SystemConfiguration-and-Deployment</strong></td>
+      <td>Tools for deploying and configuring software, managing group policies, and maintaining consistent system settings across the domain.</td>
+      <td>
+        <a href="SystemConfiguration-and-Deployment/README.md" target="_blank">
+          <img src="https://img.shields.io/badge/System%20Deployment-README-blue?style=for-the-badge&logo=github" 
+          alt="System Deployment README Badge">
+        </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-  <hr />
+<hr />
 
   <h2>🛠️ Prerequisites</h2>
   <ol>
