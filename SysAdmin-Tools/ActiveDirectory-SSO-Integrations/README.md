@@ -1,15 +1,3 @@
-  <title>🔹 ActiveDirectory-SSO-Integrations</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-    pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; }
-    code { background: #f4f4f4; padding: 2px 4px; }
-    h1, h2, h3 { color: #333; }
-    a { color: #007acc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-
   <h1>🔹 ActiveDirectory-SSO-Integrations</h1>
   <p>
     Welcome to the <strong>ActiveDirectory-SSO-Integrations</strong> repository. This repository demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP. All modules use a standardized configuration approach for consistency across different technology stacks.
