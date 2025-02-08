@@ -1,3 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🔹 ActiveDirectory-SSO-Integrations</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border: 1px solid #ddd; }
+    code { background: #f4f4f4; padding: 2px 4px; }
+    h1, h2, h3 { color: #333; }
+    a { color: #007acc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
   <h1>🔹 ActiveDirectory-SSO-Integrations</h1>
   <p>
     Welcome to the <strong>ActiveDirectory-SSO-Integrations</strong> repository. This repository demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP. All modules use a standardized configuration approach for consistency across different technology stacks.
@@ -70,31 +86,24 @@ ActiveDirectory-SSO-Integrations/
     </li>
   </ul>
 
-  <h3>DotNet-API</h3>
+  <hr />
+
+  <h2>📝 Logging and Output</h2>
   <ul>
-    <li>Navigate to the <code>DotNet-API</code> folder.</li>
-    <li>Open the <code>.sln</code> file in Visual Studio or use the .NET CLI to build and run.</li>
+    <li><strong>📄 Logs:</strong> Each script generates detailed logs in <code>.log</code> format.</li>
+    <li><strong>📊 Reports:</strong> Scripts export data in <code>.csv</code> format for auditing and reporting.</li>
   </ul>
 
-  <h3>NodeJS-API</h3>
+  <hr />
+
+  <h2>💡 Tips for Optimization</h2>
   <ul>
-    <li>Navigate to the <code>NodeJS-API</code> folder.</li>
-    <li>Run <code>npm install</code> to install dependencies.</li>
-    <li>Start the server with <code>npm start</code> (default port: 3000).</li>
+    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using Task Scheduler.</li>
+    <li><strong>Centralize Logs and Reports:</strong> Store <code>.log</code> and <code>.csv</code> files in a shared repository for collaboration and analysis.</li>
+    <li><strong>Customize Scripts:</strong> Adjust script parameters to align with your organization's specific needs.</li>
   </ul>
 
-  <h3>Python-API</h3>
-  <ul>
-    <li>Navigate to the <code>Python-API</code> folder.</li>
-    <li>Install dependencies: <code>pip install -r requirements.txt</code>.</li>
-    <li>Run the app: <code>python app.py</code> (default port: 5000).</li>
-  </ul>
-
-  <h3>SpringBoot-API</h3>
-  <ul>
-    <li>Navigate to the <code>SpringBoot-API</code> folder.</li>
-    <li>Use Maven or Gradle to build and run the application.</li>
-  </ul>
+  <hr />
 
   <h2>📌 Additional Information</h2>
   <p>
