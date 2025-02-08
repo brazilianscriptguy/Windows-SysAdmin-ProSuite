@@ -5,12 +5,12 @@ spring:
     # Base DN for LDAP searches. Adjust according to your organizational structure.
     base: dc=HEADQ,dc=SCRIPTGUY
     # Bind user for LDAP connections. Ensure this user has appropriate permissions.
-    username: binduser@scriptguy
+    username: binduser@headq
     # LDAP bind password is externalized as an environment variable for security.
     password: ${LDAP_PASSWORD}
     # LDAP server URL.
     # Use port 3268 for Global Catalog (Forest Domain) queries, or 389 for a standard domain range.
-    urls: ldap://ldap.example.com:3268
+    urls: ldap://ldap.headq.scriptguy:3268
 
   security:
     ldap:
@@ -19,6 +19,6 @@ spring:
       # Filter used to search for the user in LDAP.
       user-search-filter: (sAMAccountName={0})
       # Base DN for group searches. Adjust this to match your LDAP domain structure.
-      group-search-base: dc=example,dc=com
+      group-search-base: dc=headq,dc=scriptguy
       # Filter used to search for groups of which the user is a member.
       group-search-filter: (member={0})
