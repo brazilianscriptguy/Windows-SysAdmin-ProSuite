@@ -3,32 +3,32 @@
     Welcome to the <strong>ActiveDirectory-SSO-Integrations</strong> repository. This repository demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP. All modules use a standardized configuration approach for consistency across different technology stacks.
   </p>
 
-  <h2>📁 Folder Structure</h2>
+    <h2>📁 Folder Structure</h2>
   <pre>
-ActiveDirectory-SSO-Integrations
+ActiveDirectory-SSO-Integrations/
 │
-├── DotNet-API
-│   ├── DotNetSSO.sln
-│   ├── DotNetSSO.API
-│   │   ├── appsettings.json
-│   │   └── Startup.cs
-│   └── README.md
+├── 📂 DotNet-API/                # ASP.NET Core API with LDAP authentication
+│   ├── 📄 DotNetSSO.sln          # Solution file for the .NET project
+│   ├── 📂 DotNetSSO.API/         # API implementation
+│   │   ├── 🛠️ appsettings.json  # Configuration file for app settings
+│   │   └── 🏗️ Startup.cs         # Application startup configuration
+│   └── 📖 README.md              # Documentation for DotNet-API
 │
-├── NodeJS-API
-│   ├── package.json
-│   ├── app.js
-│   ├── config
-│   │   └── ldap.config.json
-│   └── README.md
+├── 📂 NodeJS-API/                # Node.js API using Express & passport-ldapauth
+│   ├── 📜 package.json           # Node.js dependencies & scripts
+│   ├── 📝 app.js                 # Main application logic
+│   ├── 📂 config/                # Configuration folder
+│   │   └── ⚙️ ldap.config.json  # LDAP settings for authentication
+│   └── 📖 README.md              # Documentation for NodeJS-API
 │
-├── Python-API
-│   ├── requirements.txt
-│   ├── app.py
-│   ├── config.py
-│   └── README.md
+├── 📂 Python-API/                # Flask API using ldap3 for LDAP authentication
+│   ├── 📄 requirements.txt       # Python dependencies
+│   ├── 📝 app.py                 # Main API implementation
+│   ├── ⚙️ config.py              # Configuration settings
+│   └── 📖 README.md              # Documentation for Python-API
 │
-└── SpringBoot-API
-    └── (Spring Boot integration using application.yml)
+└── 📂 SpringBoot-API/            # Java Spring Boot API with LDAP authentication
+    └── ⚙️ application.yml        # Configuration file for LDAP settings
   </pre>
 
   <h2>📝 Overview</h2>
