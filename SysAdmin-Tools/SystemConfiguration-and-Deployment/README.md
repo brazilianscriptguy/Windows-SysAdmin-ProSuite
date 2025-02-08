@@ -73,6 +73,11 @@
         <td>Deploys the FusionInventory Agent for inventory management and reporting.</td>
       </tr>
       <tr>
+        <td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td>
+        <td>Deploys the GLPI Agent for inventory management and reporting.</td>
+      </tr>
+      
+      <tr>
         <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
         <td>Automates Kaspersky Endpoint Security (KES) installation and configuration via GPO.</td>
       </tr>
