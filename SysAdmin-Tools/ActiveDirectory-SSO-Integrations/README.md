@@ -39,10 +39,10 @@ ActiveDirectory-SSO-Integrations/
   Each module integrates LDAP-based SSO authentication using a common configuration model:
 </p>
 <ul>
-  <li><strong>SpringBoot-API:</strong> Uses Spring Security with LDAP settings in <code>application.yml</code>.</li>
+    <li><strong>DotNet-API:</strong> Uses ASP.NET Core with a custom LDAP authentication handler.</li>
   <li><strong>NodeJS-API:</strong> Built with Express and <code>passport-ldapauth</code> for authentication.</li>
-  <li><strong>DotNet-API:</strong> Uses ASP.NET Core with a custom LDAP authentication handler.</li>
   <li><strong>Python-API:</strong> Implements LDAP authentication using the <code>ldap3</code> library.</li>
+  <li><strong>SpringBoot-API:</strong> Uses Spring Security with LDAP settings in <code>application.yml</code>.</li>
 </ul>
 
 <h2>⚙️ Generalized LDAP Configuration</h2>
