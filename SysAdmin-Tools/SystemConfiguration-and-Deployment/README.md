@@ -34,7 +34,8 @@
       <p>Necessary for deploying software, managing GPOs, and accessing sensitive configurations.</p>
     </li>
     <li>
-      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.</li>
+      <strong>Dependencies:</strong> Ensure required modules such as <code>GroupPolicy</code> are installed and available.
+    </li>
   </ol>
 
   <hr />
@@ -76,7 +77,6 @@
         <td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td>
         <td>Deploys the GLPI Agent for inventory management and reporting.</td>
       </tr>
-      
       <tr>
         <td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td>
         <td>Automates Kaspersky Endpoint Security (KES) installation and configuration via GPO.</td>
@@ -92,50 +92,6 @@
       <tr>
         <td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td>
         <td>Integrates BGInfo with GPO to display critical system information on desktops.</td>
-      </tr>
-      <tr>
-        <td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td>
-        <td>Installs and configures a Key Management Service (KMS) Licensing Server in an AD forest.</td>
-      </tr>
-      <tr>
-        <td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td>
-        <td>Configures a Remote Desktop Services (RDS) Licensing Server to manage client access licenses (CALs).</td>
-      </tr>
-      <tr>
-        <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
-        <td>Renames disk volumes uniformly across workstations for consistency.</td>
-      </tr>
-      <tr>
-        <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
-        <td>Resets and re-synchronizes domain GPOs for uniform policy application.</td>
-      </tr>
-      <tr>
-        <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
-        <td>Audits installed software across Active Directory computers.</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
-        <td>Removes unauthorized shared folders and drives using GPO.</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td>
-        <td>Uninstalls non-compliant or unauthorized software to ensure policy adherence.</td>
-      </tr>
-      <tr>
-        <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
-        <td>Removes unauthorized applications across domain machines using GPO.</td>
-      </tr>
-      <tr>
-        <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
-        <td>Provides a GUI for uninstalling selected applications.</td>
-      </tr>
-      <tr>
-        <td><strong>Update-ADComputer-Winget-Explicit.ps1</strong></td>
-        <td>Updates software on workstations explicitly using the <code>winget</code> tool.</td>
-      </tr>
-      <tr>
-        <td><strong>Update-ADComputer-Winget-viaGPO.ps1</strong></td>
-        <td>Automates software updates using <code>winget</code> with deployment via GPO.</td>
       </tr>
     </tbody>
   </table>
