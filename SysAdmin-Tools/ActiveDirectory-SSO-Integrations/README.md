@@ -73,6 +73,76 @@ ActiveDirectory-SSO-Integrations/
   </li>
 </ul>
 
+<hr />
+
+<h2>🔐 Security Best Practices: Using an InetOrgPerson AD Account for SSO</h2>
+
+<p>
+  To enhance security and reliability in your <strong>SSO API structure</strong>, it is highly recommended to use an 
+  <strong>InetOrgPerson</strong> AD account with <strong>properly delegated permissions</strong> instead of a standard 
+  user account. This ensures controlled access and limits security risks while maintaining compliance with best practices.
+</p>
+
+<h3>🛡️ Recommended Delegations for the InetOrgPerson AD SSO Account</h3>
+
+<p>The SSO account should have <strong>only the required minimal permissions</strong> to authenticate users and query necessary attributes. Below are the key delegations you should assign:</p>
+
+<h4>📂 Delegated Permissions on the Active Directory Domain:</h4>
+<ul>
+  <li><strong>Read Permissions:</strong>
+    <ul>
+      <li>Read All Properties on User Objects</li>
+      <li>Read MemberOf Attribute</li>
+      <li>Read LockoutTime, PwdLastSet, UserAccountControl</li>
+      <li>Read msDS-User-Account-Control-Computed</li>
+      <li>Read msDS-PrincipalName</li>
+    </ul>
+  </li>
+  <li><strong>List and Search Permissions:</strong>
+    <ul>
+      <li>List Contents</li>
+      <li>List Object</li>
+      <li>Read Permissions</li>
+    </ul>
+  </li>
+  <li><strong>Logon & Authentication Rights:</strong>
+    <ul>
+      <li>Logon as a Service (for the API server if required)</li>
+      <li>Account is Sensitive and Cannot Be Delegated (to prevent token forwarding attacks)</li>
+    </ul>
+  </li>
+</ul>
+
+<h4>🚨 Restrictive Measures to Improve Security:</h4>
+<ul>
+  <li><strong>Ensure the Account is Non-Privileged:</strong> Do <strong>not</strong> assign it to privileged groups (e.g., Domain Admins, Enterprise Admins).</li>
+  <li><strong>Disable Interactive Logon:</strong> Set <code>Deny log on locally</code> & <code>Deny log on through Remote Desktop Services</code>.</li>
+  <li><strong>Limit Access to Necessary OUs:</strong> Apply permissions only to the Organizational Units (OUs) containing user accounts relevant to SSO authentication.</li>
+  <li><strong>Enforce Secure Password Management:</strong> 
+    <ul>
+      <li>Require a <strong>long, randomly generated password</strong> with <strong>no expiration</strong> to prevent password-related disruptions.</li>
+      <li>Store the password securely using an enterprise vault or <strong>LDAP Password Synchronization</strong> tools.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>📌 Example SSO Account Configuration</h3>
+<p>For reference, below is an example of an <strong>InetOrgPerson</strong> AD account configured for SSO authentication:</p>
+
+<ul>
+  <li><strong>User:</strong> <code>HEADQ\ad-sso-authentication</code></li>
+  <li><strong>Password (example, do not use in production):</strong> <code>07155aa40572faa0b92191b6f8a1c722e25d06dec0c7937014a4bf373c01d47b</code></li>
+  <li><strong>Distinguished Name (DN):</strong> <code>CN=ad-sso-authentication,OU=ServiceAccounts,DC=headq,DC=example,DC=com</code></li>
+  <li><strong>Groups:</strong> <code>None</code> (To reduce privilege escalation risks)</li>
+  <li><strong>Permissions Assigned to:</strong> <code>OU=Users,DC=headq,DC=example,DC=com</code></li>
+</ul>
+
+<p>
+  By following these recommendations, you ensure <strong>secure, compliant, and reliable authentication</strong> for your 
+  <strong>LDAP-based SSO</strong> environment.
+</p>
+
+
 <h3>DotNet-API</h3>
 <ul>
   <li>Navigate to the <code>DotNet-API</code> folder.</li>
