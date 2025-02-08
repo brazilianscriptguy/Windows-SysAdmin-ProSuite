@@ -38,7 +38,7 @@ jobs:
         run: |
           set -e
           echo "Fetching managed release tags from the matrix..."
-          MANAGED_TAGS=("SysAdminToolSet" "ITSM-Templates-WKS" "ITSM-Templates-SVR" "GPOs-Templates" "READMEs-Files-Package" "ActiveDirectory-SSO-Integrations")
+          MANAGED_TAGS=("SysAdminToolSet" "ITSM-Templates-WKS" "ITSM-Templates-SVR" "GPOs-Templates" "READMEs-Files-Package")
 
           for tag in "${MANAGED_TAGS[@]}"; do
             echo "Processing tag: $tag"
@@ -69,14 +69,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        release_name: [
-          "SysAdminToolSet", 
-          "ITSM-Templates-WKS", 
-          "ITSM-Templates-SVR", 
-          "GPOs-Templates", 
-          "READMEs-Files-Package",
-          "ActiveDirectory-SSO-Integrations"
-        ]
+        release_name: ["SysAdminToolSet", "ITSM-Templates-WKS", "ITSM-Templates-SVR", "GPOs-Templates", "READMEs-Files-Package"]
 
     steps:
       - name: Checkout Repository
@@ -114,11 +107,15 @@ jobs:
           case "${RELEASE_NAME}" in
             SysAdminToolSet)
               mkdir -p SysAdminToolSet
+              # Copy the SysAdmin-Tools folder (excluding GroupPolicyObjects-Templates)
               rsync -av --exclude='GroupPolicyObjects-Templates' SysAdmin-Tools/ SysAdminToolSet/SysAdmin-Tools/
               rsync -av BlueTeam-Tools/ SysAdminToolSet/BlueTeam-Tools/
               cp Core-ScriptLibrary/Launch-Script-AutomaticMenu.ps1 SysAdminToolSet/
+              # Copy the main README and LICENSE from the repo root
               cp README.md SysAdminToolSet/
               cp LICENSE SysAdminToolSet/
+              # Additionally, copy the README from the new ActiveDirectory-SSO-Integrations folder
+              cp SysAdmin-Tools/ActiveDirectory-SSO-Integrations/README.md SysAdminToolSet/ActiveDirectory-SSO-Integrations-README.md
               mkdir -p artifacts
               zip -r artifacts/SysAdminToolSet.zip SysAdminToolSet
               ;;
@@ -149,11 +146,6 @@ jobs:
               mkdir -p artifacts
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               ;;
-            ActiveDirectory-SSO-Integrations)
-              # Package the new Active Directory SSO Integrations folder
-              mkdir -p artifacts
-              zip -r artifacts/ActiveDirectory-SSO-Integrations.zip "Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations"
-              ;;
           esac
 
       - name: Create New Release
@@ -169,7 +161,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1  # Correct version
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip
