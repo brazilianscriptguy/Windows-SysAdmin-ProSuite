@@ -22,4 +22,3 @@ spring:
       group-search-base: dc=example,dc=com
       # Filter used to search for groups of which the user is a member.
       group-search-filter: (member={0})
-
