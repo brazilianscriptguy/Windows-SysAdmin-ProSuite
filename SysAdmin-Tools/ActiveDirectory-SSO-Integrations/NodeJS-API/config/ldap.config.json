@@ -1,0 +1,9 @@
+{
+  "server": {
+    "url": "ldap://ldap.headq.scriptguy:3268",
+    "bindDN": "binduser@headq",
+    "bindCredentials": "${LDAP_PASSWORD}",
+    "searchBase": "dc=HEADQ,dc=SCRIPTGUY",
+    "searchFilter": "(sAMAccountName={{username}})"
+  }
+}
