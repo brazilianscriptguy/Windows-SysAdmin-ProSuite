@@ -11,61 +11,62 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 12, 2024
+    Last Updated: February 10, 2024
 #>
 
 param (
-    [string]$FortiClientMSIPath = "\\forest-domain\netlogon\forticlient-vpn-install\forticlient-vpn-install.msi",
-    [string]$MsiVersion = "7.4.0.1658" # Target version of FortiClient VPN to install.
+    [string]$FortiClientMSIPath = "\\headq.scriptguy\netlogon\forticlient-vpn-install\forticlient-vpn-install.msi",
+    [string]$MsiVersion = "7.4.1.1736"  # Target version of FortiClient VPN to install.
 )
-
+ 
 $ErrorActionPreference = "Stop"
 
-# Log Configuration
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\Logs-TEMP'
+# Log configuration
+$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir      = 'C:\Logs-TEMP'
 $logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
-
-# Keyword to search in the registry
-$RegistryKeyword = "FortiClient VPN"
+$logPath     = Join-Path $logDir $logFileName
 
 # Function to log messages
 function Log-Message {
     param (
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         [string]$Severity = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$Severity] [$timestamp] $Message"
+    $logEntry  = "[$Severity] [$timestamp] $Message"
     try {
         Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to log the message at $logPath. Error: $_"
+    }
+    catch {
+        Write-Error "Failed to log the message to $logPath. Error: $_"
     }
 }
 
-# Function to retrieve installed programs
+# Function to retrieve installed programs (searching for FortiClient VPN)
 function Get-InstalledPrograms {
     $registryPaths = @(
         'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
         'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
     )
     $installedPrograms = $registryPaths | ForEach-Object {
-        Get-ItemProperty -Path $_ |
-        Where-Object { $_.DisplayName -and $_.DisplayName -match $RegistryKeyword } |
+        Get-ItemProperty -Path $_ -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -and $_.DisplayName -match "FortiClient VPN" } |
         Select-Object DisplayName, DisplayVersion,
-                      @{Name="UninstallString"; Expression={ $_.UninstallString }},
-                      @{Name="Architecture"; Expression={ if ($_.PSPath -match 'WOW6432Node') {'32-bit'} else {'64-bit'} }}
+                      @{Name = "UninstallString"; Expression = { $_.UninstallString }}
     }
     return $installedPrograms
 }
 
-# Function to compare versions (returns True if 'installed' is earlier than 'target')
+# Function to compare versions
 function Compare-Version {
-    param ([string]$installed, [string]$target)
+    param (
+        [string]$installed,
+        [string]$target
+    )
     $installedParts = $installed -split '[.-]' | ForEach-Object { [int]$_ }
-    $targetParts = $target -split '[.-]' | ForEach-Object { [int]$_ }
+    $targetParts    = $target -split '[.-]' | ForEach-Object { [int]$_ }
     for ($i = 0; $i -lt $targetParts.Length; $i++) {
         if ($installedParts[$i] -lt $targetParts[$i]) { return $true }
         if ($installedParts[$i] -gt $targetParts[$i]) { return $false }
@@ -75,26 +76,30 @@ function Compare-Version {
 
 # Function to uninstall an application
 function Uninstall-Application {
-    param ([string]$UninstallString)
+    param (
+        [string]$UninstallString
+    )
     try {
+        Log-Message "Uninstalling FortiClient using: $UninstallString"
         Start-Process -FilePath "msiexec.exe" -ArgumentList "/qn /x `"$UninstallString`" REBOOT=ReallySuppress" -Wait -ErrorAction Stop
-        Log-Message "Application uninstalled successfully using: $UninstallString"
-    } catch {
-        Log-Message "Error uninstalling the application: $_" -Severity "ERROR"
+        Log-Message "FortiClient successfully uninstalled."
+    }
+    catch {
+        Log-Message "Error uninstalling FortiClient: $_" -Severity "ERROR"
         throw
     }
 }
 
 try {
-    # Ensure log directory exists
+    # Ensure the log directory exists
     if (-not (Test-Path $logDir)) {
         New-Item -Path $logDir -ItemType Directory -Force | Out-Null
         Log-Message "Log directory $logDir created."
     }
 
-    # Verify MSI path exists
+    # Check if the MSI file exists
     if (-not (Test-Path $FortiClientMSIPath)) {
-        Log-Message "ERROR: The MSI file was not found at $FortiClientMSIPath. Please verify the path and try again." -Severity "ERROR"
+        Log-Message "ERROR: MSI file not found at $FortiClientMSIPath. Please check the path and try again." -Severity "ERROR"
         exit 1
     }
 
@@ -102,83 +107,91 @@ try {
 
     # Retrieve installed programs
     $installedPrograms = Get-InstalledPrograms
+    $needInstall = $false
+
     if ($installedPrograms.Count -eq 0) {
-        Log-Message "No version of FortiClient VPN was found. Proceeding with installation."
-    } else {
+        Log-Message "No FortiClient VPN version found. Proceeding with installation."
+        $needInstall = $true
+    }
+    else {
         foreach ($program in $installedPrograms) {
-            Log-Message "Found: $($program.DisplayName) - Version: $($program.DisplayVersion) - Architecture: $($program.Architecture)"
+            Log-Message "Found: $($program.DisplayName) - Version: $($program.DisplayVersion)"
             if (Compare-Version -installed $program.DisplayVersion -target $MsiVersion) {
-                Log-Message "Installed version ($($program.DisplayVersion)) is earlier than the MSI version ($MsiVersion). Update required."
+                Log-Message "Installed version ($($program.DisplayVersion)) is lower than the required ($MsiVersion). Update needed."
                 Uninstall-Application -UninstallString $program.UninstallString
-            } else {
-                Log-Message "The installed version ($($program.DisplayVersion)) is up-to-date. No action needed."
-                return
+                $needInstall = $true
+            }
+            else {
+                Log-Message "Installed version ($($program.DisplayVersion)) is up-to-date. No need to reinstall FortiClient VPN."
             }
         }
     }
 
-    # Proceed with installation
-    Log-Message "No updated version found. Starting installation."
-    $installArgs = "/qn /i `"$FortiClientMSIPath`" REBOOT=ReallySuppress /log `"$logPath`""
-    Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -ErrorAction Stop
-    Log-Message "FortiClient VPN installed successfully."
-
-    # VPN Tunnels Management
-    Log-Message "Starting VPN tunnel management."
-
-    # Registry Path for Tunnels
-    $TunnelRegistryPath = "HKLM:\SOFTWARE\Fortinet\FortiClient\Sslvpn\Tunnels"
-
-    # Remove existing tunnels
-    $ExistingTunnels = Get-ChildItem -Path $TunnelRegistryPath -ErrorAction SilentlyContinue
-    foreach ($tunnel in $ExistingTunnels) {
-        $tunnelPath = Join-Path $TunnelRegistryPath $tunnel.PSChildName
-        Remove-Item -Path $tunnelPath -Recurse -Force -ErrorAction SilentlyContinue
-        Log-Message "Removed existing tunnel: $tunnel.PSChildName"
+    # Proceed with installation if necessary
+    if ($needInstall) {
+        Log-Message "Starting FortiClient VPN installation."
+        $installArgs = "/qn /i `"$FortiClientMSIPath`" REBOOT=ReallySuppress /log `"$logPath`""
+        Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -ErrorAction Stop
+        Log-Message "FortiClient VPN installed successfully."
     }
 
-    # Define new tunnels
+    # ============================================================
+    # Removal and recreation of the tunnels registry key
+    # ============================================================
+    # Always remove the tunnels key (even if reinstallation is not needed)
+    $BaseTunnelRegistryPath = "HKLM:\SOFTWARE\Fortinet\FortiClient\Sslvpn\Tunnels"
+    if (Test-Path $BaseTunnelRegistryPath) {
+        Remove-Item -Path $BaseTunnelRegistryPath -Recurse -Force -ErrorAction SilentlyContinue
+        Log-Message "Tunnels registry key removed: $BaseTunnelRegistryPath"
+    }
+    else {
+        Log-Message "Tunnels registry key not found. Proceeding with creation."
+    }
+
+    # Recreate the base tunnels registry key
+    New-Item -Path $BaseTunnelRegistryPath -Force | Out-Null
+    Log-Message "Base tunnels registry key recreated: $BaseTunnelRegistryPath"
+
+    # Definition of tunnels to be configured
     $Tunnels = @{
-        "VPN-Channel01" = @{
-            "Description" = "Corporate Network VPN - Channel 01"
-            "Server" = "vpn.corporate01.com:443"
-            "promptusername" = 0
-            "promptcertificate" = 0
-            "ServerCert" = "1"
-            "dual_stack" = 0
-            "sso_enabled" = 0
+        "VPN-SCRIPTGUY-CHANNEL01" = @{
+            "Description"          = "Remote Access via VPN to SCRIPTGUY"
+            "Server"               = "vpn.headq.scriptguy.com:443"
+            "promptusername"       = 0
+            "promptcertificate"    = 0
+            "ServerCert"           = "1"
+            "dual_stack"           = 0
+            "sso_enabled"          = 0
             "use_external_browser" = 0
-            "azure_auto_login" = 0
+            "azure_auto_login"     = 0
         }
-        "VPN-Channel02" = @{
-            "Description" = "Corporate Network VPN - Channel 02"
-            "Server" = "vpn.corporate02.com:443"
-            "promptusername" = 0
-            "promptcertificate" = 0
-            "ServerCert" = "1"
-            "dual_stack" = 0
-            "sso_enabled" = 0
+        "VPN-SCRIPTGUY-CHANNEL02" = @{
+            "Description"          = "Remote Access via VPN to SCRIPTGUY"
+            "Server"               = "vpn.headq.scriptguy-ddns.com:443"
+            "promptusername"       = 0
+            "promptcertificate"    = 0
+            "ServerCert"           = "1"
+            "dual_stack"           = 0
+            "sso_enabled"          = 0
             "use_external_browser" = 0
-            "azure_auto_login" = 0
+            "azure_auto_login"     = 0
         }
     }
 
-    # Add new tunnels
+    # Create and configure the tunnels
     foreach ($tunnelName in $Tunnels.Keys) {
-        $tunnelRegistryPath = Join-Path $TunnelRegistryPath $tunnelName
-        if (-not (Test-Path $tunnelRegistryPath)) {
-            New-Item -Path $tunnelRegistryPath -Force | Out-Null
-            Log-Message "Created registry path for tunnel: $tunnelRegistryPath"
-        }
+        $tunnelRegistryPath = Join-Path $BaseTunnelRegistryPath $tunnelName
+        New-Item -Path $tunnelRegistryPath -Force | Out-Null
+        Log-Message "Registry path created for tunnel: $tunnelRegistryPath"
         foreach ($property in $Tunnels[$tunnelName].Keys) {
-            Set-ItemProperty -Path $tunnelRegistryPath -Name $property -Value $Tunnels[$tunnelName][$property]
-            Log-Message "Set property '$property' for tunnel '$tunnelName' to value '${Tunnels[$tunnelName][$property]}'"
+            Set-ItemProperty -Path $tunnelRegistryPath -Name $property -Value $Tunnels[$tunnelName][$property] -ErrorAction SilentlyContinue
+            Log-Message "Property '$property' configured for tunnel '$tunnelName' with value '$($Tunnels[$tunnelName][$property])'"
         }
     }
 
-    Log-Message "VPN tunnel management completed successfully."
-
-} catch {
+    Log-Message "VPN tunnels management completed successfully."
+}
+catch {
     Log-Message "An error occurred: $_" -Severity "ERROR"
     exit 1
 }
