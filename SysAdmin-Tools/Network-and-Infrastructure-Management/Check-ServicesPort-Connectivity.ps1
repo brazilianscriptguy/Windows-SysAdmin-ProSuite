@@ -11,7 +11,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: February 11, 2025
 #>
 
 # Hide the PowerShell console window
@@ -127,6 +127,7 @@ $services = @(
     [PSCustomObject]@{ Name = "RabbitMQ - Ports: 5672"; Ports = "5672"; Optional = $true },
     [PSCustomObject]@{ Name = "SharePoint - Ports: 80, 443"; Ports = "80,443"; Optional = $true },
     [PSCustomObject]@{ Name = "SMB - Ports: 445"; Ports = "445"; Optional = $false },
+    [PSCustomObject]@{ Name = "SNMP - Ports: 161, 162"; Ports = "161, 162"; Optional = $false },
     [PSCustomObject]@{ Name = "SQL Server - Ports: 1433"; Ports = "1433"; Optional = $true },
     [PSCustomObject]@{ Name = "WinRM - HTTP - Ports: 5985"; Ports = "5985"; Optional = $true },
     [PSCustomObject]@{ Name = "WinRM - HTTPS - Ports: 5986"; Ports = "5986"; Optional = $true },
