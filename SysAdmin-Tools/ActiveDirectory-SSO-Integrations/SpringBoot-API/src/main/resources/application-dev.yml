@@ -1,0 +1,8 @@
+spring:
+  ldap:
+    urls: ldap://dev-ldap.headq.scriptguy:3268
+    base: dc=headq,dc=scriptguy
+    username: dev-sso-authentication@headq
+    password: ${LDAP_PASSWORD}
+server:
+  port: 8081
