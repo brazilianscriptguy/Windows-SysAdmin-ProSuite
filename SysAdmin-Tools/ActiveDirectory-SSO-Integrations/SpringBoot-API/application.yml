@@ -1,24 +1,12 @@
-# application.yml
-
 spring:
   ldap:
-    # Base DN for LDAP searches. Adjust according to your organizational structure.
-    base: dc=HEADQ,dc=SCRIPTGUY
-    # Bind user for LDAP connections. Ensure this user has appropriate permissions.
-    username: ad-sso-authentication@headq
-    # LDAP bind password is externalized as an environment variable for security.
-    password: ${LDAP_PASSWORD}
-    # LDAP server URL.
-    # Use port 3268 for Global Catalog (Forest Domain) queries, or 389 for a standard domain range.
     urls: ldap://ldap.headq.scriptguy:3268
+    base: dc=headq,dc=scriptguy
+    username: ad-sso-authentication@headq
+    password: ${LDAP_PASSWORD}
+    user-search-filter: (sAMAccountName={0})
+    group-search-base: dc=headq,dc=scriptguy
+    group-search-filter: (member={0})
 
-  security:
-    ldap:
-      # Pattern used to build the DN of the user trying to authenticate.
-      user-dn-pattern: sAMAccountName={0}
-      # Filter used to search for the user in LDAP.
-      user-search-filter: (sAMAccountName={0})
-      # Base DN for group searches. Adjust this to match your LDAP domain structure.
-      group-search-base: dc=headq,dc=scriptguy
-      # Filter used to search for groups of which the user is a member.
-      group-search-filter: (member={0})
+server:
+  port: 8080
