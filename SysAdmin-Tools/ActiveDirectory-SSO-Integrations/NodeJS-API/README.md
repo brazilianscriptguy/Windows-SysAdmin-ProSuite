@@ -6,7 +6,7 @@
 
 <h2>📁 Folder Structure</h2>
 <pre>
-NodeJS-API/
+ActiveDirectory-SSO-Integrations/NodeJS-API/
 │
 ├── 📜 package.json              # Project dependencies and startup script
 ├── 📜 app.js                    # Main application file with Express & LDAP configuration
@@ -28,7 +28,7 @@ NodeJS-API/
 <h2>🛠️ Setup Instructions</h2>
 <ol>
   <li>Set the <code>LDAP_PASSWORD</code> environment variable.</li>
-  <li>Navigate to the <code>NodeJS-API</code> folder and install dependencies:</li>
+  <li>Navigate to the <code>ActiveDirectory-SSO-Integrations/NodeJS-API/</code> folder and install dependencies:</li>
   <pre><code>npm install</code></pre>
   <li>Start the server:</li>
   <pre><code>npm start</code></pre>
