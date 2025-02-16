@@ -1,26 +1,22 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const passport = require('passport');
-const LdapStrategy = require('passport-ldapauth');
-const fs = require('fs');
+require("dotenv").config();
+const express = require("express");
+const passport = require("passport");
+const LdapStrategy = require("passport-ldapauth");
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+
 const app = express();
+app.use(express.json());
 
-// Load LDAP configuration from file
-let ldapConfig = JSON.parse(fs.readFileSync('./config/ldap.config.json', 'utf8'));
-
-// Replace placeholder with the actual environment variable value
-ldapConfig.server.bindCredentials = process.env.LDAP_PASSWORD || 'your_generic_password';
-
-passport.use(new LdapStrategy(ldapConfig));
-
-app.use(bodyParser.json());
+const ldapOptions = require("./config/ldap.config.json");
+passport.use(new LdapStrategy(ldapOptions.server));
 app.use(passport.initialize());
 
-// Example login endpoint
-app.post('/login', passport.authenticate('ldapauth', { session: false }), (req, res) => {
-  res.json({ message: 'Authenticated successfully!', user: req.user });
-});
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
-app.listen(3000, () => {
-  console.log('NodeJS SSO API is running on port 3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`NodeJS-API is running on http://localhost:${PORT}`);
 });
