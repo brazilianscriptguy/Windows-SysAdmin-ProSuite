@@ -55,8 +55,8 @@ ActiveDirectory-SSO-Integrations/
 <h2>🚀 How to Run</h2>
 <ol>
   <li><strong>Clone the repository:</strong>
-    <pre>git clone https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations.git
-cd ActiveDirectory-SSO-Integrations/NodeJS-API</pre>
+    <pre>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/NodeJS-API</pre>
   </li>
   <li><strong>Set the LDAP password as an environment variable:</strong>
     <pre>export LDAP_PASSWORD='your-secure-password'</pre>
