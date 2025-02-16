@@ -97,7 +97,7 @@ ActiveDirectory-SSO-Integrations/
 <ul>
   <li><strong>User:</strong> <code>HEADQ\ad-sso-authentication</code></li>
   <li><strong>Password:</strong> <code>(Securely Stored & Managed)</code></li>
-  <li><strong>Distinguished Name:</strong> <code>CN=ad-sso-authentication,OU=ServiceAccounts,DC=headq,DC=example,DC=com</code></li>
+  <li><strong>Distinguished Name:</strong> <code>CN=ad-sso-authentication,OU=ServiceAccounts,DC=headq,DC=scriptguy</code></li>
 </ul>
 
 <h2>🛠️ API-Specific Instructions</h2>
