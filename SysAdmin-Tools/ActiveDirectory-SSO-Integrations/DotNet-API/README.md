@@ -106,23 +106,29 @@ cd ActiveDirectory-SSO-Integrations/DotNet-API</pre>
 
 <h2>📜 License</h2>
 <p>
-  This project is licensed under the <strong>MIT License</strong>.
+  <a href="LICENSE" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
+  </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  Contributions are welcome! Please follow the guidelines in 
-  <a href="../CONTRIBUTING.md" target="_blank">CONTRIBUTING.md</a>.
+  <a href="../CONTRIBUTING.md" target="_blank">
+    <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
+  </a>
 </p>
 
 <h2>📩 Support</h2>
 <p>
-  For issues or questions, reach out to:  
-  📧 <strong>Email:</strong> <a href="mailto:luizhamilton.lhr@gmail.com">luizhamilton.lhr@gmail.com</a>  
-  🔗 <strong>GitHub Issues:</strong> 
-  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">Report Here</a>
+  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
+    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+  </a>
+  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+  </a>
 </p>
 
 <hr>
 
 <p align="center">🚀 <strong>Enjoy Seamless SSO Integration!</strong> 🎯</p>
+
