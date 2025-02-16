@@ -1,0 +1,8 @@
+spring:
+  ldap:
+    urls: ldap://prod-ldap.headq.scriptguy:3268
+    base: dc=headq,dc=scriptguy
+    username: prod-sso-authentication@headq
+    password: ${LDAP_PASSWORD}
+server:
+  port: 8443
