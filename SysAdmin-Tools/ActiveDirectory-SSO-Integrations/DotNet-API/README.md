@@ -28,7 +28,6 @@ ActiveDirectory-SSO-Integrations/
 │   │   │   ├── 📜 AuthenticationMiddleware.cs  # Middleware for enforcing authentication
 │   │   ├── 📂 Models/               # Defines data models
 │   │   │   ├── 📜 UserModel.cs      # Represents user object schema
-│   │   ├── 📖 README.md             # Documentation for DotNetSSO API
 </pre>
 
 <h2>🛠️ Prerequisites</h2>
