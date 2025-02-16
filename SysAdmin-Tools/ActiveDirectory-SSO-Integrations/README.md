@@ -55,7 +55,7 @@ ActiveDirectory-SSO-Integrations/
   <li><code>urls: ldap://ldap.headq.scriptguy:3268</code> (Global Catalog on port 3268 or 389 for standard domains)</li>
   <li><code>user-dn-pattern: sAMAccountName={0}</code></li>
   <li><code>user-search-filter: (sAMAccountName={0})</code></li>
-  <li><code>group-search-base: dc=example,dc=com</code></li>
+  <li><code>group-search-base: dc=headq,dc=scriptguy</code></li>
   <li><code>group-search-filter: (member={0})</code></li>
 </ul>
 
