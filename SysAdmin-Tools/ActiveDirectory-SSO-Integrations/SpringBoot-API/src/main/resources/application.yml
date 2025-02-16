@@ -1,0 +1,12 @@
+spring:
+  ldap:
+    urls: ldap://ldap.headq.scriptguy:3268
+    base: dc=headq,dc=scriptguy
+    username: ad-sso-authentication@headq
+    password: ${LDAP_PASSWORD}
+  security:
+    user-search-filter: (sAMAccountName={0})
+    group-search-base: dc=headq,dc=scriptguy
+    group-search-filter: (member={0})
+server:
+  port: 8080
