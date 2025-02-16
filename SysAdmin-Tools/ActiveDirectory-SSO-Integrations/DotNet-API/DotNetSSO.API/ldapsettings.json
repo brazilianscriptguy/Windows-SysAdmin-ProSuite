@@ -1,0 +1,7 @@
+{
+  "LdapServer": "ldap://ldap.headq.scriptguy:3268",
+  "BaseDn": "dc=headq,dc=scriptguy",
+  "BindDn": "cn=ad-sso-authentication,ou=ServiceAccounts,dc=headq,dc=scriptguy",
+  "BindPassword": "${LDAP_PASSWORD}",
+  "UserFilter": "(sAMAccountName={0})"
+}
