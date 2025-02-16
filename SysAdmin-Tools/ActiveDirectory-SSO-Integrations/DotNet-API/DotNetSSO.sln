@@ -1,18 +1,16 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetSSO.API", "DotNetSSO.API\DotNetSSO.API.csproj", "{YOUR-PROJECT-GUID-HERE}"
+# Visual Studio 2022
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetSSO.API", "DotNetSSO.API\DotNetSSO.API.csproj", "{GUID-1234-5678}"
 EndProject
 Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{YOUR-PROJECT-GUID-HERE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{YOUR-PROJECT-GUID-HERE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{YOUR-PROJECT-GUID-HERE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{YOUR-PROJECT-GUID-HERE}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {GUID-1234-5678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {GUID-1234-5678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {GUID-1234-5678}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {GUID-1234-5678}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
 EndGlobal
