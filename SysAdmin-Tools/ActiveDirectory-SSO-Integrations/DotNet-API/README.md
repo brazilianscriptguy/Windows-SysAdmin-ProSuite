@@ -8,21 +8,24 @@
 
 <h2>📁 Folder Structure</h2>
 <pre>
-DotNetSSO.API/
+DotNetSSO/
 │
-├── 📄 Program.cs                  # Entry point for the API
-├── 🏗️ Startup.cs                   # Application startup configuration
-├── 📜 appsettings.json            # General application settings
-├── 📜 ldapsettings.json           # LDAP authentication settings
-├── 📂 Controllers/                # API controllers
-│   ├── 📜 AuthController.cs       # Handles authentication requests
-│   ├── 📜 UserController.cs       # Manages user-related requests
-├── 📂 Services/                   # Business logic for LDAP authentication
-│   ├── 📜 LdapService.cs          # Handles LDAP authentication logic
-├── 📂 Middleware/                 # Custom authentication enforcement
-│   ├── 📜 AuthenticationMiddleware.cs  # Middleware for enforcing authentication
-├── 📂 Models/                     # Defines data models
-│   ├── 📜 UserModel.cs            # Represents user object schema
+├── 📄 DotNetSSO.sln               # Solution file for the .NET project
+├── 📂 DotNetSSO.API/              # API Implementation
+│   ├── 📄 Program.cs              # Entry point for the API
+│   ├── 🏗️ Startup.cs               # Application startup configuration
+│   ├── 📜 appsettings.json        # General application settings
+│   ├── 📜 ldapsettings.json       # LDAP authentication settings
+│   ├── 📂 Controllers/            # API controllers
+│   │   ├── 📜 AuthController.cs   # Handles authentication requests
+│   │   ├── 📜 UserController.cs   # Manages user-related requests
+│   ├── 📂 Services/               # Business logic for LDAP authentication
+│   │   ├── 📜 LdapService.cs      # Handles LDAP authentication logic
+│   ├── 📂 Middleware/             # Custom authentication enforcement
+│   │   ├── 📜 AuthenticationMiddleware.cs  # Middleware for enforcing authentication
+│   ├── 📂 Models/                 # Defines data models
+│   │   ├── 📜 UserModel.cs        # Represents user object schema
+│   ├── 📖 README.md               # Documentation for DotNetSSO API
 </pre>
 
 <h2>🛠️ Prerequisites</h2>
