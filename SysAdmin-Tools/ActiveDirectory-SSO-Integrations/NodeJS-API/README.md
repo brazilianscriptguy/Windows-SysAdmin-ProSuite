@@ -1,4 +1,4 @@
-<h1>🔹 NodeJS-API</h1>
+<h1>🔹 NodeJS-API: Active Directory SSO Integration</h1>
 <p>
   This module demonstrates a <strong>Node.js API</strong> integrating with an <strong>LDAP server</strong> for Single Sign-On (SSO) authentication.
   The authentication is handled using <code>passport-ldapauth</code> strategy.
