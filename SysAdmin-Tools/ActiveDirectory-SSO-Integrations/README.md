@@ -52,7 +52,7 @@ ActiveDirectory-SSO-Integrations/
   <li><code>base: dc=HEADQ,dc=SCRIPTGUY</code></li>
   <li><code>username: binduser@scriptguy</code></li>
   <li><code>password: ${LDAP_PASSWORD}</code> (Externalized via environment variables)</li>
-  <li><code>urls: ldap://ldap.example.com:3268</code> (Global Catalog on port 3268 or 389 for standard domains)</li>
+  <li><code>urls: ldap://ldap.headq.scriptguy:3268</code> (Global Catalog on port 3268 or 389 for standard domains)</li>
   <li><code>user-dn-pattern: sAMAccountName={0}</code></li>
   <li><code>user-search-filter: (sAMAccountName={0})</code></li>
   <li><code>group-search-base: dc=example,dc=com</code></li>
