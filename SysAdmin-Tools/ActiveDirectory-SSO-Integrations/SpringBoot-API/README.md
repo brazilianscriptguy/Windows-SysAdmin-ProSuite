@@ -10,7 +10,7 @@ This module demonstrates a Spring Boot API that integrates with an LDAP server f
   Contains the LDAP connection and Spring Security configuration details:
   - **Base DN:** `dc=HEADQ,dc=SCRIPTGUY`
   - **LDAP URL:** `ldap://ldap.headq.scriptguy:3268`
-  - **Bind User:** `binduser@headq`
+  - **Bind User:** `ad-sso-authentication@headq`
   - **Bind Password:** `${LDAP_PASSWORD}` (externalized via environment variables)
   - **User Search Filter:** `(sAMAccountName={0})`
   - **Group Search Base:** `dc=headq,dc=scriptguy`
