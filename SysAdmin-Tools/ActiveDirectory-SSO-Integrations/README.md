@@ -6,43 +6,14 @@
   standardized configuration approach for consistency across different technology stacks.
 </p>
 
-<h2>📁 Folder Structure</h2>
-<pre>
-ActiveDirectory-SSO-Integrations/
-│
-├── 📂 DotNet-API/                # ASP.NET Core API with LDAP authentication
-│   ├── 📄 DotNetSSO.sln          # Solution file for the .NET project
-│   ├── 📂 DotNetSSO.API/         # API implementation
-│   │   ├── 🛠️ appsettings.json  # Configuration file for app settings
-│   │   └── 🏗️ Startup.cs         # Application startup configuration
-│   └── 📖 README.md              # Documentation for DotNet-API
-│
-├── 📂 NodeJS-API/                # Node.js API using Express & passport-ldapauth
-│   ├── 📜 package.json           # Node.js dependencies & scripts
-│   ├── 📝 app.js                 # Main application logic
-│   ├── 📂 config/                # Configuration folder
-│   │   └── ⚙️ ldap.config.json  # LDAP settings for authentication
-│   └── 📖 README.md              # Documentation for NodeJS-API
-│
-├── 📂 Python-API/                # Flask API using ldap3 for LDAP authentication
-│   ├── 📄 requirements.txt       # Python dependencies
-│   ├── 📝 app.py                 # Main API implementation
-│   ├── ⚙️ config.py              # Configuration settings
-│   └── 📖 README.md              # Documentation for Python-API
-│
-└── 📂 SpringBoot-API/            # Java Spring Boot API with LDAP authentication
-    └── ⚙️ application.yml        # Configuration file for LDAP settings
-    └── 📖 README.md              # Documentation for SpringBoot-API
-</pre>
-
 <h2>📝 Overview</h2>
 <p>
   Each module integrates LDAP-based SSO authentication using a common configuration model:
 </p>
 <ul>
   <li><strong>DotNet-API:</strong> Uses ASP.NET Core with a custom LDAP authentication handler.</li>
+  <li><strong>Flask-API:</strong> Implements LDAP authentication using the <code>ldap3</code> library.</li>
   <li><strong>NodeJS-API:</strong> Built with Express and <code>passport-ldapauth</code> for authentication.</li>
-  <li><strong>Python-API:</strong> Implements LDAP authentication using the <code>ldap3</code> library.</li>
   <li><strong>SpringBoot-API:</strong> Uses Spring Security with LDAP settings in <code>application.yml</code>.</li>
 </ul>
 
@@ -67,8 +38,8 @@ ActiveDirectory-SSO-Integrations/
   <li>Modify configuration files as needed:
     <ul>
       <li><code>appsettings.json</code> (DotNet-API)</li>
+      <li><code>config.py</code> (Flask-API)</li>
       <li><code>ldap.config.json</code> (NodeJS-API)</li>
-      <li><code>config.py</code> (Python-API)</li>
       <li><code>application.yml</code> (SpringBoot-API)</li>
     </ul>
   </li>
@@ -108,18 +79,18 @@ ActiveDirectory-SSO-Integrations/
   <li>Open the <code>.sln</code> file in Visual Studio or use the .NET CLI to build and run.</li>
 </ul>
 
+<h3>Flask-API</h3>
+<ul>
+  <li>Navigate to the <code>Flask-API</code> folder.</li>
+  <li>Install dependencies: <code>pip install -r requirements.txt</code>.</li>
+  <li>Run the app: <code>python app.py</code> (default port: 5000).</li>
+</ul>
+
 <h3>NodeJS-API</h3>
 <ul>
   <li>Navigate to the <code>NodeJS-API</code> folder.</li>
   <li>Run <code>npm install</code> to install dependencies.</li>
   <li>Start the server with <code>npm start</code> (default port: 3000).</li>
-</ul>
-
-<h3>Python-API</h3>
-<ul>
-  <li>Navigate to the <code>Python-API</code> folder.</li>
-  <li>Install dependencies: <code>pip install -r requirements.txt</code>.</li>
-  <li>Run the app: <code>python app.py</code> (default port: 5000).</li>
 </ul>
 
 <h3>SpringBoot-API</h3>
