@@ -68,9 +68,8 @@ server:
 <h2>🚀 How to Run</h2>
 <ol>
   <li><strong>Clone the repository:</strong>
-    <pre>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/
-cd ActiveDirectory-SSO-Integrations/SpringBoot-API</pre>
-  </li>
+    <pre>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/SpringBoot-API</pre>
   <li><strong>Set the LDAP password as an environment variable:</strong>
     <pre>export LDAP_PASSWORD='your-secure-password'</pre>
   </li>
