@@ -1,0 +1,3 @@
+flask
+ldap3
+python-dotenv
