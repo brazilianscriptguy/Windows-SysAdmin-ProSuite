@@ -13,13 +13,13 @@ ActiveDirectory-SSO-Integrations/
 │
 ├── 📂 SpringBoot-API/                     # Parent folder for Spring Boot API integration
 │   ├── 📜 pom.xml                          # Maven dependencies and build configuration
-│   ├── 📜 application.yml                  # LDAP configuration settings
 │   ├── 📂 src/
 │   │   ├── 📂 main/
 │   │   │   ├── 📂 java/com/example/springbootsso/
 │   │   │   │   ├── 📜 SpringBootSsoApplication.java   # Main application entry point
 │   │   │   │   ├── 📂 config/              # Configuration package
 │   │   │   │   │   ├── 📜 SecurityConfig.java        # Spring Security LDAP config
+│   │   │   │   │   ├── 📜 LdapConfig.java            # LDAP Connection settings
 │   │   │   │   ├── 📂 controllers/         # API controllers
 │   │   │   │   │   ├── 📜 AuthController.java        # Handles authentication requests
 │   │   │   │   │   ├── 📜 UserController.java        # Fetches user details
@@ -30,7 +30,9 @@ ActiveDirectory-SSO-Integrations/
 │   │   │   │   ├── 📂 middleware/          # Middleware logic
 │   │   │   │   │   ├── 📜 LdapAuthMiddleware.java   # Custom authentication enforcement
 │   │   │   ├── 📂 resources/
-│   │   │   │   ├── 📜 application.yml        # Configuration file
+│   │   │   │   ├── 📜 application.yml        # Main configuration file
+│   │   │   │   ├── 📜 application-dev.yml    # Development-specific configuration
+│   │   │   │   ├── 📜 application-prod.yml   # Production-specific configuration
 │   │   ├── 📂 test/java/com/example/springbootsso/
 │   │   │   ├── 📜 SpringBootSsoApplicationTests.java  # Unit tests for API
 │   ├── 📖 README.md                        # Documentation for SpringBoot-API
