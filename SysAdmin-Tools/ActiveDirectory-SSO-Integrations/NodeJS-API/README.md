@@ -4,6 +4,7 @@
 <p>
   The <strong>NodeJS-API</strong> module enables <strong>LDAP-based Single Sign-On (SSO)</strong> authentication with
   <strong>Active Directory</strong> using the <code>passport-ldapauth</code> strategy and Express.
+  It allows **secure authentication and user query operations** directly from an LDAP directory.
 </p>
 
 <h2>📁 Folder Structure</h2>
@@ -31,9 +32,9 @@ ActiveDirectory-SSO-Integrations/
 <h2>🛠️ Prerequisites</h2>
 <ul>
   <li><strong>Node.js 16+ and npm</strong></li>
-  <li><strong>Active Directory instance</strong></li>
-  <li><strong>LDAP access credentials</strong></li>
-  <li><strong>Postman or cURL (for testing API requests)</strong></li>
+  <li><strong>Active Directory instance</strong> accessible via LDAP</li>
+  <li><strong>LDAP credentials with read permissions</strong></li>
+  <li><strong>Postman or cURL</strong> (for testing API requests)</li>
 </ul>
 
 <h2>⚙️ Configuration</h2>
