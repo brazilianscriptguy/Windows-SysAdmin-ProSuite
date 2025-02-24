@@ -3,265 +3,240 @@
     PowerShell Script for Tracking Object Deletions via Event IDs 4660 and 4663.
 
 .DESCRIPTION
-    This script tracks object deletion events (Event IDs 4660 and 4663) and organizes 
-    the data into a CSV report. It aids in auditing security changes and monitoring object deletions.
+    This script analyzes object deletion events (Event IDs 4660 and 4663) from EVTX files, 
+    generating a consolidated CSV report for auditing and monitoring purposes.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: January 28, 2025
+    Last Updated: February 24, 2025
 #>
 
-Param(
-    [Bool]$AutoOpen = $true
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the consolidated CSV file after processing.")]
+    [bool]$AutoOpen = $true
 )
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+#region Initialization
+# Hide the console window
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+# Load required assemblies
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging purposes
+# Script metadata and logging setup
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-
-# Get the Domain Server Name
-$DomainServerName = [System.Environment]::MachineName
-
-# Set up logging
 $logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+# Ensure log directory exists with proper error handling
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$logPath': $_"
     }
 }
 
-# Function to display a message box for notifications
 function Show-MessageBox {
     param (
         [string]$Message,
-        [string]$Title
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
-    [System.Windows.Forms.MessageBox]::Show($Message, $Title)
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
 }
 
-# Function to update the progress bar in the GUI
 function Update-ProgressBar {
     param (
+        [ValidateRange(0, 100)]
         [int]$Value
     )
-    $progressBar.Value = $Value
-    $form.Refresh()
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
 }
 
-# Function to select files via OpenFileDialog
-function Select-Files {
-    param (
-        [string]$Filter,
-        [string]$Title,
-        [bool]$Multiselect
-    )
-    $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $openFileDialog.Filter = $Filter
-    $openFileDialog.Title = $Title
-    $openFileDialog.Multiselect = $Multiselect
-    if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        return $openFileDialog.FileNames
-    }
-}
-
-# Function to select EVTX files using GUI
 function Select-EvtxFiles {
-    Select-Files -Filter "EVTX Files (*.evtx)|*.evtx" -Title "Select EVTX Files" -Multiselect $true
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog -Property @{
+        Filter      = "EVTX Files (*.evtx)|*.evtx"
+        Title       = "Select EVTX Files"
+        Multiselect = $true
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.FileNames
+    }
+    return $null
 }
 
-# Function to search for Event IDs 4660 and 4663 in a given EVTX file
-function Search-EventIDs4660And4663 {
+function Get-ObjectDeletionEvents {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-Path $_ -PathType Leaf })]
         [string]$EvtxFilePath
     )
-
-    $results = @()
+    Write-Log "Processing '$EvtxFilePath' for Event IDs 4660 and 4663"
+    $results = [System.Collections.Generic.List[PSObject]]::new()
 
     try {
-        Log-Message "Searching Events IDs 4660 and 4663 in $EvtxFilePath"
-        # Query for Event IDs 4660 and 4663
-        $events = Get-WinEvent -Path $EvtxFilePath -FilterXPath "*[System[(EventID=4660 or EventID=4663)]]"
-
-        # Extract relevant information and create custom objects
+        $events = Get-WinEvent -Path $EvtxFilePath -FilterXPath "*[System[(EventID=4660 or EventID=4663)]]" -ErrorAction Stop
         foreach ($event in $events) {
-            $eventProperties = $event.Properties
-            $eventTime = $event.TimeCreated
-            $eventID = $event.Id
-            $userAccount = $eventProperties[1].Value
-            $domain = $eventProperties[2].Value
-            $lockoutCode = $eventProperties[4].Value
-            $objectType = $eventProperties[5].Value
-            $accessedObject = $eventProperties[6].Value
-            $subCode = $eventProperties[7].Value
-
-            $result = [PSCustomObject]@{
-                DateTime = $eventTime
-                EventID = $eventID
-                UserAccount = $userAccount
-                Domain = $domain
-                LockoutCode = $lockoutCode
-                ObjectType = $objectType
-                AccessedObject = $accessedObject
-                SubCode = $subCode
-            }
-
-            $results += $result
+            $props = $event.Properties
+            $results.Add([PSCustomObject]@{
+                DateTime       = $event.TimeCreated
+                EventID        = $event.Id
+                UserAccount    = $props[1].Value
+                Domain         = $props[2].Value
+                LockoutCode    = $props[4].Value
+                ObjectType     = $props[5].Value
+                AccessedObject = $props[6].Value
+                SubCode        = $props[7].Value
+            })
         }
-
-        Log-Message "Finished searching $EvtxFilePath"
+        Write-Log "Found $($results.Count) events in '$EvtxFilePath'"
     } catch {
-        $errorMsg = "Error searching Events IDs 4660 and 4663 in ${EvtxFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Search Error"
+        Write-Log -Message "Failed to process '$EvtxFilePath': $_" -Level Error
+        Show-MessageBox -Message "Error processing '$EvtxFilePath': $_" -Title "Processing Error" -Icon Error
     }
-
     return $results
 }
 
-# Function to export search results to a CSV file
-function Export-SearchResultsToCSV {
+function Export-ResultsToCsv {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
         [array]$Results,
-        [string]$OutputFilePath
+        [Parameter(Mandatory)]
+        [string]$FilePath
     )
-
+    Write-Log "Exporting $($Results.Count) results to '$FilePath'"
     try {
-        Log-Message "Exporting results to $OutputFilePath"
-        $Results | Export-Csv -Path $OutputFilePath -NoTypeInformation
-        Log-Message "Exported results to $OutputFilePath"
+        $Results | Export-Csv -Path $FilePath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+        Write-Log "Export completed for '$FilePath'"
     } catch {
-        $errorMsg = "Error exporting results to ${OutputFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Export Error"
+        Write-Log -Message "Failed to export to '$FilePath': $_" -Level Error
+        Show-MessageBox -Message "Export failed for '$FilePath': $_" -Title "Export Error" -Icon Error
     }
 }
 
-# Function to consolidate individual results into a single CSV file
-function Consolidate-SearchResults {
+function Merge-CsvResults {
+    [CmdletBinding()]
     param (
-        [array]$OutputFilePaths,
-        [string]$ConsolidatedFilePath
+        [Parameter(Mandatory)]
+        [string[]]$InputFiles,
+        [Parameter(Mandatory)]
+        [string]$OutputFile
     )
-
+    Write-Log "Merging $($InputFiles.Count) CSV files into '$OutputFile'"
     try {
-        Log-Message "Consolidating results to $ConsolidatedFilePath"
-        $allResults = @()
-        foreach ($outputFile in $OutputFilePaths) {
-            $allResults += Import-Csv -Path $outputFile
-        }
-        $allResults | Export-Csv -Path $ConsolidatedFilePath -NoTypeInformation
-        Log-Message "Consolidated results exported to $ConsolidatedFilePath"
+        $allResults = $InputFiles | ForEach-Object { Import-Csv -Path $_ -ErrorAction Stop }
+        $allResults | Export-Csv -Path $OutputFile -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+        Write-Log "Merge completed for '$OutputFile'"
     } catch {
-        $errorMsg = "Error consolidating results to ${ConsolidatedFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Consolidation Error"
+        Write-Log -Message "Failed to merge results into '$OutputFile': $_" -Level Error
+        Show-MessageBox -Message "Merge failed: $_" -Title "Merge Error" -Icon Error
     }
 }
+#endregion
 
-# Main script logic with GUI
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Event IDs 4660 and 4663 Parser'
-$form.Size = New-Object System.Drawing.Size @(350, 250)
-$form.StartPosition = 'CenterScreen'
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Object Deletion Event Parser (4660, 4663)'
+    Size          = [System.Drawing.Size]::new(350, 250)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox   = $false
+}
 
-# Progress bar setup
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point @(10, 70)
-$progressBar.Size = New-Object System.Drawing.Size @(310, 20)
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 70)
+    Size     = [System.Drawing.Size]::new(310, 20)
+}
 $form.Controls.Add($progressBar)
 
-# Start button setup
-$button = New-Object System.Windows.Forms.Button
-$button.Location = New-Object System.Drawing.Point @(10, 100)
-$button.Size = New-Object System.Drawing.Size @(100, 30)
-$button.Text = 'Start Analysis'
+$button = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 100)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = 'Start Analysis'
+}
 $button.Add_Click({
-    Log-Message "Starting analysis for Events IDs 4660 and 4663 (Track Object Deletion Actions)"
-
-    # Start the process when the button is clicked
+    Write-Log "Analysis started by user"
     $evtxFiles = Select-EvtxFiles
-    if ($evtxFiles) {
-        $outputFolderPath = [Environment]::GetFolderPath("MyDocuments")
-        $outputFiles = @()
-        $totalFiles = $evtxFiles.Count
-        $currentIndex = 0
-        foreach ($evtxFile in $evtxFiles) {
-            $currentIndex++
-            Update-ProgressBar -Value ($currentIndex / $totalFiles * 100)
-            $results = Search-EventIDs4660And4663 -EvtxFilePath $evtxFile
-            $outputFilePath = Join-Path $outputFolderPath ([System.IO.Path]::GetFileNameWithoutExtension($evtxFile) + "_ObjectDeletionTracking.csv")
-            Export-SearchResultsToCSV -Results $results -OutputFilePath $outputFilePath
-            $outputFiles += $outputFilePath
+    if (-not $evtxFiles) {
+        Show-MessageBox -Message "No EVTX files selected." -Title "Input Required" -Icon Warning
+        return
+    }
+
+    $outputFolder = [Environment]::GetFolderPath('MyDocuments')
+    $outputFiles = [System.Collections.Generic.List[string]]::new()
+    $totalFiles = $evtxFiles.Count
+
+    $evtxFiles | ForEach-Object -Begin { $i = 0 } -Process {
+        $i++
+        Update-ProgressBar -Value ([math]::Round($i / $totalFiles * 100))
+        $results = Get-ObjectDeletionEvents -EvtxFilePath $_
+        if ($results) {
+            $outputFile = Join-Path $outputFolder "$([System.IO.Path]::GetFileNameWithoutExtension($_))_ObjectDeletionTracking.csv"
+            Export-ResultsToCsv -Results $results -FilePath $outputFile
+            $outputFiles.Add($outputFile)
         }
+    }
 
-        $consolidatedFilePath = Join-Path $outputFolderPath "EventID4660and4663-ObjectDeletionTracking.csv"
-        Consolidate-SearchResults -OutputFilePaths $outputFiles -ConsolidatedFilePath $consolidatedFilePath
-
-        if (Test-Path $consolidatedFilePath) {
-            Show-MessageBox -Message "Consolidated results saved to:`n$consolidatedFilePath" -Title "Analysis Complete"
-            if ($AutoOpen) {
-                Start-Process $consolidatedFilePath
-            }
-        } else {
-            Show-MessageBox -Message "No object deletion events found." -Title "No Results"
+    if ($outputFiles.Count -gt 0) {
+        $consolidatedFile = Join-Path $outputFolder "EventID4660and4663-ObjectDeletionTracking.csv"
+        Merge-CsvResults -InputFiles $outputFiles -OutputFile $consolidatedFile
+        if (Test-Path $consolidatedFile) {
+            Show-MessageBox -Message "Analysis complete. Results saved to:`n$consolidatedFile" -Title "Success"
+            if ($AutoOpen) { Start-Process -FilePath $consolidatedFile }
         }
     } else {
-        Show-MessageBox -Message "No EVTX files selected." -Title "No Input"
+        Show-MessageBox -Message "No object deletion events found in selected files." -Title "No Results" -Icon Warning
     }
 })
 $form.Controls.Add($button)
 
-# Display the GUI form
-$form.Add_Shown({$form.Activate()})
-[void]$form.ShowDialog()
+# Make variables accessible in event handler
+$script:form = $form
+$script:progressBar = $progressBar
 
-# End of script
+$form.Add_Shown({ $form.Activate() })
+[void]$form.ShowDialog()
+#endregion
