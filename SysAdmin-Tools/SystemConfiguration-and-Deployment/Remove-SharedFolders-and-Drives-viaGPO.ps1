@@ -71,22 +71,22 @@ function Ensure-ServerService {
     }
 }
 
-# Enable administrative shares via registry (includes IPC$ and ADMIN$)
-function Enable-AdministrativeShares {
-    Write-Log "Enabling IPC$ and ADMIN$ administrative shares via registry."
+# Disable automatic creation of administrative shares via registry
+function Disable-AutoAdministrativeShares {
+    Write-Log "Disabling automatic creation of administrative shares (including C$, D$, etc.) via registry."
 
     try {
-        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters' -Name 'AutoShareWks' -Value 1 -ErrorAction Stop
-        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters' -Name 'AutoShareServer' -Value 1 -ErrorAction Stop
-        Write-Log "IPC$ and ADMIN$ administrative shares enabled in registry."
+        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters' -Name 'AutoShareWks' -Value 0 -ErrorAction Stop
+        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters' -Name 'AutoShareServer' -Value 0 -ErrorAction Stop
+        Write-Log "Automatic creation of administrative shares disabled in registry."
     } catch {
-        Write-Log "Failed to enable administrative shares in registry: $_" -LogLevel "ERROR"
+        Write-Log "Failed to disable automatic administrative shares in registry: $_" -LogLevel "ERROR"
     }
 }
 
-# Remove all shared folders on all drives
+# Remove all shared folders on all drives (excluding IPC$ and ADMIN$)
 function Remove-SharedFolders {
-    Write-Log "Removing all shared folders on all drives."
+    Write-Log "Removing all shared folders on all drives (excluding IPC$ and ADMIN$)."
 
     try {
         $shares = Get-SmbShare | Where-Object { $_.Name -notin 'IPC$', 'ADMIN$' }
@@ -99,9 +99,9 @@ function Remove-SharedFolders {
     }
 }
 
-# Remove all administrative shares
+# Remove all administrative shares (e.g., C$, D$, etc.)
 function Remove-AdministrativeShares {
-    Write-Log "Removing all administrative shares."
+    Write-Log "Removing all administrative shares (e.g., C$, D$, etc.)."
 
     try {
         $adminShares = Get-SmbShare | Where-Object { $_.Name -match '^\w\$' }
@@ -121,13 +121,13 @@ Write-Log "Starting share management script."
 Enable-LanmanServerService
 Ensure-ServerService
 
-# Enable administrative shares
-Enable-AdministrativeShares
+# Disable automatic creation of administrative shares
+Disable-AutoAdministrativeShares
 
-# Remove all shared folders on all drives
+# Remove all shared folders on all drives (excluding IPC$ and ADMIN$)
 Remove-SharedFolders
 
-# Remove all administrative shares
+# Remove all administrative shares (including C$, D$, etc.)
 Remove-AdministrativeShares
 
 Write-Log "Share management script completed."
