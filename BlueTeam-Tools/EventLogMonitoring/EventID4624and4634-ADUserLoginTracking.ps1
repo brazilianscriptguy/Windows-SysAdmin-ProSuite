@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Tracking User Logon (Event ID 4624) and Logoff (Event ID 4634) Activities from EVTX Files.
+    PowerShell Script for Tracking User Logon (Event ID 4624) and Logoff (Event ID 4634) Activities using Log Parser.
 
 .DESCRIPTION
-    This script tracks user logon (Event ID 4624) and logoff (Event ID 4634) activities by processing all `.EVTX` 
-    files from a specified folder. It generates a consolidated CSV report for auditing purposes.
+    This script tracks user logon (Event ID 4624) and logoff (Event ID 4634) activities from Security EVTX files 
+    in a selected folder using COM-based LogQuery, generating a consolidated CSV report with user-configurable settings via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
@@ -13,258 +13,341 @@
     Last Updated: December 9, 2024
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
+)
+
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
-}
-"@
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Initialize script paths and logging
-function Initialize-ScriptPaths {
-    param (
-        [string]$defaultLogDir = 'C:\Logs-TEMP'
-    )
-
-    # Dynamically capture the name of the current script
-    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $logDir = if ($env:LOG_PATH -and $env:LOG_PATH -ne "") { $env:LOG_PATH } else { $defaultLogDir }
-    $logFileName = "${scriptName}.log"
-    $logPath = Join-Path $logDir $logFileName
-    $csvPath = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "${scriptName}-$timestamp.csv"
-
-    # Ensure the log directory exists
-    if (-not (Test-Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-    }
-
-    return @{
-        LogDir = $logDir
-        LogPath = $logPath
-        CsvPath = $csvPath
-        ScriptName = $scriptName
-    }
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
 
-# Example usage in your main script
-$paths = Initialize-ScriptPaths
-$global:logDir = $paths.LogDir
-$global:logPath = $paths.LogPath
-$global:csvPath = $paths.CsvPath
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$DomainServerName = [System.Environment]::MachineName
 
-# Logging function
-function Log-Message {
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
+
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
+    }
+}
+#endregion
+
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter(Mandatory = $false)][ValidateSet("INFO", "ERROR", "WARNING", "DEBUG")][string]$MessageType = "INFO"
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $global:logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Output $logEntry  # Output to console if logging fails
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Function to process all `.EVTX` files in a specified folder
-function Process-EvtxFiles {
+function Show-MessageBox {
     param (
-        [string]$FolderPath,
-        [string[]]$UserList
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+}
 
-    Log-Message "Starting processing of EVTX files in folder: ${FolderPath}" -MessageType "INFO"
-    $evtxFiles = Get-ChildItem -Path $FolderPath -Filter "*.evtx" -Recurse
-    $results = @()
+function Update-ProgressBar {
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
+}
 
-    foreach ($evtxFile in $evtxFiles) {
-        try {
-            Log-Message "Processing file: ${evtxFile.FullName}" -MessageType "INFO"
-            $events = Get-WinEvent -Path $evtxFile.FullName -FilterXPath "*[System[(EventID=4624 or EventID=4634)]]" | Where-Object { $_.Properties[5].Value -in $UserList }
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder containing Security .evtx files"
+        ShowNewFolderButton = $false
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
 
-            foreach ($event in $events) {
-                $eventProperties = $event.Properties
-                $eventType = if ($event.Id -eq 4624) { "Logon" } elseif ($event.Id -eq 4634) { "Logoff" } else { "Unknown" }
-                $eventTime = $event.TimeCreated
-                $userAccount = $eventProperties[5].Value
-                $domainName = $eventProperties[6].Value
-                $logonType = $eventProperties[8].Value
-                $sourceIP = $eventProperties[18].Value
+function Track-LogonLogoffEvents {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$LogFolderPath,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [string[]]$UserAccounts
+    )
+    Write-Log "Starting to track logon/logoff events in folder '$LogFolderPath'"
 
-                $result = [PSCustomObject]@{
-                    EventType   = $eventType
-                    EventTime   = $eventTime
-                    UserAccount = $userAccount
-                    DomainName  = $domainName
-                    LogonType   = $logonType
-                    SourceIP    = $sourceIP
-                }
-
-                $results += $result
-            }
-        } catch {
-            Log-Message "Error processing file ${evtxFile.FullName}: $($_.Exception.Message)" -MessageType "ERROR"
+    try {
+        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -Recurse -ErrorAction Stop
+        if (-not $evtxFiles) {
+            throw "No .evtx files found in '$LogFolderPath'"
         }
-    }
 
-    return $results
-}
+        $totalFiles = $evtxFiles.Count
+        $processedFiles = 0
 
-# Function to export results to a CSV file
-function Export-ResultsToCSV {
-    param (
-        [array]$Results,
-        [string]$OutputFilePath
-    )
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
 
-    try {
-        Log-Message "Exporting results to ${OutputFilePath}" -MessageType "INFO"
-        $Results | Export-Csv -Path $OutputFilePath -NoTypeInformation
-        Log-Message "Exported results to ${OutputFilePath}" -MessageType "INFO"
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-LogonLogoff-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_logonlogoff_$timestamp.csv"
+
+        $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
+            "'" + ($UserAccounts -join "';'") + "'"
+        } else { 
+            throw "No users specified for tracking"
+        }
+
+        foreach ($file in $evtxFiles) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
+
+            $SQLQuery = @"
+            SELECT 
+                CASE 
+                    WHEN EventID = 4624 THEN 'Logon'
+                    WHEN EventID = 4634 THEN 'Logoff'
+                    ELSE 'Unknown'
+                END AS EventType,
+                TimeGenerated AS EventTime,
+                EXTRACT_TOKEN(Strings, 5, '|') AS UserAccount,
+                EXTRACT_TOKEN(Strings, 6, '|') AS DomainName,
+                EXTRACT_TOKEN(Strings, 8, '|') AS LogonType,
+                EXTRACT_TOKEN(Strings, 18, '|') AS SourceIP
+            INTO '$tempCsvPath'
+            FROM '$($file.FullName)'
+            WHERE EventID IN (4624; 4634)
+                AND EXTRACT_TOKEN(Strings, 5, '|') IN ($userFilter)
+"@
+
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for '$($file.FullName)'"
+            }
+
+            if (Test-Path $tempCsvPath) {
+                if ($processedFiles -eq 1) {
+                    Get-Content $tempCsvPath | Set-Content $consolidatedFile -Encoding UTF8
+                } else {
+                    Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $consolidatedFile -Encoding UTF8
+                }
+                Remove-Item $tempCsvPath -Force
+                Write-Log "Processed $($file.Name) for logon/logoff events"
+            }
+        }
+
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Finalizing report..."
+        $script:form.Refresh()
+
+        $eventCount = if (Test-Path $consolidatedFile) { (Import-Csv $consolidatedFile).Count } else { 0 }
+
+        Update-ProgressBar -Value 90
+        Write-Log "Found $eventCount logon/logoff events. Report exported to '$consolidatedFile'"
+        $script:statusLabel.Text = "Completed. Found $eventCount events. Report saved to '$consolidatedFile'"
+
+        if ($AutoOpen -and (Test-Path $consolidatedFile)) { Start-Process -FilePath $consolidatedFile }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Found $eventCount logon/logoff events.`nReport exported to:`n$consolidatedFile" -Title "Success"
     } catch {
-        Log-Message "Error exporting results to ${OutputFilePath}: $($_.Exception.Message)" -MessageType "ERROR"
+        Write-Log -Message "Error tracking logon/logoff events: $_" -Level Error
+        Show-MessageBox -Message "Error tracking logon/logoff events: $_" -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
 }
+#endregion
 
-# Initialize paths
-$paths = Initialize-ScriptPaths
-$global:logDir = $paths.LogDir
-$global:logPath = $paths.LogPath
-$global:csvPath = $paths.CsvPath
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Logon/Logoff Auditor (Event IDs 4624 & 4634)'
+    Size          = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
+}
 
-# Main GUI logic
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'EVTX Log Audit: Event IDs 4624 & 4634'
-$form.Size = New-Object System.Drawing.Size @(550, 420)
-$form.StartPosition = 'CenterScreen'
+# User Accounts
+$labelUsers = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "User Accounts:"
+}
+$form.Controls.Add($labelUsers)
 
-# Folder path selection label
-$labelFolder = New-Object System.Windows.Forms.Label
-$labelFolder.Text = "1. Select Folder Containing EVTX Files:"
-$labelFolder.Location = New-Object System.Drawing.Point @(20, 20)
-$form.Controls.Add($labelFolder)
+$textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(320, 60)
+    Multiline = $true
+    Text     = "user01, user02, user03, user04, user05"
+}
+$form.Controls.Add($textBoxUsers)
 
-# Folder path display textbox
-$textFolderPath = New-Object System.Windows.Forms.TextBox
-$textFolderPath.Location = New-Object System.Drawing.Point @(20, 50)
-$textFolderPath.Width = 400
-$textFolderPath.ReadOnly = $true
-$form.Controls.Add($textFolderPath)
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
 
-# Browse folder button
-$buttonBrowseFolder = New-Object System.Windows.Forms.Button
-$buttonBrowseFolder.Text = "Browse"
-$buttonBrowseFolder.Location = New-Object System.Drawing.Point @(430, 50)
-$form.Controls.Add($buttonBrowseFolder)
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 90)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
 
-# User list input label
-$labelUserList = New-Object System.Windows.Forms.Label
-$labelUserList.Text = "2. Enter User List (comma-separated):"
-$labelUserList.Location = New-Object System.Drawing.Point @(20, 90)
-$form.Controls.Add($labelUserList)
-
-# User list input textbox
-$textUserList = New-Object System.Windows.Forms.TextBox
-$textUserList.Location = New-Object System.Drawing.Point @(20, 120)
-$textUserList.Width = 500
-$form.Controls.Add($textUserList)
-
-# Progress bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point @(20, 160)
-$progressBar.Size = New-Object System.Drawing.Size @(500, 20)
-$form.Controls.Add($progressBar)
-
-# Status label
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = "Status: Waiting for input..."
-$statusLabel.Location = New-Object System.Drawing.Point @(20, 200)
-$form.Controls.Add($statusLabel)
-
-# Start analysis button
-$buttonStartAnalysis = New-Object System.Windows.Forms.Button
-$buttonStartAnalysis.Text = "Start Analysis"
-$buttonStartAnalysis.Location = New-Object System.Drawing.Point @(20, 240)
-$form.Controls.Add($buttonStartAnalysis)
-
-# Exit button
-$buttonExit = New-Object System.Windows.Forms.Button
-$buttonExit.Text = "Exit"
-$buttonExit.Location = New-Object System.Drawing.Point @(150, 240)
-$form.Controls.Add($buttonExit)
-
-# Folder selection event
-$global:FolderPath = ""
-$buttonBrowseFolder.Add_Click({
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = "Select the folder containing EVTX files."
-    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $global:FolderPath = $folderBrowser.SelectedPath
-        $textFolderPath.Text = $global:FolderPath
-        $statusLabel.Text = "Folder selected. Ready for analysis."
-        $buttonStartAnalysis.Enabled = $true
-    } else {
-        $statusLabel.Text = "No folder selected."
-        $buttonStartAnalysis.Enabled = $false
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
     }
 })
+$form.Controls.Add($buttonBrowseLogDir)
 
-# Start analysis event
-$buttonStartAnalysis.Add_Click({
-    $statusLabel.Text = "Processing... Please wait."
-    $progressBar.Value = 10
-    $userList = $textUserList.Text -split ','
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
 
-    if (-not $global:FolderPath) {
-        [System.Windows.Forms.MessageBox]::Show("No folder selected.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 120)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolderDefault
+}
+$form.Controls.Add($textBoxOutputDir)
+
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseOutputDir)
+
+# Status Label
+$labelStatus = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 180)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready"
+}
+$form.Controls.Add($labelStatus)
+
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 210)
+    Size     = [System.Drawing.Size]::new(430, 20)
+}
+$form.Controls.Add($progressBar)
+
+# Start Button
+$button = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 240)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = 'Start Analysis'
+}
+$button.Add_Click({
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
+
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+    }
+
+    $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+
+    if (-not $userAccounts -or $userAccounts.Count -eq 0) {
+        Show-MessageBox -Message "Please enter at least one user to track." -Title "Input Required" -Icon Warning
+        $script:labelStatus.Text = "Ready"
         return
     }
 
-    $results = Process-EvtxFiles -FolderPath $global:FolderPath -UserList $userList
+    Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+    $script:labelStatus.Text = "Selecting folder..."
+    $script:form.Refresh()
 
-    # Validate results before exporting
-    if ($results -and $results.Count -gt 0) {
-        Export-ResultsToCSV -Results $results -OutputFilePath $global:csvPath
-        $statusLabel.Text = "Analysis complete. Results exported to $global:csvPath"
-        [System.Windows.Forms.MessageBox]::Show("Analysis complete. Results saved to: $global:csvPath", 'Success', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    } else {
-        $statusLabel.Text = "No matching events found."
-        [System.Windows.Forms.MessageBox]::Show("No matching events found in the selected EVTX files.", 'No Results', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    $evtxFolder = Select-Folder
+    if (-not $evtxFolder) {
+        Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+        $script:labelStatus.Text = "Ready"
+        return
     }
 
-    $progressBar.Value = 100
-})
+    $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+    $script:form.Refresh()
 
-# Exit button event
-$buttonExit.Add_Click({
-    $form.Close()
+    Track-LogonLogoffEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
 })
+$form.Controls.Add($button)
 
-# Show the form
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:labelStatus = $labelStatus
+
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
-
-# End of script
+#endregion
