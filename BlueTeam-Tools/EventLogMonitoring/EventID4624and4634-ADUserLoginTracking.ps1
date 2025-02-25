@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: December 9, 2024
+    Last Updated: February 25, 2025
 #>
 
 [CmdletBinding()]
