@@ -3,220 +3,377 @@
     PowerShell Script for Auditing Print Activities via Event ID 307.
 
 .DESCRIPTION
-    This script audits print activities by analyzing Event ID 307 from the Microsoft-Windows-PrintService/Operational 
-    log. It generates a detailed report of print jobs, providing insights into user print activities.
-    
-    **Important:** Before running this script, please refer to the following files for detailed instructions and necessary configurations:
-    - `PrintService-Operational-EventLogs.md`
-    - `PrintService-Operational-EventLogs.reg`
-    These documents provide essential guidelines to ensure that the registry settings are correctly applied and that logging is properly enabled.
+    This script audits print activities by analyzing Event ID 307 from either the live Microsoft-Windows-PrintService/Operational 
+    log or .evtx files in a selected folder, generating a detailed CSV report with user-configurable paths via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 26, 2024
+    Last Updated: February 24, 2025
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
+)
+
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging and exporting .csv files
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-
-# Get the Domain Server Name
 $DomainServerName = [System.Environment]::MachineName
 
-# Set up logging
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolder = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Declare global variable to store selected log folder path
-$global:LogFolderPath = ""
-
-# Create the main form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Generate .CSV EventID-307 Print Audit"
-$form.Size = New-Object System.Drawing.Size @(450, 300)
-$form.StartPosition = "CenterScreen"
-
-# Create a label for the Browse button
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Microsoft-Windows-PrintService/Operational Log Analysis:"
-$label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point @(20, 20)
-$form.Controls.Add($label)
-
-# Create the Browse Folder button
-$buttonBrowseFolder = New-Object System.Windows.Forms.Button
-$buttonBrowseFolder.Text = "Browse"
-$buttonBrowseFolder.Location = New-Object System.Drawing.Point @(20, 50)
-$form.Controls.Add($buttonBrowseFolder)
-
-# Create the Start Analysis button
-$buttonStartAnalysis = New-Object System.Windows.Forms.Button
-$buttonStartAnalysis.Text = "Start Analysis"
-$buttonStartAnalysis.Enabled = $false
-$buttonStartAnalysis.Location = New-Object System.Drawing.Point @(150, 50)
-$form.Controls.Add($buttonStartAnalysis)
-
-# Create a progress bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progressBar.Location = New-Object System.Drawing.Point @(20, 100)
-$progressBar.Size = New-Object System.Drawing.Size @(400, 20)
-$form.Controls.Add($progressBar)
-
-# Create a label to display messages
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = ""
-$statusLabel.AutoSize = $true
-$statusLabel.Location = New-Object System.Drawing.Point @(20, 130)
-$form.Controls.Add($statusLabel)
-
-# Function to process the Microsoft-Windows-PrintService/Operational log directly
-function Process-PrintServiceLog {
+function Show-MessageBox {
     param (
-        [string]$LogFolderPath
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+}
 
-    Log-Message "Starting to process Event ID 307 in the Microsoft-Windows-PrintService/Operational log"
+function Update-ProgressBar {
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
+}
+
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder containing Microsoft-Windows-PrintService/Operational .evtx files"
+        ShowNewFolderButton = $false
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
+
+function Process-PrintServiceLog {
+    [CmdletBinding()]
+    param (
+        [string]$LogFolderPath,  # Nullable for live log mode
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [Parameter(Mandatory)]
+        [bool]$UseLiveLog
+    )
+    Write-Log "Starting to process Event ID 307 (Live Log: $UseLiveLog, Folder: '$LogFolderPath')"
+
     try {
-        $progressBar.Value = 25
-        $statusLabel.Text = "Processing the Microsoft-Windows-PrintService/Operational log..."
-        $form.Refresh()
+        $allEvents = [System.Collections.Generic.List[PSObject]]::new()
 
-        $DefaultFolder = [Environment]::GetFolderPath("MyDocuments")
-        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $csvPath = "$DefaultFolder\$DomainServerName-PrintAudit-$timestamp.csv"
+        if ($UseLiveLog) {
+            Update-ProgressBar -Value 25
+            $script:statusLabel.Text = "Querying live Microsoft-Windows-PrintService/Operational log..."
+            $script:form.Refresh()
 
-        # Get events directly from the PrintService log
-        $events = Get-WinEvent -LogName "Microsoft-Windows-PrintService/Operational" -FilterXPath "*[System/EventID=307]"
-        $progressBar.Value = 50
+            $events = Get-WinEvent -LogName "Microsoft-Windows-PrintService/Operational" -FilterXPath "*[System/EventID=307]" -ErrorAction Stop
+            foreach ($event in $events) {
+                $allEvents.Add([PSCustomObject]@{
+                    EventTime     = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
+                    UserId        = if ($event.Properties.Count -ge 3) { $event.Properties[2].Value } else { "Unknown" }
+                    Workstation   = if ($event.Properties.Count -ge 4) { $event.Properties[3].Value } else { "Unknown" }
+                    PrinterUsed   = if ($event.Properties.Count -ge 5) { $event.Properties[4].Value } else { "Unknown" }
+                    ByteSize      = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { 0 }
+                    PagesPrinted  = if ($event.Properties.Count -ge 8) { $event.Properties[7].Value } else { 0 }
+                })
+            }
+            Write-Log "Processed $($events.Count) Event ID 307 entries from live log"
+            Update-ProgressBar -Value 50
+        } else {
+            if (-not $LogFolderPath -or -not (Test-Path $LogFolderPath -PathType Container)) {
+                throw "Invalid or missing EVTX folder path: '$LogFolderPath'"
+            }
 
-        # Extract relevant information based on the SQL query's parsing
-        $eventDetails = $events | Select-Object @{
-            Name = 'EventTime'
-            Expression = { $_.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss") }
-        }, @{
-            Name = 'UserId'
-            Expression = { $_.Properties[2].Value }
-        }, @{
-            Name = 'Workstation'
-            Expression = { $_.Properties[3].Value }
-        }, @{
-            Name = 'PrinterUsed'
-            Expression = { $_.Properties[4].Value }
-        }, @{
-            Name = 'ByteSize'
-            Expression = { $_.Properties[6].Value }
-        }, @{
-            Name = 'PagesPrinted'
-            Expression = { $_.Properties[7].Value }
+            $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+            if (-not $evtxFiles) {
+                throw "No .evtx files found in '$LogFolderPath'"
+            }
+
+            $totalFiles = $evtxFiles.Count
+            $processedFiles = 0
+
+            foreach ($file in $evtxFiles) {
+                $processedFiles++
+                Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+                $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+                $script:form.Refresh()
+
+                $events = Get-WinEvent -Path $file.FullName -FilterXPath "*[System/EventID=307]" -ErrorAction Stop
+                foreach ($event in $events) {
+                    $allEvents.Add([PSCustomObject]@{
+                        EventTime     = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
+                        UserId        = if ($event.Properties.Count -ge 3) { $event.Properties[2].Value } else { "Unknown" }
+                        Workstation   = if ($event.Properties.Count -ge 4) { $event.Properties[3].Value } else { "Unknown" }
+                        PrinterUsed   = if ($event.Properties.Count -ge 5) { $event.Properties[4].Value } else { "Unknown" }
+                        ByteSize      = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { 0 }
+                        PagesPrinted  = if ($event.Properties.Count -ge 8) { $event.Properties[7].Value } else { 0 }
+                    })
+                }
+                Write-Log "Processed $($events.Count) Event ID 307 entries from '$($file.Name)'"
+            }
         }
 
-        # Export to CSV
-        $eventDetails | Export-Csv -Path $csvPath -NoTypeInformation -Delimiter ',' -Encoding UTF8 -Force
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Exporting results..."
+        $script:form.Refresh()
 
-        $progressBar.Value = 75
-        $statusLabel.Text = "Completed. Report exported to $csvPath"
-        Log-Message "Report exported to $csvPath"
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $csvPath = Join-Path $OutputFolder "$DomainServerName-PrintAudit-$timestamp.csv"
+        $allEvents | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
 
-        Start-Process $csvPath
-        [System.Windows.Forms.MessageBox]::Show("Report exported to $csvPath", 'Report Generated', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        $progressBar.Value = 100
+        Update-ProgressBar -Value 90
+        Write-Log "Report exported to '$csvPath'"
+        $script:statusLabel.Text = "Completed. Report saved to '$csvPath'"
+
+        if ($AutoOpen) { Start-Process $csvPath }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Report exported to:`n$csvPath" -Title "Success"
     } catch {
         $errorMsg = "Error processing Event ID 307: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Log-Message $errorMsg
-        $progressBar.Value = 0
-        $statusLabel.Text = "Error occurred. Check log for details."
+        Write-Log -Message $errorMsg -Level Error
+        Show-MessageBox -Message $errorMsg -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
     } finally {
-        $progressBar.Value = 0
+        Update-ProgressBar -Value 0
     }
 }
+#endregion
 
-# Event handler for the Browse Folder button
-$buttonBrowseFolder.Add_Click({
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = "Select the folder where the Microsoft-Windows-PrintService/Operational log is stored."
-    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $global:LogFolderPath = $folderBrowser.SelectedPath
-        $statusLabel.Text = "Selected Folder: $global:LogFolderPath"
-        Log-Message "Selected Folder for Event Logs: $global:LogFolderPath"
-        $buttonStartAnalysis.Enabled = $true
-    } else {
-        $statusLabel.Text = "No folder selected."
-        Log-Message "No folder selected."
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Print Audit Event Parser (Event ID 307)'
+    Size          = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
+}
+
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
+
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
+
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
     }
 })
+$form.Controls.Add($buttonBrowseLogDir)
 
-# Event handler for the Start Analysis button
-$buttonStartAnalysis.Add_Click({
-    Log-Message "Starting analysis of Microsoft-Windows-PrintService/Operational log for Event ID 307"
-    $statusLabel.Text = "Processing..."
-    $progressBar.Value = 0
-    $form.Refresh()
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
 
-    # Process the PrintService log
-    Process-PrintServiceLog -LogFolderPath $global:LogFolderPath
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 50)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolder
+}
+$form.Controls.Add($textBoxOutputDir)
 
-    # Reset progress bar
-    $progressBar.Value = 0
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
 })
+$form.Controls.Add($buttonBrowseOutputDir)
 
-# Show the main form
+# Live Log Toggle
+$checkBoxLiveLog = New-Object System.Windows.Forms.CheckBox -Property @{
+    Location = [System.Drawing.Point]::new(10, 80)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = "Use Live PrintService Log"
+    Checked  = $false
+}
+$checkBoxLiveLog.Add_CheckedChanged({
+    if ($checkBoxLiveLog.Checked) {
+        $textBoxEvtxFolder.Enabled = $false
+        $buttonBrowseEvtx.Enabled = $false
+        $script:buttonStartAnalysis.Enabled = $true
+        $script:statusLabel.Text = "Ready (Live Log Mode)"
+    } else {
+        $textBoxEvtxFolder.Enabled = $true
+        $buttonBrowseEvtx.Enabled = $true
+        $script:buttonStartAnalysis.Enabled = ($textBoxEvtxFolder.Text -ne "")
+        $script:statusLabel.Text = "Ready (File Mode)"
+    }
+})
+$form.Controls.Add($checkBoxLiveLog)
+
+# Browse EVTX Folder
+$labelBrowse = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 110)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "EVTX Folder:"
+}
+$form.Controls.Add($labelBrowse)
+
+$textBoxEvtxFolder = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 110)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = ""
+}
+$form.Controls.Add($textBoxEvtxFolder)
+
+$buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 110)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseEvtx.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxEvtxFolder.Text = $folder 
+        $script:buttonStartAnalysis.Enabled = $true
+        Write-Log "Selected EVTX folder: '$folder'"
+    } else {
+        $script:buttonStartAnalysis.Enabled = $false
+    }
+})
+$form.Controls.Add($buttonBrowseEvtx)
+
+# Status Label
+$statusLabel = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 140)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready (File Mode)"
+}
+$form.Controls.Add($statusLabel)
+
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 170)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Minimum  = 0
+    Maximum  = 100
+}
+$form.Controls.Add($progressBar)
+
+# Start Button
+$buttonStartAnalysis = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 200)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = "Start Analysis"
+    Enabled  = $false
+}
+$buttonStartAnalysis.Add_Click({
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
+    $evtxFolder = $textBoxEvtxFolder.Text
+    $useLiveLog = $checkBoxLiveLog.Checked
+
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+    }
+
+    if (-not $useLiveLog -and (-not $evtxFolder)) {
+        Show-MessageBox -Message "Please select an EVTX folder or enable Live Log mode." -Title "Input Required" -Icon Warning
+        $script:statusLabel.Text = "Ready (File Mode)"
+        return
+    }
+
+    Write-Log "Starting analysis of Event ID 307"
+    $script:statusLabel.Text = "Processing..."
+    $script:form.Refresh()
+
+    Process-PrintServiceLog -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UseLiveLog $useLiveLog
+    $script:statusLabel.Text = if ($useLiveLog) { "Ready (Live Log Mode)" } else { "Ready (File Mode)" }
+})
+$form.Controls.Add($buttonStartAnalysis)
+
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:statusLabel = $statusLabel
+$script:buttonStartAnalysis = $buttonStartAnalysis
+
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
-
-# End of script
+#endregion
