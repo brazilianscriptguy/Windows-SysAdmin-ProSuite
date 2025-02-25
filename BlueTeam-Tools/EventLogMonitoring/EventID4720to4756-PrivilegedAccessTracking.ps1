@@ -1,180 +1,343 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Tracking Privileged Access Events.
+    PowerShell Script for Tracking Privileged Access Events using Log Parser.
 
 .DESCRIPTION
     This script tracks privileged access events (Event IDs 4720, 4732, 4735, 4728, 4756, 4672, and 4724) 
-    and organizes the data into a CSV report. It aids in auditing security changes and monitoring 
-    privileged account activities.
+    from Security EVTX files in a selected folder using COM-based LogQuery, generating a consolidated CSV 
+    report with user-configurable settings via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: January 29, 2025
+    Last Updated: February 25, 2025
 #>
 
-Param(
-    [Bool]$AutoOpen = $true
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
 )
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0);
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5);
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging purposes
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-
-# Get the Domain Server Name
 $DomainServerName = [System.Environment]::MachineName
 
-# Set up logging
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
-    param ([string]$Message)
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
+    )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Function to display a message box
 function Show-MessageBox {
-    param ([string]$Message, [string]$Title)
-    [System.Windows.Forms.MessageBox]::Show($Message, $Title)
+    param (
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
+    )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
 }
 
-# Function to update the progress bar
 function Update-ProgressBar {
-    param ([int]$Value)
-    $progressBar.Value = $Value
-    $form.Refresh()
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
 }
 
-# Function to select files via OpenFileDialog
-function Select-Files {
-    param ([string]$Filter, [string]$Title, [bool]$Multiselect)
-    $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $openFileDialog.Filter = $Filter
-    $openFileDialog.Title = $Title
-    $openFileDialog.Multiselect = $Multiselect
-    if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        return $openFileDialog.FileNames
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder containing Security .evtx files"
+        ShowNewFolderButton = $false
     }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
 }
 
-# Function to retrieve privileged access events with detailed information
-function Search-PrivilegedEvents {
-    param ([string]$EvtxFilePath)
+function Compile-PrivilegedAccessEvents {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$LogFolderPath,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [string[]]$UserAccounts
+    )
+    Write-Log "Starting to compile privileged access events in folder '$LogFolderPath'"
 
-    $results = @()
     try {
-        Log-Message "Searching Events IDs in $EvtxFilePath"
-        $events = Get-WinEvent -Path $EvtxFilePath -FilterXPath "*[System[(EventID=4720 or EventID=4732 or EventID=4735 or EventID=4728 or EventID=4756 or EventID=4672 or EventID=4724)]]"
-        
-        foreach ($event in $events) {
-            $properties = $event.Properties
-            $result = [PSCustomObject]@{
-                DateTime = $event.TimeCreated
-                EventID = $event.Id
-                AccountName = if ($properties.Count -gt 0) { $properties[0].Value } else { "N/A" }
-                CallerUser = if ($properties.Count -gt 1) { $properties[1].Value } else { "N/A" }
-                Domain = if ($properties.Count -gt 2) { $properties[2].Value } else { "N/A" }
-                Message = $event.Message -replace "`r`n", " "
-            }
-            $results += $result
+        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+        if (-not $evtxFiles) {
+            throw "No .evtx files found in '$LogFolderPath'"
         }
-        Log-Message "Finished searching $EvtxFilePath"
+
+        $totalFiles = $evtxFiles.Count
+        $processedFiles = 0
+
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
+
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-PrivilegedAccessLogs-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_privileged_$timestamp.csv"
+
+        $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
+            "'" + ($UserAccounts -join "';'") + "'"
+        } else { 
+            "" 
+        }
+
+        foreach ($file in $evtxFiles) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
+
+            $SQLQuery = @"
+            SELECT 
+                TimeGenerated AS DateTime,
+                EventID,
+                EXTRACT_TOKEN(Strings, 0, '|') AS AccountName,
+                EXTRACT_TOKEN(Strings, 1, '|') AS CallerUser,
+                EXTRACT_TOKEN(Strings, 2, '|') AS Domain
+            INTO '$tempCsvPath'
+            FROM '$($file.FullName)'
+            WHERE EventID IN (4720; 4732; 4735; 4728; 4756; 4672; 4724)
+                $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 0, '|') IN ($userFilter)" } else { "" })
+"@
+
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for '$($file.FullName)'"
+            }
+
+            if (Test-Path $tempCsvPath) {
+                if ($processedFiles -eq 1) {
+                    Get-Content $tempCsvPath | Set-Content $consolidatedFile -Encoding UTF8
+                } else {
+                    Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $consolidatedFile -Encoding UTF8
+                }
+                Remove-Item $tempCsvPath -Force
+                Write-Log "Processed $($file.Name) for privileged access events"
+            }
+        }
+
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Finalizing report..."
+        $script:form.Refresh()
+
+        $eventCount = if (Test-Path $consolidatedFile) { (Import-Csv $consolidatedFile).Count } else { 0 }
+
+        Update-ProgressBar -Value 90
+        Write-Log "Found $eventCount privileged access events. Report exported to '$consolidatedFile'"
+        $script:statusLabel.Text = "Completed. Found $eventCount events. Report saved to '$consolidatedFile'"
+
+        if ($AutoOpen -and (Test-Path $consolidatedFile)) { Start-Process -FilePath $consolidatedFile }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Found $eventCount privileged access events.`nReport exported to:`n$consolidatedFile" -Title "Success"
     } catch {
-        $errorMsg = "Error searching Events in ${EvtxFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Search Error"
+        Write-Log -Message "Error compiling privileged access events: $_" -Level Error
+        Show-MessageBox -Message "Error compiling privileged access events: $_" -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
-    return $results
+}
+#endregion
+
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Privileged Access Auditor (Multiple Event IDs)'
+    Size          = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
 }
 
-# GUI Configuration
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Privileged Access Event Tracker'
-$form.Size = New-Object System.Drawing.Size @(400, 250)
-$form.StartPosition = 'CenterScreen'
+# User Accounts
+$labelUsers = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "User Accounts:"
+}
+$form.Controls.Add($labelUsers)
 
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point @(20, 80)
-$progressBar.Size = New-Object System.Drawing.Size @(350, 20)
-$form.Controls.Add($progressBar)
+$textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(320, 60)
+    Multiline = $true
+    Text     = "user01, user02, user03, user04, user05"
+}
+$form.Controls.Add($textBoxUsers)
 
-$button = New-Object System.Windows.Forms.Button
-$button.Location = New-Object System.Drawing.Point @(20, 120)
-$button.Size = New-Object System.Drawing.Size @(350, 40)
-$button.Text = 'Start Analysis'
-$button.Add_Click({
-    Log-Message "Starting Privileged Access Event Analysis"
-    $evtxFiles = Select-Files -Filter "EVTX Files (*.evtx)|*.evtx" -Title "Select EVTX Files" -Multiselect $true
-    if ($evtxFiles) {
-        $outputFilePath = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Privileged_Access_Logs_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-        $results = @()
-        $totalFiles = $evtxFiles.Count
-        $currentIndex = 0
-        
-        foreach ($evtxFile in $evtxFiles) {
-            $currentIndex++
-            Update-ProgressBar -Value ($currentIndex / $totalFiles * 100)
-            $results += Search-PrivilegedEvents -EvtxFilePath $evtxFile
-        }
-        
-        if ($results.Count -gt 0) {
-            $results | Export-Csv -Path $outputFilePath -NoTypeInformation -Encoding UTF8
-            Show-MessageBox -Message "Results saved to: $outputFilePath" -Title "Analysis Complete"
-            if ($AutoOpen) { Start-Process $outputFilePath }
-        } else {
-            Show-MessageBox -Message "No relevant events found." -Title "No Data"
-        }
-    } else {
-        Show-MessageBox -Message "No EVTX files selected." -Title "No Input"
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
+
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 90)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
+
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
     }
 })
-$form.Controls.Add($button)
-$form.Add_Shown({$form.Activate()})
-[void]$form.ShowDialog()
+$form.Controls.Add($buttonBrowseLogDir)
 
-# End of script
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
+
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 120)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolderDefault
+}
+$form.Controls.Add($textBoxOutputDir)
+
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseOutputDir)
+
+# Status Label
+$labelStatus = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 180)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready"
+}
+$form.Controls.Add($labelStatus)
+
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 210)
+    Size     = [System.Drawing.Size]::new(430, 20)
+}
+$form.Controls.Add($progressBar)
+
+# Start Button
+$button = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 240)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = 'Start Analysis'
+}
+$button.Add_Click({
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
+
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+    }
+
+    $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+
+    Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+    $script:labelStatus.Text = "Selecting folder..."
+    $script:form.Refresh()
+
+    $evtxFolder = Select-Folder
+    if (-not $evtxFolder) {
+        Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+        $script:labelStatus.Text = "Ready"
+        return
+    }
+
+    $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+    $script:form.Refresh()
+
+    Compile-PrivilegedAccessEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+})
+$form.Controls.Add($button)
+
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:labelStatus = $labelStatus
+
+$form.Add_Shown({ $form.Activate() })
+[void]$form.ShowDialog()
+#endregion
