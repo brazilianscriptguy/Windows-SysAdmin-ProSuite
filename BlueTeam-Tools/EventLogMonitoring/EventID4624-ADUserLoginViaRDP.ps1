@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Auditing RDP Logon Activities via Event ID 4624 (Logon Type 10).
+    PowerShell Script for Auditing RDP Logon Activities via Event ID 4624 (Logon Type 10) using Log Parser.
 
 .DESCRIPTION
-    This script searches Security EVTX files for successful RDP logons (Event ID 4624, Logon Type 10),
-    generating a detailed CSV report with user-configurable paths via a GUI, excluding system accounts.
+    This script searches Security EVTX files in a selected folder for successful RDP logons (Event ID 4624, 
+    Logon Type 10) using COM-based LogQuery, generating a detailed CSV report with user-configurable paths via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
@@ -94,21 +94,9 @@ function Update-ProgressBar {
     $script:form.Refresh()
 }
 
-function Select-EvtxFiles {
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog -Property @{
-        Filter      = "Security Event Log files (*.evtx)|*.evtx"
-        Title       = "Select one or more Security .evtx files"
-        Multiselect = $true
-    }
-    if ($dialog.ShowDialog() -eq 'OK') {
-        return $dialog.FileNames
-    }
-    return $null
-}
-
 function Select-Folder {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
-        Description = "Select a folder"
+        Description = "Select a folder containing Security .evtx files"
         ShowNewFolderButton = $false
     }
     if ($dialog.ShowDialog() -eq 'OK') {
@@ -121,68 +109,86 @@ function Find-RDPLogons {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [ValidateScript({ $_ | ForEach-Object { Test-Path $_ -PathType Leaf } })]
-        [string[]]$EvtxFilePaths,
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$LogFolderPath,
         [Parameter(Mandatory)]
         [string]$OutputFolder
     )
-    Write-Log "Starting to search for RDP logons (Event ID 4624, Logon Type 10) in $($EvtxFilePaths.Count) .evtx files"
+    Write-Log "Starting to search for RDP logons (Event ID 4624, Logon Type 10) in '$LogFolderPath'"
 
     try {
-        $totalFiles = $EvtxFilePaths.Count
-        $processedFiles = 0
-        $rdpEvents = [System.Collections.Generic.List[PSObject]]::new()
-        $systemAccounts = @('SYSTEM', 'ANONYMOUS LOGON', 'LOCAL SERVICE', 'NETWORK SERVICE')
-        $systemDomains = @('NT AUTHORITY')
-
-        foreach ($file in $EvtxFilePaths) {
-            $processedFiles++
-            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
-            $script:statusLabel.Text = "Processing $file ($processedFiles of $totalFiles)..."
-            $script:form.Refresh()
-
-            $events = Get-WinEvent -Path $file -ErrorAction Stop | Where-Object { 
-                $_.Id -eq 4624 -and 
-                $_.Properties.Count -ge 9 -and 
-                [int]$_.Properties[8].Value -eq 10 
-            }
-            foreach ($event in $events) {
-                $userAccount = if ($event.Properties.Count -ge 6) { $event.Properties[5].Value } else { "Unknown" }
-                $domain = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { "Unknown" }
-
-                if ($userAccount -in $systemAccounts -or $domain -in $systemDomains) {
-                    continue  # Skip system accounts
-                }
-
-                $rdpEvents.Add([PSCustomObject]@{
-                    EventTime       = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-                    UserAccount     = $userAccount
-                    Domain          = $domain
-                    Workstation     = if ($event.Properties.Count -ge 12) { $event.Properties[11].Value } else { "Unknown" }
-                    SourceIP        = if ($event.Properties.Count -ge 19) { $event.Properties[18].Value } else { "N/A" }
-                    SubStatusCode   = if ($event.Properties.Count -ge 11) { $event.Properties[10].Value } else { "N/A" }
-                    AccessedResource = if ($event.Properties.Count -ge 12) { $event.Properties[11].Value } else { "N/A" }  # Note: Adjusted index
-                    LogonType       = "10 (RemoteInteractive)"
-                })
-            }
-            Write-Log "Found $($events.Count) RDP logons in '$file'"
+        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+        if (-not $evtxFiles) {
+            throw "No .evtx files found in '$LogFolderPath'"
         }
 
-        Update-ProgressBar -Value 75
-        $script:statusLabel.Text = "Exporting results..."
-        $script:form.Refresh()
+        $totalFiles = $evtxFiles.Count
+        $processedFiles = 0
+
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
 
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
         $csvPath = Join-Path $OutputFolder "$DomainServerName-RDPLogons-$timestamp.csv"
-        $rdpEvents | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+        $tempCsvPath = Join-Path $env:TEMP "temp_rdp_$timestamp.csv"
+
+        foreach ($file in $evtxFiles) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
+
+            $SQLQuery = @"
+            SELECT 
+                TimeGenerated AS EventTime,
+                EXTRACT_TOKEN(Strings, 5, '|') AS UserAccount,
+                EXTRACT_TOKEN(Strings, 6, '|') AS Domain,
+                EXTRACT_TOKEN(Strings, 11, '|') AS Workstation,
+                EXTRACT_TOKEN(Strings, 18, '|') AS SourceIP,
+                EXTRACT_TOKEN(Strings, 10, '|') AS SubStatusCode,
+                EXTRACT_TOKEN(Strings, 11, '|') AS AccessedResource,
+                EXTRACT_TOKEN(Strings, 8, '|') AS LogonType
+            INTO '$tempCsvPath'
+            FROM '$($file.FullName)'
+            WHERE EventID = 4624
+                AND EXTRACT_TOKEN(Strings, 8, '|') = '10'
+                AND EXTRACT_TOKEN(Strings, 5, '|') NOT IN ('SYSTEM'; 'ANONYMOUS LOGON'; 'LOCAL SERVICE'; 'NETWORK SERVICE')
+                AND EXTRACT_TOKEN(Strings, 6, '|') NOT IN ('NT AUTHORITY')
+"@
+
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for '$($file.FullName)'"
+            }
+
+            # Append temp CSV to final CSV (avoiding header duplication after first file)
+            if (Test-Path $tempCsvPath) {
+                $content = Get-Content $tempCsvPath
+                if ($processedFiles -eq 1) {
+                    $content | Set-Content $csvPath -Encoding UTF8
+                } else {
+                    $content | Select-Object -Skip 1 | Add-Content $csvPath -Encoding UTF8
+                }
+                Remove-Item $tempCsvPath -Force
+                Write-Log "Processed $($file.Name) with RDP logons"
+            }
+        }
+
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Finalizing report..."
+        $script:form.Refresh()
+
+        # Count RDP logons from the final CSV
+        $ RDPLogonCount = if (Test-Path $csvPath) { (Import-Csv $csvPath).Count } else { 0 }
 
         Update-ProgressBar -Value 90
-        Write-Log "Found $($rdpEvents.Count) RDP logons. Report exported to '$csvPath'"
-        $script:statusLabel.Text = "Completed. Found $($rdpEvents.Count) RDP logons. Report saved to '$csvPath'"
+        Write-Log "Found $RDPLogonCount RDP logons. Report exported to '$csvPath'"
+        $script:statusLabel.Text = "Completed. Found $RDPLogonCount RDP logons. Report saved to '$csvPath'"
 
-        if ($AutoOpen) { Start-Process $csvPath }
+        if ($AutoOpen -and (Test-Path $csvPath)) { Start-Process $csvPath }
         Update-ProgressBar -Value 100
-        Show-MessageBox -Message "Found $($rdpEvents.Count) RDP logons.`nReport exported to:`n$csvPath" -Title "Success"
+        Show-MessageBox -Message "Found $RDPLogonCount RDP logons.`nReport exported to:`n$csvPath" -Title "Success"
     } catch {
         $errorMsg = "Error searching for RDP logons: $($_.Exception.Message)"
         Write-Log -Message $errorMsg -Level Error
@@ -190,6 +196,7 @@ function Find-RDPLogons {
         $script:statusLabel.Text = "Error occurred. Check log for details."
     } finally {
         Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
 }
 #endregion
@@ -261,21 +268,20 @@ $buttonBrowseOutputDir.Add_Click({
 })
 $form.Controls.Add($buttonBrowseOutputDir)
 
-# EVTX Files
+# EVTX Folder
 $labelBrowse = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 80)
     Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Security EVTX Files:"
+    Text     = "Security EVTX Folder:"
 }
 $form.Controls.Add($labelBrowse)
 
-$textBoxEvtxFiles = New-Object System.Windows.Forms.TextBox -Property @{
+$textBoxEvtxFolder = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 80)
     Size     = [System.Drawing.Size]::new(200, 20)
     Text     = ""
-    ReadOnly = $true
 }
-$form.Controls.Add($textBoxEvtxFiles)
+$form.Controls.Add($textBoxEvtxFolder)
 
 $buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 80)
@@ -283,15 +289,13 @@ $buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
     Text     = "Browse"
 }
 $buttonBrowseEvtx.Add_Click({
-    $files = Select-EvtxFiles
-    if ($files) { 
-        $script:evtxFiles = $files
-        $textBoxEvtxFiles.Text = "$($files.Count) file(s) selected"
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxEvtxFolder.Text = $folder 
         $script:buttonStartAnalysis.Enabled = $true
-        Write-Log "Selected $($files.Count) Security .evtx files: $($files -join ', ')"
+        Write-Log "Selected Security EVTX folder: '$folder'"
     } else {
-        $script:evtxFiles = @()
-        $textBoxEvtxFiles.Text = ""
+        $textBoxEvtxFolder.Text = ""
         $script:buttonStartAnalysis.Enabled = $false
     }
 })
@@ -325,23 +329,23 @@ $buttonStartAnalysis.Add_Click({
     $script:logDir = $textBoxLogDir.Text
     $script:logPath = Join-Path $script:logDir "${scriptName}.log"
     $outputFolder = $textBoxOutputDir.Text
-    $evtxFiles = $script:evtxFiles
+    $evtxFolder = $textBoxEvtxFolder.Text
 
     if (-not (Test-Path $script:logDir)) {
         New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
     }
 
-    if (-not $evtxFiles) {
-        Show-MessageBox -Message "Please select one or more Security EVTX files." -Title "Input Required" -Icon Warning
+    if (-not $evtxFolder) {
+        Show-MessageBox -Message "Please select a folder containing Security EVTX files." -Title "Input Required" -Icon Warning
         $script:statusLabel.Text = "Ready"
         return
     }
 
-    Write-Log "Starting RDP logon analysis in $($evtxFiles.Count) files"
+    Write-Log "Starting RDP logon analysis in folder '$evtxFolder'"
     $script:statusLabel.Text = "Processing..."
     $script:form.Refresh()
 
-    Find-RDPLogons -EvtxFilePaths $evtxFiles -OutputFolder $outputFolder
+    Find-RDPLogons -LogFolderPath $evtxFolder -OutputFolder $outputFolder
     $script:statusLabel.Text = "Ready"
 })
 $form.Controls.Add($buttonStartAnalysis)
@@ -351,7 +355,6 @@ $script:form = $form
 $script:progressBar = $progressBar
 $script:statusLabel = $statusLabel
 $script:buttonStartAnalysis = $buttonStartAnalysis
-$script:evtxFiles = @()
 
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
