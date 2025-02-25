@@ -1,259 +1,341 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Identifying Kerberos Pre-Authentication Failures via Event ID 4771.
+    PowerShell Script for Identifying Kerberos Pre-Authentication Failures via Event ID 4771 using Log Parser.
 
 .DESCRIPTION
-    This script identifies Kerberos pre-authentication failures (Event ID 4771) and outputs 
-    findings to a CSV report, helping to diagnose authentication issues in the Kerberos protocol.
+    This script identifies Kerberos pre-authentication failures (Event ID 4771) from Security EVTX files 
+    in a selected folder using COM-based LogQuery, outputting a consolidated CSV report with user-configurable settings via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: January 28, 2025
+    Last Updated: February 25, 2025
 #>
 
-Param(
-    [Bool]$AutoOpen = $false
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
 )
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging purposes
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-
-# Get the Domain Server Name
 $DomainServerName = [System.Environment]::MachineName
 
-# Set up logging
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Function to display a message box for notifications
 function Show-MessageBox {
     param (
         [string]$Message,
-        [string]$Title
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
-    [System.Windows.Forms.MessageBox]::Show($Message, $Title)
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
 }
 
-# Function to update the progress bar in the GUI
 function Update-ProgressBar {
     param (
+        [ValidateRange(0, 100)]
         [int]$Value
     )
-    $progressBar.Value = $Value
-    $form.Refresh()
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
 }
 
-# Function to select files via OpenFileDialog
-function Select-Files {
-    param (
-        [string]$Filter,
-        [string]$Title,
-        [bool]$Multiselect
-    )
-    $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $openFileDialog.Filter = $Filter
-    $openFileDialog.Title = $Title
-    $openFileDialog.Multiselect = $Multiselect
-    if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        return $openFileDialog.FileNames
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder containing Security .evtx files"
+        ShowNewFolderButton = $false
     }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
 }
 
-# Function to select EVTX files using GUI
-function Select-EvtxFiles {
-    Select-Files -Filter "EVTX Files (*.evtx)|*.evtx" -Title "Select EVTX Files" -Multiselect $true
-}
-
-# Function to search for Event ID 4771 in a given EVTX file
-function Search-EventID4771 {
+function Compile-KerberosPreAuthFailures {
+    [CmdletBinding()]
     param (
-        [string]$EvtxFilePath
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$LogFolderPath,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [string[]]$UserAccounts
     )
-
-    $results = @()
+    Write-Log "Starting to compile Kerberos pre-authentication failures (Event ID 4771) in folder '$LogFolderPath'"
 
     try {
-        Log-Message "Searching Event ID 4771 in $EvtxFilePath"
-        # Query for Event ID 4771
-        $events = Get-WinEvent -Path $EvtxFilePath -FilterXPath "*[System[(EventID=4771)]]"
+        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+        if (-not $evtxFiles) {
+            throw "No .evtx files found in '$LogFolderPath'"
+        }
 
-        # Extract relevant information and create custom objects
-        foreach ($event in $events) {
-            $eventProperties = $event.Properties
-            $eventTime = $event.TimeCreated
-            $userAccount = $eventProperties[0].Value
-            $lockoutCode = $eventProperties[3].Value
-            $stationIP = $eventProperties[5].Value
+        $totalFiles = $evtxFiles.Count
+        $processedFiles = 0
 
-            $result = [PSCustomObject]@{
-                EventTime = $eventTime
-                UserAccount = $userAccount
-                LockoutCode = $lockoutCode
-                StationIP = $stationIP
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
+
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-EventID4771-KerberosPreAuthFailed-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_kerberos_$timestamp.csv"
+
+        $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
+            "'" + ($UserAccounts -join "';'") + "'"
+        } else { 
+            "" 
+        }
+
+        foreach ($file in $evtxFiles) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
+
+            $SQLQuery = @"
+            SELECT 
+                TimeGenerated AS EventTime,
+                EXTRACT_TOKEN(Strings, 0, '|') AS UserAccount,
+                EXTRACT_TOKEN(Strings, 3, '|') AS LockoutCode,
+                EXTRACT_TOKEN(Strings, 5, '|') AS StationIP
+            INTO '$tempCsvPath'
+            FROM '$($file.FullName)'
+            WHERE EventID = 4771
+                $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 0, '|') IN ($userFilter)" } else { "" })
+"@
+
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for '$($file.FullName)'"
             }
 
-            $results += $result
+            if (Test-Path $tempCsvPath) {
+                if ($processedFiles -eq 1) {
+                    Get-Content $tempCsvPath | Set-Content $consolidatedFile -Encoding UTF8
+                } else {
+                    Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $consolidatedFile -Encoding UTF8
+                }
+                Remove-Item $tempCsvPath -Force
+                Write-Log "Processed $($file.Name) for Kerberos pre-authentication failures"
+            }
         }
 
-        Log-Message "Finished searching $EvtxFilePath"
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Finalizing report..."
+        $script:form.Refresh()
+
+        $eventCount = if (Test-Path $consolidatedFile) { (Import-Csv $consolidatedFile).Count } else { 0 }
+
+        Update-ProgressBar -Value 90
+        Write-Log "Found $eventCount Kerberos pre-authentication failures. Report exported to '$consolidatedFile'"
+        $script:statusLabel.Text = "Completed. Found $eventCount failures. Report saved to '$consolidatedFile'"
+
+        if ($AutoOpen -and (Test-Path $consolidatedFile)) { Start-Process -FilePath $consolidatedFile }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Found $eventCount Kerberos pre-authentication failures.`nReport exported to:`n$consolidatedFile" -Title "Success"
     } catch {
-        $errorMsg = "Error searching Event ID 4771 in ${EvtxFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Search Error"
-    }
-
-    return $results
-}
-
-# Function to export search results to a CSV file
-function Export-SearchResultsToCSV {
-    param (
-        [array]$Results,
-        [string]$OutputFilePath
-    )
-
-    try {
-        Log-Message "Exporting results to $OutputFilePath"
-        $Results | Export-Csv -Path $OutputFilePath -NoTypeInformation
-        Log-Message "Exported results to $OutputFilePath"
-    } catch {
-        $errorMsg = "Error exporting results to ${OutputFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Export Error"
+        Write-Log -Message "Error compiling Kerberos pre-authentication failures: $_" -Level Error
+        Show-MessageBox -Message "Error compiling Kerberos pre-authentication failures: $_" -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
 }
+#endregion
 
-# Function to consolidate individual results into a single CSV file
-function Consolidate-SearchResults {
-    param (
-        [array]$OutputFilePaths,
-        [string]$ConsolidatedFilePath
-    )
-
-    try {
-        Log-Message "Consolidating results to $ConsolidatedFilePath"
-        $allResults = @()
-        foreach ($outputFile in $OutputFilePaths) {
-            $allResults += Import-Csv -Path $outputFile
-        }
-        $allResults | Export-Csv -Path $ConsolidatedFilePath -NoTypeInformation
-        Log-Message "Consolidated results exported to $ConsolidatedFilePath"
-    } catch {
-        $errorMsg = "Error consolidating results to ${ConsolidatedFilePath}: $($_.Exception.Message)"
-        Log-Message $errorMsg
-        Show-MessageBox -Message $errorMsg -Title "Consolidation Error"
-    }
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Kerberos Pre-Auth Failure Auditor (Event ID 4771)'
+    Size          = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
 }
 
-# Main script logic with GUI
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Event ID 4771 Parser'
-$form.Size = New-Object System.Drawing.Size @(350, 250)
-$form.StartPosition = 'CenterScreen'
+# User Accounts
+$labelUsers = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "User Accounts:"
+}
+$form.Controls.Add($labelUsers)
 
-# Progress bar setup
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point @(10, 70)
-$progressBar.Size = New-Object System.Drawing.Size @(310, 20)
+$textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(320, 60)
+    Multiline = $true
+    Text     = "user01, user02, user03, user04, user05"
+}
+$form.Controls.Add($textBoxUsers)
+
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
+
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 90)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
+
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 90)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseLogDir)
+
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
+
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 120)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolderDefault
+}
+$form.Controls.Add($textBoxOutputDir)
+
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 120)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseOutputDir)
+
+# Status Label
+$labelStatus = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 180)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready"
+}
+$form.Controls.Add($labelStatus)
+
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 210)
+    Size     = [System.Drawing.Size]::new(430, 20)
+}
 $form.Controls.Add($progressBar)
 
-# Start button setup
-$button = New-Object System.Windows.Forms.Button
-$button.Location = New-Object System.Drawing.Point @(10, 100)
-$button.Size = New-Object System.Drawing.Size @(100, 30)
-$button.Text = 'Start Analysis'
+# Start Button
+$button = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 240)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = 'Start Analysis'
+}
 $button.Add_Click({
-    Log-Message "Starting analysis for Event ID 4771 (Kerberos Pre-Authentication Failed)"
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
 
-    # Start the process when the button is clicked
-    $evtxFiles = Select-EvtxFiles
-    if ($evtxFiles) {
-        $outputFolderPath = [Environment]::GetFolderPath("MyDocuments")
-        $outputFiles = @()
-        $totalFiles = $evtxFiles.Count
-        $currentIndex = 0
-        foreach ($evtxFile in $evtxFiles) {
-            $currentIndex++
-            Update-ProgressBar -Value ($currentIndex / $totalFiles * 100)
-            $results = Search-EventID4771 -EvtxFilePath $evtxFile
-            $outputFilePath = Join-Path $outputFolderPath ([System.IO.Path]::GetFileNameWithoutExtension($evtxFile) + "_KerberosPreAuthFailed.csv")
-            Export-SearchResultsToCSV -Results $results -OutputFilePath $outputFilePath
-            $outputFiles += $outputFilePath
-        }
-
-        $consolidatedFilePath = Join-Path $outputFolderPath "EventID4771-KerberosPreAuthFailed.csv"
-        Consolidate-SearchResults -OutputFilePaths $outputFiles -ConsolidatedFilePath $consolidatedFilePath
-
-        if (Test-Path $consolidatedFilePath) {
-            Show-MessageBox -Message "Consolidated results saved to:`n$consolidatedFilePath" -Title "Analysis Complete"
-            if ($AutoOpen) {
-                Start-Process $consolidatedFilePath
-            }
-        } else {
-            Show-MessageBox -Message "No Kerberos pre-authentication failure events found." -Title "No Results"
-        }
-    } else {
-        Show-MessageBox -Message "No EVTX files selected." -Title "No Input"
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
     }
+
+    $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+
+    Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+    $script:labelStatus.Text = "Selecting folder..."
+    $script:form.Refresh()
+
+    $evtxFolder = Select-Folder
+    if (-not $evtxFolder) {
+        Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+        $script:labelStatus.Text = "Ready"
+        return
+    }
+
+    $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+    $script:form.Refresh()
+
+    Compile-KerberosPreAuthFailures -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
 })
 $form.Controls.Add($button)
 
-# Display the GUI form
-$form.Add_Shown({$form.Activate()})
-[void]$form.ShowDialog()
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:labelStatus = $labelStatus
 
-# End of script
+$form.Add_Shown({ $form.Activate() })
+[void]$form.ShowDialog()
+#endregion
