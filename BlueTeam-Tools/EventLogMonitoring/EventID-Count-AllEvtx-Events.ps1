@@ -3,176 +3,344 @@
     PowerShell Script for Counting EventID Occurrences in EVTX Files.
 
 .DESCRIPTION
-    This script counts occurrences of each EventID in specified EVTX files and exports 
-    the results to a CSV file. It is useful for analyzing event logs and identifying patterns 
-    or trends in system and security events.
+    This script counts occurrences of each EventID in one or more EVTX files, exporting the results 
+    to a CSV file with user-configurable paths via a GUI. It aids in analyzing event log patterns.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: February 24, 2025
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
+)
+
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging purposes
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 
-# Set up logging
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolder = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Create the main form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Generate .CSV Event Log Analysis"
-$form.Size = New-Object System.Drawing.Size @(450, 300)
-$form.StartPosition = "CenterScreen"
-
-# Create a label for the OpenFileDialog button
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Select an EVTX file (Event Log):"
-$label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point @(20, 20)
-$form.Controls.Add($label)
-
-# Create the OpenFileDialog button
-$buttonOpenFile = New-Object System.Windows.Forms.Button
-$buttonOpenFile.Text = "Browse"
-$buttonOpenFile.Location = New-Object System.Drawing.Point @(20, 50)
-$form.Controls.Add($buttonOpenFile)
-
-# Create the OpenFileDialog
-$OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-$OpenFileDialog.Filter = "Event Log files (*.evtx)|*.evtx"
-$OpenFileDialog.Title = "Select an .evtx file"
-
-# Create a progress bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progressBar.Location = New-Object System.Drawing.Point @(20, 100)
-$progressBar.Size = New-Object System.Drawing.Size @(400, 20)
-$form.Controls.Add($progressBar)
-
-# Create a label to display messages
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = ""
-$statusLabel.AutoSize = $true
-$statusLabel.Location = New-Object System.Drawing.Point @(20, 130)
-$form.Controls.Add($statusLabel)
-
-# Function to count Event IDs in an EVTX file
-function Count-EventIDs {
+function Show-MessageBox {
     param (
-        [string]$evtxFilePath
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+}
 
-    Log-Message "Starting to count Event IDs in $evtxFilePath"
+function Update-ProgressBar {
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
+}
+
+function Select-EvtxFiles {
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog -Property @{
+        Filter      = "Event Log files (*.evtx)|*.evtx"
+        Title       = "Select one or more .evtx files"
+        Multiselect = $true
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.FileNames
+    }
+    return $null
+}
+
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder"
+        ShowNewFolderButton = $false
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
+
+function Count-EventIDs {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ $_ | ForEach-Object { Test-Path $_ -PathType Leaf } })]
+        [string[]]$EvtxFilePaths,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder
+    )
+    Write-Log "Starting to count Event IDs in $($EvtxFilePaths.Count) .evtx files"
+
     try {
-        $progressBar.Value = 25
-        $statusLabel.Text = "Processing $evtxFilePath..."
-        $form.Refresh()
+        $totalFiles = $EvtxFilePaths.Count
+        $processedFiles = 0
+        $eventCounts = [System.Collections.Generic.Dictionary[string,int]]::new()
 
-        $events = Get-WinEvent -Path $evtxFilePath
-        $progressBar.Value = 50
+        foreach ($file in $EvtxFilePaths) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $file ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
 
-        $eventCounts = $events | Group-Object -Property Id | Select-Object Count, Name
+            $events = Get-WinEvent -Path $file -ErrorAction Stop
+            foreach ($event in $events) {
+                $eventId = $event.Id.ToString()
+                if ($eventCounts.ContainsKey($eventId)) {
+                    $eventCounts[$eventId]++
+                } else {
+                    $eventCounts[$eventId] = 1
+                }
+            }
+            Write-Log "Processed $($events.Count) events from '$file'"
+        }
+
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Exporting results..."
+        $script:form.Refresh()
+
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $resultFileName = "${scriptName}_${timestamp}.csv"
-        $resultFilePath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::MyDocuments), $resultFileName)
+        $csvPath = Join-Path $OutputFolder "${scriptName}_${timestamp}.csv"
+        $eventCounts.GetEnumerator() | Sort-Object Name | Select-Object @{
+            Name = 'EventID'
+            Expression = { $_.Key }
+        }, @{
+            Name = 'Counting'
+            Expression = { $_.Value }
+        } | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
 
-        $eventCounts | Export-Csv -Path $resultFilePath -NoTypeInformation -Delimiter ',' -Encoding UTF8 -Force
-        (Get-Content $resultFilePath) | ForEach-Object { $_ -replace 'Count', 'Counting' -replace 'Name', 'EventID' } | Set-Content $resultFilePath
+        Update-ProgressBar -Value 90
+        Write-Log "Event counts exported to '$csvPath'"
+        $script:statusLabel.Text = "Completed. Report saved to '$csvPath'"
 
-        $progressBar.Value = 75
-        $statusLabel.Text = "Completed. Event counts exported to $resultFilePath"
-        [System.Windows.Forms.MessageBox]::Show("Event counts exported to $resultFilePath", 'Report Generated', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-
-        Log-Message "Event counts exported to $resultFilePath"
-        $progressBar.Value = 100
+        if ($AutoOpen) { Start-Process $csvPath }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Event counts exported to:`n$csvPath" -Title "Success"
     } catch {
         $errorMsg = "Error counting Event IDs: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Log-Message $errorMsg
-        $progressBar.Value = 0
-        $statusLabel.Text = "Error occurred. Check log for details."
+        Write-Log -Message $errorMsg -Level Error
+        Show-MessageBox -Message $errorMsg -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
     }
 }
+#endregion
 
-# Event handler for the OpenFileDialog button
-$buttonOpenFile.Add_Click({
-    if ($OpenFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $evtxFilePath = $OpenFileDialog.FileName
-        Log-Message "Selected .evtx file: $evtxFilePath"
-        $statusLabel.Text = "Processing $evtxFilePath..."
-        $progressBar.Value = 0
-        $form.Refresh()
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'Event ID Counter (EVTX Files)'
+    Size          = [System.Drawing.Size]::new(450, 300)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
+}
 
-        # Count Event IDs in the selected file
-        Count-EventIDs -evtxFilePath $evtxFilePath
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
 
-        # Reset progress bar
-        $progressBar.Value = 0
-    } else {
-        [System.Windows.Forms.MessageBox]::Show('No file selected.', 'Input Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        Log-Message "No file selected."
-        $statusLabel.Text = "No file selected."
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
+
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
     }
 })
+$form.Controls.Add($buttonBrowseLogDir)
 
-# Show the main form
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
+
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 50)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolder
+}
+$form.Controls.Add($textBoxOutputDir)
+
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseOutputDir)
+
+# EVTX Files
+$labelBrowse = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 80)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "EVTX Files:"
+}
+$form.Controls.Add($labelBrowse)
+
+$textBoxEvtxFiles = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 80)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = ""
+    ReadOnly = $true
+}
+$form.Controls.Add($textBoxEvtxFiles)
+
+$buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 80)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseEvtx.Add_Click({
+    $files = Select-EvtxFiles
+    if ($files) { 
+        $script:evtxFiles = $files
+        $textBoxEvtxFiles.Text = "$($files.Count) file(s) selected"
+        $script:buttonStartAnalysis.Enabled = $true
+        Write-Log "Selected $($files.Count) .evtx files: $($files -join ', ')"
+    } else {
+        $script:evtxFiles = @()
+        $textBoxEvtxFiles.Text = ""
+        $script:buttonStartAnalysis.Enabled = $false
+    }
+})
+$form.Controls.Add($buttonBrowseEvtx)
+
+# Status Label
+$statusLabel = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 110)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready"
+}
+$form.Controls.Add($statusLabel)
+
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 140)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Minimum  = 0
+    Maximum  = 100
+}
+$form.Controls.Add($progressBar)
+
+# Start Button
+$buttonStartAnalysis = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 170)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = "Start Analysis"
+    Enabled  = $false
+}
+$buttonStartAnalysis.Add_Click({
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
+    $evtxFiles = $script:evtxFiles
+
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+    }
+
+    if (-not $evtxFiles) {
+        Show-MessageBox -Message "Please select one or more EVTX files." -Title "Input Required" -Icon Warning
+        $script:statusLabel.Text = "Ready"
+        return
+    }
+
+    Write-Log "Starting analysis of Event IDs in $($evtxFiles.Count) files"
+    $script:statusLabel.Text = "Processing..."
+    $script:form.Refresh()
+
+    Count-EventIDs -EvtxFilePaths $evtxFiles -OutputFolder $outputFolder
+    $script:statusLabel.Text = "Ready"
+})
+$form.Controls.Add($buttonStartAnalysis)
+
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:statusLabel = $statusLabel
+$script:buttonStartAnalysis = $buttonStartAnalysis
+$script:evtxFiles = @()
+
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
-
-# End of script
+#endregion
