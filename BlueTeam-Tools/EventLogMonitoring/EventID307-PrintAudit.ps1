@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Auditing Print Activities via Event ID 307.
+    PowerShell Script for Auditing Print Activities via Event ID 307 using Log Parser.
 
 .DESCRIPTION
     This script audits print activities by analyzing Event ID 307 from either the live Microsoft-Windows-PrintService/Operational 
-    log or .evtx files in a selected folder, generating a detailed CSV report with user-configurable paths via a GUI.
+    log or .evtx files in a selected folder using COM-based LogQuery, generating a detailed CSV report with user-configurable paths via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
@@ -117,26 +117,40 @@ function Process-PrintServiceLog {
     Write-Log "Starting to process Event ID 307 (Live Log: $UseLiveLog, Folder: '$LogFolderPath')"
 
     try {
-        $allEvents = [System.Collections.Generic.List[PSObject]]::new()
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
+
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $csvPath = Join-Path $OutputFolder "$DomainServerName-PrintAudit-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_print_$timestamp.csv"
 
         if ($UseLiveLog) {
             Update-ProgressBar -Value 25
             $script:statusLabel.Text = "Querying live Microsoft-Windows-PrintService/Operational log..."
             $script:form.Refresh()
 
-            $events = Get-WinEvent -LogName "Microsoft-Windows-PrintService/Operational" -FilterXPath "*[System/EventID=307]" -ErrorAction Stop
-            foreach ($event in $events) {
-                $allEvents.Add([PSCustomObject]@{
-                    EventTime     = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-                    UserId        = if ($event.Properties.Count -ge 3) { $event.Properties[2].Value } else { "Unknown" }
-                    Workstation   = if ($event.Properties.Count -ge 4) { $event.Properties[3].Value } else { "Unknown" }
-                    PrinterUsed   = if ($event.Properties.Count -ge 5) { $event.Properties[4].Value } else { "Unknown" }
-                    ByteSize      = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { 0 }
-                    PagesPrinted  = if ($event.Properties.Count -ge 8) { $event.Properties[7].Value } else { 0 }
-                })
+            $SQLQuery = @"
+            SELECT 
+                TimeGenerated AS EventTime,
+                EXTRACT_TOKEN(Strings, 2, '|') AS UserId,
+                EXTRACT_TOKEN(Strings, 3, '|') AS Workstation,
+                EXTRACT_TOKEN(Strings, 4, '|') AS PrinterUsed,
+                EXTRACT_TOKEN(Strings, 6, '|') AS ByteSize,
+                EXTRACT_TOKEN(Strings, 7, '|') AS PagesPrinted
+            INTO '$csvPath'
+            FROM SYSTEM
+            WHERE EventID = 307
+                AND EXTRACT_TOKEN(Strings, 0, '|') = 'Microsoft-Windows-PrintService/Operational'
+"@
+
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for live Microsoft-Windows-PrintService/Operational log"
             }
-            Write-Log "Processed $($events.Count) Event ID 307 entries from live log"
+
             Update-ProgressBar -Value 50
+            Write-Log "Processed Event ID 307 entries from live log"
         } else {
             if (-not $LogFolderPath -or -not (Test-Path $LogFolderPath -PathType Container)) {
                 throw "Invalid or missing EVTX folder path: '$LogFolderPath'"
@@ -156,36 +170,52 @@ function Process-PrintServiceLog {
                 $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
                 $script:form.Refresh()
 
-                $events = Get-WinEvent -Path $file.FullName -FilterXPath "*[System/EventID=307]" -ErrorAction Stop
-                foreach ($event in $events) {
-                    $allEvents.Add([PSCustomObject]@{
-                        EventTime     = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
-                        UserId        = if ($event.Properties.Count -ge 3) { $event.Properties[2].Value } else { "Unknown" }
-                        Workstation   = if ($event.Properties.Count -ge 4) { $event.Properties[3].Value } else { "Unknown" }
-                        PrinterUsed   = if ($event.Properties.Count -ge 5) { $event.Properties[4].Value } else { "Unknown" }
-                        ByteSize      = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { 0 }
-                        PagesPrinted  = if ($event.Properties.Count -ge 8) { $event.Properties[7].Value } else { 0 }
-                    })
+                $SQLQuery = @"
+                SELECT 
+                    TimeGenerated AS EventTime,
+                    EXTRACT_TOKEN(Strings, 2, '|') AS UserId,
+                    EXTRACT_TOKEN(Strings, 3, '|') AS Workstation,
+                    EXTRACT_TOKEN(Strings, 4, '|') AS PrinterUsed,
+                    EXTRACT_TOKEN(Strings, 6, '|') AS ByteSize,
+                    EXTRACT_TOKEN(Strings, 7, '|') AS PagesPrinted
+                INTO '$tempCsvPath'
+                FROM '$($file.FullName)'
+                WHERE EventID = 307
+"@
+
+                $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+                if ($rtnVal -eq 0) {
+                    throw "LogQuery execution failed for '$($file.FullName)'"
                 }
-                Write-Log "Processed $($events.Count) Event ID 307 entries from '$($file.Name)'"
+
+                # Append temp CSV to final CSV (avoiding header duplication after first file)
+                if (Test-Path $tempCsvPath) {
+                    $content = Get-Content $tempCsvPath
+                    if ($processedFiles -eq 1) {
+                        $content | Set-Content $csvPath -Encoding UTF8
+                    } else {
+                        $content | Select-Object -Skip 1 | Add-Content $csvPath -Encoding UTF8
+                    }
+                    Remove-Item $tempCsvPath -Force
+                    Write-Log "Processed $($file.Name) for Event ID 307"
+                }
             }
         }
 
         Update-ProgressBar -Value 75
-        $script:statusLabel.Text = "Exporting results..."
+        $script:statusLabel.Text = "Finalizing report..."
         $script:form.Refresh()
 
-        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $csvPath = Join-Path $OutputFolder "$DomainServerName-PrintAudit-$timestamp.csv"
-        $allEvents | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+        # Count total print events from the final CSV
+        $printEventCount = if (Test-Path $csvPath) { (Import-Csv $csvPath).Count } else { 0 }
 
         Update-ProgressBar -Value 90
-        Write-Log "Report exported to '$csvPath'"
-        $script:statusLabel.Text = "Completed. Report saved to '$csvPath'"
+        Write-Log "Found $printEventCount print events. Report exported to '$csvPath'"
+        $script:statusLabel.Text = "Completed. Found $printEventCount print events. Report saved to '$csvPath'"
 
-        if ($AutoOpen) { Start-Process $csvPath }
+        if ($AutoOpen -and (Test-Path $csvPath)) { Start-Process $csvPath }
         Update-ProgressBar -Value 100
-        Show-MessageBox -Message "Report exported to:`n$csvPath" -Title "Success"
+        Show-MessageBox -Message "Found $printEventCount print events.`nReport exported to:`n$csvPath" -Title "Success"
     } catch {
         $errorMsg = "Error processing Event ID 307: $($_.Exception.Message)"
         Write-Log -Message $errorMsg -Level Error
@@ -193,6 +223,7 @@ function Process-PrintServiceLog {
         $script:statusLabel.Text = "Error occurred. Check log for details."
     } finally {
         Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
 }
 #endregion
@@ -359,7 +390,7 @@ $buttonStartAnalysis.Add_Click({
         return
     }
 
-    Write-Log "Starting analysis of Event ID 307"
+    Write-Log "Starting print audit analysis"
     $script:statusLabel.Text = "Processing..."
     $script:form.Refresh()
 
