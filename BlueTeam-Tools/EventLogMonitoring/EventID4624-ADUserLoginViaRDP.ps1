@@ -1,223 +1,358 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Monitoring RDP Logon Activities via Event ID 4624.
+    PowerShell Script for Auditing RDP Logon Activities via Event ID 4624 (Logon Type 10).
 
 .DESCRIPTION
-    This script generates a CSV report detailing Remote Desktop Protocol (RDP) logon activities based 
-    on Event ID 4624. It helps monitor remote access and detect potential security risks.
+    This script searches Security EVTX files for successful RDP logons (Event ID 4624, Logon Type 10),
+    generating a detailed CSV report with user-configurable paths via a GUI, excluding system accounts.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: February 24, 2025
 #>
 
-Param(
-    [Bool]$AutoOpen = $false
+[CmdletBinding()]
+Param (
+    [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
+    [bool]$AutoOpen = $true
 )
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
+"@ -ErrorAction Stop
+[Console.Window]::Hide()
+
+try {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
+    exit 1
 }
-"@
 
-[Window]::Hide()
-
-# Import necessary assemblies for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the script name for logging purposes
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-
-# Get the Domain Server Name
 $DomainServerName = [System.Environment]::MachineName
 
-# Set up logging
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolder = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
-# Enhanced logging function with error handling
-function Log-Message {
+#region Functions
+function Write-Log {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Message,
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] $Message"
+    $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
     }
 }
 
-# Declare global variable to store selected log folder path
-$global:LogFolderPath = ""
+function Show-MessageBox {
+    param (
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
+    )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+}
 
-# Create the main form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Generate .CSV EventID 4624 Logon Via RDP"
-$form.Size = New-Object System.Drawing.Size @(450, 300)
-$form.StartPosition = "CenterScreen"
+function Update-ProgressBar {
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
+}
 
-# Create a label for the Browse button
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Select the folder containing the Windows Event Logs:"
-$label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point @(20, 20)
-$form.Controls.Add($label)
+function Select-EvtxFiles {
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog -Property @{
+        Filter      = "Security Event Log files (*.evtx)|*.evtx"
+        Title       = "Select one or more Security .evtx files"
+        Multiselect = $true
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.FileNames
+    }
+    return $null
+}
 
-# Create the Browse Folder button
-$buttonBrowseFolder = New-Object System.Windows.Forms.Button
-$buttonBrowseFolder.Text = "Browse"
-$buttonBrowseFolder.Location = New-Object System.Drawing.Point @(20, 50)
-$form.Controls.Add($buttonBrowseFolder)
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder"
+        ShowNewFolderButton = $false
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
 
-# Create the Start Analysis button
-$buttonStartAnalysis = New-Object System.Windows.Forms.Button
-$buttonStartAnalysis.Text = "Start Analysis"
-$buttonStartAnalysis.Enabled = $false
-$buttonStartAnalysis.Location = New-Object System.Drawing.Point @(150, 50)
-$form.Controls.Add($buttonStartAnalysis)
+function Find-RDPLogons {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ $_ | ForEach-Object { Test-Path $_ -PathType Leaf } })]
+        [string[]]$EvtxFilePaths,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder
+    )
+    Write-Log "Starting to search for RDP logons (Event ID 4624, Logon Type 10) in $($EvtxFilePaths.Count) .evtx files"
 
-# Create a progress bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progressBar.Location = New-Object System.Drawing.Point @(20, 100)
-$progressBar.Size = New-Object System.Drawing.Size @(400, 20)
-$form.Controls.Add($progressBar)
+    try {
+        $totalFiles = $EvtxFilePaths.Count
+        $processedFiles = 0
+        $rdpEvents = [System.Collections.Generic.List[PSObject]]::new()
+        $systemAccounts = @('SYSTEM', 'ANONYMOUS LOGON', 'LOCAL SERVICE', 'NETWORK SERVICE')
+        $systemDomains = @('NT AUTHORITY')
 
-# Create a label to display messages
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = ""
-$statusLabel.AutoSize = $true
-$statusLabel.Location = New-Object System.Drawing.Point @(20, 130)
+        foreach ($file in $EvtxFilePaths) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $file ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
+
+            $events = Get-WinEvent -Path $file -ErrorAction Stop | Where-Object { 
+                $_.Id -eq 4624 -and 
+                $_.Properties.Count -ge 9 -and 
+                [int]$_.Properties[8].Value -eq 10 
+            }
+            foreach ($event in $events) {
+                $userAccount = if ($event.Properties.Count -ge 6) { $event.Properties[5].Value } else { "Unknown" }
+                $domain = if ($event.Properties.Count -ge 7) { $event.Properties[6].Value } else { "Unknown" }
+
+                if ($userAccount -in $systemAccounts -or $domain -in $systemDomains) {
+                    continue  # Skip system accounts
+                }
+
+                $rdpEvents.Add([PSCustomObject]@{
+                    EventTime       = $event.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
+                    UserAccount     = $userAccount
+                    Domain          = $domain
+                    Workstation     = if ($event.Properties.Count -ge 12) { $event.Properties[11].Value } else { "Unknown" }
+                    SourceIP        = if ($event.Properties.Count -ge 19) { $event.Properties[18].Value } else { "N/A" }
+                    SubStatusCode   = if ($event.Properties.Count -ge 11) { $event.Properties[10].Value } else { "N/A" }
+                    AccessedResource = if ($event.Properties.Count -ge 12) { $event.Properties[11].Value } else { "N/A" }  # Note: Adjusted index
+                    LogonType       = "10 (RemoteInteractive)"
+                })
+            }
+            Write-Log "Found $($events.Count) RDP logons in '$file'"
+        }
+
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Exporting results..."
+        $script:form.Refresh()
+
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $csvPath = Join-Path $OutputFolder "$DomainServerName-RDPLogons-$timestamp.csv"
+        $rdpEvents | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+
+        Update-ProgressBar -Value 90
+        Write-Log "Found $($rdpEvents.Count) RDP logons. Report exported to '$csvPath'"
+        $script:statusLabel.Text = "Completed. Found $($rdpEvents.Count) RDP logons. Report saved to '$csvPath'"
+
+        if ($AutoOpen) { Start-Process $csvPath }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Found $($rdpEvents.Count) RDP logons.`nReport exported to:`n$csvPath" -Title "Success"
+    } catch {
+        $errorMsg = "Error searching for RDP logons: $($_.Exception.Message)"
+        Write-Log -Message $errorMsg -Level Error
+        Show-MessageBox -Message $errorMsg -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
+    }
+}
+#endregion
+
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text          = 'RDP Logon Auditor (Event ID 4624, Logon Type 10)'
+    Size          = [System.Drawing.Size]::new(450, 300)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
+}
+
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
+
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
+
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 20)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxLogDir.Text = $folder 
+        Write-Log "Log Directory updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseLogDir)
+
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
+
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 50)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = $outputFolder
+}
+$form.Controls.Add($textBoxOutputDir)
+
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 50)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+    $folder = Select-Folder
+    if ($folder) { 
+        $textBoxOutputDir.Text = $folder 
+        Write-Log "Output Folder updated to: '$folder' via browse"
+    }
+})
+$form.Controls.Add($buttonBrowseOutputDir)
+
+# EVTX Files
+$labelBrowse = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 80)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Security EVTX Files:"
+}
+$form.Controls.Add($labelBrowse)
+
+$textBoxEvtxFiles = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 80)
+    Size     = [System.Drawing.Size]::new(200, 20)
+    Text     = ""
+    ReadOnly = $true
+}
+$form.Controls.Add($textBoxEvtxFiles)
+
+$buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 80)
+    Size     = [System.Drawing.Size]::new(100, 20)
+    Text     = "Browse"
+}
+$buttonBrowseEvtx.Add_Click({
+    $files = Select-EvtxFiles
+    if ($files) { 
+        $script:evtxFiles = $files
+        $textBoxEvtxFiles.Text = "$($files.Count) file(s) selected"
+        $script:buttonStartAnalysis.Enabled = $true
+        Write-Log "Selected $($files.Count) Security .evtx files: $($files -join ', ')"
+    } else {
+        $script:evtxFiles = @()
+        $textBoxEvtxFiles.Text = ""
+        $script:buttonStartAnalysis.Enabled = $false
+    }
+})
+$form.Controls.Add($buttonBrowseEvtx)
+
+# Status Label
+$statusLabel = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 110)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Text     = "Ready"
+}
 $form.Controls.Add($statusLabel)
 
-# Function to process Event ID 4624 logs
-function Process-EventID4624LogonViaRDP {
-    param (
-        [string]$LogFolderPath
-    )
-
-    Log-Message "Starting to process Event ID 4624 (Logons via RDP)"
-    try {
-        $progressBar.Value = 25
-        $statusLabel.Text = "Processing the Security Event Logs..."
-        $form.Refresh()
-
-        $DefaultFolder = [Environment]::GetFolderPath("MyDocuments")
-        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $csvPath = "$DefaultFolder\$DomainServerName-EventID4624-LogonViaRDP_$timestamp.csv"
-        $evtxFilePath = Join-Path $LogFolderPath "Security.evtx"
-
-        if (-not (Test-Path $evtxFilePath)) {
-            throw "Log file not found at $evtxFilePath."
-        }
-
-        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
-        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
-        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
-
-        $SQLQuery = @"
-SELECT timegenerated AS EventTime, 
-       Extract_token(strings, 5, '|') AS UserAccount, 
-       Extract_token(strings, 6, '|') AS DomainName, 
-       Extract_token(strings, 8, '|') AS LogonType, 
-       Extract_token(strings, 10, '|') AS SubStatusCode, 
-       Extract_token(strings, 11, '|') AS AccessedResource, 
-       Extract_token(strings, 18, '|') AS SourceIP
-INTO '$csvPath' 
-FROM '$evtxFilePath' 
-WHERE eventid = 4624 AND 
-      UserAccount NOT IN ('SYSTEM', 'ANONYMOUS LOGON', 'LOCAL SERVICE', 'NETWORK SERVICE') AND 
-      DomainName NOT IN ('NT AUTHORITY') AND 
-      LogonType = '10'
-"@
-
-        $progressBar.Value = 50
-        $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
-
-        $progressBar.Value = 75
-        $statusLabel.Text = "Completed. Report exported to $csvPath"
-        Log-Message "Report exported to $csvPath"
-
-        if ($AutoOpen) {
-            Start-Process $csvPath
-        }
-        [System.Windows.Forms.MessageBox]::Show("Report exported to $csvPath", 'Report Generated', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        $progressBar.Value = 100
-    } catch {
-        $errorMsg = "Error processing Event ID 4624: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Log-Message $errorMsg
-        $progressBar.Value = 0
-        $statusLabel.Text = "Error occurred. Check log for details."
-    } finally {
-        $progressBar.Value = 0
-    }
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 140)
+    Size     = [System.Drawing.Size]::new(430, 20)
+    Minimum  = 0
+    Maximum  = 100
 }
+$form.Controls.Add($progressBar)
 
-# Event handler for the Browse Folder button
-$buttonBrowseFolder.Add_Click({
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = "Select the folder where the Security Event Log is stored."
-    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $global:LogFolderPath = $folderBrowser.SelectedPath
-        $statusLabel.Text = "Selected Folder: $global:LogFolderPath"
-        Log-Message "Selected Folder for Security Event Logs: $global:LogFolderPath"
-        $buttonStartAnalysis.Enabled = $true
-    } else {
-        $statusLabel.Text = "No folder selected."
-        Log-Message "No folder selected."
-    }
-})
-
-# Event handler for the Start Analysis button
+# Start Button
+$buttonStartAnalysis = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 170)
+    Size     = [System.Drawing.Size]::new(100, 30)
+    Text     = "Start Analysis"
+    Enabled  = $false
+}
 $buttonStartAnalysis.Add_Click({
-    Log-Message "Starting analysis of Security Event Log for Event ID 4624 (Logons via RDP)"
-    $statusLabel.Text = "Processing..."
-    $progressBar.Value = 0
-    $form.Refresh()
+    $script:logDir = $textBoxLogDir.Text
+    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+    $outputFolder = $textBoxOutputDir.Text
+    $evtxFiles = $script:evtxFiles
 
-    # Process the Security Event log
-    Process-EventID4624LogonViaRDP -LogFolderPath $global:LogFolderPath
+    if (-not (Test-Path $script:logDir)) {
+        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+    }
 
-    # Reset progress bar
-    $progressBar.Value = 0
+    if (-not $evtxFiles) {
+        Show-MessageBox -Message "Please select one or more Security EVTX files." -Title "Input Required" -Icon Warning
+        $script:statusLabel.Text = "Ready"
+        return
+    }
+
+    Write-Log "Starting RDP logon analysis in $($evtxFiles.Count) files"
+    $script:statusLabel.Text = "Processing..."
+    $script:form.Refresh()
+
+    Find-RDPLogons -EvtxFilePaths $evtxFiles -OutputFolder $outputFolder
+    $script:statusLabel.Text = "Ready"
 })
+$form.Controls.Add($buttonStartAnalysis)
 
-# Show the main form
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:statusLabel = $statusLabel
+$script:buttonStartAnalysis = $buttonStartAnalysis
+$script:evtxFiles = @()
+
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
-
-# End of script
+#endregion
