@@ -94,8 +94,8 @@
       <td>Logs explicit credential usage (Event ID 4648) and generates a <code>.csv</code> report, aiding in detecting unauthorized credential use.</td>
     </tr>
     <tr>
-      <td><strong>EventID4660and4663-ObjectDeletionTracking.ps1</strong></td>
-      <td>Tracks object deletion events (Event IDs 4660 and 4663) and organizes data into <code>.csv</code> files for auditing.</td>
+      <td><strong>EventID4663-TrackingObjectDeletions.ps1</strong></td>
+      <td>Tracks object deletion events (Event ID 4663 with Access Mask 0x10000) and organizes data into <code>.csv</code> files for auditing.</td>
     </tr>
     <tr>
       <td><strong>EventID4720to4756-PrivilegedAccessTracking.ps1</strong></td>
