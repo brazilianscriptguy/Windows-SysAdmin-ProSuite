@@ -257,7 +257,7 @@ function Get-ADGroupInfo {
 #region GUI Setup
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AD Group Search Tool"
-$form.Size = New-Object Drawing.Size(500, 420)
+$form.Size = New-Object Drawing.Size(500, 450)
 $form.StartPosition = "CenterScreen"
 
 # Domain dropdown
