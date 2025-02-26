@@ -1,16 +1,17 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Retrieving Information on All AD Groups and Their Members.
+    PowerShell Script for Retrieving Information on AD Groups and Their Members.
 
 .DESCRIPTION
-    This script retrieves detailed information about all Active Directory (AD) groups and their members across specified domains, 
-    assisting administrators in auditing and compliance reporting, with results exported to a single CSV via a user-configurable GUI.
+    This script retrieves detailed information about Active Directory (AD) groups and their members 
+    from a selected domain, allowing users to choose specific groups or all groups via a GUI with 
+    checkbox selection, exporting results to a single CSV.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: February 25, 2025
+    Last Updated: February 26, 2025
 #>
 
 [CmdletBinding()]
@@ -19,18 +20,27 @@ Param (
     [bool]$AutoOpen = $true
 )
 
-#region Initialization
-Add-Type -Name Window -Namespace Console -MemberDefinition @"
+# Hide the PowerShell console window
+Add-Type -Name ConsoleUtils -Namespace HideConsole -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
+    public static extern IntPtr GetConsoleWindow();
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    public static void HideConsoleWindow() {
+        IntPtr hWnd = GetConsoleWindow();
+        if (hWnd != IntPtr.Zero) {
+            ShowWindow(hWnd, 0); // 0 = SW_HIDE
+        }
     }
-"@ -ErrorAction Stop
-[Console.Window]::Hide()
+"@
+try {
+    [HideConsole.ConsoleUtils]::HideConsoleWindow()
+} catch {
+    Write-Warning "Failed to hide console window: $_"
+}
 
 try {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
@@ -56,7 +66,6 @@ if (-not (Test-Path $logDir -PathType Container)) {
         exit 1
     }
 }
-#endregion
 
 #region Functions
 function Write-Log {
@@ -67,12 +76,12 @@ function Write-Log {
         [ValidateSet('Info', 'Error', 'Warning')]
         [string]$Level = 'Info'
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
     $logEntry = "[$timestamp] [$Level] $Message"
     try {
-        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
+        $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Warning "Failed to write to log at '$script:logPath': $_"
+        Write-Warning "Failed to write to log at '$logPath': $_"
     }
 }
 
@@ -83,7 +92,7 @@ function Show-MessageBox {
         [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
         [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
     )
-    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon) | Out-Null
 }
 
 function Update-ProgressBar {
@@ -91,8 +100,8 @@ function Update-ProgressBar {
         [ValidateRange(0, 100)]
         [int]$Value
     )
-    $script:progressBar.Value = $Value
-    $script:form.Refresh()
+    $progressBar.Value = $Value
+    $form.Refresh()
 }
 
 function Select-Folder {
@@ -127,181 +136,192 @@ function Get-AccountStatus {
     else { return "Enabled" }
 }
 
-# Process all AD groups and members in a domain
+# List all groups in the domain
+function List-DomainGroups {
+    param (
+        [string]$DomainFQDN,
+        [System.Windows.Forms.ListView]$ListView
+    )
+    $ListView.Items.Clear()
+    try {
+        $groups = Get-ADGroup -Filter * -Server $DomainFQDN -Properties Name, Description -ErrorAction Stop | Sort-Object Name
+        foreach ($group in $groups) {
+            $listItem = New-Object System.Windows.Forms.ListViewItem
+            $listItem.Text = $group.Name
+            $description = if ($group.Description) { $group.Description } else { "N/A" }
+            $listItem.SubItems.Add($description)
+            $ListView.Items.Add($listItem) | Out-Null
+        }
+        Write-Log "Loaded $($ListView.Items.Count) groups from domain '$DomainFQDN'"
+        $statusLabel.Text = "Loaded $($ListView.Items.Count) groups."
+    } catch {
+        Write-Log "Error loading groups from '$DomainFQDN': $_" -Level Error
+        Show-MessageBox -Message "Error loading groups: $_" -Title "Error" -Icon Error
+        $statusLabel.Text = "Error loading groups."
+    }
+}
+
+# Process AD groups and members in a domain
 function Get-ADGroupInfo {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [string[]]$DomainFQDNs,
+        [string]$DomainFQDN,
         [Parameter(Mandatory)]
-        [string]$OutputFolder
+        [string]$OutputFolder,
+        [System.Windows.Forms.ListView]$ListView
     )
-    Write-Log "Starting AD group info retrieval across domains: $($DomainFQDNs -join ', ')"
+    Write-Log "Starting AD group info retrieval for domain: $DomainFQDN"
 
     try {
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $csvPath = Join-Path $OutputFolder "$DomainServerName-ADGroupInfo-AllGroups-$timestamp.csv"
+        $csvPath = Join-Path $OutputFolder "${DomainFQDN}-ADGroupsInfo-$timestamp.csv"
         $groupInfo = [System.Collections.Generic.List[PSObject]]::new()
-        $totalDomains = $DomainFQDNs.Count
-        $processedDomains = 0
 
-        foreach ($domainFQDN in $DomainFQDNs) {
-            $processedDomains++
-            $domainProgress = [math]::Round(($processedDomains / $totalDomains) * 20)
-            Update-ProgressBar -Value $domainProgress
-            $script:statusLabel.Text = "Processing domain $processedDomains of $totalDomains: $domainFQDN..."
-            $script:form.Refresh()
+        # Check if any groups are selected
+        $selectedGroups = $ListView.CheckedItems | ForEach-Object { $_.Text }
+        if ($selectedGroups.Count -eq 0) {
+            Show-MessageBox -Message "No groups selected. Please select at least one group to process." -Title "Input Required" -Icon Warning
+            return
+        }
+
+        Update-ProgressBar -Value 10
+        $statusLabel.Text = "Processing selected groups from domain '$DomainFQDN'..."
+        $form.Refresh()
+
+        $totalGroups = $selectedGroups.Count
+        $processedGroups = 0
+
+        foreach ($groupName in $selectedGroups) {
+            $processedGroups++
+            $groupProgress = [math]::Round(($processedGroups / $totalGroups) * 70) + 10
+            Update-ProgressBar -Value $groupProgress
+            $statusLabel.Text = "Processing group ${processedGroups} of ${totalGroups}: $groupName..."
+            $form.Refresh()
 
             try {
-                Write-Log "Fetching all groups from domain '$domainFQDN'"
-                $groups = Get-ADGroup -Filter * -Server $domainFQDN -ErrorAction Stop
-                if (-not $groups) {
-                    Write-Log "No groups found in domain '$domainFQDN'" -Level Warning
-                    continue
+                $group = Get-ADGroup -Filter "Name -eq '$groupName'" -Server $DomainFQDN -ErrorAction Stop
+                $groupMembers = Get-ADGroupMember -Identity $group -Recursive -Server $DomainFQDN -ErrorAction Stop
+                if (-not $groupMembers) {
+                    Write-Log "No members found for group '$groupName' in domain '$DomainFQDN'" -Level Info
                 }
 
-                $totalGroups = $groups.Count
-                $processedGroups = 0
-
-                foreach ($group in $groups) {
-                    $processedGroups++
-                    $groupProgress = [math]::Round(($processedGroups / $totalGroups) * 60 / $totalDomains) + $domainProgress
-                    Update-ProgressBar -Value $groupProgress
-                    $script:statusLabel.Text = "Processing group $processedGroups of $totalGroups in $domainFQDN: $($group.Name)..."
-                    $script:form.Refresh()
-
+                foreach ($member in $groupMembers) {
                     try {
-                        $groupMembers = Get-ADGroupMember -Identity $group -Recursive -Server $domainFQDN -ErrorAction Stop
-                        if (-not $groupMembers) {
-                            Write-Log "No members found for group '$($group.Name)' in domain '$domainFQDN'" -Level Info
-                        }
+                        $user = Get-ADUser -Identity $member.DistinguishedName -Server $DomainFQDN -Properties Enabled, AccountLockoutTime, LastLogonDate, Created -ErrorAction Stop
+                        $accountStatus = Get-AccountStatus -User $user
 
-                        foreach ($member in $groupMembers) {
-                            try {
-                                $user = Get-ADUser -Identity $member.DistinguishedName -Server $domainFQDN -Properties Enabled, AccountLockoutTime, LastLogonDate, Created -ErrorAction Stop
-                                $accountStatus = Get-AccountStatus -User $user
-
-                                $groupInfo.Add([PSCustomObject]@{
-                                    DomainFQDN       = $domainFQDN
-                                    GroupName        = $group.Name
-                                    MemberName       = $member.Name
-                                    SamAccountName   = $member.SamAccountName
-                                    AccountStatus    = $accountStatus
-                                    LastLogonDate    = $user.LastLogonDate
-                                    CreationDate     = $user.Created
-                                    DistinguishedName = $member.DistinguishedName
-                                })
-                            } catch {
-                                Write-Log "Error processing member '$($member.Name)' in group '$($group.Name)' (domain '$domainFQDN'): $_" -Level Error
-                            }
-                        }
+                        $groupInfo.Add([PSCustomObject]@{
+                            DomainFQDN       = $DomainFQDN
+                            GroupName        = $group.Name
+                            MemberName       = $member.Name
+                            SamAccountName   = $member.SamAccountName
+                            AccountStatus    = $accountStatus
+                            LastLogonDate    = $user.LastLogonDate
+                            CreationDate     = $user.Created
+                            DistinguishedName = $member.DistinguishedName
+                        })
                     } catch {
-                        Write-Log "Error retrieving members for group '$($group.Name)' in domain '$domainFQDN': $_" -Level Error
+                        Write-Log "Error processing member '$($member.Name)' in group '$groupName' (domain '$DomainFQDN'): $_" -Level Error
                     }
                 }
             } catch {
-                Write-Log "Error processing domain '$domainFQDN': $_" -Level Error
+                Write-Log "Error retrieving members for group '$groupName' in domain '$DomainFQDN': $_" -Level Error
             }
         }
 
         Update-ProgressBar -Value 80
-        $script:statusLabel.Text = "Exporting results to '$csvPath'..."
-        $script:form.Refresh()
+        $statusLabel.Text = "Exporting results to '$csvPath'..."
+        $form.Refresh()
 
         if ($groupInfo.Count -gt 0) {
             $groupInfo | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -Force
             Write-Log "Exported $(${groupInfo}.Count) group entries to '$csvPath'"
             Update-ProgressBar -Value 100
-            Show-MessageBox -Message "Found $(${groupInfo}.Count) group entries across domains.`nReport exported to:`n$csvPath" -Title "Success"
+            Show-MessageBox -Message "Found $(${groupInfo}.Count) group entries in domain '$DomainFQDN'.`nReport exported to:`n$csvPath" -Title "Success"
             if ($AutoOpen -and (Test-Path $csvPath)) { Start-Process -FilePath $csvPath }
         } else {
-            Write-Log "No group data to export across specified domains" -Level Warning
-            Show-MessageBox -Message "No group data found across specified domains." -Title "No Results" -Icon Warning
+            Write-Log "No group data to export for domain '$DomainFQDN'" -Level Warning
+            Show-MessageBox -Message "No group data found for selected groups in domain '$DomainFQDN'." -Title "No Results" -Icon Warning
         }
     } catch {
         Write-Log "Error during group processing: $_" -Level Error
         Show-MessageBox -Message "Error during group processing: $_" -Title "Error" -Icon Error
     } finally {
         Update-ProgressBar -Value 0
-        $script:statusLabel.Text = "Ready"
+        $statusLabel.Text = "Process complete."
     }
 }
 #endregion
 
 #region GUI Setup
-$form = New-Object System.Windows.Forms.Form -Property @{
-    Text          = 'AD Group Auditor (All Groups)'
-    Size          = [System.Drawing.Size]::new(450, 350)
-    StartPosition = 'CenterScreen'
-    FormBorderStyle = 'FixedSingle'
-    MaximizeBox     = $false
-}
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "AD Group Search Tool"
+$form.Size = New-Object Drawing.Size(500, 420)
+$form.StartPosition = "CenterScreen"
 
-# Domain Selector
-$labelDomains = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Domain FQDNs:"
-}
-$form.Controls.Add($labelDomains)
+# Domain dropdown
+$labelDomain = New-Object System.Windows.Forms.Label
+$labelDomain.Text = "Select Domain FQDN:"
+$labelDomain.Location = New-Object Drawing.Point(10, 20)
+$labelDomain.AutoSize = $true
+$form.Controls.Add($labelDomain)
 
-$textBoxDomains = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 20)
-    Size     = [System.Drawing.Size]::new(320, 40)
-    Multiline = $true
-    Text     = (Get-AllDomainFQDNs -join ", ")
+$comboBoxDomain = New-Object System.Windows.Forms.ComboBox
+$comboBoxDomain.Location = New-Object Drawing.Point(10, 50)
+$comboBoxDomain.Size = New-Object Drawing.Size(460, 20)
+$comboBoxDomain.DropDownStyle = 'DropDownList'
+$comboBoxDomain.Items.AddRange((Get-AllDomainFQDNs))
+if ($comboBoxDomain.Items.Count -gt 0) {
+    $comboBoxDomain.SelectedIndex = 0
 }
-$form.Controls.Add($textBoxDomains)
+$form.Controls.Add($comboBoxDomain)
 
-# Log Directory
-$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 70)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Log Directory:"
-}
-$form.Controls.Add($labelLogDir)
+# Group ListView
+$labelGroups = New-Object System.Windows.Forms.Label
+$labelGroups.Text = "Select Groups to Inventory:"
+$labelGroups.Location = New-Object Drawing.Point(10, 80)
+$labelGroups.AutoSize = $true
+$form.Controls.Add($labelGroups)
 
-$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 70)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $logDir
-}
-$form.Controls.Add($textBoxLogDir)
+$listViewGroups = New-Object System.Windows.Forms.ListView
+$listViewGroups.Location = New-Object Drawing.Point(10, 110)
+$listViewGroups.Size = New-Object Drawing.Size(460, 100)
+$listViewGroups.View = [System.Windows.Forms.View]::Details
+[void]$listViewGroups.Columns.Add("Group Name", 200)
+[void]$listViewGroups.Columns.Add("Description", 240)
+$listViewGroups.CheckBoxes = $true
+$form.Controls.Add($listViewGroups)
 
-$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(330, 70)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
-}
-$buttonBrowseLogDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxLogDir.Text = $folder 
-        Write-Log "Log Directory updated to: '$folder' via browse"
-    }
+# Select All Button
+$buttonSelectAll = New-Object System.Windows.Forms.Button
+$buttonSelectAll.Text = "Select All Groups"
+$buttonSelectAll.Location = New-Object Drawing.Point(10, 215)
+$buttonSelectAll.Size = New-Object Drawing.Size(120, 20)
+$buttonSelectAll.Add_Click({
+    $selectAll = $buttonSelectAll.Text -eq "Select All Groups"
+    $listViewGroups.Items | ForEach-Object { $_.Checked = $selectAll }
+    $buttonSelectAll.Text = if ($selectAll) { "Clear Selection" } else { "Select All Groups" }
 })
-$form.Controls.Add($buttonBrowseLogDir)
+$form.Controls.Add($buttonSelectAll)
 
 # Output Folder
-$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 100)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Output Folder:"
-}
+$labelOutputDir = New-Object System.Windows.Forms.Label
+$labelOutputDir.Text = "Output Folder:"
+$labelOutputDir.Location = New-Object Drawing.Point(10, 240)
+$labelOutputDir.AutoSize = $true
 $form.Controls.Add($labelOutputDir)
 
-$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 100)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $outputFolderDefault
-}
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox
+$textBoxOutputDir.Location = New-Object Drawing.Point(10, 260)
+$textBoxOutputDir.Size = New-Object Drawing.Size(400, 20)
+$textBoxOutputDir.Text = $outputFolderDefault
 $form.Controls.Add($textBoxOutputDir)
 
-$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(330, 100)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
-}
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button
+$buttonBrowseOutputDir.Text = "Browse"
+$buttonBrowseOutputDir.Location = New-Object Drawing.Point(420, 260)
+$buttonBrowseOutputDir.Size = New-Object Drawing.Size(50, 20)
 $buttonBrowseOutputDir.Add_Click({
     $folder = Select-Folder
     if ($folder) { 
@@ -311,60 +331,66 @@ $buttonBrowseOutputDir.Add_Click({
 })
 $form.Controls.Add($buttonBrowseOutputDir)
 
-# Status Label
-$statusLabel = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 130)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Text     = "Ready"
-}
-$form.Controls.Add($statusLabel)
-
-# Progress Bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
-    Location = [System.Drawing.Point]::new(10, 160)
-    Size     = [System.Drawing.Size]::new(430, 20)
-}
-$form.Controls.Add($progressBar)
-
-# Start Button
-$buttonStartAnalysis = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(10, 190)
-    Size     = [System.Drawing.Size]::new(100, 30)
-    Text     = "Start Analysis"
-}
-$buttonStartAnalysis.Add_Click({
-    $script:logDir = $textBoxLogDir.Text
-    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
-    $outputFolder = $textBoxOutputDir.Text
-    $domains = $textBoxDomains.Text -split ',\s*' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
-
-    if (-not (Test-Path $script:logDir)) {
-        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
-    }
-
-    if (-not $domains) {
-        Show-MessageBox -Message "Please specify at least one domain FQDN." -Title "Input Required" -Icon Warning
-        $script:statusLabel.Text = "Ready"
-        return
-    }
-
-    Get-ADGroupInfo -DomainFQDNs $domains -OutputFolder $outputFolder
-})
+# Start button
+$buttonStartAnalysis = New-Object System.Windows.Forms.Button
+$buttonStartAnalysis.Text = "Start Analysis"
+$buttonStartAnalysis.Location = New-Object Drawing.Point(10, 290)
+$buttonStartAnalysis.Size = New-Object Drawing.Size(85, 23)
 $form.Controls.Add($buttonStartAnalysis)
 
-# Close Button
-$buttonClose = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(120, 190)
-    Size     = [System.Drawing.Size]::new(100, 30)
-    Text     = "Close"
-}
+# Progress bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Location = New-Object Drawing.Point(10, 320)
+$progressBar.Size = New-Object Drawing.Size(460, 20)
+$form.Controls.Add($progressBar)
+
+# Status label
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Location = New-Object Drawing.Point(10, 350)
+$statusLabel.Size = New-Object Drawing.Size(460, 20)
+$statusLabel.Text = ""
+$form.Controls.Add($statusLabel)
+
+# Close button
+$buttonClose = New-Object System.Windows.Forms.Button
+$buttonClose.Text = "Close"
+$buttonClose.Location = New-Object Drawing.Point(390, 290)
+$buttonClose.Size = New-Object Drawing.Size(80, 23)
 $buttonClose.Add_Click({ $form.Close() })
 $form.Controls.Add($buttonClose)
 
-# Script scope variables
-$script:form = $form
-$script:progressBar = $progressBar
-$script:statusLabel = $statusLabel
+# Domain selection event handler to populate groups
+$comboBoxDomain.Add_SelectedIndexChanged({
+    $domainFQDN = $comboBoxDomain.SelectedItem
+    if ($domainFQDN) {
+        $statusLabel.Text = "Loading groups from '$domainFQDN'..."
+        $form.Refresh()
+        List-DomainGroups -DomainFQDN $domainFQDN -ListView $listViewGroups
+        $buttonSelectAll.Text = "Select All Groups"  # Reset button text
+    }
+})
+
+# Start button event handler
+$buttonStartAnalysis.Add_Click({
+    $domainFQDN = $comboBoxDomain.SelectedItem
+    $outputFolder = $textBoxOutputDir.Text
+
+    if ([string]::IsNullOrWhiteSpace($domainFQDN)) {
+        Show-MessageBox -Message "Please select a Domain FQDN." -Title "Input Required" -Icon Warning
+        return
+    }
+
+    if (-not (Test-Path $outputFolder)) {
+        try {
+            New-Item -Path $outputFolder -ItemType Directory -Force | Out-Null
+        } catch {
+            Show-MessageBox -Message "Failed to create output folder '$outputFolder': $_" -Title "Error" -Icon Error
+            return
+        }
+    }
+
+    Get-ADGroupInfo -DomainFQDN $domainFQDN -OutputFolder $outputFolder -ListView $listViewGroups
+})
 
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
