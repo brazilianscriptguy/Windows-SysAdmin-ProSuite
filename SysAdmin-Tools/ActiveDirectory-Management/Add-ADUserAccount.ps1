@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Creating New AD User Accounts.
+    PowerShell Script for Creating New AD User Accounts with Tabbed GUI and OU/Group Search.
 
-.DESCRIPTION
+.TITLE
     This script facilitates the creation of new Active Directory user accounts within specified OUs. 
     It allows operators to search for and select the target domain and OU, providing an intuitive 
     interface for entering user details.
@@ -32,28 +32,21 @@ public class Window {
 "@
 [Window]::Hide()
 
-# Import necessary modules and assemblies
+# Import necessary assemblies
 Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.Application]::EnableVisualStyles()
 Import-Module ActiveDirectory
 
 # Define log and CSV file paths
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir "${scriptName}.log"
 $csvFilePath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "${scriptName}_UserCreationLog.csv"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
-    }
-}
+# Ensure log directory exists
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force }
 
-# Enhanced logging function with error handling
+# Logging function
 function Log-Message {
     param (
         [Parameter(Mandatory=$true)]
@@ -63,15 +56,10 @@ function Log-Message {
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to write to log: $_"
-    }
+    "[$timestamp] [$MessageType] $Message" | Out-File -FilePath $logPath -Append
 }
 
-# Function to export user creation details to CSV
+# CSV export function
 function Export-ToCSV {
     param (
         [string]$Domain,
@@ -79,93 +67,81 @@ function Export-ToCSV {
         [string]$GivenName,
         [string]$Surname,
         [string]$DisplayName,
+        [string]$AccountDescription,
+        [string]$Company,
         [string]$EmailAddress,
         [string]$SamAccountName,
         [string]$UserGroup,
         [datetime]$Timestamp
     )
     $userDetails = [PSCustomObject]@{
-        Timestamp      = $Timestamp
-        Domain         = $Domain
-        OU             = $OU
-        GivenName      = $GivenName
-        Surname        = $Surname
-        DisplayName    = $DisplayName
-        EmailAddress   = $EmailAddress
-        SamAccountName = $SamAccountName
-        UserGroup      = $UserGroup
+        Timestamp          = $Timestamp
+        Domain             = $Domain
+        OU                 = $OU
+        GivenName          = $GivenName
+        Surname            = $Surname
+        DisplayName        = $DisplayName
+        AccountDescription = $AccountDescription
+        Company            = $Company
+        EmailAddress       = $EmailAddress
+        SamAccountName     = $SamAccountName
+        UserGroup          = $UserGroup
     }
-
-    try {
-        if (-not (Test-Path $csvFilePath)) {
-            $userDetails | Export-Csv -Path $csvFilePath -NoTypeInformation -Append
-        } else {
-            $userDetails | Export-Csv -Path $csvFilePath -NoTypeInformation -Append -Force
-        }
-    } catch {
-        Write-Error "Failed to export user details to CSV: $_"
-    }
+    $userDetails | Export-Csv -Path $csvFilePath -NoTypeInformation -Append -Force
 }
 
-# Function to display error messages
-function Show-ErrorMessage {
-    param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message "Error: $Message" -MessageType "ERROR"
+# Message display functions
+function Show-ErrorMessage { 
+    param ([string]$Message) 
+    [System.Windows.Forms.MessageBox]::Show($Message, 'Error', 'OK', 'Error')
+    Log-Message $Message "ERROR"
 }
 
-# Function to display information messages
-function Show-InfoMessage {
-    param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Log-Message "Info: $Message" -MessageType "INFO"
+function Show-InfoMessage { 
+    param ([string]$Message) 
+    [System.Windows.Forms.MessageBox]::Show($Message, 'Information', 'OK', 'Information')
+    Log-Message $Message "INFO"
 }
 
-# Function to retrieve all domains in the current forest
-function Get-ForestDomains {
-    try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.Domains | ForEach-Object { $_.Name }
-    } catch {
-        Write-Error "Failed to retrieve forest domains: $_"
+# AD functions
+function Get-ForestDomains { 
+    try { 
+        [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().Domains | ForEach-Object { $_.Name } 
+    } catch { 
+        Show-ErrorMessage "Failed to retrieve forest domains: $_"
         return @()
-    }
+    } 
 }
 
-# Function to retrieve the UPN suffix for the forest
-function Get-UPNSuffix {
-    try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.RootDomain.Name
-    } catch {
-        Write-Error "Failed to retrieve UPN suffix: $_"
+function Get-UPNSuffix { 
+    try { 
+        [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().RootDomain.Name 
+    } catch { 
+        Show-ErrorMessage "Failed to retrieve UPN suffix: $_"
         return ""
-    }
+    } 
 }
 
-# Function to retrieve all Organizational Units (OUs) containing "Users"
-function Get-AllOUs {
-    param ([string]$Domain)
-    try {
-        return Get-ADOrganizationalUnit -Server $Domain -Filter { Name -like "*Users*" } | Select-Object -ExpandProperty DistinguishedName
-    } catch {
-        Write-Error "Failed to retrieve Organizational Units: $_"
+function Get-AllOUs { 
+    param ($Domain) 
+    try { 
+        Get-ADOrganizationalUnit -Server $Domain -Filter { Name -like "*User*" } | Select-Object -ExpandProperty DistinguishedName 
+    } catch { 
+        Show-ErrorMessage "Failed to retrieve OUs: $_"
         return @()
-    }
+    } 
 }
 
-# Function to retrieve all groups starting with "G_"
-function Get-AllGroups {
-    param ([string]$Domain)
-    try {
-        return Get-ADGroup -Server $Domain -Filter { Name -like "G_*" } | Select-Object -ExpandProperty Name
-    } catch {
-        Write-Error "Failed to retrieve groups: $_"
+function Get-AllGroups { 
+    param ($Domain) 
+    try { 
+        Get-ADGroup -Server $Domain -Filter { Name -like "G_*" } | Select-Object -ExpandProperty Name 
+    } catch { 
+        Show-ErrorMessage "Failed to retrieve groups: $_"
         return @()
-    }
+    } 
 }
 
-# Function to create a new user in the specified OU
 function Create-ADUser {
     param (
         [string]$Domain,
@@ -173,7 +149,9 @@ function Create-ADUser {
         [string]$GivenName,
         [string]$Surname,
         [string]$DisplayName,
-        [string]$Description,
+        [string]$AccountDescription,
+        [string]$Title,
+        [string]$Company,
         [string]$PhoneNumber,
         [string]$EmailAddress,
         [string]$Password,
@@ -182,11 +160,10 @@ function Create-ADUser {
         [bool]$NoExpiration,
         [string]$UserGroup
     )
-
+    
     try {
-        $existingUser = Get-ADUser -Server $Domain -Filter { SamAccountName -eq $SamAccountName } -ErrorAction SilentlyContinue
-        if ($existingUser) {
-            Show-ErrorMessage "A user with the Logon Account Name '$SamAccountName' already exists."
+        if (Get-ADUser -Server $Domain -Filter { SamAccountName -eq $SamAccountName } -ErrorAction SilentlyContinue) {
+            Show-ErrorMessage "A user with the Login ID '$SamAccountName' already exists."
             return $false
         }
 
@@ -198,7 +175,9 @@ function Create-ADUser {
                    -GivenName $GivenName `
                    -Surname $Surname `
                    -DisplayName $DisplayName `
-                   -Description $Description `
+                   -Description $AccountDescription `
+                   -Title $Title `
+                   -Company $Company `
                    -OfficePhone $PhoneNumber `
                    -EmailAddress $EmailAddress `
                    -SamAccountName $SamAccountName `
@@ -211,291 +190,249 @@ function Create-ADUser {
 
         Add-ADGroupMember -Server $Domain -Identity $UserGroup -Members $SamAccountName
 
-        Log-Message "User: $SamAccountName - $DisplayName, created successfully in OU: $OU on domain $Domain and added to group: $UserGroup at Forest: $upnSuffix"
-        Export-ToCSV -Domain $Domain `
-                     -OU $OU `
-                     -GivenName $GivenName `
-                     -Surname $Surname `
-                     -DisplayName $DisplayName `
-                     -EmailAddress $EmailAddress `
-                     -SamAccountName $SamAccountName `
-                     -UserGroup $UserGroup `
-                     -Timestamp (Get-Date)
-
-        Show-InfoMessage "User: $SamAccountName - $DisplayName, created successfully in OU: $OU on domain $Domain and added to group: $UserGroup at Forest: $upnSuffix"
+        Log-Message "User: $SamAccountName - $DisplayName created successfully in OU: $OU on domain $Domain"
+        Export-ToCSV -Domain $Domain -OU $OU -GivenName $GivenName -Surname $Surname -DisplayName $DisplayName `
+                     -AccountDescription $AccountDescription -Company $Company -EmailAddress $EmailAddress `
+                     -SamAccountName $SamAccountName -UserGroup $UserGroup -Timestamp (Get-Date)
+        Show-InfoMessage "User '$SamAccountName' created successfully in OU: $OU"
         return $true
     } catch {
-        Log-Message "Failed to create user ${GivenName} ${Surname}: $_" -MessageType "ERROR"
         Show-ErrorMessage "Failed to create user ${GivenName} ${Surname}: $_"
+        Log-Message "Failed to create user ${GivenName} ${Surname}: $_" "ERROR"
         return $false
     }
 }
 
-# Function to create and show the form
+# Form creation
 function Show-Form {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Create New AD User"
-    $form.Width = 500
-    $form.Height = 680
+    $form.Text = "Create New AD User Tool"
+    $form.Size = New-Object System.Drawing.Size(600, 550) # Reduced height for a more compact form
     $form.StartPosition = "CenterScreen"
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
 
-    $labelsText = @("Domain:", "OU Search:", "OU:", "Given Names:", "Surnames:", "Display Name:", "Description:", "Phone Number:", "Email Address:", "Temporary Password:", "Logon Name/ Code:", "Account Expiration Date:", "User Group Search:", "User Group:")
-    $positions = @(10, 50, 90, 130, 170, 210, 250, 290, 330, 370, 410, 450, 490, 530)
-    $textBoxes = @()
+    # Status bar
+    $statusBar = New-Object System.Windows.Forms.StatusStrip
+    $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
+    $statusBar.Items.Add($statusLabel)
+    $form.Controls.Add($statusBar)
+    $statusLabel.Text = "Ready"
 
-    # Domain ComboBox
-    $lblDomain = New-Object System.Windows.Forms.Label
-    $lblDomain.Text = "Domain:"
-    $lblDomain.Location = New-Object System.Drawing.Point(10, $positions[0])
-    $lblDomain.AutoSize = $true
-    $form.Controls.Add($lblDomain)
+    # Tab control
+    $tabControl = New-Object System.Windows.Forms.TabControl
+    $tabControl.Location = New-Object System.Drawing.Point(10, 10)
+    $tabControl.Size = New-Object System.Drawing.Size(570, 430) # Reduced height to fit the compact form
+    $form.Controls.Add($tabControl)
 
-    $cmbDomain = New-Object System.Windows.Forms.ComboBox
-    $cmbDomain.Location = New-Object System.Drawing.Point(160, $positions[0])
-    $cmbDomain.Size = New-Object System.Drawing.Size(260, 20)
-    $cmbDomain.DropDownStyle = 'DropDownList'
-    $form.Controls.Add($cmbDomain)
+    # Tab pages
+    $tabBasic = New-Object System.Windows.Forms.TabPage; $tabBasic.Text = "Basic Info"
+    $tabDetails = New-Object System.Windows.Forms.TabPage; $tabDetails.Text = "Details"
+    $tabSettings = New-Object System.Windows.Forms.TabPage; $tabSettings.Text = "Settings"
+    $tabControl.TabPages.AddRange(@($tabBasic, $tabDetails, $tabSettings))
 
-    # Populate Domain ComboBox with forest domains
-    $forestDomains = Get-ForestDomains
-    foreach ($domain in $forestDomains) {
-        $cmbDomain.Items.Add($domain)
-    }
-    if ($cmbDomain.Items.Count -gt 0) {
-        $cmbDomain.SelectedIndex = 0
-    }
+    # Basic Info Tab
+    $groupBasic = New-Object System.Windows.Forms.GroupBox
+    $groupBasic.Text = "User Information"
+    $groupBasic.Location = New-Object System.Drawing.Point(10, 10)
+    $groupBasic.Size = New-Object System.Drawing.Size(540, 160)
+    $tabBasic.Controls.Add($groupBasic)
 
-    # OU Search field
-    $lblOUSearch = New-Object System.Windows.Forms.Label
-    $lblOUSearch.Text = "OU Search:"
-    $lblOUSearch.Location = New-Object System.Drawing.Point(10, $positions[1])
-    $lblOUSearch.AutoSize = $true
-    $form.Controls.Add($lblOUSearch)
+    $lblGivenName = New-Object System.Windows.Forms.Label; $lblGivenName.Text = "Given Names:"; $lblGivenName.Location = New-Object System.Drawing.Point(10, 20); $lblGivenName.AutoSize = $true
+    $txtGivenName = New-Object System.Windows.Forms.TextBox; $txtGivenName.Location = New-Object System.Drawing.Point(120, 20); $txtGivenName.Size = New-Object System.Drawing.Size(400, 20)
+    $lblSurname = New-Object System.Windows.Forms.Label; $lblSurname.Text = "Surnames:"; $lblSurname.Location = New-Object System.Drawing.Point(10, 50); $lblSurname.AutoSize = $true
+    $txtSurname = New-Object System.Windows.Forms.TextBox; $txtSurname.Location = New-Object System.Drawing.Point(120, 50); $txtSurname.Size = New-Object System.Drawing.Size(400, 20)
+    $lblDisplayName = New-Object System.Windows.Forms.Label; $lblDisplayName.Text = "Display Name:"; $lblDisplayName.Location = New-Object System.Drawing.Point(10, 80); $lblDisplayName.AutoSize = $true
+    $txtDisplayName = New-Object System.Windows.Forms.TextBox; $txtDisplayName.Location = New-Object System.Drawing.Point(120, 80); $txtDisplayName.Size = New-Object System.Drawing.Size(400, 20)
+    $lblLoginID = New-Object System.Windows.Forms.Label; $lblLoginID.Text = "Login ID:"; $lblLoginID.Location = New-Object System.Drawing.Point(10, 110); $lblLoginID.AutoSize = $true
+    $txtLoginID = New-Object System.Windows.Forms.TextBox; $txtLoginID.Location = New-Object System.Drawing.Point(120, 110); $txtLoginID.Size = New-Object System.Drawing.Size(400, 20)
 
-    $txtOUSearch = New-Object System.Windows.Forms.TextBox
-    $txtOUSearch.Location = New-Object System.Drawing.Point(160, $positions[1])
-    $txtOUSearch.Size = New-Object System.Drawing.Size(260, 20)
-    $form.Controls.Add($txtOUSearch)
+    $groupBasic.Controls.AddRange(@($lblGivenName, $txtGivenName, $lblSurname, $txtSurname, $lblDisplayName, $txtDisplayName, $lblLoginID, $txtLoginID))
 
-    # OU ComboBox
-    $lblOU = New-Object System.Windows.Forms.Label
-    $lblOU.Text = "OU:"
-    $lblOU.Location = New-Object System.Drawing.Point(10, $positions[2])
-    $lblOU.AutoSize = $true
-    $form.Controls.Add($lblOU)
+    # Details Tab
+    $groupDetails = New-Object System.Windows.Forms.GroupBox
+    $groupDetails.Text = "User Details"
+    $groupDetails.Location = New-Object System.Drawing.Point(10, 10)
+    $groupDetails.Size = New-Object System.Drawing.Size(540, 200)
+    $tabDetails.Controls.Add($groupDetails)
 
-    $cmbOU = New-Object System.Windows.Forms.ComboBox
-    $cmbOU.Location = New-Object System.Drawing.Point(160, $positions[2])
-    $cmbOU.Size = New-Object System.Drawing.Size(260, 20)
-    $cmbOU.DropDownStyle = 'DropDownList'
-    $form.Controls.Add($cmbOU)
+    $lblDescription = New-Object System.Windows.Forms.Label; $lblDescription.Text = "Account Description:"; $lblDescription.Location = New-Object System.Drawing.Point(10, 20); $lblDescription.AutoSize = $true
+    $txtDescription = New-Object System.Windows.Forms.TextBox; $txtDescription.Location = New-Object System.Drawing.Point(120, 20); $txtDescription.Size = New-Object System.Drawing.Size(400, 20); $txtDescription.Text = "Default User Account"
+    $lblTitle = New-Object System.Windows.Forms.Label; $lblTitle.Text = "Title:"; $lblTitle.Location = New-Object System.Drawing.Point(10, 50); $lblTitle.AutoSize = $true
+    $cmbTitle = New-Object System.Windows.Forms.ComboBox; $cmbTitle.Location = New-Object System.Drawing.Point(120, 50); $cmbTitle.Size = New-Object System.Drawing.Size(400, 20); $cmbTitle.DropDownStyle = 'DropDownList'
+    $lblCompany = New-Object System.Windows.Forms.Label; $lblCompany.Text = "Company:"; $lblCompany.Location = New-Object System.Drawing.Point(10, 80); $lblCompany.AutoSize = $true
+    $txtCompany = New-Object System.Windows.Forms.TextBox; $txtCompany.Location = New-Object System.Drawing.Point(120, 80); $txtCompany.Size = New-Object System.Drawing.Size(400, 20); $txtCompany.Text = "SCRIPTGUY Enterprise"
+    $lblPhone = New-Object System.Windows.Forms.Label; $lblPhone.Text = "Phone Number:"; $lblPhone.Location = New-Object System.Drawing.Point(10, 110); $lblPhone.AutoSize = $true
+    $txtPhone = New-Object System.Windows.Forms.TextBox; $txtPhone.Location = New-Object System.Drawing.Point(120, 110); $txtPhone.Size = New-Object System.Drawing.Size(400, 20); $txtPhone.Text = "+55(96)98115-5265"
+    $lblEmail = New-Object System.Windows.Forms.Label; $lblEmail.Text = "Email Address:"; $lblEmail.Location = New-Object System.Drawing.Point(10, 140); $lblEmail.AutoSize = $true
+    $txtEmail = New-Object System.Windows.Forms.TextBox; $txtEmail.Location = New-Object System.Drawing.Point(120, 140); $txtEmail.Size = New-Object System.Drawing.Size(400, 20); $txtEmail.Text = "@scriptguy.com"
 
-    # Populate OU ComboBox with OUs containing "Users"
-    function UpdateOUComboBox {
+    $groupDetails.Controls.AddRange(@($lblDescription, $txtDescription, $lblTitle, $cmbTitle, $lblCompany, $txtCompany, $lblPhone, $txtPhone, $lblEmail, $txtEmail))
+
+    # Populate Title ComboBox
+    $titles = @("Cybersecurity Analyst", "Incident Responder", "Information Security Officer", "Network Security Engineer", "Penetration Tester", 
+            "Security Architect", "Security Consultant", "Security Operations Center (SOC) Analyst", "Threat Intelligence Analyst", 
+            "Vulnerability Assessor") | Sort-Object
+    $cmbTitle.Items.AddRange($titles)
+    $cmbTitle.SelectedIndex = 0
+
+    # Settings Tab
+    $groupSettings = New-Object System.Windows.Forms.GroupBox
+    $groupSettings.Text = "Account Settings"
+    $groupSettings.Location = New-Object System.Drawing.Point(10, 10)
+    $groupSettings.Size = New-Object System.Drawing.Size(540, 280) # Reduced height for a more compact layout
+    $tabSettings.Controls.Add($groupSettings)
+
+    # Adjusted spacing for a more compact layout (25px vertical spacing between fields)
+    $lblDomain = New-Object System.Windows.Forms.Label; $lblDomain.Text = "Domain:"; $lblDomain.Location = New-Object System.Drawing.Point(10, 20); $lblDomain.AutoSize = $true
+    $cmbDomain = New-Object System.Windows.Forms.ComboBox; $cmbDomain.Location = New-Object System.Drawing.Point(140, 20); $cmbDomain.Size = New-Object System.Drawing.Size(380, 20); $cmbDomain.DropDownStyle = 'DropDownList'
+    $lblOUSearch = New-Object System.Windows.Forms.Label; $lblOUSearch.Text = "OU Search:"; $lblOUSearch.Location = New-Object System.Drawing.Point(10, 45); $lblOUSearch.AutoSize = $true
+    $txtOUSearch = New-Object System.Windows.Forms.TextBox; $txtOUSearch.Location = New-Object System.Drawing.Point(140, 45); $txtOUSearch.Size = New-Object System.Drawing.Size(380, 20)
+    $lblOU = New-Object System.Windows.Forms.Label; $lblOU.Text = "OU:"; $lblOU.Location = New-Object System.Drawing.Point(10, 70); $lblOU.AutoSize = $true
+    $cmbOU = New-Object System.Windows.Forms.ComboBox; $cmbOU.Location = New-Object System.Drawing.Point(140, 70); $cmbOU.Size = New-Object System.Drawing.Size(380, 20); $cmbOU.DropDownStyle = 'DropDownList'
+    $lblGroupSearch = New-Object System.Windows.Forms.Label; $lblGroupSearch.Text = "User Group Search:"; $lblGroupSearch.Location = New-Object System.Drawing.Point(10, 95); $lblGroupSearch.AutoSize = $true
+    $txtGroupSearch = New-Object System.Windows.Forms.TextBox; $txtGroupSearch.Location = New-Object System.Drawing.Point(140, 95); $txtGroupSearch.Size = New-Object System.Drawing.Size(380, 20)
+    $lblGroup = New-Object System.Windows.Forms.Label; $lblGroup.Text = "User Group:"; $lblGroup.Location = New-Object System.Drawing.Point(10, 120); $lblGroup.AutoSize = $true
+    $cmbGroup = New-Object System.Windows.Forms.ComboBox; $cmbGroup.Location = New-Object System.Drawing.Point(140, 120); $cmbGroup.Size = New-Object System.Drawing.Size(380, 20); $cmbGroup.DropDownStyle = 'DropDownList'
+    $lblPassword = New-Object System.Windows.Forms.Label; $lblPassword.Text = "Temporary Password:"; $lblPassword.Location = New-Object System.Drawing.Point(10, 145); $lblPassword.AutoSize = $true
+    $txtPassword = New-Object System.Windows.Forms.TextBox; $txtPassword.Location = New-Object System.Drawing.Point(140, 145); $txtPassword.Size = New-Object System.Drawing.Size(380, 30); $txtPassword.Text = "#TempPass@2025"
+    $lblExpiration = New-Object System.Windows.Forms.Label; $lblExpiration.Text = "Expiration Date:"; $lblExpiration.Location = New-Object System.Drawing.Point(10, 180); $lblExpiration.AutoSize = $true
+    $dateTimePicker = New-Object System.Windows.Forms.DateTimePicker; $dateTimePicker.Location = New-Object System.Drawing.Point(140, 180); $dateTimePicker.Size = New-Object System.Drawing.Size(250, 35); $dateTimePicker.Value = (Get-Date).AddYears(1)
+    $chkNoExpiration = New-Object System.Windows.Forms.CheckBox; $chkNoExpiration.Text = "No Expiration"; $chkNoExpiration.Location = New-Object System.Drawing.Point(400, 180); $chkNoExpiration.AutoSize = $true
+
+    $groupSettings.Controls.AddRange(@($lblDomain, $cmbDomain, $lblOUSearch, $txtOUSearch, $lblOU, $cmbOU, $lblGroupSearch, $txtGroupSearch, $lblGroup, $cmbGroup, $lblPassword, $txtPassword, $lblExpiration, $dateTimePicker, $chkNoExpiration))
+
+    # Populate ComboBoxes and Search Functionality
+    $cmbDomain.Items.AddRange((Get-ForestDomains))
+    if ($cmbDomain.Items.Count -gt 0) { $cmbDomain.SelectedIndex = 0 }
+
+    function Update-OU {
         $cmbOU.Items.Clear()
         $searchText = $txtOUSearch.Text
         $selectedDomain = $cmbDomain.SelectedItem
-        $filteredOUs = Get-AllOUs -Domain $selectedDomain | Where-Object { $_ -like "*$searchText*" }
-        foreach ($ou in $filteredOUs) {
-            $cmbOU.Items.Add($ou)
-        }
-        if ($cmbOU.Items.Count -gt 0) {
+        $filteredOUs = Get-AllOUs $selectedDomain | Where-Object { $_ -like "*$searchText*" }
+        if ($filteredOUs) {
+            $cmbOU.Items.AddRange($filteredOUs)
             $cmbOU.SelectedIndex = 0
         }
     }
-    UpdateOUComboBox
 
-    # Search TextBox change event for OU filtering
-    $txtOUSearch.Add_TextChanged({
-        UpdateOUComboBox
-    })
-
-    # Domain ComboBox change event to refresh OUs and Groups
-    $cmbDomain.Add_SelectedIndexChanged({
-        UpdateOUComboBox
-        UpdateGroupComboBox
-    })
-
-    # TextBoxes for user details
-    for ($i = 3; $i -lt 11; $i++) {
-        $label = New-Object System.Windows.Forms.Label
-        $label.Text = $labelsText[$i]
-        $label.Location = New-Object System.Drawing.Point(10, $positions[$i])
-        $label.AutoSize = $true
-        $form.Controls.Add($label)
-
-        if ($i -eq 6) {
-            # Description ComboBox with predefined values
-            $cmbDescription = New-Object System.Windows.Forms.ComboBox
-            $cmbDescription.Location = New-Object System.Drawing.Point(160, $positions[$i])
-            $cmbDescription.Size = New-Object System.Drawing.Size(260, 20)
-            $cmbDescription.DropDownStyle = 'DropDownList'
-            $form.Controls.Add($cmbDescription)
-
-           # Predefined descriptions
-           $descriptions = @(
-               "Legal Analyst",
-               "Mayor's Office Advisor",
-               "Chief of Mayor's Office",
-               "Secretary Chief",
-               "Temporary Staff",
-               "Contracted Staff",
-               "Division or Unit Coordinator",
-               "Director of Division or Unit",
-               "Graduate Fellow",
-               "Municipal Judge",
-               "Legal Associate",
-               "Assigned Employee",
-               "Municipal Technician"
-           )
-
-            $descriptions | Sort-Object | ForEach-Object { $cmbDescription.Items.Add($_) }
-            if ($cmbDescription.Items.Count -gt 0) {
-                $cmbDescription.SelectedIndex = 0
-            }
-        } else {
-            $textBox = New-Object System.Windows.Forms.TextBox
-            $textBox.Location = New-Object System.Drawing.Point(160, $positions[$i])
-            $textBox.Size = New-Object System.Drawing.Size(260, 20)
-            $textBoxes += $textBox
-            $form.Controls.Add($textBox)
-        }
-    }
-
-    # DateTimePicker for account expiration date
-    $lblExpiration = New-Object System.Windows.Forms.Label
-    $lblExpiration.Text = "Account Expiration Date:"
-    $lblExpiration.Location = New-Object System.Drawing.Point(10, $positions[11])
-    $lblExpiration.AutoSize = $true
-    $form.Controls.Add($lblExpiration)
-
-    $dateTimePicker = New-Object System.Windows.Forms.DateTimePicker
-    $dateTimePicker.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
-    $dateTimePicker.Location = New-Object System.Drawing.Point(160, $positions[11])
-    $dateTimePicker.Size = New-Object System.Drawing.Size(160, 20)
-    $dateTimePicker.Value = (Get-Date).AddYears(1)
-    $form.Controls.Add($dateTimePicker)
-
-    # CheckBox for no expiration date
-    $chkNoExpiration = New-Object System.Windows.Forms.CheckBox
-    $chkNoExpiration.Text = "No Expiration"
-    $chkNoExpiration.Location = New-Object System.Drawing.Point(330, $positions[11])
-    $chkNoExpiration.AutoSize = $true
-    $form.Controls.Add($chkNoExpiration)
-
-    # Group Search field
-    $lblGroupSearch = New-Object System.Windows.Forms.Label
-    $lblGroupSearch.Text = "User Group Search:"
-    $lblGroupSearch.Location = New-Object System.Drawing.Point(10, $positions[12])
-    $lblGroupSearch.AutoSize = $true
-    $form.Controls.Add($lblGroupSearch)
-
-    $txtGroupSearch = New-Object System.Windows.Forms.TextBox
-    $txtGroupSearch.Location = New-Object System.Drawing.Point(160, $positions[12])
-    $txtGroupSearch.Size = New-Object System.Drawing.Size(260, 20)
-    $form.Controls.Add($txtGroupSearch)
-
-    # Group ComboBox
-    $lblGroup = New-Object System.Windows.Forms.Label
-    $lblGroup.Text = "User Group:"
-    $lblGroup.Location = New-Object System.Drawing.Point(10, $positions[13])
-    $lblGroup.AutoSize = $true
-    $form.Controls.Add($lblGroup)
-
-    $cmbGroup = New-Object System.Windows.Forms.ComboBox
-    $cmbGroup.Location = New-Object System.Drawing.Point(160, $positions[13])
-    $cmbGroup.Size = New-Object System.Drawing.Size(260, 20)
-    $cmbGroup.DropDownStyle = 'DropDownList'
-    $form.Controls.Add($cmbGroup)
-
-    # Populate Group ComboBox with groups starting with "G_"
-    function UpdateGroupComboBox {
+    function Update-Group {
         $cmbGroup.Items.Clear()
         $searchText = $txtGroupSearch.Text
         $selectedDomain = $cmbDomain.SelectedItem
-        $filteredGroups = Get-AllGroups -Domain $selectedDomain | Where-Object { $_ -like "*$searchText*" }
-        foreach ($group in $filteredGroups) {
-            $cmbGroup.Items.Add($group)
-        }
-        if ($cmbGroup.Items.Count -gt 0) {
+        $filteredGroups = Get-AllGroups $selectedDomain | Where-Object { $_ -like "*$searchText*" }
+        if ($filteredGroups) {
+            $cmbGroup.Items.AddRange($filteredGroups)
             $cmbGroup.SelectedIndex = 0
         }
     }
-    UpdateGroupComboBox
 
-    # Search TextBox change event for Group filtering
-    $txtGroupSearch.Add_TextChanged({
-        UpdateGroupComboBox
+    Update-OU
+    Update-Group
+
+    $txtOUSearch.Add_TextChanged({ Update-OU })
+    $txtGroupSearch.Add_TextChanged({ Update-Group })
+    $cmbDomain.Add_SelectedIndexChanged({ $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group })
+
+    # Tooltips
+    $toolTip = New-Object System.Windows.Forms.ToolTip
+    $toolTip.SetToolTip($txtLoginID, "Unique identifier for user login")
+    $toolTip.SetToolTip($txtEmail, "User's email address (e.g., username@scriptguy.com)")
+    $toolTip.SetToolTip($txtPassword, "Temporary Password - user must change at first logon")
+    $toolTip.SetToolTip($txtPhone, "Contact number in format +55(96)98115-5265")
+    $toolTip.SetToolTip($cmbDomain, "Select the Active Directory domain")
+    $toolTip.SetToolTip($txtOUSearch, "Type to filter Organizational Units")
+    $toolTip.SetToolTip($cmbOU, "Select OU where the user will be created")
+    $toolTip.SetToolTip($txtGroupSearch, "Type to filter User Groups (starting with G_)")
+    $toolTip.SetToolTip($cmbGroup, "Select group for user membership")
+
+    # Buttons
+    $btnCreate = New-Object System.Windows.Forms.Button
+    $btnCreate.Text = "Create User"
+    $btnCreate.Location = New-Object System.Drawing.Point(350, 450) # Adjusted position due to reduced form height
+    $btnCreate.Size = New-Object System.Drawing.Size(100, 30)
+    $btnCreate.BackColor = [System.Drawing.Color]::LightGreen
+    $form.Controls.Add($btnCreate)
+
+    $btnClear = New-Object System.Windows.Forms.Button
+    $btnClear.Text = "Clear Form"
+    $btnClear.Location = New-Object System.Drawing.Point(460, 450) # Adjusted position due to reduced form height
+    $btnClear.Size = New-Object System.Drawing.Size(100, 30)
+    $btnClear.BackColor = [System.Drawing.Color]::LightYellow
+    $form.Controls.Add($btnClear)
+
+    # Event handlers
+    $txtGivenName.Add_TextChanged({ 
+        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+        $txtDisplayName.Text = "$firstName $lastName".Trim()
+    })
+    $txtSurname.Add_TextChanged({ 
+        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+        $txtDisplayName.Text = "$firstName $lastName".Trim()
     })
 
-    # Function to update Display Name
-    function UpdateDisplayName {
-        $firstName = $textBoxes[0].Text -split ' ' | Select-Object -First 1
-        $lastName = $textBoxes[1].Text -split ' ' | Select-Object -Last 1
-        $textBoxes[2].Text = "$firstName $lastName"
-    }
-
-    # Text change events to update Display Name
-    $textBoxes[0].Add_TextChanged({ UpdateDisplayName })
-    $textBoxes[1].Add_TextChanged({ UpdateDisplayName })
-
-    # Create a button for user creation
-    $button = New-Object System.Windows.Forms.Button
-    $button.Text = "Create User"
-    $button.Location = New-Object System.Drawing.Point(160, 580)
-    $button.Size = New-Object System.Drawing.Size(200, 30)
-    $form.Controls.Add($button)
-
-    # Function to clear the form fields
-    function Clear-Form {
-        $txtOUSearch.Clear()
-        UpdateOUComboBox
-        $textBoxes | ForEach-Object { $_.Clear() }
-        $cmbDescription.SelectedIndex = 0
-        $dateTimePicker.Value = (Get-Date).AddYears(1)
-        $chkNoExpiration.Checked = $false
-        $txtGroupSearch.Clear()
-        UpdateGroupComboBox
-    }
-
-    # Button click event with validation
-    $button.Add_Click({
-        $isValidInput = $true
-        foreach ($textBox in $textBoxes) {
-            if ([string]::IsNullOrWhiteSpace($textBox.Text)) {
-                Show-ErrorMessage "Please fill in all fields."
-                $isValidInput = $false
-                break
-            }
+    $btnCreate.Add_Click({
+        $statusLabel.Text = "Creating user..."
+        $requiredFields = @($txtGivenName, $txtSurname, $txtLoginID, $txtEmail, $txtPassword)
+        if ($requiredFields | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }) {
+            Show-ErrorMessage "Please fill in all required fields."
+            $statusLabel.Text = "Creation failed: Missing required fields"
+            return
+        }
+        if (-not $cmbOU.SelectedItem) {
+            Show-ErrorMessage "Please select an Organizational Unit."
+            $statusLabel.Text = "Creation failed: No OU selected"
+            return
+        }
+        if (-not $cmbGroup.SelectedItem) {
+            Show-ErrorMessage "Please select a User Group."
+            $statusLabel.Text = "Creation failed: No User Group selected"
+            return
         }
 
-        if ($isValidInput) {
-            $success = Create-ADUser -Domain $cmbDomain.SelectedItem `
-                                     -OU $cmbOU.SelectedItem `
-                                     -GivenName $textBoxes[0].Text `
-                                     -Surname $textBoxes[1].Text `
-                                     -DisplayName $textBoxes[2].Text `
-                                     -Description $cmbDescription.SelectedItem `
-                                     -PhoneNumber $textBoxes[3].Text `
-                                     -EmailAddress $textBoxes[4].Text `
-                                     -Password $textBoxes[5].Text `
-                                     -SamAccountName $textBoxes[6].Text `
-                                     -AccountExpirationDate $dateTimePicker.Value `
-                                     -NoExpiration $chkNoExpiration.Checked `
-                                     -UserGroup $cmbGroup.SelectedItem
-            if ($success) {
-                Clear-Form
-            }
-        } else {
-            Log-Message "Input validation failed: One or more fields were empty." -MessageType "ERROR"
+        $success = Create-ADUser -Domain $cmbDomain.SelectedItem `
+                                -OU $cmbOU.SelectedItem `
+                                -GivenName $txtGivenName.Text `
+                                -Surname $txtSurname.Text `
+                                -DisplayName $txtDisplayName.Text `
+                                -AccountDescription $txtDescription.Text `
+                                -Title $cmbTitle.SelectedItem `
+                                -Company $txtCompany.Text `
+                                -PhoneNumber $txtPhone.Text `
+                                -EmailAddress $txtEmail.Text `
+                                -Password $txtPassword.Text `
+                                -SamAccountName $txtLoginID.Text `
+                                -AccountExpirationDate $dateTimePicker.Value `
+                                -NoExpiration $chkNoExpiration.Checked `
+                                -UserGroup $cmbGroup.SelectedItem
+        
+        $statusLabel.Text = if ($success) { "User created successfully" } else { "User creation failed" }
+        if ($success) {
+            $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
+            $txtDescription.Text = "Default User Account"; $cmbTitle.SelectedIndex = 0
+            $txtCompany.Text = "SCRIPTGUY Enterprise"; $txtPhone.Text = "+55(96)98115-5265"
+            $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
+            $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
+            $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
         }
     })
 
-    # Show the form
+    $btnClear.Add_Click({
+        $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
+        $txtDescription.Text = "Default User Account"; $cmbTitle.SelectedIndex = 0
+        $txtCompany.Text = "SCRIPTGUY Enterprise"; $txtPhone.Text = "+55(96)98115-5265"
+        $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
+        $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
+        $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
+        $statusLabel.Text = "Form cleared"
+    })
+
+    # Show form
     $form.ShowDialog()
 }
 
-# Call the function to show the form
+# Execute
 Show-Form
-
-# End of script
