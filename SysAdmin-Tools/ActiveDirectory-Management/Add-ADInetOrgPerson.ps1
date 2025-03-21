@@ -267,9 +267,9 @@ function Show-Form {
     $lblDescription = New-Object System.Windows.Forms.Label; $lblDescription.Text = "Description:"; $lblDescription.Location = New-Object System.Drawing.Point(10, 20); $lblDescription.AutoSize = $true
     $cmbDescription = New-Object System.Windows.Forms.ComboBox; $cmbDescription.Location = New-Object System.Drawing.Point(140, 20); $cmbDescription.Size = New-Object System.Drawing.Size(380, 20); $cmbDescription.DropDownStyle = 'DropDownList'
     $lblPhone = New-Object System.Windows.Forms.Label; $lblPhone.Text = "Phone Number:"; $lblPhone.Location = New-Object System.Drawing.Point(10, 50); $lblPhone.AutoSize = $true
-    $txtPhone = New-Object System.Windows.Forms.TextBox; $txtPhone.Location = New-Object System.Drawing.Point(140, 50); $txtPhone.Size = New-Object System.Drawing.Size(380, 20); $txtPhone.Text = "(96) 9xxxx-xxxx"
+    $txtPhone = New-Object System.Windows.Forms.TextBox; $txtPhone.Location = New-Object System.Drawing.Point(140, 50); $txtPhone.Size = New-Object System.Drawing.Size(380, 20); $txtPhone.Text = "+55(96)98115-5265"
     $lblEmail = New-Object System.Windows.Forms.Label; $lblEmail.Text = "Email Address:"; $lblEmail.Location = New-Object System.Drawing.Point(10, 80); $lblEmail.AutoSize = $true
-    $txtEmail = New-Object System.Windows.Forms.TextBox; $txtEmail.Location = New-Object System.Drawing.Point(140, 80); $txtEmail.Size = New-Object System.Drawing.Size(380, 20); $txtEmail.Text = "@tjap.jus.br"
+    $txtEmail = New-Object System.Windows.Forms.TextBox; $txtEmail.Location = New-Object System.Drawing.Point(140, 80); $txtEmail.Size = New-Object System.Drawing.Size(380, 20); $txtEmail.Text = "@scriptguy.com"
 
     $groupDetails.Controls.AddRange(@($lblDescription, $cmbDescription, $lblPhone, $txtPhone, $lblEmail, $txtEmail))
 
@@ -345,9 +345,9 @@ function Show-Form {
     # Tooltips
     $toolTip = New-Object System.Windows.Forms.ToolTip
     $toolTip.SetToolTip($txtLoginID, "Unique identifier for user login (Logon Name/Code)")
-    $toolTip.SetToolTip($txtEmail, "User's email address (e.g., username@tjap.jus.br)")
+    $toolTip.SetToolTip($txtEmail, "User's email address (e.g., username@scriptguy.com)")
     $toolTip.SetToolTip($txtPassword, "Temporary Password - user must change at first logon")
-    $toolTip.SetToolTip($txtPhone, "Contact number in format (96) 9xxxx-xxxx")
+    $toolTip.SetToolTip($txtPhone, "Contact number in format +55(96)98115-5265")
     $toolTip.SetToolTip($cmbDomain, "Select the Active Directory domain")
     $toolTip.SetToolTip($txtOUSearch, "Type to filter Organizational Units")
     $toolTip.SetToolTip($cmbOU, "Select OU where the user will be created")
