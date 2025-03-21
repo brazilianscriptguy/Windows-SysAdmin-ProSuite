@@ -214,7 +214,7 @@ function Create-InetOrgPerson {
 # Form creation
 function Show-Form {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Create New AD InetOrgPerson"
+    $form.Text = "AD InetOrgPerson Tool"
     $form.Size = New-Object System.Drawing.Size(600, 550) # Compact form size as in the last code
     $form.StartPosition = "CenterScreen"
     $form.FormBorderStyle = 'FixedDialog'
