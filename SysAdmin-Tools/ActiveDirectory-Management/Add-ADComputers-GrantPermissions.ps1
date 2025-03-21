@@ -314,7 +314,7 @@ function Show-Form {
     $groupSettings.Controls.AddRange(@($lblOUSearch, $txtOUSearch, $lblOU, $cmbOU, $lblSupportGroup, $txtSupportGroup, $lblDomainName, $txtDomainName, $lblDescription, $txtDescription))
 
     # Populate OU ComboBox
-    $allOUs = Get-ADOrganizationalUnit -Filter 'Name -like "Computadores*"' | Select-Object -ExpandProperty DistinguishedName
+    $allOUs = Get-ADOrganizationalUnit -Filter 'Name -like "Computers*"' | Select-Object -ExpandProperty DistinguishedName
 
     function Update-OU {
         $cmbOU.Items.Clear()
