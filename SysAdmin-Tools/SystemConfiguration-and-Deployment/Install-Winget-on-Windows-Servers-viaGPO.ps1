@@ -6,7 +6,7 @@
     This script configures WinGet on Windows Server 2019 by downloading the winget binary from a specified GitHub
     release URL, extracting it, and setting it up in a system directory. It ensures winget.exe is functional by adding
     it to the system PATH and verifying its operation. The script also checks for and installs required dependencies
-    (e.g., Microsoft.VCLibs.140.00.UWPDesktop) if needed. Suitable for deployment via Group Policy (GPO).
+    (e.g., Microsoft.VCLibs.140.00.UWPDesktop) if needed. Suitable for silent deployment via Group Policy (GPO).
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
@@ -23,11 +23,11 @@ param (
 # Script initialization
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+$VerbosePreference = "SilentlyContinue"
 
 # Ensure log directory exists
 if (-not (Test-Path $LogDir)) {
     New-Item -Path $LogDir -ItemType Directory -Force | Out-Null
-    Write-Host "Log directory $LogDir created."
 }
 
 # Configure log file path
@@ -35,7 +35,7 @@ $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyComm
 $logFileName = "${scriptName}.log"
 $logPath = Join-Path $LogDir $logFileName
 
-# Function to log messages
+# Function to log messages (file only, no console output)
 function Log-Message {
     param (
         [Parameter(Mandatory = $true)]
@@ -47,9 +47,8 @@ function Log-Message {
     try {
         Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log at $logPath. Error: $_"
+        # If logging fails, we can't write to the console, so silently fail
     }
-    Write-Host $logEntry
 }
 
 # Function to check for elevated privileges
@@ -470,7 +469,7 @@ function Test-WingetInstallation {
     try {
         $wingetPath = (Get-Command winget -ErrorAction Stop).Source
         Log-Message "winget.exe found at: ${wingetPath}"
-        $wingetVersion = winget --version
+        $wingetVersion = & winget --version
         Log-Message "WinGet version: $wingetVersion"
         return $true
     } catch {
@@ -483,7 +482,7 @@ function Test-WingetInstallation {
         Log-Message "winget.exe found at: ${wingetExePath}"
         Add-WingetToPath
         try {
-            $wingetVersion = winget --version
+            $wingetVersion = & winget --version
             Log-Message "WinGet version: $wingetVersion"
             return $true
         } catch {
