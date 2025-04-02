@@ -94,8 +94,14 @@
       </tr>
       <tr>
         <td><strong>Export-n-Import-GPOsTool.ps1</strong></td>
+        <td>Provides a GUI for  for and removes residual DNS and Active Directory objects related to decommissioned domain controllers.</td>
+      </tr>
+
+<tr>
+        <td><strong>Fix-ADForest-DNSDelegation.ps1</strong></td>
         <td>Provides a GUI for exporting and importing Group Policy Objects (GPOs) between domains, with progress tracking.</td>
       </tr>
+      
       <tr>
         <td><strong>Inventory-ADDomainComputers.ps1</strong></td>
         <td>Generates a detailed inventory of all computers within an AD domain for asset management.</td>
