@@ -41,12 +41,11 @@ try {
 
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 
-# Define default paths
 $logDir = "C:\Logs-TEMP"
 $outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
 $logPath = Join-Path $logDir "${scriptName}.log"
 
-if (-not (Test-Path $logDir -PathType Container)) {
+if (-not (Test-Path $logDir)) {
     try {
         New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
     } catch {
@@ -104,115 +103,6 @@ function Select-Folder {
     return $null
 }
 
-function Get-ObjectDeletionEvents {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)]
-        [ValidateScript({ Test-Path $_ -PathType Container })]
-        [string]$LogFolderPath,
-        [Parameter(Mandatory)]
-        [string]$OutputFolder,
-        [string[]]$UserAccounts
-    )
-    Write-Log "Starting to process Event ID 4663 (Access Mask 0x10000) in folder '$LogFolderPath'"
-
-    try {
-        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
-        if (-not $evtxFiles) {
-            throw "No .evtx files found in '$LogFolderPath'"
-        }
-
-        $totalFiles = $evtxFiles.Count
-        $processedFiles = 0
-
-        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
-        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
-        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
-
-        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $consolidatedFile = Join-Path $OutputFolder "EventID4663-ObjectDeletionTracking-$timestamp.csv"
-        $tempCsvPath = Join-Path $env:TEMP "temp_deletion_$timestamp.csv"
-        $outputFiles = [System.Collections.Generic.List[string]]::new()
-
-        $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
-            "'" + ($UserAccounts -join "';'") + "'"
-        } else { 
-            "" 
-        }
-
-        foreach ($file in $evtxFiles) {
-            $processedFiles++
-            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
-            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
-            $script:form.Refresh()
-
-            $SQLQuery = @"
-            SELECT 
-                TimeGenerated AS DateTime,
-                EventID,
-                EXTRACT_TOKEN(Strings, 1, '|') AS UserAccount,
-                EXTRACT_TOKEN(Strings, 2, '|') AS Domain,
-                EXTRACT_TOKEN(Strings, 4, '|') AS LockoutCode,
-                EXTRACT_TOKEN(Strings, 5, '|') AS ObjectType,
-                EXTRACT_TOKEN(Strings, 6, '|') AS AccessedObject,
-                EXTRACT_TOKEN(Strings, 7, '|') AS SubCode,
-                EXTRACT_TOKEN(Strings, 8, '|') AS AccessMask
-            INTO '$tempCsvPath'
-            FROM '$($file.FullName)'
-            WHERE EventID = 4663
-                AND EXTRACT_TOKEN(Strings, 8, '|') = '0x10000'
-                $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 1, '|') IN ($userFilter)" } else { "" })
-"@
-
-            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
-            if ($rtnVal -eq 0) {
-                throw "LogQuery execution failed for '$($file.FullName)'"
-            }
-
-            if (Test-Path $tempCsvPath) {
-                $outputFile = Join-Path $OutputFolder "$([System.IO.Path]::GetFileNameWithoutExtension($file.Name))_ObjectDeletionTracking.csv"
-                if ($processedFiles -eq 1) {
-                    Get-Content $tempCsvPath | Set-Content $outputFile -Encoding UTF8
-                } else {
-                    Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $outputFile -Encoding UTF8
-                }
-                $outputFiles.Add($outputFile)
-                Remove-Item $tempCsvPath -Force
-                Write-Log "Processed $($file.Name) for deletion events"
-            }
-        }
-
-        Update-ProgressBar -Value 75
-        $script:statusLabel.Text = "Merging results..."
-        $script:form.Refresh()
-
-        if ($outputFiles.Count -gt 0) {
-            Merge-CsvResults -InputFiles $outputFiles -OutputFile $consolidatedFile
-            if (Test-Path $consolidatedFile) {
-                $eventCount = (Import-Csv $consolidatedFile).Count
-                Write-Log "Merged $eventCount deletion events into '$consolidatedFile'"
-                Update-ProgressBar -Value 100
-                Show-MessageBox -Message "Analysis complete. Found $eventCount deletion events.`nResults saved to:`n$consolidatedFile" -Title "Success"
-                if ($AutoOpen) { Start-Process -FilePath $consolidatedFile }
-                $script:statusLabel.Text = "Completed. Found $eventCount events."
-            } else {
-                throw "Failed to create consolidated file '$consolidatedFile'"
-            }
-        } else {
-            Write-Log "No deletion events found" -Level Warning
-            Show-MessageBox -Message "No object deletion events (Event ID 4663, Access Mask 0x10000) found in selected folder." -Title "No Results" -Icon Warning
-            $script:statusLabel.Text = "No events found."
-        }
-    } catch {
-        Write-Log -Message "Error processing deletion events: $_" -Level Error
-        Show-MessageBox -Message "Error processing deletion events: $_" -Title "Processing Error" -Icon Error
-        $script:statusLabel.Text = "Error occurred. Check log for details."
-    } finally {
-        Update-ProgressBar -Value 0
-        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
-    }
-}
-
 function Merge-CsvResults {
     [CmdletBinding()]
     param (
@@ -231,124 +121,209 @@ function Merge-CsvResults {
         Show-MessageBox -Message "Merge failed: $_" -Title "Merge Error" -Icon Error
     }
 }
+
+function Get-ObjectDeletionEvents {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$LogFolderPath,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [string[]]$UserAccounts
+    )
+
+    Write-Log "Starting analysis in '$LogFolderPath'"
+    $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+    if (-not $evtxFiles) {
+        Show-MessageBox -Message "No .evtx files found." -Title "Input Error" -Icon Warning
+        return
+    }
+
+    $totalFiles = $evtxFiles.Count
+    $processedFiles = 0
+
+    $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+    $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+    $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
+
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+    $consolidatedFile = Join-Path $OutputFolder "EventID4663-ObjectDeletionTracking-$timestamp.csv"
+    $tempCsvPath = Join-Path $env:TEMP "temp_deletion_$timestamp.csv"
+    $outputFiles = [System.Collections.Generic.List[string]]::new()
+
+    $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) {
+        "'" + ($UserAccounts -join "';'") + "'"
+    } else { "" }
+
+    foreach ($file in $evtxFiles) {
+        $processedFiles++
+        Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+        $script:labelStatus.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+        $script:form.Refresh()
+
+        $SQLQuery = @"
+        SELECT 
+            TimeGenerated AS DateTime,
+            EventID,
+            EXTRACT_TOKEN(Strings, 1, '|') AS UserAccount,
+            EXTRACT_TOKEN(Strings, 2, '|') AS Domain,
+            EXTRACT_TOKEN(Strings, 4, '|') AS LockoutCode,
+            EXTRACT_TOKEN(Strings, 5, '|') AS ObjectType,
+            EXTRACT_TOKEN(Strings, 6, '|') AS AccessedObject,
+            EXTRACT_TOKEN(Strings, 7, '|') AS SubCode,
+            EXTRACT_TOKEN(Strings, 8, '|') AS AccessMask
+        INTO '$tempCsvPath'
+        FROM '$($file.FullName)'
+        WHERE EventID = 4663
+            AND EXTRACT_TOKEN(Strings, 8, '|') = '0x10000'
+            $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 1, '|') IN ($userFilter)" } else { "" })
+"@
+
+        $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+        if ($rtnVal -eq 0) {
+            Write-Log "LogQuery failed for '$($file.Name)'" -Level Warning
+            continue
+        }
+
+        if (Test-Path $tempCsvPath) {
+            $outputFile = Join-Path $OutputFolder "$([System.IO.Path]::GetFileNameWithoutExtension($file.Name))_ObjectDeletionTracking.csv"
+            if ($processedFiles -eq 1) {
+                Get-Content $tempCsvPath | Set-Content $outputFile -Encoding UTF8
+            } else {
+                Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $outputFile -Encoding UTF8
+            }
+            $outputFiles.Add($outputFile)
+            Remove-Item $tempCsvPath -Force
+            Write-Log "Processed $($file.Name)"
+        }
+    }
+
+    Update-ProgressBar -Value 75
+    $script:labelStatus.Text = "Merging results..."
+    $script:form.Refresh()
+
+    if ($outputFiles.Count -gt 0) {
+        Merge-CsvResults -InputFiles $outputFiles -OutputFile $consolidatedFile
+        if (Test-Path $consolidatedFile) {
+            $eventCount = (Import-Csv $consolidatedFile).Count
+            Write-Log "Total of $eventCount events found"
+            Update-ProgressBar -Value 100
+            Show-MessageBox -Message "Analysis complete. Found $eventCount events.`nSaved to:`n$consolidatedFile" -Title "Success"
+            if ($AutoOpen) { Start-Process -FilePath $consolidatedFile }
+            $script:labelStatus.Text = "Completed. Found $eventCount events."
+        }
+    } else {
+        Write-Log "No deletion events found" -Level Warning
+        Show-MessageBox -Message "No object deletion events (4663, Access Mask 0x10000) found." -Title "No Results" -Icon Warning
+        $script:labelStatus.Text = "No events found."
+    }
+    Update-ProgressBar -Value 0
+    if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
+}
 #endregion
 
-#region GUI Setup
+#region GUI
 $form = New-Object System.Windows.Forms.Form -Property @{
-    Text          = 'Object Deletion Event Parser (4663, Access Mask 0x10000)'
-    Size          = [System.Drawing.Size]::new(450, 350)
+    Text = 'Object Deletion Event Parser (4663, Access Mask 0x10000)'
+    Size = '450,350'
     StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedSingle'
-    MaximizeBox     = $false
+    MaximizeBox = $false
 }
 
-# User Accounts
 $labelUsers = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "User Accounts:"
+    Location = '10,20'
+    Size = '100,20'
+    Text = 'User Accounts:'
 }
 $form.Controls.Add($labelUsers)
 
 $textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 20)
-    Size     = [System.Drawing.Size]::new(320, 60)
+    Location = '120,20'
+    Size = '320,60'
     Multiline = $true
-    Text     = "user01, user02, user03, user04, user05"
+    Text = 'user01, user02, user03'
 }
 $form.Controls.Add($textBoxUsers)
 
-# Log Directory
 $labelLogDir = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Log Directory:"
+    Location = '10,90'
+    Size = '100,20'
+    Text = 'Log Directory:'
 }
 $form.Controls.Add($labelLogDir)
 
 $textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 90)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $logDir
+    Location = '120,90'
+    Size = '200,20'
+    Text = $logDir
 }
 $form.Controls.Add($textBoxLogDir)
 
 $buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(330, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Location = '330,90'
+    Size = '100,20'
+    Text = 'Browse'
 }
 $buttonBrowseLogDir.Add_Click({
     $folder = Select-Folder
-    if ($folder) { 
-        $textBoxLogDir.Text = $folder 
-        Write-Log "Log Directory updated to: '$folder' via browse"
-    }
+    if ($folder) { $textBoxLogDir.Text = $folder }
 })
 $form.Controls.Add($buttonBrowseLogDir)
 
-# Output Folder
 $labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Output Folder:"
+    Location = '10,120'
+    Size = '100,20'
+    Text = 'Output Folder:'
 }
 $form.Controls.Add($labelOutputDir)
 
 $textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
-    Location = [System.Drawing.Point]::new(120, 120)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $outputFolderDefault
+    Location = '120,120'
+    Size = '200,20'
+    Text = $outputFolderDefault
 }
 $form.Controls.Add($textBoxOutputDir)
 
 $buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(330, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Location = '330,120'
+    Size = '100,20'
+    Text = 'Browse'
 }
 $buttonBrowseOutputDir.Add_Click({
     $folder = Select-Folder
-    if ($folder) { 
-        $textBoxOutputDir.Text = $folder 
-        Write-Log "Output Folder updated to: '$folder' via browse"
-    }
+    if ($folder) { $textBoxOutputDir.Text = $folder }
 })
 $form.Controls.Add($buttonBrowseOutputDir)
 
-# Status Label
 $labelStatus = New-Object System.Windows.Forms.Label -Property @{
-    Location = [System.Drawing.Point]::new(10, 180)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Text     = "Ready"
+    Location = '10,180'
+    Size = '430,20'
+    Text = 'Ready'
 }
 $form.Controls.Add($labelStatus)
 
-# Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
-    Location = [System.Drawing.Point]::new(10, 210)
-    Size     = [System.Drawing.Size]::new(430, 20)
+    Location = '10,210'
+    Size = '430,20'
 }
 $form.Controls.Add($progressBar)
 
-# Start Button
 $button = New-Object System.Windows.Forms.Button -Property @{
-    Location = [System.Drawing.Point]::new(10, 240)
-    Size     = [System.Drawing.Size]::new(100, 30)
-    Text     = 'Start Analysis'
+    Location = '10,240'
+    Size = '100,30'
+    Text = 'Start Analysis'
 }
 $button.Add_Click({
     $script:logDir = $textBoxLogDir.Text
     $script:logPath = Join-Path $script:logDir "${scriptName}.log"
     $outputFolder = $textBoxOutputDir.Text
-
     if (-not (Test-Path $script:logDir)) {
         New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
     }
-
     $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
 
-    Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+    Write-Log "Analysis started for users: $($userAccounts -join ', ')"
     $script:labelStatus.Text = "Selecting folder..."
     $script:form.Refresh()
 
@@ -359,14 +334,12 @@ $button.Add_Click({
         return
     }
 
-    $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+    $script:labelStatus.Text = "Processing files..."
     $script:form.Refresh()
-
     Get-ObjectDeletionEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
 })
 $form.Controls.Add($button)
 
-# Script scope variables
 $script:form = $form
 $script:progressBar = $progressBar
 $script:labelStatus = $labelStatus
