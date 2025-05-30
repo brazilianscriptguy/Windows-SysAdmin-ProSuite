@@ -1,16 +1,15 @@
-<#
+<##
 .SYNOPSIS
-    PowerShell Script for Retrieving Active Directory User Attributes.
+    PowerShell Script for Retrieving Active Directory User Attributes with Filters for Active, Inactive, and inetOrgPerson Accounts.
 
 .DESCRIPTION
-    This script retrieves detailed user attributes from Active Directory, helping administrators 
-    manage user data more effectively and ensuring accurate reporting.
+    This script retrieves detailed user attributes from Active Directory, providing administrators the option to filter by active, inactive, and inetOrgPerson accounts. The script maintains a user-friendly GUI for easy operation and ensures detailed logging for troubleshooting and audit purposes.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 8, 2024
+    Last Updated: May 30, 2025
 #>
 
 # Hide the PowerShell console window
@@ -25,182 +24,154 @@ public class Window {
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
         var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
+        ShowWindow(handle, 0);
     }
 }
 "@
 [Window]::Hide()
 
-# Import the Active Directory module
 Import-Module ActiveDirectory
-
-# Load Windows Forms and Drawing libraries
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Determine script name and file paths
+# Log setup
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $logDir = 'C:\Logs-TEMP'
 $logFileName = "${scriptName}.log"
 $logPath = Join-Path $logDir $logFileName
 
-# Ensure the log directory exists
 if (-not (Test-Path $logDir)) {
-    New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path $logDir -ItemType Directory | Out-Null
 }
 
-# Logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
         [string]$Message,
         [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
+    $entry = "[$timestamp] [$MessageType] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        Add-Content -Path $logPath -Value $entry -Encoding UTF8 -ErrorAction Stop
     } catch {
-        Write-Host "Failed to write to log: $_"
+        Write-Warning "Failed to write to log: $_"
     }
+    Write-Host $entry
 }
 
-# Function to retrieve all domain FQDNs in the forest
 function Get-AllDomainFQDNs {
     try {
-        $forest = Get-ADForest
-        return $forest.Domains
+        $domains = (Get-ADForest).Domains
+        Log-Message "Retrieved domain FQDNs: $($domains -join ', ')" "DEBUG"
+        return $domains
     } catch {
-        Log-Message -Message "Failed to retrieve domain FQDNs: $_" -MessageType "ERROR"
+        Log-Message "Failed to retrieve domain FQDNs: $_" "ERROR"
         return @()
     }
 }
 
-# GUI utility functions
-function Show-InfoMessage {
-    param ([string]$message)
-    [System.Windows.Forms.MessageBox]::Show($message, 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Log-Message -Message "$message" -MessageType "INFO"
-}
-
-function Show-ErrorMessage {
-    param ([string]$message)
-    [System.Windows.Forms.MessageBox]::Show($message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message -Message "$message" -MessageType "ERROR"
-}
-
-# Function to export AD user attributes
 function Export-ADUserAttributes {
     param (
         [string[]]$Attributes,
         [string]$DomainFQDN,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [string]$UserStatus,
+        [bool]$IncludeInetOrgPerson
     )
     try {
-        $users = Get-ADUser -Filter * -Properties $Attributes -Server $DomainFQDN
-        if ($users.Count -eq 0) {
-            throw "No users found in the specified domain."
+        $filter = "(objectClass=user)"
+
+        if ($IncludeInetOrgPerson) {
+            $filter = "(|(objectClass=user)(objectClass=inetOrgPerson))"
         }
 
-        $users | ForEach-Object {
-            $_ | Select-Object -Property $Attributes
-        } | Export-Csv -Path $OutputPath -NoTypeInformation -Encoding UTF8
+        switch ($UserStatus) {
+            "Active" { $filter = "(&" + $filter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))" }
+            "Inactive" { $filter = "(&" + $filter + "(userAccountControl:1.2.840.113556.1.4.803:=2))" }
+        }
+
+        Log-Message "Using LDAP filter: $filter" "DEBUG"
+        Log-Message "Querying domain: $DomainFQDN" "INFO"
+
+        $users = Get-ADUser -LDAPFilter $filter -Properties $Attributes -Server $DomainFQDN -ErrorAction Stop
+
+        if ($users.Count -eq 0) {
+            Log-Message "No users found in domain $DomainFQDN using provided filters." "WARNING"
+            return $false
+        }
+
+        $users | Select-Object -Property $Attributes | Export-Csv -Path $OutputPath -NoTypeInformation -Encoding UTF8
+        Log-Message "Export completed successfully. File saved at: $OutputPath" "INFO"
         return $true
     } catch {
-        Log-Message -Message "Error exporting user attributes: $_" -MessageType "ERROR"
+        Log-Message "Error exporting user attributes: $_" "ERROR"
         return $false
     }
 }
 
-# Main GUI setup
 function Show-ExportForm {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Export AD User Attributes'
-    $form.Size = New-Object System.Drawing.Size(420, 420)
+    $form.Size = New-Object System.Drawing.Size(420, 480)
     $form.StartPosition = 'CenterScreen'
 
-    # Domain selection
-    $labelDomain = New-Object System.Windows.Forms.Label
-    $labelDomain.Text = 'Select Domain FQDN:'
-    $labelDomain.Location = New-Object System.Drawing.Point(10, 20)
-    $labelDomain.AutoSize = $true
-    $form.Controls.Add($labelDomain)
-
     $comboBoxDomain = New-Object System.Windows.Forms.ComboBox
-    $comboBoxDomain.Location = New-Object System.Drawing.Point(10, 50)
-    $comboBoxDomain.Size = New-Object System.Drawing.Size(380, 20)
+    $comboBoxDomain.Location = '10,50'; $comboBoxDomain.Size = '380,20'
     $comboBoxDomain.DropDownStyle = 'DropDownList'
     $comboBoxDomain.Items.AddRange((Get-AllDomainFQDNs))
-    if ($comboBoxDomain.Items.Count -gt 0) {
-        $comboBoxDomain.SelectedIndex = 0
-    }
+    if ($comboBoxDomain.Items.Count -gt 0) { $comboBoxDomain.SelectedIndex = 0 }
     $form.Controls.Add($comboBoxDomain)
 
-    # Attributes selection
-    $labelAttributes = New-Object System.Windows.Forms.Label
-    $labelAttributes.Text = 'Select AD User Attributes:'
-    $labelAttributes.Location = New-Object System.Drawing.Point(10, 80)
-    $labelAttributes.AutoSize = $true
-    $form.Controls.Add($labelAttributes)
+    $comboBoxStatus = New-Object System.Windows.Forms.ComboBox
+    $comboBoxStatus.Location = '10,110'; $comboBoxStatus.Size = '380,20'
+    $comboBoxStatus.DropDownStyle = 'DropDownList'
+    $comboBoxStatus.Items.AddRange(@("All","Active","Inactive")); $comboBoxStatus.SelectedIndex = 0
+    $form.Controls.Add($comboBoxStatus)
+
+    $checkBoxInetOrgPerson = New-Object System.Windows.Forms.CheckBox
+    $checkBoxInetOrgPerson.Text = 'Include inetOrgPerson Accounts'
+    $checkBoxInetOrgPerson.Location = '10,140'; $form.Controls.Add($checkBoxInetOrgPerson)
 
     $listBoxAttributes = New-Object System.Windows.Forms.CheckedListBox
-    $listBoxAttributes.Location = New-Object System.Drawing.Point(10, 110)
-    $listBoxAttributes.Size = New-Object System.Drawing.Size(380, 150)
-    $listBoxAttributes.Items.AddRange(@("samAccountName", "Name", "GivenName", "Surname", "DisplayName", "Mail", "Department", "Title"))
+    $listBoxAttributes.Location = '10,200'; $listBoxAttributes.Size = '380,150'
+    $listBoxAttributes.Items.AddRange(@("samAccountName","Name","GivenName","Surname","DisplayName","Mail","Department","Title"))
     $form.Controls.Add($listBoxAttributes)
 
-    # Progress bar
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Location = New-Object System.Drawing.Point(10, 270)
-    $progressBar.Size = New-Object System.Drawing.Size(380, 20)
-    $form.Controls.Add($progressBar)
-
-    # Buttons
     $buttonExport = New-Object System.Windows.Forms.Button
-    $buttonExport.Text = 'Export'
-    $buttonExport.Location = New-Object System.Drawing.Point(10, 300)
-    $buttonExport.Size = New-Object System.Drawing.Size(180, 30)
+    $buttonExport.Text = 'Export'; $buttonExport.Location = '10,390'; $buttonExport.Size = '180,30'
     $buttonExport.Add_Click({
-        $selectedAttributes = $listBoxAttributes.CheckedItems
-        $domainFQDN = $comboBoxDomain.SelectedItem
-        $outputPath = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${domainFQDN}_${timestamp}.csv"
+        $attrs = $listBoxAttributes.CheckedItems
+        $domain = $comboBoxDomain.SelectedItem
+        $status = $comboBoxStatus.SelectedItem
+        $includeInetOrg = $checkBoxInetOrgPerson.Checked
+        $output = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${domain}_${status}_${timestamp}.csv"
 
-        if ($selectedAttributes.Count -eq 0 -or [string]::IsNullOrWhiteSpace($domainFQDN)) {
-            Show-ErrorMessage 'Please select at least one attribute and a valid domain.'
+        if ($attrs.Count -eq 0 -or [string]::IsNullOrWhiteSpace($domain)) {
+            [System.Windows.Forms.MessageBox]::Show('Please select attributes and a domain.')
+            Log-Message "Export aborted: missing attribute or domain selection." "WARNING"
             return
         }
 
-        $progressBar.Value = 50
-        $exported = Export-ADUserAttributes -Attributes $selectedAttributes -DomainFQDN $domainFQDN -OutputPath $outputPath
+        $exported = Export-ADUserAttributes -Attributes $attrs -DomainFQDN $domain -OutputPath $output -UserStatus $status -IncludeInetOrgPerson $includeInetOrg
 
         if ($exported) {
-            $progressBar.Value = 100
-            Show-InfoMessage "Export completed successfully. File saved at:`n$outputPath"
+            [System.Windows.Forms.MessageBox]::Show("Export completed:\n$output")
         } else {
-            Show-ErrorMessage 'An error occurred during export. Check the logs for details.'
+            [System.Windows.Forms.MessageBox]::Show('Export failed. Check logs.')
         }
-        $progressBar.Value = 0
     })
     $form.Controls.Add($buttonExport)
 
     $buttonClose = New-Object System.Windows.Forms.Button
-    $buttonClose.Text = 'Close'
-    $buttonClose.Location = New-Object System.Drawing.Point(210, 300)
-    $buttonClose.Size = New-Object System.Drawing.Size(180, 30)
-    $buttonClose.Add_Click({ $form.Close() })
-    $form.Controls.Add($buttonClose)
+    $buttonClose.Text = 'Close'; $buttonClose.Location = '210,390'; $buttonClose.Size = '180,30'
+    $buttonClose.Add_Click({ $form.Close() }); $form.Controls.Add($buttonClose)
 
     $form.Add_Shown({ $form.Activate() })
     [void]$form.ShowDialog()
 }
 
-# Show the GUI form
 Show-ExportForm
 
 # End of script
