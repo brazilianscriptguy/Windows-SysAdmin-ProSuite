@@ -1,8 +1,8 @@
 <!--
   Author: @brazilianscriptguy
-  Updated: October 3, 2025
+  Updated: June 3, 2025
   Description: Full cleanup tool for ReaQta services, drivers, folders, registry keys,
-               with SFC/DISM scan and reboot. Includes a visual progress bar.
+               with SFC/DISM scan and reboot. Includes a visual progress bar and log path confirmation.
 -->
 
 <html>
@@ -21,17 +21,46 @@
     SCROLL="no"
     WINDOWSTATE="normal">
   <style>
-    body { font-family: Segoe UI, sans-serif; font-size: 14px; margin: 20px; background-color: #f4f4f4; }
-    h2 { color: #003366; }
-    textarea { width: 100%; height: 260px; font-family: Consolas, monospace; font-size: 12px; }
-    button { padding: 10px 20px; font-size: 14px; margin-top: 10px; }
-    #progressContainer { width: 100%; background-color: #ddd; border: 1px solid #999; height: 25px; margin-top: 15px; }
-    #progressBar { width: 0%; height: 100%; background-color: #4CAF50; text-align: center; color: white; font-weight: bold; }
+    body {
+      font-family: Segoe UI, sans-serif;
+      font-size: 14px;
+      margin: 20px;
+      background-color: #f4f4f4;
+    }
+    h2 {
+      color: #003366;
+    }
+    textarea {
+      width: 100%;
+      height: 260px;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    #progressContainer {
+      width: 100%;
+      background-color: #ddd;
+      border: 1px solid #999;
+      height: 25px;
+      margin-top: 15px;
+    }
+    #progressBar {
+      width: 0%;
+      height: 100%;
+      background-color: #4CAF50;
+      text-align: center;
+      color: white;
+      font-weight: bold;
+    }
   </style>
 </head>
 
 <body>
-  <h2>🛠️ ReaQta Removal & System Repair Tool</h2>
+  <h2>ReaQta Removal & System Repair Tool</h2>
   <p>This tool will:</p>
   <ul>
     <li>Remove ReaQta services, drivers, folders, and registry entries</li>
@@ -44,6 +73,7 @@
   <button onclick="StartCleanup()">Start Cleanup</button>
 
   <script language="VBScript">
+    ' === Global Declarations ===
     Dim shell, fso, logFile, logPath
     Set shell = CreateObject("WScript.Shell")
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -59,6 +89,7 @@
       "Scheduling system reboot..." _
     )
 
+    ' === Main Execution ===
     Sub StartCleanup()
       Log "==== ReaQta Removal Started ===="
 
@@ -89,7 +120,13 @@
 
       UpdateProgress 85, progressSteps(6)
       Log "All operations completed. System will reboot in 15 seconds."
-      MsgBox "Cleanup completed successfully. System will now reboot in 15 seconds.", vbInformation, "System Reboot"
+      Log "A full log was saved at: " & logPath
+
+      MsgBox "Cleanup completed successfully." & vbCrLf & vbCrLf & _
+             "A log file was saved at:" & vbCrLf & logPath & vbCrLf & vbCrLf & _
+             "The system will now reboot in 15 seconds.", _
+             vbInformation, "System Reboot and Log Path"
+
       shell.Run "shutdown /r /f /t 15", 0, False
 
       UpdateProgress 100, "✅ Done."
@@ -130,7 +167,7 @@
       shell.Run "reg delete """ & key & """ /f", 0, True
     End Sub
 
-    ' === Logging Functions ===
+    ' === Logging ===
     Sub Log(msg)
       timestamp = Now
       document.getElementById("logBox").value = document.getElementById("logBox").value & "[" & timestamp & "] " & msg & vbCrLf
