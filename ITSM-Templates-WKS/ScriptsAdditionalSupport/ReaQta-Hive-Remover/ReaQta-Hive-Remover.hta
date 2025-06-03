@@ -1,0 +1,155 @@
+<!--
+  Author: @brazilianscriptguy
+  Updated: October 3, 2025
+  Description: Full cleanup tool for ReaQta services, drivers, folders, registry keys,
+               with SFC/DISM scan and reboot. Includes a visual progress bar.
+-->
+
+<html>
+<head>
+  <title>ReaQta Removal Tool</title>
+  <HTA:APPLICATION
+    ID="ReaQtaCleaner"
+    APPLICATIONNAME="ReaQtaCleaner"
+    BORDER="thin"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    SCROLL="no"
+    WINDOWSTATE="normal">
+  <style>
+    body { font-family: Segoe UI, sans-serif; font-size: 14px; margin: 20px; background-color: #f4f4f4; }
+    h2 { color: #003366; }
+    textarea { width: 100%; height: 260px; font-family: Consolas, monospace; font-size: 12px; }
+    button { padding: 10px 20px; font-size: 14px; margin-top: 10px; }
+    #progressContainer { width: 100%; background-color: #ddd; border: 1px solid #999; height: 25px; margin-top: 15px; }
+    #progressBar { width: 0%; height: 100%; background-color: #4CAF50; text-align: center; color: white; font-weight: bold; }
+  </style>
+</head>
+
+<body>
+  <h2>🛠️ ReaQta Removal & System Repair Tool</h2>
+  <p>This tool will:</p>
+  <ul>
+    <li>Remove ReaQta services, drivers, folders, and registry entries</li>
+    <li>Run SFC and DISM system repair scans</li>
+    <li>Reboot the computer after 15 seconds</li>
+  </ul>
+
+  <textarea id="logBox" readonly></textarea>
+  <div id="progressContainer"><div id="progressBar">0%</div></div>
+  <button onclick="StartCleanup()">Start Cleanup</button>
+
+  <script language="VBScript">
+    Dim shell, fso, logFile, logPath
+    Set shell = CreateObject("WScript.Shell")
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    logPath = "C:\Logs-TEMP\RemoveRQTServices.log"
+
+    progressSteps = Array( _
+      "Stopping and deleting services...", _
+      "Removing driver files...", _
+      "Deleting program folder...", _
+      "Deleting registry key...", _
+      "Running SFC scan...", _
+      "Running DISM scan...", _
+      "Scheduling system reboot..." _
+    )
+
+    Sub StartCleanup()
+      Log "==== ReaQta Removal Started ===="
+
+      UpdateProgress 0, progressSteps(0)
+      RemoveService "keeper"
+      RemoveService "rqtsentry"
+      RemoveService "rqtnetsentry"
+      RemoveService "i00"
+
+      UpdateProgress 14, progressSteps(1)
+      DeleteFile "C:\windows\system32\drivers\rqtsentry.sys"
+      DeleteFile "C:\windows\system32\drivers\rqtnetsentry.sys"
+      DeleteFile "C:\windows\system32\drivers\i00.sys"
+
+      UpdateProgress 28, progressSteps(2)
+      DeleteFolder "C:\Program Files\ReaQta"
+
+      UpdateProgress 42, progressSteps(3)
+      DeleteRegistryKey "HKLM\SOFTWARE\RqtHive"
+
+      UpdateProgress 56, progressSteps(4)
+      Log "Running: sfc /scannow"
+      shell.Run "cmd /c sfc /scannow", 1, True
+
+      UpdateProgress 70, progressSteps(5)
+      Log "Running: dism /restorehealth"
+      shell.Run "cmd /c dism.exe /online /cleanup-image /restorehealth", 1, True
+
+      UpdateProgress 85, progressSteps(6)
+      Log "All operations completed. System will reboot in 15 seconds."
+      MsgBox "Cleanup completed successfully. System will now reboot in 15 seconds.", vbInformation, "System Reboot"
+      shell.Run "shutdown /r /f /t 15", 0, False
+
+      UpdateProgress 100, "✅ Done."
+      Log "==== ReaQta Removal Finished ===="
+    End Sub
+
+    ' === Service Removal ===
+    Sub RemoveService(serviceName)
+      Log "Stopping service: " & serviceName
+      shell.Run "cmd /c sc stop " & serviceName, 0, True
+      Log "Deleting service: " & serviceName
+      shell.Run "cmd /c sc delete " & serviceName, 0, True
+    End Sub
+
+    ' === File Deletion ===
+    Sub DeleteFile(path)
+      If fso.FileExists(path) Then
+        fso.DeleteFile path, True
+        Log "Deleted file: " & path
+      Else
+        Log "File not found: " & path
+      End If
+    End Sub
+
+    ' === Folder Deletion ===
+    Sub DeleteFolder(path)
+      If fso.FolderExists(path) Then
+        fso.DeleteFolder path, True
+        Log "Deleted folder: " & path
+      Else
+        Log "Folder not found: " & path
+      End If
+    End Sub
+
+    ' === Registry Key Deletion ===
+    Sub DeleteRegistryKey(key)
+      Log "Deleting registry key: " & key
+      shell.Run "reg delete """ & key & """ /f", 0, True
+    End Sub
+
+    ' === Logging Functions ===
+    Sub Log(msg)
+      timestamp = Now
+      document.getElementById("logBox").value = document.getElementById("logBox").value & "[" & timestamp & "] " & msg & vbCrLf
+      SaveLog "[" & timestamp & "] " & msg
+    End Sub
+
+    Sub SaveLog(line)
+      If Not fso.FolderExists("C:\Logs-TEMP") Then fso.CreateFolder("C:\Logs-TEMP")
+      Set logFile = fso.OpenTextFile(logPath, 8, True)
+      logFile.WriteLine line
+      logFile.Close
+    End Sub
+
+    ' === Progress Bar Update ===
+    Sub UpdateProgress(percent, label)
+      Set bar = document.getElementById("progressBar")
+      bar.style.width = percent & "%"
+      bar.innerText = percent & "% - " & label
+    End Sub
+  </script>
+</body>
+</html>
