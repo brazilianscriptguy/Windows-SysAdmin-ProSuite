@@ -2,7 +2,7 @@
   Author: @brazilianscriptguy
   Updated: June 3, 2025
   Description: Full cleanup tool for ReaQta services, drivers, folders, registry keys,
-               with SFC/DISM scan and reboot. Includes a visual progress bar and log path confirmation.
+               with SFC/DISM scan and reboot. Includes a visual progress bar, version tracking, and log path confirmation.
 -->
 
 <html>
@@ -83,7 +83,7 @@
       "Stopping and deleting services...", _
       "Removing driver files...", _
       "Deleting program folder...", _
-      "Deleting registry key...", _
+      "Deleting registry keys...", _
       "Running SFC scan...", _
       "Running DISM scan...", _
       "Scheduling system reboot..." _
@@ -109,6 +109,8 @@
 
       UpdateProgress 42, progressSteps(3)
       DeleteRegistryKey "HKLM\SOFTWARE\RqtHive"
+      DeleteRegistryKeyWithVersion "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{E6686B07-5D7E-4BF6-B19C-2A5213D9E7AB}", "ReaQta-Hive-Installer v3.11.3"
+      DeleteRegistryKeyWithVersion "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{BD5446C0-6BAC-4EC7-9D91-2D260DB724F9}", "ReaQta-Hive-Installer v3.12.5"
 
       UpdateProgress 56, progressSteps(4)
       Log "Running: sfc /scannow"
@@ -161,10 +163,17 @@
       End If
     End Sub
 
-    ' === Registry Key Deletion ===
+    ' === Registry Key Deletion (Generic) ===
     Sub DeleteRegistryKey(key)
       Log "Deleting registry key: " & key
       shell.Run "reg delete """ & key & """ /f", 0, True
+    End Sub
+
+    ' === Registry Key Deletion with Version Info ===
+    Sub DeleteRegistryKeyWithVersion(key, version)
+      Log "Deleting registry key: " & key
+      shell.Run "reg delete """ & key & """ /f", 0, True
+      Log "Removed ReaQta version: " & version
     End Sub
 
     ' === Logging ===
