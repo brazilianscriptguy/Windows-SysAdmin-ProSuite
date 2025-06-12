@@ -102,7 +102,7 @@
     </tr>
     <tr>
       <td><strong>Remove-ReaQtaHive-Services-Tool.ps1</strong></td>
-      <td>Removes ReaQta services, drivers, folders, and registry keys. Optionally runs SFC and DISM scans, then reboots the machine. User can select actions and view logs directly from the GUI.</td>
+      <td>Removes ReaQta services, drivers, folders, and registry keys. Optionally runs SFC and DISM scans, then reboots the machine.</td>
     </tr>
     <tr>
       <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
