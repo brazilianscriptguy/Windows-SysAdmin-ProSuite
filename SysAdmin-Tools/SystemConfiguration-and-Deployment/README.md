@@ -40,7 +40,7 @@
   <hr />
 
   <h2>📄 Script Descriptions (Alphabetical Order)</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%;">
+<table border="1" style="border-collapse: collapse; width: 100%;">
   <thead>
     <tr>
       <th style="padding: 8px;">Script Name</th>
@@ -101,16 +101,8 @@
       <td>Configures a Remote Desktop Services (RDS) Licensing Server to manage client access licenses (CALs).</td>
     </tr>
     <tr>
-      <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
-      <td>Renames disk volumes uniformly across workstations for consistency.</td>
-    </tr>
-    <tr>
-      <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
-      <td>Resets and re-synchronizes domain GPOs for uniform policy application.</td>
-    </tr>
-    <tr>
-      <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
-      <td>Audits installed software across Active Directory computers.</td>
+      <td><strong>Remove-ReaQtaHive-Services-Tool.ps1</strong></td>
+      <td>Removes ReaQta services, drivers, folders, and registry keys. Optionally runs SFC and DISM scans, then reboots the machine. User can select actions and view logs directly from the GUI.</td>
     </tr>
     <tr>
       <td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td>
@@ -123,6 +115,18 @@
     <tr>
       <td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td>
       <td>Removes unauthorized applications across domain machines using GPO.</td>
+    </tr>
+    <tr>
+      <td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td>
+      <td>Renames disk volumes uniformly across workstations for consistency.</td>
+    </tr>
+    <tr>
+      <td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td>
+      <td>Resets and re-synchronizes domain GPOs for uniform policy application.</td>
+    </tr>
+    <tr>
+      <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
+      <td>Audits installed software across Active Directory computers.</td>
     </tr>
     <tr>
       <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
