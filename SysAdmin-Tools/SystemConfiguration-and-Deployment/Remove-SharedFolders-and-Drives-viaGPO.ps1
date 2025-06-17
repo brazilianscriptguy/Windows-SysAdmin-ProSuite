@@ -1,181 +1,120 @@
 <#
 .SYNOPSIS
-    PowerShell Script to Remove Administrative Drive Shares via Group Policy.
+    PowerShell script to remove automatic administrative drive shares (C$, D$, etc.).
 
 .DESCRIPTION
-    This script removes all shares (except ADMIN$ and IPC$) on Windows workstations, and only removes
-    administrative drive shares (e.g., C$, D$) on all Windows servers, while preserving all
-    custom shares (e.g., WSUS, File Server) and critical shares (IPC$, ADMIN$, NETLOGON, SYSVOL).
+    Removes Windows default administrative drive shares while preserving critical system and service shares 
+    such as Active Directory, DFS, WSUS, Certificate Services, File Server, Print Server, and others.
 
+.AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: February 28, 2025
+    Last Updated: June 17, 2025
 #>
 
-#Requires -RunAsAdministrator
-
-# Log path configuration
+# --- Log configuration ---
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir = "$env:SystemDrive\Scripts-LOGS"
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir "$scriptName.log"
 
-# Log function
+if (-not (Test-Path $logDir)) {
+    New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+}
+
 function Write-Log {
     param (
-        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [string]$LogLevel = "INFO"
+        [ValidateSet("INFO", "WARNING", "ERROR")] [string]$Level = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $computerName = $env:COMPUTERNAME
-    $logEntry = "[$timestamp] [$computerName] [$LogLevel] $Message"
-
-    if (-not (Test-Path $logDir)) {
-        $null = New-Item -Path $logDir -ItemType Directory -Force -ErrorAction SilentlyContinue
-    }
-
-    try {
-        Add-Content -Path $logPath -Value $logEntry -Encoding UTF8 -ErrorAction Stop
-    } catch {
-        Write-EventLog -LogName "Application" -Source "GPO_Script" -EventId 1000 -EntryType $LogLevel -Message "Failed to write to log at ${logPath}: $Message - Error: $_" -ErrorAction SilentlyContinue
-    }
+    $logEntry = "[$timestamp] [$env:COMPUTERNAME] [$Level] $Message"
+    Add-Content -Path $logPath -Value $logEntry -Encoding UTF8
 }
 
-# Register script in Event Log
+Write-Log "========== Script execution started =========="
+
+# --- Protected shares (always preserved) ---
+$fixedShares = @(
+    'ADMIN$', 'IPC$', 'NETLOGON', 'SYSVOL',
+    'print$', 'CertEnroll',
+    'WsusContent', 'WSUSTemp', 'UpdateServicesPackages',
+    'DFSRoots', 'REMINST'
+)
+
+# --- Recognized service share prefixes to preserve ---
+$allowedPrefixes = @(
+    'IMP-', 'PRINT-', 'STORAGE', 'DFS', 'FS', 'SRV', 'FILE', 'DATA'
+)
+
+# --- Get current shares ---
 try {
-    New-EventLog -LogName "Application" -Source "GPO_Script" -ErrorAction SilentlyContinue
+    $currentShares = Get-SmbShare -ErrorAction Stop
 } catch {
-    # Ignore if the source already exists
+    Write-Log "Failed to retrieve current shares: $_" -Level "ERROR"
+    exit 1
 }
 
-# Verify and configure LanmanServer service
-function Ensure-LanmanServerService {
-    Write-Log "Validating the LanmanServer service."
+$sharesToRemove = @()
 
-    $regPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer'
-    try {
-        $startValue = (Get-ItemProperty -Path $regPath -Name 'Start' -ErrorAction Stop).Start
-        if ($startValue -ne 2) {
-            Set-ItemProperty -Path $regPath -Name 'Start' -Value 2 -ErrorAction Stop
-            Write-Log "LanmanServer service set to automatic startup."
-        }
+foreach ($share in $currentShares) {
+    $name = $share.Name
+    $path = $share.Path
 
-        $service = Get-Service -Name 'LanmanServer' -ErrorAction Stop
-        if ($service.Status -ne 'Running') {
-            Start-Service -Name 'LanmanServer' -ErrorAction Stop
-            Write-Log "LanmanServer service started successfully."
-        } else {
-            Write-Log "LanmanServer service is already running."
+    if ($fixedShares -contains $name) {
+        Write-Log "Preserving essential share: $name"
+        continue
+    }
+
+    if ($allowedPrefixes | Where-Object { $name.ToUpper().StartsWith($_) }) {
+        Write-Log "Preserving by known service prefix: $name"
+        continue
+    }
+
+    if ($name -notmatch '^[A-Z]\$$') {
+        Write-Log "Preserving custom share: $name"
+        continue
+    }
+
+    # If it matches a drive letter share and is not protected, mark for removal
+    $sharesToRemove += $name
+}
+
+# --- Remove administrative drive shares ---
+if ($sharesToRemove.Count -eq 0) {
+    Write-Log "No drive letter shares identified for removal."
+} else {
+    foreach ($name in $sharesToRemove) {
+        try {
+            net share $name /delete /y | Out-Null
+            Write-Log "Share $name removed successfully."
+        } catch {
+            Write-Log "Failed to remove ${name}: $_" -Level "ERROR"
         }
-    } catch {
-        Write-Log "Error configuring or starting the LanmanServer service: $_" -LogLevel "ERROR"
-        exit 1
     }
 }
 
-# Disable automatic creation of administrative drive shares
-function Disable-DriveLetterAdminShares {
-    Write-Log "Disabling the automatic creation of administrative drive shares (e.g., C$, D$)."
+# --- Ensure ADMIN$ and IPC$ exist ---
+function Ensure-Share {
+    param (
+        [string]$Name,
+        [string]$Path,
+        [string]$Description
+    )
 
-    $regPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
-    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
-
-    try {
-        if ($osInfo) {
-            if ($osInfo.ProductType -eq 1) {
-                # Workstation
-                Set-ItemProperty -Path $regPath -Name 'AutoShareWks' -Value 0 -ErrorAction Stop
-                Write-Log "AutoShareWks set to 0 (Workstation)."
-            } else {
-                # All Servers
-                Set-ItemProperty -Path $regPath -Name 'AutoShareServer' -Value 0 -ErrorAction Stop
-                Write-Log "AutoShareServer set to 0 (Server)."
-            }
-        } else {
-            Write-Log "Could not determine the operating system type. No registry changes applied." -LogLevel "WARNING"
+    if (-not (Get-SmbShare -Name $Name -ErrorAction SilentlyContinue)) {
+        try {
+            New-SmbShare -Name $Name -Path $Path -Description $Description -FullAccess "Administrators" -ErrorAction Stop
+            Write-Log "Share $Name recreated successfully."
+        } catch {
+            Write-Log "Failed to recreate ${Name}: $_" -Level "ERROR"
         }
-    } catch {
-        Write-Log "Failed to disable automatic shares in the registry: $_" -LogLevel "ERROR"
     }
 }
 
-# Remove unauthorized shares
-function Remove-UnauthorizedShares {
-    Write-Log "Removing unauthorized shares."
+Ensure-Share -Name "ADMIN$" -Path "$env:SystemRoot" -Description "Remote administration"
+Ensure-Share -Name "IPC$" -Path "$env:SystemRoot" -Description "Remote IPC channel"
 
-    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+Write-Log "========== Script execution completed =========="
 
-    try {
-        # Define protected shares by system type
-        $protectedShares = if ($osInfo -and $osInfo.ProductType -eq 1) {
-            @('IPC$', 'ADMIN$', 'UpdateServicesPackages', 'WsusContent', 'WSUSTemp')  # Workstations: only IPC$, ADMIN$ and WSUS shares
-        } else {
-            @('IPC$', 'ADMIN$', 'NETLOGON', 'SYSVOL', 'UpdateServicesPackages', 'WsusContent', 'WSUSTemp')  # Servers: includes WSUS and File Server shares
-        }
-
-        # Remove only administrative drive shares on servers
-        $sharesToRemove = if ($osInfo -and $osInfo.ProductType -eq 1) {
-            # Workstations: remove everything except the protected shares
-            Get-SmbShare -ErrorAction Stop | Where-Object { $_.Name -notin $protectedShares }
-        } else {
-            # Servers: remove only administrative drive shares (e.g., C$, D$)
-            Get-SmbShare -ErrorAction Stop | Where-Object { $_.Name -match '^[A-Za-z]\$$' -and $_.Name -notin $protectedShares }
-        }
-
-        if (-not $sharesToRemove) {
-            Write-Log "No unauthorized shares found for removal."
-            return
-        }
-
-        foreach ($share in $sharesToRemove) {
-            & net share $share.Name /delete /y
-            Write-Log "Share $($share.Name) removed successfully."
-        }
-    } catch {
-        Write-Log "Error removing unauthorized shares: $_" -LogLevel "ERROR"
-    }
-}
-
-# Validate results after execution
-function Validate-SharesRemoval {
-    Write-Log "Validating the removal of unauthorized shares."
-
-    try {
-        $remainingShares = Get-SmbShare -ErrorAction Stop
-        $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
-        $protectedShares = if ($osInfo -and $osInfo.ProductType -eq 1) {
-            @('IPC$', 'ADMIN$', 'UpdateServicesPackages', 'WsusContent', 'WSUSTemp')
-        } else {
-            @('IPC$', 'ADMIN$', 'NETLOGON', 'SYSVOL', 'UpdateServicesPackages', 'WsusContent', 'WSUSTemp')
-        }
-
-        $unauthorizedShares = if ($osInfo -and $osInfo.ProductType -eq 1) {
-            $remainingShares | Where-Object { $_.Name -notin $protectedShares }
-        } else {
-            $remainingShares | Where-Object { $_.Name -match '^[A-Za-z]\$$' -and $_.Name -notin $protectedShares }
-        }
-
-        if ($unauthorizedShares) {
-            Write-Log "The following legitimate shares were preserved and not removed: $($unauthorizedShares.Name -join ', ')" -LogLevel "WARNING"
-        } else {
-            Write-Log "All unauthorized shares were successfully removed."
-        }
-    } catch {
-        Write-Log "Error validating remaining shares: $_" -LogLevel "ERROR"
-    }
-}
-
-# Main Execution
-Write-Log "Starting the script for share management via GPO."
-
-Ensure-LanmanServerService
-Disable-DriveLetterAdminShares
-Remove-UnauthorizedShares
-Validate-SharesRemoval
-
-Write-Log "Script completed successfully."
-
-# End of script
-exit 0
+# --- End of script ---
