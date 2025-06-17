@@ -1,20 +1,20 @@
 <#
 .SYNOPSIS
-    PowerShell GUI Tool for Selective Removal of Expired Certificate Authorities (CAs).
+    PowerShell GUI Tool for Selective Removal of Expired Certificates
 
 .DESCRIPTION
-    This script displays expired certificates from both LocalMachine and CurrentUser stores, 
-    allowing the user to selectively remove them via a graphical interface. 
-    Logging is provided for auditing and troubleshooting purposes.
+    Lists expired certificates from LocalMachine and CurrentUser stores.
+    Allows selective removal via GUI.
+    Generates audit log and CSV report.
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy
+    Luiz Hamilton Silva – Updated by Widenex Assistant
 
 .VERSION
-    Last Updated: Updated June 12, 2025
+    Last Updated: June 17, 2025
 #>
 
-# Hide PowerShell console window
+# Hide PowerShell console
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -26,163 +26,182 @@ public class Window {
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
         var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(handle, 0);
     }
 }
 "@
 [Window]::Hide()
 
-# Load necessary assemblies
+# Load Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-# --- Logging Configuration ---
-$scriptName = if ($MyInvocation.MyCommand.Name) {
-    [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-} else {
-    "SelectiveCertCleanup"
-}
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}_$(Get-Date -Format 'yyyyMMddHHmmss').log"
-$logPath = Join-Path $logDir $logFileName
+# Logging setup
+$scriptName = "SelectiveCertCleanup"
+$timestamp = Get-Date -Format "yyyyMMddHHmmss"
+$logDir = "C:\Logs-TEMP"
+$logFile = Join-Path $logDir "$scriptName-$timestamp.log"
+$csvFile = Join-Path $logDir "$scriptName-Removed-$timestamp.csv"
 
 if (-not (Test-Path $logDir)) {
     try {
         New-Item -Path $logDir -ItemType Directory -Force | Out-Null
     } catch {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
+        [System.Windows.Forms.MessageBox]::Show("Failed to create log directory. Logging disabled.", "Error", 0, 'Error')
         return
     }
 }
 
 function Write-Log {
     param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter()][ValidateSet('INFO', 'ERROR')] [string]$Level = 'INFO'
+        [string]$Message,
+        [ValidateSet('INFO','ERROR')][string]$Level = 'INFO'
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$Level] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry
-    } catch {
-        Write-Error "Failed to write to log: $_"
-    }
+    $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$Level] $Message"
+    Write-Output $entry
+    Add-Content -Path $logFile -Value $entry -ErrorAction SilentlyContinue
 }
 
 function Show-Message {
     param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter(Mandatory = $true)][ValidateSet('Error', 'Information')] [string]$Type
+        [string]$Message,
+        [ValidateSet('Information','Error')][string]$Type
     )
-    $icon = if ($Type -eq 'Error') { [System.Windows.Forms.MessageBoxIcon]::Error } else { [System.Windows.Forms.MessageBoxIcon]::Information }
-    [System.Windows.Forms.MessageBox]::Show($Message, $Type, [System.Windows.Forms.MessageBoxButtons]::OK, $icon)
+    $icon = if ($Type -eq 'Error') { 'Error' } else { 'Information' }
+    [System.Windows.Forms.MessageBox]::Show($Message, $Type, 'OK', $icon)
 }
 
 function Get-ExpiredCertificates {
-    param (
-        [Parameter(Mandatory = $true)][string]$StoreLocation
-    )
+    param ([string]$StoreLocation)
+
     try {
         $certs = Get-ChildItem -Path "Cert:\$StoreLocation" -Recurse |
-                 Where-Object {
-                    $_ -is [System.Security.Cryptography.X509Certificates.X509Certificate2] -and
-                    $_.NotAfter -lt (Get-Date)
-                 }
-        Write-Log -Message "Found $($certs.Count) expired certificates in '$StoreLocation' store." -Level "INFO"
+            Where-Object {
+                $_ -is [System.Security.Cryptography.X509Certificates.X509Certificate2] -and
+                $_.NotAfter -ne $null -and
+                $_.NotAfter -lt (Get-Date)
+            }
+        Write-Log -Message "Found $($certs.Count) expired certificates in '$StoreLocation'" -Level 'INFO'
         return $certs
     } catch {
-        Write-Log -Message "Failed to retrieve expired certificates from '$StoreLocation': $_" -Level "ERROR"
+        Write-Log -Message "Failed to retrieve certificates from '$StoreLocation': $_" -Level 'ERROR'
         return @()
     }
 }
 
 function Display-ExpiredCertificates {
-    param (
-        [Parameter(Mandatory = $true)][System.Windows.Forms.ListBox]$ListBox
-    )
-
-    $certsMachine = Get-ExpiredCertificates -StoreLocation 'LocalMachine'
-    $certsUser = Get-ExpiredCertificates -StoreLocation 'CurrentUser'
-    $allCerts = $certsMachine + $certsUser
+    param ([System.Windows.Forms.ListBox]$ListBox)
 
     $ListBox.Items.Clear()
-    foreach ($cert in $allCerts) {
-        $ListBox.Items.Add("$($cert.Thumbprint) | Expires: $($cert.NotAfter.ToString('yyyy-MM-dd'))")
+    $expired = @()
+    $expired += Get-ExpiredCertificates -StoreLocation 'LocalMachine'
+    $expired += Get-ExpiredCertificates -StoreLocation 'CurrentUser'
+
+    foreach ($cert in $expired) {
+        $thumb = $cert.Thumbprint
+        $subject = if ($cert.Subject) { $cert.Subject } else { "No Subject" }
+        $exp = if ($cert.NotAfter) { $cert.NotAfter.ToString("yyyy-MM-dd") } else { "N/A" }
+        $display = "$thumb | $subject | Exp: $exp"
+        $ListBox.Items.Add($display)
     }
 
-    Write-Log -Message "Displayed expired certificates in the ListBox." -Level "INFO"
-    Show-Message -Message "Expired certificates have been displayed." -Type "Information"
+    if ($ListBox.Items.Count -eq 0) {
+        Show-Message -Message "No expired certificates found." -Type "Information"
+    } else {
+        Show-Message -Message "Expired certificates loaded." -Type "Information"
+    }
+
+    Write-Log -Message "Displayed $($ListBox.Items.Count) expired certificates in GUI."
 }
 
 function Remove-CertificatesByThumbprint {
-    param (
-        [Parameter(Mandatory = $true)][string[]]$Thumbprints
-    )
+    param ([string[]]$Thumbprints)
 
-    Write-Log -Message "Starting certificate removal process." -Level "INFO"
+    $removed = @()
 
     foreach ($thumbprint in $Thumbprints) {
         try {
-            $certs = Get-ChildItem -Path Cert:\ -Recurse | Where-Object { $_.Thumbprint -eq $thumbprint.Trim() }
-            foreach ($cert in $certs) {
+            $matches = Get-ChildItem -Path Cert:\ -Recurse |
+                Where-Object { $_.Thumbprint -eq $thumbprint.Trim() }
+
+            foreach ($cert in $matches) {
                 if (Test-Path $cert.PSPath) {
                     Remove-Item -Path $cert.PSPath -Force -ErrorAction Stop
-                    Write-Log -Message "Removed certificate with thumbprint: $thumbprint" -Level "INFO"
+                    Write-Log -Message "Removed certificate: $($cert.Subject) ($($cert.Thumbprint))"
+                    $removed += $cert
                 } else {
-                    Write-Log -Message "Certificate PSPath not found for thumbprint: $thumbprint" -Level "INFO"
+                    Write-Log -Message "PSPath not found for thumbprint: $thumbprint"
                 }
             }
         } catch {
-            Write-Log -Message "Failed to remove certificate with thumbprint: $thumbprint - $_" -Level "ERROR"
+            Write-Log -Message "Failed to remove certificate ${thumbprint}: $_" -Level 'ERROR'
         }
     }
 
-    Write-Log -Message "Certificate removal completed." -Level "INFO"
-    Show-Message -Message "Selected certificates have been removed." -Type "Information"
+    # Export CSV
+    if ($removed.Count -gt 0) {
+        try {
+            $removed | Select-Object Subject, Issuer, NotAfter, Thumbprint, PSPath |
+                Export-Csv -Path $csvFile -Encoding UTF8 -NoTypeInformation
+            Write-Log -Message "CSV report created: $csvFile"
+            Show-Message -Message "Certificates removed. Report saved to:`n$csvFile" -Type "Information"
+        } catch {
+            Write-Log -Message "Failed to generate CSV: $_" -Level 'ERROR'
+        }
+    } else {
+        Show-Message -Message "No certificates were removed." -Type "Information"
+    }
+
+    return $removed.Count
 }
 
-# GUI Setup
+# --- GUI Layout ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Selective Certificate Cleanup Tool'
-$form.Size = New-Object System.Drawing.Size(500, 400)
+$form.Text = "Expired Certificate Cleanup Tool"
+$form.Size = '550,420'
 $form.StartPosition = 'CenterScreen'
 
-$listBoxCertificates = New-Object System.Windows.Forms.ListBox
-$listBoxCertificates.Location = New-Object System.Drawing.Point(10, 50)
-$listBoxCertificates.Size = New-Object System.Drawing.Size(460, 200)
-$listBoxCertificates.HorizontalScrollbar = $true
-$form.Controls.Add($listBoxCertificates)
+$listBox = New-Object System.Windows.Forms.ListBox
+$listBox.Location = '10,50'
+$listBox.Size = '510,230'
+$listBox.HorizontalScrollbar = $true
+$form.Controls.Add($listBox)
 
-$form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Display Expired Certificates"
-    Location = New-Object System.Drawing.Point(10, 260)
-    Size = New-Object System.Drawing.Size(200, 30)
-    Add_Click = { Display-ExpiredCertificates -ListBox $listBoxCertificates }
-}))
+# Load Button
+$btnLoad = New-Object System.Windows.Forms.Button
+$btnLoad.Text = "Load Expired Certificates"
+$btnLoad.Location = '10,290'
+$btnLoad.Size = '250,30'
+$btnLoad.Add_Click({ Display-ExpiredCertificates -ListBox $listBox })
+$form.Controls.Add($btnLoad)
 
-$form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Remove Certificates"
-    Location = New-Object System.Drawing.Point(220, 260)
-    Size = New-Object System.Drawing.Size(200, 30)
-    Add_Click = {
-        $thumbprints = @($listBoxCertificates.Items | ForEach-Object { $_.Split('|')[0].Trim() })
-        if ($thumbprints.Count -eq 0) {
-            Show-Message -Message "No certificates selected for removal." -Type "Error"
-        } else {
-            Remove-CertificatesByThumbprint -Thumbprints $thumbprints
-            $listBoxCertificates.Items.Clear()
-        }
+# Remove Button
+$btnRemove = New-Object System.Windows.Forms.Button
+$btnRemove.Text = "Remove All Listed"
+$btnRemove.Location = '270,290'
+$btnRemove.Size = '250,30'
+$btnRemove.Add_Click({
+    if ($listBox.Items.Count -eq 0) {
+        Show-Message -Message "No certificates listed to remove." -Type "Error"
+        return
     }
-}))
 
-$form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Close"
-    Location = New-Object System.Drawing.Point(10, 310)
-    Size = New-Object System.Drawing.Size(460, 30)
-    Add_Click = { $form.Close() }
-}))
+    $thumbs = @($listBox.Items | ForEach-Object { $_.Split('|')[0].Trim() })
+    Remove-CertificatesByThumbprint -Thumbprints $thumbs
+    $listBox.Items.Clear()
+})
+$form.Controls.Add($btnRemove)
 
+# Close Button
+$btnClose = New-Object System.Windows.Forms.Button
+$btnClose.Text = "Close"
+$btnClose.Location = '10,330'
+$btnClose.Size = '510,30'
+$btnClose.Add_Click({ $form.Close() })
+$form.Controls.Add($btnClose)
+
+# Run GUI
 [void]$form.ShowDialog()
 
-# End of Script
+# End of script
