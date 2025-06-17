@@ -13,6 +13,8 @@
     Last Updated: June 17, 2025
 #>
 
+#Requires -RunAsAdministrator
+
 # --- Log configuration ---
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir = "$env:SystemDrive\Scripts-LOGS"
@@ -34,7 +36,7 @@ function Write-Log {
 
 Write-Log "========== Script execution started =========="
 
-# --- Protected shares (always preserved) ---
+# --- Protected shares to always preserve ---
 $fixedShares = @(
     'ADMIN$', 'IPC$', 'NETLOGON', 'SYSVOL',
     'print$', 'CertEnroll',
@@ -42,12 +44,12 @@ $fixedShares = @(
     'DFSRoots', 'REMINST'
 )
 
-# --- Recognized service share prefixes to preserve ---
+# --- Service share prefixes to preserve ---
 $allowedPrefixes = @(
     'IMP-', 'PRINT-', 'STORAGE', 'DFS', 'FS', 'SRV', 'FILE', 'DATA'
 )
 
-# --- Get current shares ---
+# --- Retrieve current shares ---
 try {
     $currentShares = Get-SmbShare -ErrorAction Stop
 } catch {
@@ -67,7 +69,7 @@ foreach ($share in $currentShares) {
     }
 
     if ($allowedPrefixes | Where-Object { $name.ToUpper().StartsWith($_) }) {
-        Write-Log "Preserving by known service prefix: $name"
+        Write-Log "Preserving based on known service prefix: $name"
         continue
     }
 
@@ -76,25 +78,25 @@ foreach ($share in $currentShares) {
         continue
     }
 
-    # If it matches a drive letter share and is not protected, mark for removal
+    # If it matches an admin drive letter share (e.g., C$, D$), mark for removal
     $sharesToRemove += $name
 }
 
-# --- Remove administrative drive shares ---
+# --- Remove unwanted administrative shares ---
 if ($sharesToRemove.Count -eq 0) {
-    Write-Log "No drive letter shares identified for removal."
+    Write-Log "No administrative drive letter shares identified for removal."
 } else {
     foreach ($name in $sharesToRemove) {
         try {
             net share $name /delete /y | Out-Null
             Write-Log "Share $name removed successfully."
         } catch {
-            Write-Log "Failed to remove ${name}: $_" -Level "ERROR"
+            Write-Log "Failed to remove $name: $_" -Level "ERROR"
         }
     }
 }
 
-# --- Ensure ADMIN$ and IPC$ exist ---
+# --- Ensure critical system shares are present ---
 function Ensure-Share {
     param (
         [string]$Name,
@@ -107,13 +109,13 @@ function Ensure-Share {
             New-SmbShare -Name $Name -Path $Path -Description $Description -FullAccess "Administrators" -ErrorAction Stop
             Write-Log "Share $Name recreated successfully."
         } catch {
-            Write-Log "Failed to recreate ${Name}: $_" -Level "ERROR"
+            Write-Log "Failed to recreate $Name: $_" -Level "ERROR"
         }
     }
 }
 
 Ensure-Share -Name "ADMIN$" -Path "$env:SystemRoot" -Description "Remote administration"
-Ensure-Share -Name "IPC$" -Path "$env:SystemRoot" -Description "Remote IPC channel"
+Ensure-Share -Name "IPC$"   -Path "$env:SystemRoot" -Description "Remote IPC channel"
 
 Write-Log "========== Script execution completed =========="
 
