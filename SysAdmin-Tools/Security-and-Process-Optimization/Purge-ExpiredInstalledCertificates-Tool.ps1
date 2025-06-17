@@ -8,7 +8,7 @@
     Generates audit log and CSV report.
 
 .AUTHOR
-    Luiz Hamilton Silva – Updated by Widenex Assistant
+    Luiz Hamilton Silva – @brazilianscriptguy
 
 .VERSION
     Last Updated: June 17, 2025
