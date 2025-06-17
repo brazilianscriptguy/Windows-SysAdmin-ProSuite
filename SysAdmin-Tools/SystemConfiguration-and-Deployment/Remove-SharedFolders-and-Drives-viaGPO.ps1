@@ -17,7 +17,7 @@
 
 # --- Log configuration ---
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = "$env:SystemDrive\Scripts-LOGS"
+$logDir = "$env:SystemDrive\Logs-TEMP"
 $logPath = Join-Path $logDir "$scriptName.log"
 
 if (-not (Test-Path $logDir)) {
@@ -91,7 +91,7 @@ if ($sharesToRemove.Count -eq 0) {
             net share $name /delete /y | Out-Null
             Write-Log "Share $name removed successfully."
         } catch {
-            Write-Log "Failed to remove $name: $_" -Level "ERROR"
+            Write-Log "Failed to remove ${name}: $_" -Level "ERROR"
         }
     }
 }
@@ -109,7 +109,7 @@ function Ensure-Share {
             New-SmbShare -Name $Name -Path $Path -Description $Description -FullAccess "Administrators" -ErrorAction Stop
             Write-Log "Share $Name recreated successfully."
         } catch {
-            Write-Log "Failed to recreate $Name: $_" -Level "ERROR"
+            Write-Log "Failed to recreate ${name}: $_" -Level "ERROR"
         }
     }
 }
