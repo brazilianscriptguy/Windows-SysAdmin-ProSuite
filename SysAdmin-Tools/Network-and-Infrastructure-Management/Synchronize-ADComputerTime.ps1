@@ -1,186 +1,161 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Synchronizing AD Computer Time Settings.
+    GUI Tool to Set Time Zone and Synchronize System Clock
 
 .DESCRIPTION
-    This script synchronizes time settings across Active Directory (AD) computers, ensuring accurate 
-    time configurations across different time zones and maintaining consistency in network time.
+    - Lets technicians choose a system time zone from a dropdown list
+    - Supports syncing with either the domain controller or a custom NTP server
+    - ANSI-compatible logging and error handling
+    - GUI optimized for L1 support usage
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 3, 2024
+    1.4.0 - June 20, 2025
 #>
 
-# Hide PowerShell console window
+# Hide console
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
+public class Win32 {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
 "@
-[Window]::Hide()
+[Win32]::ShowWindow([Win32]::GetConsoleWindow(), 0)
 
-# Suppress unwanted messages for a cleaner execution environment
-$WarningPreference = 'SilentlyContinue'
-$VerbosePreference = 'SilentlyContinue'
-$DebugPreference = 'SilentlyContinue'
-
-# Load necessary .NET assemblies for GUI components
+# Load GUI types
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Set up log path and global variables
+# Logging setup
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logDir = 'C:\ITSM-Logs-WKS'
+$logPath = Join-Path $logDir "$scriptName.log"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
-    } catch {
-        Write-Error "Failed to create log directory at ${logDir}. Logging will not be possible."
-        return
-    }
-}
-
-# Function to Log Messages
 function Write-Log {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message,
-        [Parameter(Mandatory=$false)]
-        [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
-        [string]$MessageType = "INFO"
-    )
+    param ([string]$Message, [string]$Level = "INFO")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to write to log: $_"
-    }
+    Add-Content -Path $logPath -Value "[$timestamp] [$Level] $Message" -Encoding Default
 }
 
-# Function to Handle Errors
-function Handle-Error {
-    param (
-        [Parameter(Mandatory = $true)][string]$ErrorMessage
-    )
-    Write-Log -Message "ERROR: $ErrorMessage" -MessageType "ERROR"
-    [System.Windows.Forms.MessageBox]::Show($ErrorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-}
-
-Write-Log -Message "Starting Time Synchronization Tool." -MessageType "INFO"
-
-# Create and configure the main form
+# Form Setup
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Time Synchronization Tool'
-$form.Size = New-Object System.Drawing.Size(380, 220)
+$form.Text = "🕒 Time Synchronization Utility"
+$form.Size = New-Object System.Drawing.Size(620, 320)
 $form.StartPosition = 'CenterScreen'
+$form.TopMost = $true
 
-# Time zone selection label
-$labelTimeZone = New-Object System.Windows.Forms.Label
-$labelTimeZone.Text = 'Select Time Zone:'
-$labelTimeZone.Location = New-Object System.Drawing.Point(10, 20)
-$labelTimeZone.Size = New-Object System.Drawing.Size(120, 20)
-$form.Controls.Add($labelTimeZone)
+# Label: Time zone
+$lblZone = New-Object System.Windows.Forms.Label
+$lblZone.Text = "Select a Time Zone:"
+$lblZone.Location = "20,20"
+$lblZone.Size = "580,20"
+$lblZone.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($lblZone)
 
-# Time zone selection combo box
-$comboBoxTimeZone = New-Object System.Windows.Forms.ComboBox
-$comboBoxTimeZone.Location = New-Object System.Drawing.Point(130, 20)
-$comboBoxTimeZone.Size = New-Object System.Drawing.Size(220, 20)
-$comboBoxTimeZone.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+# Time zone dropdown
+$comboZone = New-Object System.Windows.Forms.ComboBox
+$comboZone.Location = "20,45"
+$comboZone.Size = "560,25"
+$comboZone.DropDownWidth = 580
+$comboZone.DropDownStyle = 'DropDownList'
 [System.TimeZoneInfo]::GetSystemTimeZones() | ForEach-Object {
-    $comboBoxTimeZone.Items.Add("$($_.DisplayName) [ID: $($_.Id)]")
+    $comboZone.Items.Add("$($_.DisplayName) [ID: $($_.Id)]")
 }
-$form.Controls.Add($comboBoxTimeZone)
+$form.Controls.Add($comboZone)
 
-# Radio button for using the local domain server as the time server
-$radioButtonLocalServer = New-Object System.Windows.Forms.RadioButton
-$radioButtonLocalServer.Text = 'Local Domain Server'
-$radioButtonLocalServer.Location = New-Object System.Drawing.Point(10, 60)
-$radioButtonLocalServer.Size = New-Object System.Drawing.Size(180, 20)
-$radioButtonLocalServer.Checked = $true
-$form.Controls.Add($radioButtonLocalServer)
+# Radio buttons
+$rbDomain = New-Object System.Windows.Forms.RadioButton
+$rbDomain.Text = "Use Domain Time Server"
+$rbDomain.Location = "20,85"
+$rbDomain.Size = "220,20"
+$rbDomain.Checked = $true
+$form.Controls.Add($rbDomain)
 
-# Radio button for selecting the custom time server option
-$radioButtonCustomServer = New-Object System.Windows.Forms.RadioButton
-$radioButtonCustomServer.Text = 'Custom Time Server'
-$radioButtonCustomServer.Location = New-Object System.Drawing.Point(10, 90)
-$radioButtonCustomServer.Size = New-Object System.Drawing.Size(130, 20)
-$form.Controls.Add($radioButtonCustomServer)
+$rbCustom = New-Object System.Windows.Forms.RadioButton
+$rbCustom.Text = "Use Custom NTP Server"
+$rbCustom.Location = "20,115"
+$rbCustom.Size = "220,20"
+$form.Controls.Add($rbCustom)
 
-# Text box for entering the custom time server
-$textBoxTimeServer = New-Object System.Windows.Forms.TextBox
-$textBoxTimeServer.Location = New-Object System.Drawing.Point(140, 90)
-$textBoxTimeServer.Size = New-Object System.Drawing.Size(210, 20)
-$textBoxTimeServer.Enabled = $false
-$form.Controls.Add($textBoxTimeServer)
+# Custom NTP input
+$txtNTP = New-Object System.Windows.Forms.TextBox
+$txtNTP.Location = "250,112"
+$txtNTP.Size = "330,23"
+$txtNTP.Enabled = $false
+$form.Controls.Add($txtNTP)
 
-$radioButtonLocalServer.Add_CheckedChanged({ $textBoxTimeServer.Enabled = $false })
-$radioButtonCustomServer.Add_CheckedChanged({ 
-    $textBoxTimeServer.Enabled = $true
-    $textBoxTimeServer.Focus() 
+# Toggle field based on selection
+$rbDomain.Add_CheckedChanged({ $txtNTP.Enabled = $false })
+$rbCustom.Add_CheckedChanged({ 
+    $txtNTP.Enabled = $true
+    $txtNTP.Focus()
 })
 
-# Update button to execute synchronization
-$buttonUpdate = New-Object System.Windows.Forms.Button
-$buttonUpdate.Text = 'Synchronize'
-$buttonUpdate.Location = New-Object System.Drawing.Point(130, 130)
-$buttonUpdate.Size = New-Object System.Drawing.Size(100, 30)
-$buttonUpdate.Add_Click({
-    $selectedItem = $comboBoxTimeZone.SelectedItem
-    if (-not $selectedItem) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a time zone.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+# Apply & Sync Button
+$btnSync = New-Object System.Windows.Forms.Button
+$btnSync.Text = "✅ Apply and Sync"
+$btnSync.Location = "20,160"
+$btnSync.Size = "560,40"
+$btnSync.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($btnSync)
+
+# Exit Button
+$btnExit = New-Object System.Windows.Forms.Button
+$btnExit.Text = "Exit"
+$btnExit.Location = "500,220"
+$btnExit.Size = "80,30"
+$btnExit.Add_Click({ $form.Close() })
+$form.Controls.Add($btnExit)
+
+# Button Click Logic
+$btnSync.Add_Click({
+    $selected = $comboZone.SelectedItem
+    if (-not $selected) {
+        [System.Windows.Forms.MessageBox]::Show("Please select a time zone.", "Missing Input", 'OK', 'Warning')
         return
     }
 
-    $selectedItem -match '\[ID: (.+?)\]' | Out-Null
-    $timeZoneId = $Matches[1]
+    if ($selected -match "\[ID: (.+?)\]") {
+        $tzId = $Matches[1]
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("Invalid time zone selection format.", "Error", 'OK', 'Error')
+        return
+    }
 
     try {
-        tzutil /s $timeZoneId
-        Write-Log -Message "Time zone set to $timeZoneId" -MessageType "INFO"
+        tzutil /s $tzId
+        Write-Log "Time zone set to $tzId"
     } catch {
-        Write-Log -Message "Failed to set time zone to $timeZoneId" -MessageType "ERROR"
-        [System.Windows.Forms.MessageBox]::Show("Failed to set the time zone.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Failed to set time zone: $_" "ERROR"
+        [System.Windows.Forms.MessageBox]::Show("Failed to apply time zone: $tzId", "Error", 'OK', 'Error')
         return
     }
 
-    $timeServer = if ($radioButtonLocalServer.Checked) { $env:USERDNSDOMAIN } else { $textBoxTimeServer.Text }
-    if ($radioButtonCustomServer.Checked -and [string]::IsNullOrWhiteSpace($timeServer)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter a valid time server address.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    if ($rbCustom.Checked -and [string]::IsNullOrWhiteSpace($txtNTP.Text)) {
+        [System.Windows.Forms.MessageBox]::Show("Please enter a valid custom time server.", "Missing Input", 'OK', 'Warning')
         return
     }
+
+    $ntpServer = if ($rbDomain.Checked) { $env:USERDNSDOMAIN } else { $txtNTP.Text.Trim() }
 
     try {
-        w32tm /config /manualpeerlist:$timeServer /syncfromflags:manual /reliable:yes /update | Out-Null
+        w32tm /config /manualpeerlist:$ntpServer /syncfromflags:manual /reliable:yes /update | Out-Null
         w32tm /resync /rediscover | Out-Null
-        Write-Log -Message "Time synchronized with server $timeServer." -MessageType "INFO"
-        [System.Windows.Forms.MessageBox]::Show("Time zone updated and synchronized with server: $timeServer.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "Time synced successfully using: $ntpServer"
+        [System.Windows.Forms.MessageBox]::Show("Time has been synchronized with: $ntpServer", "Success", 'OK', 'Information')
     } catch {
-        Write-Log -Message "Failed to synchronize time with server $timeServer." -MessageType "ERROR"
-        [System.Windows.Forms.MessageBox]::Show("Failed to synchronize time with the server.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Time sync failed with: $ntpServer - $_" "ERROR"
+        [System.Windows.Forms.MessageBox]::Show("Failed to sync with $ntpServer", "Error", 'OK', 'Error')
     }
 })
-$form.Controls.Add($buttonUpdate)
 
 $form.Add_Shown({ $form.Activate() })
-$form.ShowDialog()
-
-Write-Log -Message "Time Synchronization Tool session ended." -MessageType "INFO"
+$form.ShowDialog() | Out-Null
+Write-Log "Session closed."
 
 # End of script
