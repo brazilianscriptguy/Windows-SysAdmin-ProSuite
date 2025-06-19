@@ -1,159 +1,130 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Auditing Installed Software Across AD Computers.
+    PowerShell GUI to Export Installed Software Inventory (x86 and x64) in ANSI Format
 
 .DESCRIPTION
-    This script audits the software installed on Active Directory computers, generating 
-    a report to verify compliance with software usage policies and helping maintain 
-    license integrity.
+    Exports installed software (32/64-bit) with Display Name, Version, Registry Path, and Architecture.
+    Outputs a clean CSV using ANSI encoding for legacy compatibility.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    1.2.0 - June 19, 2025
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
-}
-"@
-
-[Window]::Hide()
-
-# Load necessary .NET assemblies for GUI
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Function to convert the registry path to the desired format
-function Convert-RegistryPath {
-    param ([string]$path)
-    $convertedPath = $path -replace 'HKEY_LOCAL_MACHINE', 'HKLM:' -replace 'Microsoft.PowerShell.Core\\Registry::', ''
-    return $convertedPath
-}
-
-# Function to get installed programs
 function Get-InstalledPrograms {
-    # Retrieve installed programs (64-bit and 32-bit) and combine them
     $registryPaths = @(
         'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
         'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
     )
-    $installedPrograms = $registryPaths | ForEach-Object {
-        Get-ItemProperty -Path $_ |
-        Where-Object { $_.DisplayName } |
-        Select-Object DisplayName, DisplayVersion,
-                      @{Name="IdentifyingNumber"; Expression={Convert-RegistryPath $_.PSPath}},
-                      @{Name="Architecture"; Expression={if ($_.PSPath -match 'WOW6432Node') {'32-bit'} else {'64-bit'}}}
+    foreach ($path in $registryPaths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | ForEach-Object {
+            [PSCustomObject]@{
+                DisplayName       = $_.DisplayName
+                DisplayVersion    = $_.DisplayVersion
+                IdentifyingNumber = ($_.PSPath -replace 'Microsoft.PowerShell.Core\\Registry::', '') -replace 'HKEY_LOCAL_MACHINE', 'HKLM:'
+                Architecture      = if ($_.PSPath -match 'WOW6432Node') { '32-bit' } else { '64-bit' }
+            }
+        }
     }
-    return $installedPrograms
 }
 
-# Main form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "List Installed Software"
-$form.Size = New-Object System.Drawing.Size(400, 250)
+$form.Text = "Export Installed Software"
+$form.Size = New-Object System.Drawing.Size(420, 240)
 $form.StartPosition = 'CenterScreen'
 
-# Radio buttons for output option
-$radioButtons = @{
-    DefaultPath = New-Object System.Windows.Forms.RadioButton
-    CustomPath  = New-Object System.Windows.Forms.RadioButton
-}
-$y = 10
-foreach ($key in $radioButtons.Keys) {
-    $radio = $radioButtons[$key]
-    $radio.Text = if ($key -eq 'DefaultPath') {"Use Default Documents Folder"} else {"Specify Custom Path"}
-    $radio.Location = New-Object System.Drawing.Point(10, $y)
-    $radio.AutoSize = $true
-    $radio.Checked = $key -eq 'DefaultPath'
-    $form.Controls.Add($radio)
-    $y += 20
-}
+$radioDefault = New-Object System.Windows.Forms.RadioButton
+$radioDefault.Text = "Use Documents Folder"
+$radioDefault.Location = New-Object System.Drawing.Point(10, 10)
+$radioDefault.Checked = $true
+$form.Controls.Add($radioDefault)
 
-# Label and TextBox for custom output path
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Custom Output Path:"
-$label.Location = New-Object System.Drawing.Point(10, 50)
-$label.AutoSize = $true
-$form.Controls.Add($label)
+$radioCustom = New-Object System.Windows.Forms.RadioButton
+$radioCustom.Text = "Use Custom Folder"
+$radioCustom.Location = New-Object System.Drawing.Point(10, 35)
+$form.Controls.Add($radioCustom)
+
+$labelPath = New-Object System.Windows.Forms.Label
+$labelPath.Text = "Custom Output Path:"
+$labelPath.Location = New-Object System.Drawing.Point(10, 60)
+$labelPath.Size = New-Object System.Drawing.Size(200, 20)
+$form.Controls.Add($labelPath)
 
 $textBox = New-Object System.Windows.Forms.TextBox
-$textBox.Location = New-Object System.Drawing.Point(10, 70)
-$textBox.Size = New-Object System.Drawing.Size(370, 20)
+$textBox.Location = New-Object System.Drawing.Point(10, 80)
+$textBox.Size = New-Object System.Drawing.Size(380, 20)
 $textBox.Enabled = $false
 $form.Controls.Add($textBox)
 
-# Enable/Disable TextBox based on radio button selection
-$radioButtons.CustomPath.Add_Click({ $textBox.Enabled = $true })
-$radioButtons.DefaultPath.Add_Click({ $textBox.Enabled = $false })
+$radioCustom.Add_Click({ $textBox.Enabled = $true })
+$radioDefault.Add_Click({ $textBox.Enabled = $false })
 
-# OK and Cancel buttons
-$buttons = @{
-    OK     = New-Object System.Windows.Forms.Button
-    Cancel = New-Object System.Windows.Forms.Button
-}
-$y = 100
-foreach ($key in $buttons.Keys) {
-    $button = $buttons[$key]
-    $button.Text = $key
-    $button.Location = New-Object System.Drawing.Point(10, $y)
-    $button.Size = New-Object System.Drawing.Size(75, 23)
-    $form.Controls.Add($button)
-    $y += 30
-    if ($key -eq 'OK') {
-        $button.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $form.AcceptButton = $button
-    } else {
-        $button.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $form.CancelButton = $button
-    }
-}
+$btnOK = New-Object System.Windows.Forms.Button
+$btnOK.Text = "OK"
+$btnOK.Location = New-Object System.Drawing.Point(10, 120)
+$btnOK.Size = New-Object System.Drawing.Size(75, 23)
+$form.Controls.Add($btnOK)
+$form.AcceptButton = $btnOK
 
-# Show the form and get the result
-$result = $form.ShowDialog()
+$btnCancel = New-Object System.Windows.Forms.Button
+$btnCancel.Text = "Cancel"
+$btnCancel.Location = New-Object System.Drawing.Point(100, 120)
+$btnCancel.Size = New-Object System.Drawing.Size(75, 23)
+$form.Controls.Add($btnCancel)
+$form.CancelButton = $btnCancel
 
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+$btnOK.Add_Click({
     $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-    # Enhanced filename to include COMPUTERNAME
-    $outputFileName = "Installed-Inventory-SoftwaresList_${env:COMPUTERNAME}-$timestamp.csv"
-    
-    if ($radioButtons.DefaultPath.Checked) {
-        $outputPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) $outputFileName
-    } elseif ($radioButtons.CustomPath.Checked -and -not [string]::IsNullOrWhiteSpace($textBox.Text)) {
-        $outputPath = Join-Path $textBox.Text $outputFileName
+    $fileName = "Installed-Inventory-SoftwaresList_$($env:COMPUTERNAME)_$timestamp.csv"
+
+    if ($radioDefault.Checked) {
+        $outputPath = [System.IO.Path]::Combine([Environment]::GetFolderPath("MyDocuments"), $fileName)
+    } elseif ($radioCustom.Checked -and -not [string]::IsNullOrWhiteSpace($textBox.Text)) {
+        if (-not (Test-Path $textBox.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("The custom path is invalid or not found.", "Path Error", 'OK', 'Error')
+            return
+        }
+        $outputPath = [System.IO.Path]::Combine($textBox.Text, $fileName)
     } else {
-        [System.Windows.Forms.MessageBox]::Show("Please enter a valid custom output path.", "Error")
+        [System.Windows.Forms.MessageBox]::Show("Please select a valid path.", "Error", 'OK', 'Error')
         return
     }
-    
-    $allInstalledPrograms = Get-InstalledPrograms
-    if ($allInstalledPrograms -ne $null -and $allInstalledPrograms.Count -gt 0) {
+
+    $programs = Get-InstalledPrograms
+    if ($programs.Count -gt 0) {
         try {
-            $allInstalledPrograms | Export-Csv -Path $outputPath -NoTypeInformation -ErrorAction Stop
-            [System.Windows.Forms.MessageBox]::Show("List of installed software exported successfully to:`n$outputPath", "Export Successful")
+            # Create ANSI-encoded CSV manually
+            $header = '"DisplayName","DisplayVersion","IdentifyingNumber","Architecture"'
+            $lines = $programs | ForEach-Object {
+                '"' + ($_.DisplayName -replace '"','""') + '","' +
+                ($_.DisplayVersion -replace '"','""') + '","' +
+                ($_.IdentifyingNumber -replace '"','""') + '","' +
+                ($_.Architecture -replace '"','""') + '"'
+            }
+
+            $output = @($header) + $lines
+            $output | Out-File -FilePath $outputPath -Encoding Default
+
+            [System.Windows.Forms.MessageBox]::Show("Export completed:`n$outputPath", "Done", 'OK', 'Information')
+            Start-Process "notepad.exe" -ArgumentList "`"$outputPath`""
         } catch {
-            [System.Windows.Forms.MessageBox]::Show("Failed to export the list of installed software. Error: $_", "Export Failed")
+            [System.Windows.Forms.MessageBox]::Show("Error writing to file: $_", "Export Error", 'OK', 'Error')
         }
     } else {
-        [System.Windows.Forms.MessageBox]::Show("No installed software found to export.", "No Data")
+        [System.Windows.Forms.MessageBox]::Show("No installed software found.", "No Results", 'OK', 'Information')
     }
-}
+
+    $form.Close()
+})
+
+$btnCancel.Add_Click({ $form.Close() })
+
+$form.Topmost = $true
+$form.ShowDialog()
 
 # End of script
