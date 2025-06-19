@@ -1,204 +1,173 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Domain Unjoining and Cleanup Operations with Standardized Logging.
+    Domain Unjoin and Cleanup Utility with GUI and Logging
 
 .DESCRIPTION
-    This script provides a GUI interface to:
-    - Unjoin a computer from a domain.
-    - Perform cleanup tasks after unjoining.
-    - Clear DNS cache, remove old domain profiles, and clear domain-related environment variables.
-    - Implement a standardized logging method for improved traceability, debugging, and auditing.
+    - Unjoins the system from Active Directory
+    - Clears DNS cache and domain environment variables
+    - Removes inactive domain profiles
+    - Optionally reboots after cleanup
+    - All actions logged in ANSI .log file
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 3, 2024
+    1.3.0 - June 20, 2025
 #>
 
-# Hide the PowerShell console window
+# Hide console
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
+public class Win32 {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
 "@
-[Window]::Hide()
+[Win32]::ShowWindow([Win32]::GetConsoleWindow(), 0)
 
-# Import necessary assemblies for GUI
+# GUI support
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Set up script name, log directory, and log file path
+# Paths
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logDir = 'C:\ITSM-Logs-WKS'
+$logPath = Join-Path $logDir "$scriptName.log"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-    } catch {
-        Write-Error "Failed to create log directory at ${logDir}. Logging will not be possible."
-        return
-    }
-}
-
-# Function to log messages
+# ANSI logging
 function Write-Log {
-    param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")][string]$MessageType = "INFO",
-        [System.Windows.Forms.ListBox]$LogBox = $null
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to write to log: $_"
-        Write-Output $logEntry
-    }
-
-    if ($LogBox) {
-        $LogBox.Items.Add($logEntry)
-        $LogBox.TopIndex = $LogBox.Items.Count - 1
-    }
+    param([string]$Message)
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $logPath -Value "[$timestamp] $Message" -Encoding Default
 }
 
-# Log the start of script execution
-Write-Log -Message "Script execution started" -MessageType "INFO"
+Write-Log "===== Script execution started ====="
 
-# Unified error handling function to log and display error messages
-function Handle-Error {
-    param (
-        [Parameter(Mandatory = $true)][string]$ErrorMessage
-    )
-    Write-Log -Message "ERROR: $ErrorMessage" -MessageType "ERROR"
-    [System.Windows.Forms.MessageBox]::Show($ErrorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+# GUI form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Domain Unjoin and Cleanup Utility"
+$form.Size = '550,360'
+$form.StartPosition = 'CenterScreen'
+$form.TopMost = $true
+
+# Info label
+$infoLabel = New-Object System.Windows.Forms.Label
+$infoLabel.Text = "This tool will perform:`r`n`r`n- Unjoin from Active Directory`r`n- Clear DNS cache and environment variables`r`n- Remove old domain profiles`r`n- Optional restart after cleanup"
+$infoLabel.Location = '20,20'
+$infoLabel.Size = '500,110'
+$form.Controls.Add($infoLabel)
+
+# Restart checkbox
+$chkReboot = New-Object System.Windows.Forms.CheckBox
+$chkReboot.Text = "Restart automatically after cleanup"
+$chkReboot.Location = '20,130'
+$chkReboot.Size = '300,20'
+$chkReboot.Checked = $true
+$form.Controls.Add($chkReboot)
+
+# Check if system is domain-joined
+function Is-DomainJoined {
+    return (Get-WmiObject -Class Win32_ComputerSystem).PartOfDomain
 }
 
-# Function to display information messages with logging
-function Show-Message {
-    param (
-        [string]$Message,
-        [ValidateSet("Info", "Warning", "Error")][string]$Type = "Info",
-        [System.Windows.Forms.ListBox]$LogBox = $null
-    )
-    $icon = [System.Windows.Forms.MessageBoxIcon]::$Type
-    [System.Windows.Forms.MessageBox]::Show($Message, $Type, [System.Windows.Forms.MessageBoxButtons]::OK, $icon)
-    Write-Log -Message "${Type}: ${Message}" -MessageType $Type.ToUpper() -LogBox $LogBox
-}
-
-# Check if the computer is part of a domain
-function Is-ComputerInDomain {
-    return (Get-WmiObject Win32_ComputerSystem).PartOfDomain
-}
-
-# Function to unjoin the computer from the domain
+# Unjoin from domain
 function Unjoin-Domain {
-    if (-not (Is-ComputerInDomain)) {
-        Show-Message "This computer is not part of a domain." -Type "Info"
+    if (-not (Is-DomainJoined)) {
+        [System.Windows.Forms.MessageBox]::Show("This system is not currently joined to a domain.", "Not Joined", 'OK', 'Information')
+        Write-Log "System is not part of any domain."
         return
     }
-    if ([System.Windows.Forms.MessageBox]::Show("Are you sure you want to unjoin this computer from the domain?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question) -eq [System.Windows.Forms.DialogResult]::Yes) {
+
+    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to unjoin this system from the domain?", "Confirm Unjoin", 'YesNo', 'Question')
+    if ($confirm -eq 'Yes') {
         try {
-            $credential = Get-Credential -Message "Enter domain admin credentials to unjoin the domain:"
-            Remove-Computer -UnjoinDomainCredential $credential -Force -Restart
+            $cred = Get-Credential -Message "Enter domain admin credentials"
+            Write-Log "Attempting to unjoin domain..."
+            Remove-Computer -UnjoinDomainCredential $cred -Force -Restart
         } catch {
-            Handle-Error "An error occurred while trying to unjoin the domain: $($_.Exception.Message)"
+            Write-Log "Error unjoining domain: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Unjoin failed: $($_.Exception.Message)", "Error", 'OK', 'Error')
         }
     }
 }
 
-# Cleanup tasks after unjoining from the domain
-function Cleanup-AfterUnjoin {
-    param ([System.Windows.Forms.ProgressBar]$ProgressBar, [System.Windows.Forms.ListBox]$LogBox = $null)
+# Cleanup tasks
+function Perform-Cleanup {
+    Write-Log "===== Cleanup tasks started ====="
 
-    $ProgressBar.Value = 0
-    $ProgressBar.Maximum = 4
-
-    Clear-DnsClientCache
-    Write-Log -Message "DNS cache cleared." -LogBox $LogBox
-    $ProgressBar.PerformStep()
-
-    Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.Special -eq $false -and $_.Loaded -eq $false -and $_.LocalPath -notlike '*\Users\LocalUser*' } | ForEach-Object {
-        $_ | Remove-WmiObject
+    # Clear DNS
+    try {
+        Clear-DnsClientCache
+        Write-Log "DNS cache cleared."
+    } catch {
+        Write-Log "Error clearing DNS: $($_.Exception.Message)"
     }
-    Write-Log -Message "Old domain profiles removed." -LogBox $LogBox
-    $ProgressBar.PerformStep()
 
-    [Environment]::SetEnvironmentVariable("LOGONSERVER", $null, [EnvironmentVariableTarget]::Machine)
-    [Environment]::SetEnvironmentVariable("USERDOMAIN", $null, [EnvironmentVariableTarget]::Machine)
-    [Environment]::SetEnvironmentVariable("USERDNSDOMAIN", $null, [EnvironmentVariableTarget]::Machine)
-    Write-Log -Message "Domain-related environment variables cleared." -LogBox $LogBox
-    $ProgressBar.PerformStep()
+    # Remove old domain profiles
+    try {
+        Get-WmiObject -Class Win32_UserProfile | Where-Object {
+            $_.Special -eq $false -and $_.Loaded -eq $false -and $_.LocalPath -like '*\Users\*'
+        } | ForEach-Object {
+            Write-Log "Removing profile: $($_.LocalPath)"
+            $_ | Remove-WmiObject
+        }
+        Write-Log "Old domain profiles removed."
+    } catch {
+        Write-Log "Failed to remove profiles: $($_.Exception.Message)"
+    }
 
-    Start-Process "shutdown" -ArgumentList "/r /f /t 20" -NoNewWindow
-    Write-Log -Message "Scheduling system restart in 20 seconds." -LogBox $LogBox
-    $ProgressBar.PerformStep()
+    # Clear environment vars
+    try {
+        [Environment]::SetEnvironmentVariable("LOGONSERVER", $null, 'Machine')
+        [Environment]::SetEnvironmentVariable("USERDOMAIN", $null, 'Machine')
+        [Environment]::SetEnvironmentVariable("USERDNSDOMAIN", $null, 'Machine')
+        Write-Log "Domain-related environment variables cleared."
+    } catch {
+        Write-Log "Error clearing environment variables: $($_.Exception.Message)"
+    }
 
-    Show-Message "Cleanup completed. The system will restart in 20 seconds. Please save your work." -Type "Info" -LogBox $LogBox
+    # Restart
+    if ($chkReboot.Checked) {
+        Write-Log "Restarting system in 15 seconds..."
+        [System.Windows.Forms.MessageBox]::Show("Cleanup complete. Restarting system in 15 seconds.", "Restart", 'OK', 'Information')
+        Start-Sleep -Seconds 2
+        shutdown.exe /r /f /t 15 /c "System will reboot to complete cleanup."
+    } else {
+        Write-Log "Cleanup complete. Reboot was not selected."
+        [System.Windows.Forms.MessageBox]::Show("Cleanup complete. No reboot will be performed.", "Finished", 'OK', 'Information')
+    }
+
+    Write-Log "===== Cleanup tasks finished ====="
 }
 
-# GUI Setup
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Domain Unjoin and Cleanup Tool'
-$form.Size = New-Object System.Drawing.Size(500, 410)
-$form.StartPosition = 'CenterScreen'
-$form.Topmost = $true
-
-# Progress Bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(50, 300)
-$progressBar.Size = New-Object System.Drawing.Size(400, 20)
-$form.Controls.Add($progressBar)
-
-# Log Display
-$logBox = New-Object System.Windows.Forms.ListBox
-$logBox.Location = New-Object System.Drawing.Point(50, 150)
-$logBox.Size = New-Object System.Drawing.Size(400, 120)
-$form.Controls.Add($logBox)
-
 # Buttons
-$unjoinButton = New-Object System.Windows.Forms.Button
-$unjoinButton.Location = New-Object System.Drawing.Point(50, 50)
-$unjoinButton.Size = New-Object System.Drawing.Size(400, 30)
-$unjoinButton.Text = '1. Unjoin Domain'
-$unjoinButton.Add_Click({ Unjoin-Domain })
-$form.Controls.Add($unjoinButton)
+$btnUnjoin = New-Object System.Windows.Forms.Button
+$btnUnjoin.Text = "1. Unjoin from Domain"
+$btnUnjoin.Size = '460,40'
+$btnUnjoin.Location = '40,160'
+$btnUnjoin.Add_Click({ Unjoin-Domain })
+$form.Controls.Add($btnUnjoin)
 
-$cleanupButton = New-Object System.Windows.Forms.Button
-$cleanupButton.Location = New-Object System.Drawing.Point(50, 90)
-$cleanupButton.Size = New-Object System.Drawing.Size(400, 30)
-$cleanupButton.Text = '2. Cleanup After Unjoin'
-$cleanupButton.Add_Click({ Cleanup-AfterUnjoin -ProgressBar $progressBar -LogBox $logBox })
-$form.Controls.Add($cleanupButton)
+$btnCleanup = New-Object System.Windows.Forms.Button
+$btnCleanup.Text = "2. Perform Cleanup Tasks"
+$btnCleanup.Size = '460,40'
+$btnCleanup.Location = '40,210'
+$btnCleanup.Add_Click({ Perform-Cleanup })
+$form.Controls.Add($btnCleanup)
 
-# Close Button
-$closeButton = New-Object System.Windows.Forms.Button
-$closeButton.Location = New-Object System.Drawing.Point(375, 330)
-$closeButton.Size = New-Object System.Drawing.Size(75, 30)
-$closeButton.Text = 'Close'
-$closeButton.Add_Click({ $form.Close() })
-$form.Controls.Add($closeButton)
+$btnClose = New-Object System.Windows.Forms.Button
+$btnClose.Text = "Close"
+$btnClose.Size = '100,30'
+$btnClose.Location = '420,270'
+$btnClose.Add_Click({ $form.Close() })
+$form.Controls.Add($btnClose)
 
-# Show the form
-$form.ShowDialog()
-
-# Log the end of script execution
-Write-Log -Message "Script execution completed." -MessageType "INFO"
+# Show GUI
+$form.ShowDialog() | Out-Null
+Write-Log "===== Script execution completed ====="
 
 # End of Script
