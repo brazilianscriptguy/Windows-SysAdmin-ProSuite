@@ -126,7 +126,7 @@
     </tr>
     <tr>
       <td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td>
-      <td>Audits installed software across Active Directory computers.</td>
+      <td>Exports installed software (32-bit and 64-bit) from the local machine and outputs a clean CSV file using ANSI encoding.</td>
     </tr>
     <tr>
       <td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td>
