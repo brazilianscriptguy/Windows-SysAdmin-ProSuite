@@ -13,8 +13,8 @@ class LDAPAuth {
     public function __construct() {
         $this->ldap_server = getenv('LDAP_URL');
         $this->ldap_port   = 3268;
-        $this->bind_user   = getenv('LDAP_USER');
-        $this->bind_pass   = getenv('LDAP_PASS');
+        $this->bind_user   = getenv('LDAP_USERNAME');
+        $this->bind_pass   = getenv('LDAP_PASSWORD');
         $this->base_dn     = getenv('LDAP_BASE_DN');
         $this->connection  = null;
     }
@@ -38,9 +38,7 @@ class LDAPAuth {
 
     public function authenticate($username, $password) {
         $user_data = $this->searchUser($username);
-        if (!$user_data || in_array('inetOrgPerson', array_map('strtolower', $user_data['objectclass']))) {
-            return false;
-        }
+        if (!$user_data) return false;
 
         $user_dn = $user_data['dn'];
         $auth_conn = @ldap_connect($this->ldap_server, $this->ldap_port);
@@ -65,8 +63,9 @@ class LDAPAuth {
     public function searchUser($username) {
         $this->connect();
 
+        // Exclude inetOrgPerson and disabled accounts
         $filter = "(&(objectClass=user)(objectCategory=person)(!(objectClass=inetOrgPerson))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(sAMAccountName={$username}))";
-        $attributes = ['dn', 'displayname', 'mail', 'samaccountname', 'objectclass'];
+        $attributes = ['dn', 'displayname', 'mail', 'samaccountname'];
 
         $search = @ldap_search($this->connection, $this->base_dn, $filter, $attributes);
         if (!$search) return false;
