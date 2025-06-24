@@ -1,50 +1,44 @@
 <?php
-// File: public/login.php
-session_start();
+// Path: public/login.php
+require_once __DIR__ . '/../env.php';
 require_once __DIR__ . '/../config/ldap.php';
 
-$message = '';
+session_start();
+
+$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $logincode = $_POST['logincode'] ?? '';
-    $password     = $_POST['password'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
 
     $ldap = new LDAPAuth();
-    $result = $ldap->authenticate($logincode, $password);
+    $user = $ldap->authenticate($username, $password);
 
-    if ($result['success']) {
-        $_SESSION['user'] = $result['user_data']['logincode'];
-        $_SESSION['name'] = $result['user_data']['nome'];
-        $_SESSION['email'] = $result['user_data']['email'];
+    if ($user) {
+        $_SESSION['user'] = $user;
         header('Location: dashboard.php');
         exit;
     } else {
-        $message = $result['message'];
+        $error = 'Invalid username or password.';
     }
 }
 ?>
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>Login - PHP SSO</title>
 </head>
-<body class="container mt-5">
+<body>
     <h2>Manual Login</h2>
-    <?php if (!empty($message)): ?>
-        <div class="alert alert-danger"><?= htmlspecialchars($message) ?></div>
+    <?php if ($error): ?>
+        <p style="color:red"><?= htmlspecialchars($error) ?></p>
     <?php endif; ?>
-    <form method="POST">
-        <div class="mb-3">
-            <label for="logincode" class="form-label">Username / logincode</label>
-            <input type="text" class="form-control" id="logincode" name="logincode" required>
-        </div>
-        <div class="mb-3">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" name="password" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Log In</button>
+    <form method="post" action="login.php">
+        <label>Username: <input type="text" name="username" required></label><br><br>
+        <label>Password: <input type="password" name="password" required></label><br><br>
+        <button type="submit">Login</button>
     </form>
 </body>
 </html>
