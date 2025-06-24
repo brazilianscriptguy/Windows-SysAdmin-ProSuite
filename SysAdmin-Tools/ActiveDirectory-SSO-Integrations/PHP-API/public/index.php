@@ -1,24 +1,28 @@
 <?php
-// File: public/index.php
-session_start();
-require_once __DIR__ . '/../config/env.php';
+// Path: public/index.php
+require_once __DIR__ . '/../env.php';
 require_once __DIR__ . '/../config/ldap.php';
 
-$remote_user = $_SERVER['REMOTE_USER'] ?? null;
-$ldap = new LDAPAuth();
+session_start();
 
-if ($remote_user) {
-    $username = preg_replace('/^.*?\\/', '', $remote_user); // DOMAIN\\username → username
-    $user_info = $ldap->searchUser($username);
+// Use REMOTE_USER if provided by web server SSO (e.g., Kerberos/NTLM/IIS)
+if (!empty($_SERVER['REMOTE_USER'])) {
+    $username = basename($_SERVER['REMOTE_USER']); // Remove domain if present
 
-    if ($user_info) {
-        $_SESSION['user']  = $username;
-        $_SESSION['name']  = $user_info['displayname'][0] ?? '';
-        $_SESSION['email'] = $user_info['mail'][0] ?? '';
+    $ldap = new LDAPAuth();
+    $user = $ldap->searchUser($username);
+
+    if ($user) {
+        $_SESSION['user'] = [
+            'username' => $username,
+            'name'     => $user['displayname'][0] ?? '',
+            'email'    => $user['mail'][0] ?? ''
+        ];
         header('Location: dashboard.php');
         exit;
     }
 }
 
+// Fallback to manual login
 header('Location: login.php');
 exit;
