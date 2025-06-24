@@ -120,7 +120,7 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Dot
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
   </a>
-  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md" target="_blank">
     <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
   </a>
 </p>
