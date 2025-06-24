@@ -101,7 +101,7 @@
 </ul>
 
 <h2>📌 Additional Information</h2>
-<p>Each module contains a dedicated README with setup instructions. Refer to the documentation for further configuration details.</p>
+<p>Each module contains a dedicated README.md with setup instructions. Refer to the documentation for further configuration details.</p>
 
 <h2>📜 License</h2>
 <p>
