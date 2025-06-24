@@ -8,7 +8,8 @@
 
 <h2>📝 Overview</h2>
 <p>
-  Each module integrates LDAP-based SSO authentication using a common configuration model. See below for the list of available modules:
+  Each module integrates LDAP-based SSO authentication using a common configuration model.<br>
+  See below for the list of available modules:
 </p>
 
 <table>
@@ -33,7 +34,7 @@
     </tr>
     <tr>
       <td><code>PHP-API</code></td>
-      <td>Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and manual + SSO fallback support.</td>
+      <td>Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and SSO fallback support.</td>
     </tr>
     <tr>
       <td><code>SpringBoot-API</code></td>
@@ -68,6 +69,7 @@
 </p>
 
 <h3>🛡️ Recommended Delegations for the InetOrgPerson AD SSO Account</h3>
+
 <ul>
   <li><strong>Read Permissions:</strong> Read all user attributes needed for authentication.</li>
   <li><strong>List and Search Permissions:</strong> List user groups and search for user objects.</li>
@@ -122,7 +124,7 @@
 
 <h2>🤝 Contributing</h2>
 <p>
-  <a href="CONTRIBUTING.md" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
     <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg" alt="Contributions Welcome">
   </a>
 </p>
