@@ -2,8 +2,6 @@
 // Path: config/ldap.php
 // LDAP Authentication for Active Directory with forest-wide scope (GC) and user filtering
 
-namespace App;
-
 class LDAPAuth {
     private $ldap_server;
     private $ldap_port;
@@ -25,14 +23,16 @@ class LDAPAuth {
         if ($this->connection !== null) return;
 
         $this->connection = @ldap_connect($this->ldap_server, $this->ldap_port);
-        if (!$this->connection) throw new \Exception("Failed to connect to LDAP server.");
+        if (!$this->connection) {
+            throw new Exception("Failed to connect to LDAP server.");
+        }
 
         ldap_set_option($this->connection, LDAP_OPT_PROTOCOL_VERSION, 3);
         ldap_set_option($this->connection, LDAP_OPT_REFERRALS, 0);
         ldap_set_option($this->connection, LDAP_OPT_NETWORK_TIMEOUT, 5);
 
         if (!@ldap_bind($this->connection, $this->bind_user, $this->bind_pass)) {
-            throw new \Exception("Failed to bind using service account credentials.");
+            throw new Exception("Failed to bind using service account credentials.");
         }
     }
 
@@ -63,7 +63,7 @@ class LDAPAuth {
     public function searchUser($username) {
         $this->connect();
 
-        // Filter excludes inetOrgPerson accounts, no disabled user check
+        // Exclude inetOrgPerson and disabled accounts
         $filter = "(&(objectClass=user)(objectCategory=person)(!(objectClass=inetOrgPerson))(sAMAccountName={$username}))";
         $attributes = ['dn', 'displayname', 'mail', 'samaccountname'];
 
