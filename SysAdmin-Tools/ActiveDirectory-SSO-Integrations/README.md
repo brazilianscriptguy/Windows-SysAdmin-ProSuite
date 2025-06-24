@@ -22,23 +22,23 @@
   <tbody>
     <tr>
       <td><code>DotNet-API</code></td>
-      <td>Uses ASP.NET Core with a custom LDAP authentication handler.</td>
+      <td>Implements LDAP authentication using ASP.NET Core and custom middleware. Provides flexible configuration via <code>appsettings.json</code>.</td>
     </tr>
     <tr>
       <td><code>Flask-API</code></td>
-      <td>Implements LDAP authentication using the <code>ldap3</code> library.</td>
+      <td>Python-based REST API using <code>ldap3</code> for authentication and session control with environment-driven LDAP configuration.</td>
     </tr>
     <tr>
       <td><code>NodeJS-API</code></td>
-      <td>Built with Express and <code>passport-ldapauth</code> for authentication.</td>
+      <td>Node.js/Express application using <code>passport-ldapauth</code> for secure authentication with modular route and middleware layers.</td>
     </tr>
     <tr>
       <td><code>PHP-API</code></td>
-      <td>Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and SSO fallback support.</td>
+      <td>Uses native PHP LDAP functions to handle authentication. Designed with fallback support and .env-based credential loading.</td>
     </tr>
     <tr>
       <td><code>SpringBoot-API</code></td>
-      <td>Uses Spring Security with LDAP settings in <code>application.yml</code>.</td>
+      <td>Java Spring Boot API integrating <code>Spring Security</code> with LDAP. Configured via <code>application.yml</code> profiles.</td>
     </tr>
   </tbody>
 </table>
@@ -53,6 +53,7 @@
       <li><code>appsettings.json</code> (DotNet-API)</li>
       <li><code>config.py</code> (Flask-API)</li>
       <li><code>ldap.config.json</code> (NodeJS-API)</li>
+      <li><code>.env</code> (PHP-API)</li>
       <li><code>application.yml</code> (SpringBoot-API)</li>
     </ul>
   </li>
@@ -104,6 +105,13 @@
   <li>Navigate to the <code>NodeJS-API</code> folder.</li>
   <li>Run <code>npm install</code> to install dependencies.</li>
   <li>Start the server with <code>npm start</code> (default port: 3000).</li>
+</ul>
+
+<h3>PHP-API</h3>
+<ul>
+  <li>Navigate to the <code>PHP-API</code> folder.</li>
+  <li>Run <code>composer install</code> to load dependencies.</li>
+  <li>Start server: <code>php -S localhost:8000 -t public</code>.</li>
 </ul>
 
 <h3>SpringBoot-API</h3>
