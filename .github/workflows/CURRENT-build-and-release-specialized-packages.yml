@@ -13,7 +13,6 @@ permissions:
 jobs:
   cleanup-old-releases:
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -29,38 +28,22 @@ jobs:
       - name: Configure GitHub CLI for Git Operations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh auth setup-git
+        run: gh auth setup-git
 
       - name: Delete Older Releases for Managed Tags
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          echo "Fetching managed release tags from the matrix..."
-          MANAGED_TAGS=("SysAdminToolSet" "ITSM-Templates-WKS" "ITSM-Templates-SVR" "GPOs-Templates" "READMEs-Files-Package")
-
+          MANAGED_TAGS=("SysAdminToolSet" "ITSM-Templates-WKS" "ITSM-Templates-SVR" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files")
           for tag in "${MANAGED_TAGS[@]}"; do
-            echo "Processing tag: $tag"
             releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
-
-            if [ -z "$releases" ]; then
-              echo "No releases found for tag '$tag'. Skipping cleanup."
-              continue
-            fi
-
+            if [ -z "$releases" ]; then continue; fi
             sorted_releases=$(echo "$releases" | sort)
             releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
-
-            if [ -z "$releases_to_delete" ]; then
-              echo "Only one release exists for tag '$tag'. No older releases to delete."
-              continue
-            fi
-
             for old_tag in $releases_to_delete; do
-              echo "Deleting old release and tag: $old_tag"
-              gh release delete "$old_tag" -y || { echo "Failed to delete release: $old_tag"; exit 1; }
-              git push --delete origin "$old_tag" || { echo "Failed to delete tag: $old_tag"; exit 1; }
+              gh release delete "$old_tag" -y
+              git push --delete origin "$old_tag"
             done
           done
 
@@ -69,7 +52,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        release_name: ["SysAdminToolSet", "ITSM-Templates-WKS", "ITSM-Templates-SVR", "GPOs-Templates", "READMEs-Files-Package"]
+        release_name: ["SysAdminToolSet", "ITSM-Templates-WKS", "ITSM-Templates-SVR", "GPOs-Templates", "READMEs-Files-Package", "All-Repository-Files"]
 
     steps:
       - name: Checkout Repository
@@ -86,32 +69,34 @@ jobs:
       - name: Configure GitHub CLI for Git Operations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh auth setup-git
+        run: gh auth setup-git
 
       - name: Handle Existing Release and Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
           TAG_NAME="${{ matrix.release_name }}"
-          if gh release view "${TAG_NAME}" > /dev/null 2>&1; then
-            gh release delete "${TAG_NAME}" -y
-            git push --delete origin "${TAG_NAME}"
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            gh release delete "$TAG_NAME" -y
+            git push --delete origin "$TAG_NAME"
           fi
 
       - name: Build and Package ${{ matrix.release_name }}
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          case "${RELEASE_NAME}" in
+          case "$RELEASE_NAME" in
             SysAdminToolSet)
               mkdir -p SysAdminToolSet
               rsync -av --exclude='GroupPolicyObjects-Templates' SysAdmin-Tools/ SysAdminToolSet/SysAdmin-Tools/
               rsync -av BlueTeam-Tools/ SysAdminToolSet/BlueTeam-Tools/
+              cp -r Core-ScriptLibrary/ SysAdminToolSet/Core-ScriptLibrary/
+              cp -r ITSM-Templates-WKS/ SysAdminToolSet/ITSM-Templates-WKS/
+              cp -r ITSM-Templates-SVR/ SysAdminToolSet/ITSM-Templates-SVR/
               cp Core-ScriptLibrary/Launch-Script-AutomaticMenu.ps1 SysAdminToolSet/
               cp README.md SysAdminToolSet/
               cp LICENSE SysAdminToolSet/
+              cp SysAdmin-Tools/ActiveDirectory-SSO-Integrations/README.md SysAdminToolSet/ActiveDirectory-SSO-Integrations-README.md
               mkdir -p artifacts
               zip -r artifacts/SysAdminToolSet.zip SysAdminToolSet
               ;;
@@ -142,6 +127,16 @@ jobs:
               mkdir -p artifacts
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               ;;
+            All-Repository-Files)
+              mkdir -p All-Repository-Files
+              rsync -av BlueTeam-Tools/ All-Repository-Files/BlueTeam-Tools/
+              rsync -av Core-ScriptLibrary/ All-Repository-Files/Core-ScriptLibrary/
+              rsync -av ITSM-Templates-WKS/ All-Repository-Files/ITSM-Templates-WKS/
+              rsync -av ITSM-Templates-SVR/ All-Repository-Files/ITSM-Templates-SVR/
+              rsync -av SysAdmin-Tools/ All-Repository-Files/SysAdmin-Tools/
+              mkdir -p artifacts
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              ;;
           esac
 
       - name: Create New Release
@@ -157,7 +152,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1  # Correct version
+        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip
