@@ -15,7 +15,7 @@
 <table>
   <thead>
     <tr>
-      <th style="min-width: 160px;">📁 Folder</th>
+      <th style="min-width: 180px; white-space: nowrap;">📁 Folder</th>
       <th>🔧 Description</th>
     </tr>
   </thead>
