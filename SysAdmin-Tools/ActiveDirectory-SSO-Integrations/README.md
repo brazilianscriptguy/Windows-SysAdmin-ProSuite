@@ -14,6 +14,7 @@
   <li><strong>DotNet-API:</strong> Uses ASP.NET Core with a custom LDAP authentication handler.</li>
   <li><strong>Flask-API:</strong> Implements LDAP authentication using the <code>ldap3</code> library.</li>
   <li><strong>NodeJS-API:</strong> Built with Express and <code>passport-ldapauth</code> for authentication.</li>
+  <li><strong>PHP-API:</strong> Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and manual + SSO fallback support.</li>
   <li><strong>SpringBoot-API:</strong> Uses Spring Security with LDAP settings in <code>application.yml</code>.</li>
 </ul>
 
