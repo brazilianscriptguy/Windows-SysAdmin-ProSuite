@@ -1,5 +1,5 @@
 <?php
-// File: public/dashboard.php
+// Path: public/dashboard.php
 session_start();
 
 if (!isset($_SESSION['user'])) {
@@ -8,20 +8,18 @@ if (!isset($_SESSION['user'])) {
 }
 
 $user = $_SESSION['user'];
-$name = $_SESSION['name'] ?? '';
-$email = $_SESSION['email'] ?? '';
 ?>
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>Dashboard - PHP SSO</title>
 </head>
-<body class="container mt-5">
-    <h2>Welcome, <?= htmlspecialchars($name) ?>!</h2>
-    <p><strong>User:</strong> <?= htmlspecialchars($user) ?></p>
-    <p><strong>Email:</strong> <?= htmlspecialchars($email) ?></p>
-    <a href="logout.php" class="btn btn-danger">Logout</a>
+<body>
+    <h1>Welcome, <?= htmlspecialchars($user['name']) ?></h1>
+    <p>Email: <?= htmlspecialchars($user['email']) ?></p>
+    <p>Username: <?= htmlspecialchars($user['username']) ?></p>
+    <a href="logout.php">Logout</a>
 </body>
 </html>
