@@ -11,18 +11,18 @@
 <pre>
 ActiveDirectory-SSO-Integrations/
 │
-├── 📂 Flask-API/                   # Parent folder for Flask API integration
-│   ├── 📜 requirements.txt         # Python dependencies
-│   ├── 📝 app.py                   # Main application file with LDAP authentication logic
-│   ├── 📜 config.py                # LDAP configuration settings
-│   ├── 📂 controllers/              # API controllers
-│   │   ├── 📜 auth_controller.py   # Handles authentication requests
-│   │   ├── 📜 user_controller.py   # Fetches user details from Active Directory
-│   ├── 📂 middleware/               # Middleware for LDAP authentication
-│   │   ├── 📜 ldap_auth_middleware.py  # Middleware for enforcing authentication
-│   ├── 📂 utils/                    # Utility functions
-│   │   ├── 📜 logger.py            # Logs authentication events
-│   ├── 📖 README.md                 # Documentation for Flask-API
+├── 📂 Flask-API/                     # Parent folder for Flask API integration
+│   ├── 📜 requirements.txt           # Python dependencies
+│   ├── 📁 app.py                     # Main application file with LDAP logic
+│   ├── 📜 config.py                  # LDAP configuration settings
+│   ├── 📂 controllers/               # API endpoints
+│   │   ├── 📜 auth_controller.py     # Handles authentication
+│   │   ├── 📜 user_controller.py     # Fetches user details
+│   ├── 📂 middleware/                # Authentication middleware
+│   │   ├── 📜 ldap_auth_middleware.py # Enforces authentication
+│   ├── 📂 utils/                     # Helper functions
+│   │   ├── 📜 logger.py              # Logs authentication events
+│   ├── 📖 README.md                  # Documentation for Flask-API
 </pre>
 
 <h2>🛠️ Prerequisites</h2>
@@ -30,12 +30,11 @@ ActiveDirectory-SSO-Integrations/
   <li><strong>Python 3.8+</strong></li>
   <li><strong>Active Directory instance</strong></li>
   <li><strong>LDAP access credentials</strong></li>
-  <li><strong>Postman or cURL (for testing API requests)</strong></li>
+  <li><strong>Postman or cURL</strong> (for API testing)</li>
 </ul>
 
 <h2>⚙️ Configuration</h2>
 <p>Modify <code>config.py</code> with your <strong>LDAP credentials</strong>:</p>
-
 <pre>
 LDAP_CONFIG = {
     "LDAP_SERVER": "ldap://ldap.headq.scriptguy:3268",
@@ -69,19 +68,15 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Fla
 <ul>
   <li><strong>Endpoint:</strong> <code>POST /api/auth/login</code></li>
   <li><strong>Request Body:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "password": "SuperSecretPassword"
-}
-    </pre>
+}</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "message": "Authentication successful"
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
@@ -92,28 +87,26 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Fla
     <pre>curl -X GET http://localhost:5000/api/user/john.doe</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "displayName": "John Doe",
   "email": "john.doe@example.com",
   "department": "IT",
   "role": "User"
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
 <h2>📜 License</h2>
 <p>
-  <a href="LICENSE" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
   </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  <a href="../CONTRIBUTING.md" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
     <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
   </a>
 </p>
@@ -123,7 +116,7 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Fla
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
   </a>
-  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md" target="_blank">
     <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
   </a>
 </p>
