@@ -1,8 +1,6 @@
 <?php
-// File: public/logout.php
+// Path: public/logout.php
 session_start();
-session_unset();
 session_destroy();
-
 header('Location: login.php');
 exit;
