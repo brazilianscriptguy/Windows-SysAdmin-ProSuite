@@ -14,7 +14,7 @@
 <table>
   <thead>
     <tr>
-      <th>📁 Folder</th>
+      <th style="min-width: 160px;">📁 Folder</th>
       <th>🔧 Description</th>
     </tr>
   </thead>
@@ -42,7 +42,6 @@
   </tbody>
 </table>
 
-
 <h2>🚀 Usage Instructions</h2>
 
 <h3>General Setup</h3>
@@ -69,7 +68,6 @@
 </p>
 
 <h3>🛡️ Recommended Delegations for the InetOrgPerson AD SSO Account</h3>
-
 <ul>
   <li><strong>Read Permissions:</strong> Read all user attributes needed for authentication.</li>
   <li><strong>List and Search Permissions:</strong> List user groups and search for user objects.</li>
