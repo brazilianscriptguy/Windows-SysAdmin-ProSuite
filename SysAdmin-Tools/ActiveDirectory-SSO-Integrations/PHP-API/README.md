@@ -17,11 +17,11 @@ ActiveDirectory-SSO-Integrations/
 │   │   ├── 📜 login.php            # Manual login fallback
 │   │   ├── 📜 dashboard.php        # Protected user dashboard
 │   │   └── 📜 logout.php           # Destroys session and logs out
-│   │
+│
 │   ├── 📂 config/                  # Configuration and LDAP logic
 │   │   ├── 📜 env.php             # Loads .env credentials into runtime
 │   │   └── 📜 ldap.php            # Handles LDAP connection and authentication
-│   │
+│
 │   ├── 📜 .env.example             # Example file for LDAP credentials
 │   ├── 📜 composer.json            # Project dependencies
 │   └── 📜 README.md                # Documentation for PHP-API integration
@@ -82,14 +82,14 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/PHP
 
 <h2>📜 License</h2>
 <p>
-  <a href="LICENSE" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
   </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  <a href="../CONTRIBUTING.md" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
     <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
   </a>
 </p>
@@ -99,7 +99,7 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/PHP
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
   </a>
-  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md" target="_blank">
     <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
   </a>
 </p>
