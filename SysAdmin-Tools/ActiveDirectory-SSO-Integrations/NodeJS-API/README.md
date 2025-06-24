@@ -4,29 +4,29 @@
 <p>
   The <strong>NodeJS-API</strong> module enables <strong>LDAP-based Single Sign-On (SSO)</strong> authentication with
   <strong>Active Directory</strong> using the <code>passport-ldapauth</code> strategy and Express.
-  It allows **secure authentication and user query operations** directly from an LDAP directory.
+  It allows <strong>secure authentication and user query operations</strong> directly from an LDAP directory.
 </p>
 
 <h2>📁 Folder Structure</h2>
 <pre>
 ActiveDirectory-SSO-Integrations/
 │
-├── 📂 NodeJS-API/                  # Parent folder for Node.js API integration
-│   ├── 📜 package.json             # Project dependencies and startup script
-│   ├── 📜 app.js                   # Main application file with Express & LDAP configuration
+├── 📂 NodeJS-API/                   # Parent folder for Node.js API integration
+│   ├── 📜 package.json              # Project dependencies and startup script
+│   ├── 📁 app.js                    # Main application file
 │   ├── 📂 config/                   # Configuration folder
-│   │   ├── 📜 ldap.config.json     # LDAP authentication settings
+│   │   ├── 📜 ldap.config.json      # LDAP configuration
 │   ├── 📂 controllers/              # API controllers
-│   │   ├── 📜 authController.js    # Handles authentication requests
-│   │   ├── 📜 userController.js    # Fetches user details from Active Directory
-│   ├── 📂 middleware/               # Middleware folder
-│   │   ├── 📜 ldapAuthMiddleware.js # Handles LDAP authentication middleware
+│   │   ├── 📜 authController.js     # Authentication logic
+│   │   ├── 📜 userController.js     # User info retrieval
+│   ├── 📂 middleware/               # Middleware logic
+│   │   ├── 📜 ldapAuthMiddleware.js # Enforces authentication
 │   ├── 📂 routes/                   # Express routes
-│   │   ├── 📜 authRoutes.js        # Routes for authentication endpoints
-│   │   ├── 📜 userRoutes.js        # Routes for fetching user data
+│   │   ├── 📜 authRoutes.js         # Routes for login
+│   │   ├── 📜 userRoutes.js         # Routes for user data
 │   ├── 📂 utils/                    # Utility functions
-│   │   ├── 📜 logger.js            # Logs authentication events
-│   ├── 📖 README.md                 # Documentation for NodeJS-API
+│   │   ├── 📜 logger.js             # Event logging
+│   ├── 📖 README.md                 # Documentation
 </pre>
 
 <h2>🛠️ Prerequisites</h2>
@@ -34,14 +34,12 @@ ActiveDirectory-SSO-Integrations/
   <li><strong>Node.js 16+ and npm</strong></li>
   <li><strong>Active Directory instance</strong> accessible via LDAP</li>
   <li><strong>LDAP credentials with read permissions</strong></li>
-  <li><strong>Postman or cURL</strong> (for testing API requests)</li>
+  <li><strong>Postman or cURL</strong> (for API testing)</li>
 </ul>
 
 <h2>⚙️ Configuration</h2>
 <p>Modify <code>config/ldap.config.json</code> with your <strong>LDAP credentials</strong>:</p>
-
-<pre>
-{
+<pre>{
   "server": {
     "url": "ldap://ldap.headq.scriptguy:3268",
     "bindDn": "cn=ad-sso-authentication,ou=ServiceAccounts,dc=headq,dc=scriptguy",
@@ -49,8 +47,7 @@ ActiveDirectory-SSO-Integrations/
     "searchBase": "dc=headq,dc=scriptguy",
     "searchFilter": "(sAMAccountName={{username}})"
   }
-}
-</pre>
+}</pre>
 
 <h2>🚀 How to Run</h2>
 <ol>
@@ -76,20 +73,16 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Nod
 <ul>
   <li><strong>Endpoint:</strong> <code>POST /api/auth/login</code></li>
   <li><strong>Request Body:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "password": "SuperSecretPassword"
-}
-    </pre>
+}</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "message": "Authentication successful",
   "token": "eyJhbGciOiJIUzI1..."
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
@@ -100,28 +93,26 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Nod
     <pre>curl -X GET http://localhost:3000/api/user/john.doe</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "displayName": "John Doe",
   "email": "john.doe@example.com",
   "department": "IT",
   "role": "User"
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
 <h2>📜 License</h2>
 <p>
-  <a href="../LICENSE" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
   </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  <a href="../CONTRIBUTING.md" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
     <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
   </a>
 </p>
@@ -131,7 +122,7 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Nod
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
   </a>
-  <a href="https://github.com/brazilianscriptguy/ActiveDirectory-SSO-Integrations/issues" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md" target="_blank">
     <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
   </a>
 </p>
