@@ -1,0 +1,24 @@
+{
+  "name": "scriptguy/php-ad-sso-api",
+  "description": "Active Directory SSO integration in PHP using LDAP and Global Catalog",
+  "type": "project",
+  "require": {
+    "php": "^7.4 || ^8.0",
+    "vlucas/phpdotenv": "^5.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "config/"
+    }
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "brazilianscriptguy",
+      "email": "you@example.com"
+    }
+  ],
+  "scripts": {
+    "start": "php -S localhost:8000 -t public"
+  }
+}
