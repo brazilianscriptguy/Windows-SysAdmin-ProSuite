@@ -10,24 +10,24 @@
 <pre>
 ActiveDirectory-SSO-Integrations/
 │
-├── 📂 DotNet-API/                   # Parent folder for .NET API integration
-│   ├── 📄 DotNetSSO.sln             # Solution file for the .NET project
-│   ├── 📖 README.md                 # Documentation for DotNet-API integration
-│   ├── 📂 DotNetSSO.API/            # Main API implementation
-│   │   ├── 📄 Program.cs            # Entry point for the API
-│   │   ├── 🏗️ Startup.cs             # Application startup configuration
-│   │   ├── 📜 appsettings.json      # General application settings
+├── 📂 DotNet-API/                     # Parent folder for .NET API integration
+│   ├── 📄 DotNetSSO.sln               # Solution file for the .NET project
+│   ├── 📖 README.md                   # Documentation for DotNet-API integration
+│   ├── 📂 DotNetSSO.API/              # Main API implementation
+│   │   ├── 📄 Program.cs              # Entry point for the API
+│   │   ├── 🛇 Startup.cs              # Application startup configuration
+│   │   ├── 📜 appsettings.json        # General application settings
 │   │   ├── 📜 appsettings.Development.json  # Environment-specific settings
-│   │   ├── 📜 ldapsettings.json     # LDAP authentication settings
-│   │   ├── 📂 Controllers/          # API controllers
+│   │   ├── 📜 ldapsettings.json       # LDAP authentication settings
+│   │   ├── 📂 Controllers/            # API controllers
 │   │   │   ├── 📜 AuthController.cs   # Handles authentication requests
 │   │   │   ├── 📜 UserController.cs   # Manages user-related requests
-│   │   ├── 📂 Services/             # Business logic for LDAP authentication
-│   │   │   ├── 📜 LdapService.cs    # Handles LDAP authentication logic
-│   │   ├── 📂 Middleware/           # Custom authentication enforcement
+│   │   ├── 📂 Services/               # Business logic for LDAP authentication
+│   │   │   ├── 📜 LdapService.cs      # Handles LDAP authentication logic
+│   │   ├── 📂 Middleware/             # Custom authentication enforcement
 │   │   │   ├── 📜 AuthenticationMiddleware.cs  # Middleware for enforcing authentication
-│   │   ├── 📂 Models/               # Defines data models
-│   │   │   ├── 📜 UserModel.cs      # Represents user object schema
+│   │   ├── 📂 Models/                 # Defines data models
+│   │   │   ├── 📜 UserModel.cs        # Represents user object schema
 </pre>
 
 <h2>🛠️ Prerequisites</h2>
@@ -42,8 +42,7 @@ ActiveDirectory-SSO-Integrations/
 <h2>⚙️ Configuration</h2>
 <p>Modify <code>appsettings.json</code> with your <strong>LDAP credentials</strong>:</p>
 
-<pre>
-{
+<pre>{
   "LdapSettings": {
     "LdapServer": "ldap://ldap.headq.scriptguy:3268",
     "BaseDn": "dc=headq,dc=scriptguy",
@@ -51,8 +50,7 @@ ActiveDirectory-SSO-Integrations/
     "BindPassword": "${LDAP_PASSWORD}",
     "UserFilter": "(sAMAccountName={0})"
   }
-}
-</pre>
+}</pre>
 
 <h2>🚀 How to Run</h2>
 <ol>
@@ -74,19 +72,15 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Dot
 <ul>
   <li><strong>Endpoint:</strong> <code>POST /api/auth/login</code></li>
   <li><strong>Request Body:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "password": "SuperSecretPassword"
-}
-    </pre>
+}</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "message": "Authentication successful"
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
@@ -97,28 +91,26 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Dot
     <pre>curl -X GET http://localhost:5000/api/user/john.doe</pre>
   </li>
   <li><strong>Response:</strong>
-    <pre>
-{
+    <pre>{
   "username": "john.doe",
   "displayName": "John Doe",
   "email": "john.doe@example.com",
   "department": "IT",
   "role": "User"
-}
-    </pre>
+}</pre>
   </li>
 </ul>
 
 <h2>📜 License</h2>
 <p>
-  <a href="LICENSE" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
   </a>
 </p>
 
 <h2>🤝 Contributing</h2>
 <p>
-  <a href="../CONTRIBUTING.md" target="_blank">
+  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
     <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
   </a>
 </p>
@@ -136,4 +128,3 @@ cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Dot
 <hr>
 
 <p align="center">🚀 <strong>Enjoy Seamless SSO Integration!</strong> 🎯</p>
-
