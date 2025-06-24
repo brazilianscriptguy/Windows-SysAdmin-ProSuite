@@ -8,28 +8,40 @@
 
 <h2>📝 Overview</h2>
 <p>
-  Each module integrates LDAP-based SSO authentication using a common configuration model:
+  Each module integrates LDAP-based SSO authentication using a common configuration model. See below for the list of available modules:
 </p>
-<ul>
-  <li><strong>DotNet-API:</strong> Uses ASP.NET Core with a custom LDAP authentication handler.</li>
-  <li><strong>Flask-API:</strong> Implements LDAP authentication using the <code>ldap3</code> library.</li>
-  <li><strong>NodeJS-API:</strong> Built with Express and <code>passport-ldapauth</code> for authentication.</li>
-  <li><strong>PHP-API:</strong> Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and manual + SSO fallback support.</li>
-  <li><strong>SpringBoot-API:</strong> Uses Spring Security with LDAP settings in <code>application.yml</code>.</li>
-</ul>
 
-<h2>⚙️ Generalized LDAP Configuration</h2>
-<p>All modules follow this LDAP configuration structure:</p>
-<ul>
-  <li><code>base: dc=HEADQ,dc=SCRIPTGUY</code></li>
-  <li><code>username: ad-sso-authentication@scriptguy</code></li>
-  <li><code>password: ${LDAP_PASSWORD}</code> (Externalized via environment variables)</li>
-  <li><code>urls: ldap://ldap.headq.scriptguy:3268</code> (Global Catalog on port 3268 or 389 for standard domains)</li>
-  <li><code>user-dn-pattern: sAMAccountName={0}</code></li>
-  <li><code>user-search-filter: (sAMAccountName={0})</code></li>
-  <li><code>group-search-base: dc=headq,dc=scriptguy</code></li>
-  <li><code>group-search-filter: (member={0})</code></li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>📁 Folder</th>
+      <th>🔧 Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>DotNet-API</code></td>
+      <td>Uses ASP.NET Core with a custom LDAP authentication handler.</td>
+    </tr>
+    <tr>
+      <td><code>Flask-API</code></td>
+      <td>Implements LDAP authentication using the <code>ldap3</code> library.</td>
+    </tr>
+    <tr>
+      <td><code>NodeJS-API</code></td>
+      <td>Built with Express and <code>passport-ldapauth</code> for authentication.</td>
+    </tr>
+    <tr>
+      <td><code>PHP-API</code></td>
+      <td>Implements LDAP-based SSO using PHP and the <code>ldap</code> extension, with environment-based configuration and manual + SSO fallback support.</td>
+    </tr>
+    <tr>
+      <td><code>SpringBoot-API</code></td>
+      <td>Uses Spring Security with LDAP settings in <code>application.yml</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
 
 <h2>🚀 Usage Instructions</h2>
 
