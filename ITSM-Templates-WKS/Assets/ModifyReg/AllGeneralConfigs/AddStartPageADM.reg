@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; Author: @brazilianscriptguy
+; Updated: June 19, 2025
+; Script for: SETTING YOUR INTRANET PAGE AS THE HOMEPAGE IN THE BROWSER
+
+[HKEY_USERS\.DEFAULT\Software\Microsoft\Internet Explorer\Main]
+"Start Page"="https://github.com/brazilianscriptguy"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome]
+"DefaultBrowserSettingEnabled"=dword:00000000

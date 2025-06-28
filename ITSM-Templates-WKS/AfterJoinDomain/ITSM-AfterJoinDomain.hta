@@ -1,0 +1,131 @@
+<html>
+<head>
+  <title>ITSM-GSTi-Templates - Post-Domain Configuration Tool</title>
+  <HTA:APPLICATION 
+    ID="AfterJoinHTA"
+    APPLICATIONNAME="ITSMAfterJoinTool"
+    BORDER="dialog"
+    SCROLL="no"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    SHOWINTASKBAR="yes">
+
+  <script language="VBScript">
+    Option Explicit
+
+    Dim fso, shell, logPath, logFile, steps, current
+
+    Sub Window_OnLoad()
+      Set shell = CreateObject("WScript.Shell")
+      Set fso = CreateObject("Scripting.FileSystemObject")
+
+      logPath = "C:\ITSM-Logs-WKS"
+      logFile = logPath & "\ITSM-AfterJoinDomain.log"
+
+      If Not fso.FolderExists(logPath) Then
+        fso.CreateFolder(logPath)
+      End If
+
+      steps = 9 ' Number of steps: 7 commands + gpupdate + reboot
+      current = 0
+
+      ShowStatus "Waiting to start...", "Click Start Configuration to begin."
+    End Sub
+
+    Sub Log(msg)
+      Dim logFileObj
+      Set logFileObj = fso.OpenTextFile(logFile, 8, True)
+      logFileObj.WriteLine Now & " - " & msg
+      logFileObj.Close
+    End Sub
+
+    Sub ShowStatus(title, detail)
+      statusTitle.innerText = title
+      statusDetails.innerText = detail
+    End Sub
+
+    Sub UpdateProgress()
+      current = current + 1
+      Dim pct
+      pct = Int((current / steps) * 100)
+      progressBar.style.width = pct & "%"
+      progressPercent.innerText = pct & "%"
+    End Sub
+
+    Sub StartExecution()
+      MsgBox "This process will take around 40 seconds." & vbCrLf & "Please wait until it finishes automatically.", 64, "Execution Notice"
+      Log "Starting network and profile configuration..."
+      ShowStatus "Starting execution...", "Running network repair commands..."
+      RunAll
+    End Sub
+
+    Sub OpenLogFile()
+      If fso.FileExists(logFile) Then
+        shell.Run "notepad.exe """ & logFile & """", 1, False
+      Else
+        MsgBox "The log file has not been created yet.", 48, "Log Not Found"
+      End If
+    End Sub
+
+    Sub ExecuteCmd(command)
+      Log "Running command: " & command
+      shell.Run "cmd.exe /c " & command, 0, True
+      Log "Command completed: " & command
+      Log "--------------------------------------------------"
+      UpdateProgress()
+    End Sub
+
+    Sub RunAll()
+      ExecuteCmd "ipconfig /release"
+      ExecuteCmd "ipconfig /flushdns"
+      ExecuteCmd "ipconfig /renew"
+      ExecuteCmd "ipconfig /registerdns"
+      ExecuteCmd "netsh int ip reset"
+      ExecuteCmd "netsh int winsock reset"
+      ExecuteCmd "powershell -ExecutionPolicy Bypass -Command ""Enable-NetAdapterBinding -Name '*' -ComponentID ms_tcpip6"""
+
+      Log "Network reconfiguration completed."
+      ShowStatus "Applying group policies...", "Running gpupdate /sync..."
+      ExecuteCmd "gpupdate /sync"
+
+      Log "Waiting 30 seconds for policies to apply..."
+      ShowStatus "Waiting for GPO application...", "Temporary pause (30s)..."
+      window.setTimeout "ContinueAfterWait", 30000
+    End Sub
+
+    Sub ContinueAfterWait()
+      UpdateProgress()
+      Log "Sending reboot command..."
+      shell.Run "shutdown /r /f /t 5", 0, False
+      UpdateProgress()
+      ShowStatus "Finished", "System will reboot now."
+      MsgBox "Configuration complete." & vbCrLf & "System will reboot in a few seconds." & vbCrLf & "Log saved at: " & logFile, 64, "Process Finished"
+      window.close()
+    End Sub
+  </script>
+
+  <style>
+    body { font-family: Segoe UI; margin: 20px; background-color: #f5f5f5; }
+    h2 { margin-bottom: 10px; font-size: 18px; }
+    #progressContainer { width: 100%; border: 1px solid #888; height: 25px; background: white; }
+    #progressBar { width: 0%; height: 100%; background-color: #2E8B57; }
+    #progressPercent { text-align: right; font-size: 12px; padding-top: 2px; }
+    #statusTitle { font-size: 14px; margin-top: 12px; font-weight: bold; }
+    #statusDetails { font-size: 12px; color: #333; margin-top: 4px; }
+    .btn { margin-top: 15px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>ITSM-GSTi-Templates - Post-Domain Join Configuration</h2>
+  <div id="progressContainer"><div id="progressBar"></div></div>
+  <div id="progressPercent">0%</div>
+  <div id="statusTitle"></div>
+  <div id="statusDetails"></div>
+
+  <button class="btn" onclick="StartExecution">Start Configuration</button>
+  <button class="btn" onclick="OpenLogFile">Open Log</button>
+</body>
+</html>

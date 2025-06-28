@@ -1,0 +1,175 @@
+<html>
+<head>
+  <title>ITSM-GSTi-Templates - Pre-Domain Configuration Tool</title>
+  <HTA:APPLICATION 
+    ID="BeforeJoinHTA"
+    APPLICATIONNAME="ITSMBeforeJoinTool"
+    BORDER="dialog"
+    SCROLL="no"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    SHOWINTASKBAR="yes">
+
+  <script language="VBScript">
+    Option Explicit
+
+    Dim fso, shell, logPath, logFile, regKeys, vbsScripts, themePackPath
+    Dim totalSteps, currentStep
+
+    Sub Window_OnLoad()
+      Set shell = CreateObject("WScript.Shell")
+      Set fso = CreateObject("Scripting.FileSystemObject")
+
+      logPath = "C:\ITSM-Logs-WKS"
+      logFile = logPath & "\ITSM-BeforeJoinDomain.log"
+
+      If Not fso.FolderExists(logPath) Then
+        fso.CreateFolder(logPath)
+      End If
+
+      totalSteps = 22 ' total .REG + .VBS + theme + image config
+      currentStep = 0
+
+      ShowStatus "Waiting to start...", "Click Start Configuration to begin."
+    End Sub
+
+    Sub Log(msg)
+      Dim logFileObj
+      Set logFileObj = fso.OpenTextFile(logFile, 8, True)
+      logFileObj.WriteLine Now & " - " & msg
+      logFileObj.Close
+    End Sub
+
+    Sub ShowStatus(title, detail)
+      statusTitle.innerText = title
+      statusDetails.innerText = detail
+    End Sub
+
+    Sub UpdateProgress()
+      currentStep = currentStep + 1
+      Dim pct
+      pct = Int((currentStep / totalSteps) * 100)
+      progressBar.style.width = pct & "%"
+      progressPercent.innerText = pct & "%"
+    End Sub
+
+    Sub StartExecution()
+      MsgBox "This configuration will take around 2 to 3 minutes. Please do not close this window.", 64, "Execution Notice"
+      Log "Configuration started."
+      ShowStatus "Starting...", "Applying system settings..."
+      RunAll
+    End Sub
+
+    Sub OpenLogFile()
+      If fso.FileExists(logFile) Then
+        shell.Run "notepad.exe """ & logFile & """", 1, False
+      Else
+        MsgBox "Log file not found yet.", 48, "No Log Found"
+      End If
+    End Sub
+
+    Sub RunAll()
+      Dim i, fullPath
+
+      regKeys = Array( _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\AddStartPageADM.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\DisableUAC-LUA.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\Enable-AutoShareAdmin.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\Register-Owner.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\Win10_Domain-Ingress.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\AllGeneralConfigs\WSUS-App-Intranet.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\DefaultBackground\DesktopCurrent.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\DefaultBackground\DesktopDefault.reg", _
+        "C:\ITSM-Templates-WKS\Assets\ModifyReg\DefaultBackground\EnableCustomLogonBackgrounds.reg" _
+      )
+
+      For i = 0 To UBound(regKeys)
+        fullPath = regKeys(i)
+        ShowStatus "Applying registry key...", fullPath
+        If fso.FileExists(fullPath) Then
+          shell.Run "regedit /s """ & fullPath & """", 0, True
+          Log "Registry applied: " & fullPath
+        Else
+          Log "Registry not found: " & fullPath
+        End If
+        UpdateProgress()
+      Next
+
+      vbsScripts = Array( _
+        "AllGeneralConfigs\Disable-Windows-Firewall.vbs", _
+        "AllGeneralConfigs\Grant-Full-Access-Gestor.vbs", _
+        "AllGeneralConfigs\Renew-all-IP-Connections.vbs", _
+        "AllGeneralConfigs\WSUS-Certificate-Install.vbs", _
+        "AllGeneralConfigs\WSUS-Clean-SID.vbs", _
+        "DefaultBackground\CopyDefaultFolders.vbs", _
+        "DefaultBackground\CopyHosts.vbs", _
+        "DefaultBackground\CopyLogonBackground.vbs", _
+        "DefaultBackground\CopyUserLogo.vbs", _
+        "DefaultBackground\CopyWallPaperDefault.vbs" _
+      )
+
+      For i = 0 To UBound(vbsScripts)
+        fullPath = "C:\ITSM-Templates-WKS\Assets\ModifyReg\" & vbsScripts(i)
+        ShowStatus "Executing VBS script...", fullPath
+        If fso.FileExists(fullPath) Then
+          shell.Run "wscript.exe """ & fullPath & """", 0, True
+          Log "Script executed: " & vbsScripts(i)
+        Else
+          Log "Script not found: " & vbsScripts(i)
+        End If
+        UpdateProgress()
+      Next
+
+      themePackPath = "C:\ITSM-Templates-WKS\Assets\ModifyReg\UserDesktopTheme\ITSM-Templates-WKS.deskthemepack"
+      ShowStatus "Applying desktop theme...", themePackPath
+      If fso.FileExists(themePackPath) Then
+        shell.Run "explorer.exe """ & themePackPath & """", 1, False
+        Log "Theme applied: " & themePackPath
+      Else
+        Log "Theme not found: " & themePackPath
+      End If
+      UpdateProgress()
+
+      Dim imgPath
+      imgPath = "C:\ProgramData\Microsoft\User Account Pictures\user.png"
+      ShowStatus "Setting default user image...", imgPath
+      If fso.FileExists(imgPath) Then
+        shell.Run "reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer /v UseDefaultTile /t REG_DWORD /d 1 /f", 0, True
+        shell.Run "reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AccountPicture\Users\DefaultUser /v Image /t REG_SZ /d """ & imgPath & """ /f", 0, True
+        Log "Default image set: " & imgPath
+      Else
+        Log "Default image not found: " & imgPath
+      End If
+      UpdateProgress()
+
+      ShowStatus "Configuration Complete", "All settings have been applied."
+      MsgBox "All configuration steps completed successfully." & vbCrLf & "Check the log: " & logFile, 64, "Execution Complete"
+      window.close()
+    End Sub
+  </script>
+
+  <style>
+    body { font-family: Segoe UI; margin: 20px; background-color: #f5f5f5; }
+    h2 { margin-bottom: 10px; font-size: 18px; }
+    #progressContainer { width: 100%; border: 1px solid #888; height: 25px; background: white; }
+    #progressBar { width: 0%; height: 100%; background-color: #006699; }
+    #progressPercent { text-align: right; font-size: 12px; padding-top: 2px; }
+    #statusTitle { font-size: 14px; margin-top: 12px; font-weight: bold; }
+    #statusDetails { font-size: 12px; color: #333; margin-top: 4px; }
+    .btn { margin-top: 15px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>ITSM-GSTi-Templates - Pre-Domain Join Configuration</h2>
+  <div id="progressContainer"><div id="progressBar"></div></div>
+  <div id="progressPercent">0%</div>
+  <div id="statusTitle"></div>
+  <div id="statusDetails"></div>
+
+  <button class="btn" onclick="StartExecution">Start Configuration</button>
+  <button class="btn" onclick="OpenLogFile">Open Log</button>
+</body>
+</html>
