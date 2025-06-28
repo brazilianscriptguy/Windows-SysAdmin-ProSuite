@@ -3,60 +3,63 @@
   <p>
     Welcome to the <strong>ITSM-Templates-WKS</strong> repository — a curated suite of 
     <strong>PowerShell and VBScript automation tools</strong> purpose-built for managing and standardizing 
-    Microsoft Windows 10 and 11 workstations. These scripts help IT teams automate core administrative operations, 
-    enforce compliance, and optimize configuration workflows across the organization.
+    Microsoft Windows 10 and 11 workstations. These scripts enable IT professionals to automate administrative tasks, 
+    enforce ITSM policies, and streamline configuration workflows across the enterprise.
   </p>
 
   <hr />
 
   <h2>🌟 Key Features</h2>
   <ul>
-    <li><strong>Graphical Interfaces (GUI):</strong> User-friendly execution with accessible graphical input forms.</li>
-    <li><strong>Structured Logging:</strong> All operations are logged to structured <code>.log</code> files for full traceability.</li>
-    <li><strong>CSV Reporting:</strong> Audit-ready output in <code>.csv</code> format for asset tracking and documentation.</li>
+    <li><strong>Graphical Interfaces (GUI):</strong> Intuitive interfaces designed for first- and second-level support teams.</li>
+    <li><strong>Structured Logging:</strong> All actions are logged in standardized <code>.log</code> files for full traceability.</li>
+    <li><strong>CSV Reporting:</strong> Exportable <code>.csv</code> files for audits, reporting, and documentation.</li>
   </ul>
 
   <hr />
 
   <h2>📄 Script Overview</h2>
 
-<h3>Folder: <code>/BeforeJoinDomain/</code></h3>
-<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-  <thead>
-    <tr>
-      <th style="padding: 8px;"><strong>Script Name</strong></th>
-      <th style="padding: 8px;">Purpose</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>ITSM-BeforeJoinDomain.hta</strong></td>
-      <td>
-        Executes 20 pre-domain configurations, including registry modifications, security settings, network resets,
-        desktop personalization, administrative share settings, and WSUS redirection — essential for preparing the workstation for domain integration.
-      </td>
-    </tr>
-  </tbody>
-</table>
+  <h3>Folder: <code>/BeforeJoinDomain/</code></h3>
+  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+    <thead>
+      <tr>
+        <th style="padding: 8px;"><strong>Script Name</strong></th>
+        <th style="padding: 8px;">Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>ITSM-BeforeJoinDomain.hta</strong></td>
+        <td>
+          Automates 20 critical pre-domain configurations including registry updates, network reset, desktop and profile preparation, 
+          WSUS certificate application, and security settings to ensure workstations meet domain readiness standards.
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
-<h3>Folder: <code>/AfterJoinDomain/</code></h3>
-<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-  <thead>
-    <tr>
-      <th style="padding: 8px;"><strong>Script Name</strong></th>
-      <th style="padding: 8px;">Purpose</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>ITSM-AfterJoinDomain.hta</strong></td>
-      <td>
-        Finalizes post-domain configurations, including DNS registration, GPO reapplication, environment refresh, and user profile registration 
-        to ensure full domain compliance and offline login capabilities.
-      </td>
-    </tr>
-  </tbody>
-</table>
+  <h3>Folder: <code>/AfterJoinDomain/</code></h3>
+  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+    <thead>
+      <tr>
+        <th style="padding: 8px;"><strong>Script Name</strong></th>
+        <th style="padding: 8px;">Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>ITSM-AfterJoinDomain.hta</strong></td>
+        <td>
+          Finalizes the workstation's domain configuration, including DNS registration, GPO reapplication, user profile imprinting, 
+          and offline authentication readiness. Ensures full integration with the SEDE.TJAP domain infrastructure.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr />
+
   <h2>🚀 Getting Started</h2>
   <ol>
     <li>
@@ -64,21 +67,20 @@
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
     <li>
-      <strong>Access the Scripts:</strong>
-      <p>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/</code> directory to find the script set.</p>
+      <strong>Navigate to the Repository:</strong>
+      <p>Access <code>Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/</code> to find the scripts.</p>
     </li>
     <li>
       <strong>Review Instructions:</strong>
-      <p>Open the <code>README.md</code> in each subfolder for usage instructions and script details.</p>
+      <p>Each subfolder includes a <code>README.md</code> with detailed documentation and instructions.</p>
     </li>
     <li>
-      <strong>Execute:</strong>
-      <p>Run PowerShell scripts with:</p>
+      <strong>Run the Script:</strong>
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
     <li>
-      <strong>Audit Outputs:</strong>
-      <p>Check generated <code>.log</code> and <code>.csv</code> files for execution results and diagnostics.</p>
+      <strong>Review Outputs:</strong>
+      <p>Logs (<code>.log</code>) and reports (<code>.csv</code>) will be generated in designated folders for review.</p>
     </li>
   </ol>
 
@@ -86,35 +88,35 @@
 
   <h2>📝 Logging & Reporting</h2>
   <ul>
-    <li><strong>Execution Logs:</strong> All actions are logged to <code>.log</code> files for traceability and auditing.</li>
-    <li><strong>Exported Reports:</strong> Script outputs are saved as <code>.csv</code> files to simplify reporting.</li>
+    <li><strong>Logs:</strong> Script execution is fully documented in <code>.log</code> files.</li>
+    <li><strong>Reports:</strong> Summary data and workstation results are exported in <code>.csv</code> format.</li>
   </ul>
 
   <hr />
 
   <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Automate Tasks:</strong> Schedule recurring scripts using Task Scheduler or GPO for consistency.</li>
-    <li><strong>Centralize Logs:</strong> Use shared directories to store logs and reports for easy collaboration.</li>
-    <li><strong>Adapt Templates:</strong> Customize scripts and configurations to meet your organization's unique ITSM strategy.</li>
+    <li><strong>Automate Execution:</strong> Use Task Scheduler or GPO to enforce recurring script execution.</li>
+    <li><strong>Centralize Results:</strong> Save logs and reports in shared folders for team access and compliance audits.</li>
+    <li><strong>Customize as Needed:</strong> Modify the templates to reflect your IT governance and service delivery strategy.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Log File Paths</h2>
-  <p>Execution logs are stored in <code>C:\ITSM-Logs-WKS\</code>, including:</p>
+  <h2>📁 Log File Paths</h2>
+  <p>All generated logs are stored in <code>C:\ITSM-Logs-WKS\</code>, including:</p>
   <ul>
+    <li>Domain ingress activity logs</li>
     <li>DNS registration logs</li>
     <li>User profile imprint logs</li>
-    <li>Domain ingress and system customization logs</li>
   </ul>
 
   <hr />
 
   <h2>❓ Need Help?</h2>
   <p style="text-align: justify; font-size: 16px; line-height: 1.6;">
-    The scripts in this repository are modular and customizable. For guidance on implementation or 
-    troubleshooting, refer to the README files within each subfolder or reach out via the contact options below.
+    This project is fully modular and adaptable to your ITSM needs. For assistance or questions, consult the documentation in each folder 
+    or reach out using the contact links below.
   </p>
 
   <div align="center">
@@ -145,5 +147,5 @@
   <hr />
 
   <h3>📌 Document Classification</h3>
-  <p>This documentation is <strong>RESTRICTED</strong> for internal use only. Unauthorized distribution or modification outside the organization's network is prohibited.</p>
+  <p>This documentation is classified as <strong>RESTRICTED</strong> and intended exclusively for internal use within the organization.</p>
 </div>
