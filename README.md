@@ -111,9 +111,12 @@
       <li><strong>VBScript (.vbs):</strong> Right-click → <em>Open with Command Prompt</em>.</li>
     </ul>
   </li>
-  <li><strong>Review logs:</strong><br>
-    Output is generated in <code>C:\ITSM-Logs-WKS\</code> or the working directory. Look for <code>.log</code> and <code>.csv</code> results.
-  </li>
+  <li>
+  <strong>Review Logs and Reports:</strong><br>
+  For <code>ITSM</code> scripts, logs are saved in <code>C:\ITSM-Logs-WKS\</code>.  
+  For general administrative scripts, logs are stored in <code>C:\Logs-TEMP\</code> or the current working directory.  
+  Look for generated <code>.log</code> files for execution traces and <code>.csv</code> files for exportable reports.
+</li>
 </ol>
 
 <hr />
