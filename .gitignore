@@ -4,30 +4,36 @@
 *.log
 *.tmp
 *.temp
+*.old
+*.bak
+*.swo
+*.swp
+*.~lock.*
+*.directory
 
 # =====================================
 # Cache and Backup Files
 # =====================================
-*.bak
-*.swp
-*.swo
 .cache/
+temp/
+tmp/
 
 # =====================================
-# Binaries and Build Artifacts
+# Build Artifacts and Compiled Binaries
 # =====================================
 bin/
 obj/
-artifacts/                # Exclude artifacts folder
-artifacts/**              # Exclude all subfolders and files in artifacts/
+artifacts/
+artifacts/**
+NuGetPackageContent/lib/net7.0/*.dll
 
 # =====================================
-# NuGet Files and Folders
+# NuGet Packages and Related Files
 # =====================================
 .nuget/
 .nuget.targets
-NuGet/                   # Exclude NuGet folder
-NuGet/**                 # Exclude all subfolders and files in NuGet/
+NuGet/
+NuGet/**
 *.nupkg
 
 # =====================================
@@ -37,13 +43,7 @@ NuGet/**                 # Exclude all subfolders and files in NuGet/
 *.cert
 *.key
 *.env
-
-# =====================================
-# System-specific Files
-# =====================================
-Thumbs.db
-.DS_Store
-desktop.ini
+*.env.*
 
 # =====================================
 # IDE Configuration and Workspace Files
@@ -53,9 +53,68 @@ desktop.ini
 *.code-workspace
 *.user
 *.suo
+*.sdf
+*.sln.docstates
+*.suo
 
 # =====================================
-# Configuration and Generated Files
+# PowerShell Scripts and Logs
+# =====================================
+*.ps1.xml
+*.psd1
+*.psm1
+Logs/
+C:/Logs-TEMP/
+
+# =====================================
+# Java / SpringBoot-API
+# =====================================
+/SpringBoot-API/target/
+/SpringBoot-API/.classpath
+/SpringBoot-API/.project
+/SpringBoot-API/.settings/
+*.iml
+
+# =====================================
+# .NET Core / DotNet-API
+# =====================================
+/DotNet-API/bin/
+/DotNet-API/obj/
+/DotNet-API/*.user
+/DotNet-API/*.suo
+/DotNet-API/*.sln.docstates
+
+# =====================================
+# Node.js / NodeJS-API
+# =====================================
+/NodeJS-API/node_modules/
+/NodeJS-API/package-lock.json
+/NodeJS-API/.env
+
+# =====================================
+# Python / Flask-API
+# =====================================
+/Flask-API/__pycache__/
+/Flask-API/*.pyc
+/Flask-API/env/
+/Flask-API/.venv/
+/Flask-API/.env
+
+# =====================================
+# PHP / PHP-API
+# =====================================
+/PHP-API/vendor/
+/PHP-API/.env
+
+# =====================================
+# Placeholder and Special Project Folders
+# =====================================
+PlaceholderDll/
+PlaceholderDll/**
+PlaceholderDll/*.csproj
+
+# =====================================
+# Configuration and Project Metadata Files
 # =====================================
 /config/.editorconfig
 /config/.gitattributes
@@ -67,31 +126,14 @@ desktop.ini
 # =====================================
 /docs/LICENSE
 /docs/README.md
+*.md.bak
 
 # =====================================
-# Placeholder and Special Project Folders
+# Operating System Files
 # =====================================
-PlaceholderDll/          # Exclude PlaceholderDll folder
-PlaceholderDll/**        # Exclude all subfolders and files in PlaceholderDll/
-PlaceholderDll/*.csproj  # Exclude specific csproj files in PlaceholderDll/
-
-# =====================================
-# Compiled Libraries
-# =====================================
-NuGetPackageContent/lib/net7.0/*.dll
-
-# =====================================
-# Operating System and Miscellaneous Files
-# =====================================
-*.~lock.*
-*.directory
-
-# =====================================
-# Temporary or Generated Artifacts
-# =====================================
-temp/
-tmp/
-*.old
+Thumbs.db
+.DS_Store
+desktop.ini
 
 # =====================================
 # Development Tool Exclusions
