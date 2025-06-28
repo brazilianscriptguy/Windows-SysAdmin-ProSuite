@@ -38,15 +38,14 @@
         </td>
       </tr>
       <tr>
-  <td><strong>ActiveDirectory-SSO-Integrations</strong></td>
-  <td>Demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP protocols.</td>
-  <td>
-    <a href="ActiveDirectory-SSO-Integrations/README.md" target="_blank">
-      <img src="https://img.shields.io/badge/SSO%20Integrations-README-blue?style=for-the-badge&logo=github" alt="SSO Integrations">
-    </a>
-  </td>
-</tr>
-
+        <td><strong>ActiveDirectory-SSO-Integrations</strong></td>
+        <td>Demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP protocols.</td>
+        <td>
+          <a href="ActiveDirectory-SSO-Integrations/README.md" target="_blank">
+            <img src="https://img.shields.io/badge/SSO%20Integrations-README-blue?style=for-the-badge&logo=github" alt="SSO Integrations">
+          </a>
+        </td>
+      </tr>
       <tr>
         <td><strong>GroupPolicyObjects-Templates</strong></td>
         <td>Ready-to-import GPO templates for greenfield or migration-ready domain structures.</td>
@@ -130,14 +129,13 @@
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
     <li>
-  <strong>Review Logs and Reports:</strong><br>
-  <p>
-    Logs for general administrative scripts are saved in <code>C:\Logs-TEMP\</code>, or in the script's working directory. 
-    ITSM-related tools save logs in <code>C:\ITSM-Logs-WKS\</code> (for workstations) or <code>C:\ITSM-Logs-SVR\</code> (for servers). 
-    Review generated <code>.log</code> files for audit trails, and <code>.csv</code> files for exportable results.
-  </p>
-</li>
-
+      <strong>Review Logs and Reports:</strong><br>
+      <p>
+        Logs for general administrative scripts are saved in <code>C:\Logs-TEMP\</code> or the current script directory. 
+        ITSM tools store logs in <code>C:\ITSM-Logs-WKS\</code> (for workstations) or <code>C:\ITSM-Logs-SVR\</code> (for servers). 
+        Review <code>.log</code> files for diagnostic output and <code>.csv</code> files for reporting.
+      </p>
+    </li>
   </ol>
 
   <hr />
