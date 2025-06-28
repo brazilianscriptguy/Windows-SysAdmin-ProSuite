@@ -52,7 +52,7 @@
         <td><strong>ITSM-AfterJoinDomain.hta</strong></td>
         <td>
           Finalizes the workstation's domain configuration, including DNS registration, GPO reapplication, user profile imprinting, 
-          and offline authentication readiness. Ensures full integration with the SEDE.TJAP domain infrastructure.
+          and offline authentication readiness. Ensures full integration with the domain infrastructure.
         </td>
       </tr>
     </tbody>
