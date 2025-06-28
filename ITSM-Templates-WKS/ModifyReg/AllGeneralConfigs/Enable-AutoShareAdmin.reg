@@ -1,9 +1,0 @@
-Windows Registry Editor Version 5.00
-
-; Author: @brazilianscriptguy
-; Updated: March, 29, 2024.
-; Script for: UNLOCKING THE OPERATING SYSTEM'S ADMINISTRATIVE SHARES/ ALLOWING CONTROL TO THE CORPORATE ANTIVIRUS AND FOR GPOs AND AUTOMATIC SHARING OF PRINTERS AND FOLDERS
-
-[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters]
-"AutoShareServer"=dword:00000001
-"AutoShareWks"=dword:00000001

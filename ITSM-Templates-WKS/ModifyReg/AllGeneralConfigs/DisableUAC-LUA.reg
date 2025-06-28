@@ -1,8 +1,0 @@
-Windows Registry Editor Version 5.00
-
-; Author: @brazilianscriptguy
-; Updated: March, 29, 2024.
-; Script for: DISABLING UAC/LUA (Limited User Account) LOCKDOWN
-
-[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System]
-"EnableLUA"=dword:00000000
