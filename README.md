@@ -113,9 +113,9 @@
   </li>
   <li>
   <strong>Review Logs and Reports:</strong><br>
-  For <code>ITSM</code> scripts, logs are saved in <code>C:\ITSM-Logs-WKS\</code>.  
-  For general administrative scripts, logs are stored in <code>C:\Logs-TEMP\</code> or the current working directory.  
-  Look for generated <code>.log</code> files for execution traces and <code>.csv</code> files for exportable reports.
+  Logs for <code>ITSM</code> scripts are stored in <code>C:\ITSM-Logs-WKS\</code> (workstations) and <code>C:\ITSM-Logs-SVR\</code> (servers).<br>
+  General administrative scripts output logs to <code>C:\Logs-TEMP\</code> or the script's current working directory.<br>
+  Look for <code>.log</code> files to trace execution and <code>.csv</code> files for exportable reports and audit records.
 </li>
 </ol>
 
