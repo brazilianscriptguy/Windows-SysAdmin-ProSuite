@@ -20,48 +20,43 @@
 
   <h2>📄 Script Overview</h2>
 
-  <h3>Folder: <code>/UniqueScripts/</code></h3>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;"><strong>Script Name</strong></th>
-        <th style="padding: 8px;">Purpose</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>ITSM-DefaultVBSing.vbs</strong></td>
-        <td>Applies default system settings to prepare the workstation for domain integration.</td>
-      </tr>
-      <tr>
-        <td><strong>ITSM-ModifyREGing.vbs</strong></td>
-        <td>Implements registry-level configurations to align the system with corporate policies.</td>
-      </tr>
-    </tbody>
-  </table>
+<h3>Folder: <code>/BeforeJoinDomain/</code></h3>
+<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+  <thead>
+    <tr>
+      <th style="padding: 8px;"><strong>Script Name</strong></th>
+      <th style="padding: 8px;">Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ITSM-BeforeJoinDomain.hta</strong></td>
+      <td>
+        Executes 20 pre-domain configurations, including registry modifications, security settings, network resets,
+        desktop personalization, administrative share settings, and WSUS redirection — essential for preparing the workstation for domain integration.
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-  <h3>Folder: <code>/PostIngress/</code></h3>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;"><strong>Script Name</strong></th>
-        <th style="padding: 8px;">Purpose</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>ITSM-NewDNSRegistering.vbs</strong></td>
-        <td>Registers the workstation’s hostname and domain metadata with Active Directory DNS.</td>
-      </tr>
-      <tr>
-        <td><strong>ITSM-ProfileImprinting.vbs</strong></td>
-        <td>Ensures persistent user profile registration after three domain logon sessions.</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <hr />
-
+<h3>Folder: <code>/AfterJoinDomain/</code></h3>
+<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+  <thead>
+    <tr>
+      <th style="padding: 8px;"><strong>Script Name</strong></th>
+      <th style="padding: 8px;">Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ITSM-AfterJoinDomain.hta</strong></td>
+      <td>
+        Finalizes post-domain configurations, including DNS registration, GPO reapplication, environment refresh, and user profile registration 
+        to ensure full domain compliance and offline login capabilities.
+      </td>
+    </tr>
+  </tbody>
+</table>
   <h2>🚀 Getting Started</h2>
   <ol>
     <li>
