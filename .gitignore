@@ -8,7 +8,7 @@
 *.bak
 *.swo
 *.swp
-*.~lock.*
+*.lock
 *.directory
 
 # =====================================
@@ -24,7 +24,6 @@ tmp/
 bin/
 obj/
 artifacts/
-artifacts/**
 NuGetPackageContent/lib/net7.0/*.dll
 
 # =====================================
@@ -33,7 +32,6 @@ NuGetPackageContent/lib/net7.0/*.dll
 .nuget/
 .nuget.targets
 NuGet/
-NuGet/**
 *.nupkg
 
 # =====================================
@@ -55,7 +53,6 @@ NuGet/**
 *.suo
 *.sdf
 *.sln.docstates
-*.suo
 
 # =====================================
 # PowerShell Scripts and Logs
@@ -64,68 +61,60 @@ NuGet/**
 *.psd1
 *.psm1
 Logs/
-C:/Logs-TEMP/
+Logs-TEMP/
 
 # =====================================
 # Java / SpringBoot-API
 # =====================================
-/SpringBoot-API/target/
-/SpringBoot-API/.classpath
-/SpringBoot-API/.project
-/SpringBoot-API/.settings/
+SpringBoot-API/target/
+SpringBoot-API/.classpath
+SpringBoot-API/.project
+SpringBoot-API/.settings/
 *.iml
 
 # =====================================
 # .NET Core / DotNet-API
 # =====================================
-/DotNet-API/bin/
-/DotNet-API/obj/
-/DotNet-API/*.user
-/DotNet-API/*.suo
-/DotNet-API/*.sln.docstates
+DotNet-API/bin/
+DotNet-API/obj/
 
 # =====================================
 # Node.js / NodeJS-API
 # =====================================
-/NodeJS-API/node_modules/
-/NodeJS-API/package-lock.json
-/NodeJS-API/.env
+NodeJS-API/node_modules/
+NodeJS-API/package-lock.json
 
 # =====================================
 # Python / Flask-API
 # =====================================
-/Flask-API/__pycache__/
-/Flask-API/*.pyc
-/Flask-API/env/
-/Flask-API/.venv/
-/Flask-API/.env
+Flask-API/__pycache__/
+Flask-API/*.pyc
+Flask-API/*.pyo
+Flask-API/*.pyd
+Flask-API/env/
+Flask-API/.venv/
 
 # =====================================
 # PHP / PHP-API
 # =====================================
-/PHP-API/vendor/
-/PHP-API/.env
+PHP-API/vendor/
 
 # =====================================
 # Placeholder and Special Project Folders
 # =====================================
 PlaceholderDll/
-PlaceholderDll/**
 PlaceholderDll/*.csproj
 
 # =====================================
 # Configuration and Project Metadata Files
 # =====================================
-/config/.editorconfig
-/config/.gitattributes
-/config/.gitignore
-/config/nuget.config
+config/.editorconfig
+config/.gitattributes
+config/nuget.config
 
 # =====================================
 # Documentation Files
 # =====================================
-/docs/LICENSE
-/docs/README.md
 *.md.bak
 
 # =====================================
