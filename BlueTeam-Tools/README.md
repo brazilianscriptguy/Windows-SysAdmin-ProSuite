@@ -1,48 +1,47 @@
 <div>
-  <h1>🔵 BlueTeam-Tools Main Folder</h1>
+  <h1>🔵 BlueTeam-Tools Suite</h1>
 
-  <h2>📄 Overview</h2>
+  <h2>📌 Overview</h2>
   <p>
-    Welcome to the <strong>BlueTeam-Tools</strong> repository! This comprehensive collection of 
-    <strong>PowerShell scripts</strong> is crafted for Forensics and Blue Team professionals to effectively 
-    <strong>monitor, detect, and respond</strong> to security threats in Windows environments.
-    Each tool automates the collection of forensic data, analyzes system integrity, and exports findings in 
-    <code>.csv</code> and <code>.log</code> formats for fast reporting and auditing.
+    The <strong>BlueTeam-Tools Suite</strong> is a curated collection of forensic-grade PowerShell utilities designed for
+    <strong>Cybersecurity Analysts</strong>, <strong>Blue Team operators</strong>, and <strong>Incident Responders</strong>. These tools support 
+    real-time threat detection, anomaly investigation, and security policy enforcement across Windows environments.
   </p>
 
   <ul>
-    <li><strong>🔍 Extract Critical Data:</strong> Gather evidence from logs, services, running processes, and registries.</li>
-    <li><strong>📊 Analyze Security Events:</strong> Detect anomalies, policy violations, and suspicious behaviors.</li>
-    <li><strong>🧰 Streamline Incident Response:</strong> Tools include intuitive GUIs, logs, and outputs for DFIR workflows.</li>
+    <li>🔍 <strong>Forensics Automation:</strong> Extract event logs, registry data, network sessions, user activity, and volatile system states.</li>
+    <li>🛡️ <strong>Incident Response:</strong> Assist in evidence collection, log correlation, and secure reporting during live attacks.</li>
+    <li>📈 <strong>Security Visibility:</strong> Ensure policy compliance, audit system configurations, and generate actionable CSV reports.</li>
   </ul>
 
   <hr />
 
-  <h2>📁 Folder Structure & Categories</h2>
+  <h2>🧩 Script Categories & Structure</h2>
+
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
-        <th style="padding: 8px;">📂 Folder Name</th>
-        <th style="padding: 8px;">📝 Description</th>
-        <th style="padding: 8px;">🔗 Folder Link</th>
+        <th style="padding: 8px;">📂 Category</th>
+        <th style="padding: 8px;">Description</th>
+        <th style="padding: 8px;">Link</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><strong>EventLogMonitoring</strong></td>
-        <td>Tools for auditing Windows Event Logs, tracking logon events, policy changes, and generating security-focused reports.</td>
+        <td>Audit security logs and monitor high-risk system events (e.g., login failures, privilege escalations).</td>
         <td>
           <a href="EventLogMonitoring/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/EventLog%20Monitoring-README-blue?style=for-the-badge&logo=github" alt="EventLogMonitoring Badge">
+            <img src="https://img.shields.io/badge/View%20Docs-EventLogMonitoring-blue?style=for-the-badge&logo=github" alt="EventLogMonitoring Badge">
           </a>
         </td>
       </tr>
       <tr>
         <td><strong>IncidentResponse</strong></td>
-        <td>Scripts for capturing volatile data during live incident response, user session tracking, and memory artifact collection.</td>
+        <td>Capture and analyze volatile artifacts: active sessions, system metadata, threat indicators.</td>
         <td>
           <a href="IncidentResponse/README.md" target="_blank">
-            <img src="https://img.shields.io/badge/Incident%20Response-README-blue?style=for-the-badge&logo=github" alt="IncidentResponse Badge">
+            <img src="https://img.shields.io/badge/View%20Docs-IncidentResponse-blue?style=for-the-badge&logo=github" alt="IncidentResponse Badge">
           </a>
         </td>
       </tr>
@@ -51,94 +50,79 @@
 
   <hr />
 
-  <h2>🛠️ Prerequisites</h2>
-  <ol>
-    <li>
-      <strong>🖥️ Remote Server Administration Tools (RSAT):</strong>
-      <p>Install RSAT components to manage Active Directory, DNS, and DHCP features.</p>
-      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
+  <h2>🛠️ Requirements</h2>
+  <ul>
+    <li><strong>⚙️ PowerShell:</strong> Version 5.1 or later (<code>$PSVersionTable.PSVersion</code>)</li>
+    <li><strong>🖥️ RSAT Tools:</strong> Required for AD, DNS, DHCP support
+      <br><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code>
     </li>
-    <li>
-      <strong>⚙️ PowerShell Version:</strong>
-      <p>Ensure you are using PowerShell 5.1 or later:</p>
-      <pre><code>$PSVersionTable.PSVersion</code></pre>
+    <li><strong>🔐 Admin Rights:</strong> Most scripts require elevated privileges</li>
+    <li><strong>🧾 Execution Policy:</strong>
+      <br><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</code>
     </li>
-    <li><strong>🔑 Administrator Privileges:</strong> Most scripts require elevation to interact with system-level components.</li>
-    <li>
-      <strong>🔐 Execution Policy:</strong>
-      <p>Temporarily enable script execution if restricted:</p>
-      <pre><code>Set-ExecutionPolicy RemoteSigned -Scope Process</code></pre>
-    </li>
-    <li>
-      <strong>📦 Required Modules:</strong>
-      <p>Ensure modules like <code>ActiveDirectory</code>, <code>Defender</code>, and <code>DHCPServer</code> are present.</p>
-    </li>
-  </ol>
+    <li><strong>📦 Required Modules:</strong> Ensure <code>ActiveDirectory</code>, <code>Defender</code>, <code>DHCPServer</code> (where applicable)</li>
+  </ul>
 
   <hr />
 
   <h2>🚀 Getting Started</h2>
   <ol>
     <li>
-      <strong>📥 Clone the Repository:</strong>
+      <strong>Clone the Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
     <li>
-      <strong>📂 Navigate to Folder:</strong>
-      <p>Enter the <code>BlueTeam-Tools</code> directory and choose your desired script folder.</p>
+      <strong>Navigate to BlueTeam Suite:</strong>
+      <pre><code>cd Windows-SysAdmin-ProSuite/BlueTeam-Tools/</code></pre>
     </li>
     <li>
-      <strong>📘 Read Documentation:</strong>
-      <p>Check the subfolder’s <code>README.md</code> file for detailed usage instructions and script logic.</p>
+      <strong>Explore Script Categories:</strong>
+      <p>Open the relevant folder and review its <code>README.md</code> for specific guidance.</p>
     </li>
     <li>
-      <strong>💻 Run a Script:</strong>
-      <p>Launch scripts via terminal with:</p>
-      <pre><code>.\ScriptName.ps1</code></pre>
+      <strong>Run the Script:</strong>
+      <pre><code>.\Your-Script-Name.ps1</code></pre>
     </li>
     <li>
-      <strong>📑 Review Logs:</strong>
-      <p>Each script logs actions in <code>.log</code> and result data in <code>.csv</code> format.</p>
+      <strong>Review Output:</strong>
+      <p>Each script generates <code>.log</code> and <code>.csv</code> files for traceability and analysis.</p>
     </li>
   </ol>
 
   <hr />
 
-  <h2>📈 Future Updates</h2>
-  <p>
-    Additional tools are continuously in development to support evolving threats and enhance incident response capabilities. 
-    Follow the repository to receive notifications about new Blue Team utilities.
-  </p>
+  <h2>📦 Features at a Glance</h2>
+  <ul>
+    <li>📂 Organized Logs: All scripts output to well-structured folders with timestamped logs.</li>
+    <li>🧠 Intelligent Filters: Reduce noise using smart regex, PowerShell event selectors, and known IOCs.</li>
+    <li>🎛️ GUI-Ready: Several scripts include GUI front-ends built with Windows Forms for ease of use.</li>
+    <li>🔗 Interoperable: Can be chained into IR pipelines, GPOs, or task schedulers.</li>
+  </ul>
 
   <hr />
 
-  <h2>❓ Need Help?</h2>
-  <p style="text-align: justify; font-size: 16px; line-height: 1.6;">
-    All scripts are modular and can be customized to meet your team's security posture and workflow requirements.
-    For support, contributions, or questions, feel free to contact me or use the issue tracker linked below.
-  </p>
-
+  <h2>📬 Contact & Support</h2>
   <div align="center">
     <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
-      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Contact">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
     </a>
-    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Patreon Support">
+    <a href="https://patreon.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Support-Patreon-red?style=for-the-badge&logo=patreon" alt="Patreon">
     </a>
     <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="Buy Me Coffee">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="Coffee">
     </a>
     <a href="https://ko-fi.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi" alt="Ko-fi Support">
+      <img src="https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi" alt="Ko-fi">
     </a>
-    <a href="https://www.gofundme.com/f/brazilianscriptguy" target="_blank">
+    <a href="https://gofundme.com/f/brazilianscriptguy" target="_blank">
       <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" alt="GoFundMe">
+    </a>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues" target="_blank">
+      <img src="https://img.shields.io/badge/Report%20Issue-GitHub-blue?style=for-the-badge&logo=github" alt="Issues">
     </a>
     <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank">
       <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Channel">
-    </a>
-    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues" target="_blank">
-      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues">
     </a>
   </div>
 </div>
