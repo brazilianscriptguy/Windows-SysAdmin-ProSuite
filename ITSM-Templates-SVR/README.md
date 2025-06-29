@@ -1,23 +1,44 @@
 <div>
-  <h1>🖥️ Efficient Server Management and ITSM Compliance on Windows Server Environments</h1>
+  <h1>🖥️ ITSM-Templates-SVR Suite — Windows Server Management & Compliance</h1>
+
+  <h2>📝 Overview</h2>
   <p>
-    Welcome to the <strong>ITSM-Templates-SVR</strong> repository! This collection includes essential 
-    <code>PowerShell</code> and <code>VBScript tools</code> designed for IT Service Management (ITSM) in Windows Server environments. By automating server configurations, enhancing operational efficiency, and maintaining compliance, these tools provide a robust framework for managing Windows servers effectively.
+    The <strong>ITSM-Templates-SVR</strong> folder contains a suite of <strong>PowerShell</strong> and <strong>VBScript</strong> tools tailored to 
+    Windows Server ITSM operations. These scripts help automate server provisioning, enforce IT compliance, and streamline daily administrative tasks across enterprise server environments.
   </p>
 
-  <hr />
-
-  <h2>🌟 Key Features</h2>
   <ul>
-    <li><strong>Server-Specific Configurations:</strong> Streamlined ITSM implementation tailored to server needs.</li>
-    <li><strong>Automated Processes:</strong> Automate domain services, role configurations, and server hardening.</li>
-    <li><strong>Standardized Logs and Reports:</strong> Maintain traceable logs and generate actionable reports for auditing and compliance.</li>
-    <li><strong>Reusable Templates:</strong> Quickly deploy and customize server configurations with modular scripts.</li>
+    <li><strong>🔧 Server Hardening & Setup:</strong> Automate secure baseline configurations and domain-ready deployments.</li>
+    <li><strong>⚙️ Registry & DNS Fixes:</strong> Improve reliability by correcting registry values and enforcing dynamic DNS registration.</li>
+    <li><strong>📊 Logging & Reports:</strong> Scripts generate <code>.log</code> files and export <code>.csv</code> reports for auditing.</li>
+    <li><strong>📦 Reusable Templates:</strong> Easily adapt scripts for new roles, GPO resets, time sync, and role inventories.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Script Descriptions</h2>
+  <h2>🛠️ Prerequisites</h2>
+  <ol>
+    <li>
+      <strong>⚙️ PowerShell Version:</strong> PowerShell 5.1 or later recommended.<br>
+      <pre><code>$PSVersionTable.PSVersion</code></pre>
+    </li>
+    <li>
+      <strong>🔑 Administrator Privileges:</strong> Required to run scripts that affect system services or domain bindings.</li>
+    <li>
+      <strong>🖥️ RSAT Tools:</strong> Remote Server Administration Tools must be installed to manage roles.<br>
+      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
+    </li>
+    <li>
+      <strong>🔧 Execution Policy:</strong> Enable script execution for the current process:<br>
+      <pre><code>Set-ExecutionPolicy RemoteSigned -Scope Process</code></pre>
+    </li>
+    <li>
+      <strong>📦 Dependencies:</strong> Confirm that modules such as <code>ActiveDirectory</code> and <code>DHCPServer</code> are present if referenced.</li>
+  </ol>
+
+  <hr />
+
+  <h2>📄 Script Descriptions (Alphabetical Order)</h2>
   <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
     <thead>
       <tr>
@@ -26,166 +47,84 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td><strong>ITSM-DefaultServerConfig.ps1</strong></td>
-        <td>Applies essential configurations for server setup, including DNS settings, role hardening, and administrative shares setup.</td>
-      </tr>
-      <tr>
-        <td><strong>ITSM-ModifyServerRegistry.ps1</strong></td>
-        <td>Modifies registry settings to enforce security and compliance standards, including disabling SMBv1 and configuring Windows Updates.</td>
-      </tr>
-      <tr>
-        <td><strong>ITSM-DNSRegistration.ps1</strong></td>
-        <td>Ensures proper DNS registration for seamless Active Directory integration.</td>
-      </tr>
-      <tr>
-        <td><strong>ITSM-HardenServer.ps1</strong></td>
-        <td>Applies security hardening configurations after domain join.</td>
-      </tr>
-      <tr>
-        <td><strong>CheckServerRoles.ps1</strong></td>
-        <td>Lists all installed roles and features on the server.</td>
-      </tr>
-      <tr>
-        <td><strong>ExportServerConfig.ps1</strong></td>
-        <td>Exports the server’s configuration to a <code>.csv</code> file for documentation and review.</td>
-      </tr>
-      <tr>
-        <td><strong>FixNTFSPermissions.ps1</strong></td>
-        <td>Corrects NTFS permission inconsistencies.</td>
-      </tr>
-      <tr>
-        <td><strong>InventoryServerSoftware.ps1</strong></td>
-        <td>Creates an inventory of installed software on the server.</td>
-      </tr>
-      <tr>
-        <td><strong>ResetGPOSettings.ps1</strong></td>
-        <td>Resets Group Policy Object (GPO)-related configurations to default values.</td>
-      </tr>
-      <tr>
-        <td><strong>ServerTimeSync.ps1</strong></td>
-        <td>Synchronizes server time with a domain time source.</td>
-      </tr>
+      <tr><td><strong>CheckServerRoles.ps1</strong></td><td>Lists installed roles and features to validate the server's intended purpose and role scope.</td></tr>
+      <tr><td><strong>ExportServerConfig.ps1</strong></td><td>Exports server configuration into a <code>.csv</code> file for documentation and review.</td></tr>
+      <tr><td><strong>FixNTFSPermissions.ps1</strong></td><td>Corrects inconsistencies in NTFS file system permissions across critical paths.</td></tr>
+      <tr><td><strong>InventoryServerSoftware.ps1</strong></td><td>Compiles a list of installed software to help maintain an accurate software asset inventory.</td></tr>
+      <tr><td><strong>ITSM-DefaultServerConfig.ps1</strong></td><td>Applies standard server configurations such as disabling guest shares, configuring NTP, and adjusting firewall rules.</td></tr>
+      <tr><td><strong>ITSM-DNSRegistration.ps1</strong></td><td>Enforces DNS re-registration for proper AD communication and name resolution.</td></tr>
+      <tr><td><strong>ITSM-HardenServer.ps1</strong></td><td>Applies domain-aware hardening post-join: disables SMBv1, disables local accounts, and enforces lockout policies.</td></tr>
+      <tr><td><strong>ITSM-ModifyServerRegistry.ps1</strong></td><td>Updates registry keys related to security compliance: SMB, Remote UAC, and Windows Update behavior.</td></tr>
+      <tr><td><strong>ResetGPOSettings.ps1</strong></td><td>Resets all GPO-controlled configurations on the server to a default (clean) state.</td></tr>
+      <tr><td><strong>ServerTimeSync.ps1</strong></td><td>Synchronizes the server clock with domain time sources to prevent replication and authentication issues.</td></tr>
     </tbody>
   </table>
 
   <hr />
 
-<h2>🚀 Getting Started</h2>
+  <h2>🚀 Getting Started</h2>
   <ol>
-      <li>
-      <strong>Clone or download the Main Repository:</strong>
+    <li><strong>Clone the Repository:</strong><br>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li>
-      <strong>Navigate to the Repository Folder:</strong>
-      <p>Navigate to the <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code> directory that contains the desired scripts.</p>
-    </li>
-    <li>
-      <strong>Review Documentation:</strong>
-      <p>Open the <code>README.md</code> file in the chosen subfolder for detailed script descriptions and usage instructions.</p>
-    </li>
-    <li>
-      <strong>Run the Script:</strong>
-      <p>Execute the desired PowerShell script with the following command:</p>
+    <li><strong>Navigate to:</strong> <code>Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/</code></li>
+    <li><strong>Read the Docs:</strong> Review each script's internal comments or <code>README.md</code> for usage instructions.</li>
+    <li><strong>Execute:</strong><br>
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
-    <li>
-      <strong>Verify Logs and Reports:</strong>
-      <p>Check the generated <code>.log</code> files for details on script execution and exported <code>.csv</code> files for results.</p>
-    </li>
+    <li><strong>Review Logs and Reports:</strong> Analyze <code>.log</code> and <code>.csv</code> files output by the scripts.</li>
   </ol>
 
   <hr />
 
-  <h2>📝 Logging and Reporting</h2>
+  <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>Logs:</strong> All scripts generate <code>.log</code> files that document executed actions and errors encountered.</li>
-    <li><strong>Reports:</strong> Scripts export data in <code>.csv</code> format for analysis and compliance audits.</li>
+    <li><strong>📄 Logs:</strong> Scripts generate <code>.log</code> files in structured folders for troubleshooting and history tracking.</li>
+    <li><strong>📊 Reports:</strong> Configuration and inventory outputs are exported to <code>.csv</code> format.</li>
   </ul>
 
   <hr />
 
-  <h2>💡 Tips for Optimization</h2>
+  <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Automate Execution:</strong> Schedule scripts to run periodically using task schedulers to ensure consistent results.</li>
-    <li><strong>Centralize Logs and Reports:</strong> Save generated <code>.log</code> and <code>.csv</code> files in shared directories for collaborative analysis and auditing.</li>
-    <li><strong>Customize Templates:</strong> Tailor script templates to fit specific organizational workflows and security requirements.</li>
+    <li><strong>Automate with Task Scheduler:</strong> Schedule periodic execution for drift remediation.</li>
+    <li><strong>Centralize Output:</strong> Direct logs and reports to a shared folder for audit trails.</li>
+    <li><strong>Customize Templates:</strong> Adjust configurations per role (e.g., file server vs. DC) for environment-specific compliance.</li>
   </ul>
 
   <hr />
 
-  <p>Explore the <strong>ITSM-Templates-SVR</strong> repository and streamline your server management processes. With these tools, achieving ITSM compliance and operational efficiency has never been easier! 🎉</p>
+  <h2>❓ Additional Assistance</h2>
+  <p style="text-align: justify; font-size: 16px; line-height: 1.6;">
+    These scripts are highly adaptable to fit your infrastructure. Review embedded comments or the related documentation within 
+    each script's header to understand variables, dependencies, and specific behaviors.
+  </p>
+
+  <div align="center" style="margin-top: 20px;">
+    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+    </a>
+    <a href="https://patreon.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Support-Patreon-red?style=for-the-badge&logo=patreon" alt="Patreon Badge">
+    </a>
+    <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="Buy Me Coffee">
+    </a>
+    <a href="https://ko-fi.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi" alt="Ko-fi Badge">
+    </a>
+    <a href="https://gofund.me/4599d3e6" target="_blank">
+      <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" alt="GoFundMe Badge">
+    </a>
+    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank">
+      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+    </a>
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues" target="_blank">
+      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
+    </a>
+  </div>
 
   <hr />
-
-  <h2>🛠️ Prerequisites</h2>
-  <ol>
-    <li>
-      <strong>🖥️ Remote Server Administration Tools (RSAT):</strong>
-      <p>Install RSAT components for managing AD, DNS, DHCP, and other server roles.</p>
-      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
-    </li>
-    <li>
-      <strong>⚙️ PowerShell Version:</strong>
-      <p>Use PowerShell 5.1 or later. Verify your version:</p>
-      <pre><code>$PSVersionTable.PSVersion</code></pre>
-    </li>
-    <li><strong>🔑 Administrator Privileges:</strong> Scripts require elevated permissions to perform administrative tasks.</li>
-    <li>
-      <strong>🔧 Execution Policy:</strong>
-      <p>Temporarily allow script execution with:</p>
-      <pre><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</code></pre>
-    </li>
-    <li>
-      <strong>📦 Dependencies:</strong>
-      <p>Ensure all required software components and modules (e.g., <code>ActiveDirectory</code>, <code>DHCPServer</code>) are installed.</p>
-    </li>
-  </ol>
-
-  <hr />
-
-<h2>❓ Additional Assistance</h2>
-<p style="text-align: justify; font-size: 16px; line-height: 1.6;">
-  These scripts are fully customizable to fit your unique requirements. For more information on setup or assistance with 
-  specific tools, please refer to the included <code>README.md</code> files or explore the detailed documentation available 
-  in each subfolder.
-</p>
-
-<div align="center">
-  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer" aria-label="Email Luiz Hamilton">
-    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" 
-         alt="Contact via Email">
-  </a>
-  <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Support on Patreon">
-    <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" 
-         alt="Support on Patreon">
-  </a>
-  <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Buy Me a Coffee">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee" 
-         alt="Buy Me a Coffee">
-  </a>
-  <a href="https://ko-fi.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer" aria-label="Support on Ko-fi">
-    <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" 
-         alt="Support on Ko-fi">
-  </a>
-  <a href="https://gofund.me/4599d3e6" target="_blank" rel="noopener noreferrer" aria-label="Donate via GoFundMe">
-    <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" 
-         alt="Donate via GoFundMe">
-  </a>
-  <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer" aria-label="Join WhatsApp Channel">
-    <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" 
-         alt="Join WhatsApp Channel">
-  </a>
-  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md" 
-     target="_blank" rel="noopener noreferrer" aria-label="Report Issues on GitHub">
-    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" 
-         alt="Report Issues on GitHub">
-  </a>
-</div>
-
-
-  <hr />
-  <h3>Document Classification</h3>
-  <p>This document is <strong>RESTRICTED</strong> for internal use within the Company’s network.</p>
+  <h3>📂 Document Classification</h3>
+  <p><strong>RESTRICTED:</strong> For internal use within the organization's network only.</p>
 </div>
