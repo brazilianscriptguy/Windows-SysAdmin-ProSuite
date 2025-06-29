@@ -3,19 +3,19 @@
 
   <h2>📝 Overview</h2>
   <p>
-    The <strong>ActiveDirectory-SSO-Integrations</strong> folder contains a curated set of 
-    <strong>cross-platform examples</strong> for implementing Single Sign-On (SSO) 
-    using Active Directory via <code>LDAP</code>. Each module demonstrates secure integration 
-    patterns with a <strong>standardized configuration model</strong> to ensure consistency 
-    across varying development stacks and environments.
+    The <strong>ActiveDirectory-SSO-Integrations</strong> folder includes a set of 
+    <strong>cross-platform integration models</strong> for implementing Single Sign-On (SSO) 
+    via <code>LDAP</code> using Active Directory. Each module follows a 
+    <strong>standardized configuration structure</strong> to ensure consistency and ease of integration 
+    across different development stacks.
   </p>
 
   <h3>Key Features:</h3>
   <ul>
-    <li><strong>Cross-Technology Support:</strong> Examples provided in .NET, Flask, NodeJS, PHP, and Spring Boot.</li>
-    <li><strong>Secure Bind Credentials:</strong> Uses environment-based secrets or configuration vaults for SSO authentication.</li>
-    <li><strong>Modular Integration:</strong> Each project uses self-contained logic and clean LDAP configuration interfaces.</li>
-    <li><strong>Standardized SSO Design:</strong> Consistent pattern for implementing and testing AD-integrated SSO APIs.</li>
+    <li><strong>Cross-Technology Compatibility:</strong> Supports .NET, Flask, Node.js, PHP, and Spring Boot.</li>
+    <li><strong>Secure Bind Credentials:</strong> Uses environment variables or external secrets for LDAP authentication.</li>
+    <li><strong>Modular Architecture:</strong> Each implementation is self-contained with isolated configuration layers.</li>
+    <li><strong>Standard LDAP Flow:</strong> Unified login logic across different stacks using <code>InetOrgPerson</code> model.</li>
   </ul>
 
   <hr />
@@ -23,35 +23,31 @@
   <h2>🛠️ Prerequisites</h2>
   <ol>
     <li>
-      <strong>🔐 LDAP Access Account</strong>
-      <p>
-        Create a delegated <code>InetOrgPerson</code> account in Active Directory with appropriate read/search privileges.
-        See "<strong>Recommended Delegations</strong>" section below for secure setup tips.
-      </p>
+      <strong>🔐 LDAP Bind Account (InetOrgPerson)</strong>
+      <p>Create a delegated AD account with minimal read permissions. Avoid using privileged credentials.</p>
     </li>
     <li>
-      <strong>💻 Platform Dependencies</strong>
+      <strong>💻 Language-Specific Runtime Environments</strong>
       <ul>
-        <li><strong>.NET Core SDK</strong> for DotNet-API</li>
-        <li><strong>Python 3.x</strong> and <code>ldap3</code> for Flask-API</li>
+        <li><strong>.NET SDK</strong> for DotNet-API</li>
+        <li><strong>Python 3.x</strong> with <code>ldap3</code> for Flask-API</li>
         <li><strong>Node.js</strong> with <code>passport-ldapauth</code> for NodeJS-API</li>
-        <li><strong>PHP 7+</strong> and LDAP module for PHP-API</li>
-        <li><strong>Java JDK 11+</strong> and Spring Boot for SpringBoot-API</li>
+        <li><strong>PHP 7+</strong> with LDAP module enabled</li>
+        <li><strong>JDK 11+</strong> with Spring Boot for Java-based implementation</li>
       </ul>
     </li>
     <li>
       <strong>🔑 Secure Credentials</strong>
-      <p>Set the <code>LDAP_PASSWORD</code> environment variable before running any project to protect bind credentials.</p>
+      <p>Ensure the <code>LDAP_PASSWORD</code> environment variable is securely defined before runtime.</p>
     </li>
     <li>
       <strong>📂 Configuration Files</strong>
-      <p>Modify the appropriate config file per API implementation:</p>
       <ul>
-        <li><code>appsettings.json</code> — DotNet-API</li>
-        <li><code>config.py</code> — Flask-API</li>
-        <li><code>ldap.config.json</code> — NodeJS-API</li>
-        <li><code>.env</code> — PHP-API</li>
-        <li><code>application.yml</code> — SpringBoot-API</li>
+        <li><code>appsettings.json</code> – DotNet-API</li>
+        <li><code>config.py</code> – Flask-API</li>
+        <li><code>ldap.config.json</code> – NodeJS-API</li>
+        <li><code>.env</code> – PHP-API</li>
+        <li><code>application.yml</code> – SpringBoot-API</li>
       </ul>
     </li>
   </ol>
@@ -69,23 +65,23 @@
     <tbody>
       <tr>
         <td><code>DotNet-API</code></td>
-        <td>ASP.NET Core with custom middleware for LDAP binding. Supports JSON-based config via <code>appsettings.json</code>.</td>
+        <td>Implements LDAP authentication using ASP.NET Core and custom middleware with JSON configuration.</td>
       </tr>
       <tr>
         <td><code>Flask-API</code></td>
-        <td>REST API in Python using <code>ldap3</code>, configured via <code>config.py</code> and .env variables.</td>
+        <td>RESTful API built in Python using <code>ldap3</code>, with centralized environment configuration.</td>
       </tr>
       <tr>
         <td><code>NodeJS-API</code></td>
-        <td>Express-based app using <code>passport-ldapauth</code> for authentication and route-level control.</td>
+        <td>Express.js application utilizing <code>passport-ldapauth</code> and layered route/middleware logic.</td>
       </tr>
       <tr>
         <td><code>PHP-API</code></td>
-        <td>Pure PHP example with native LDAP functions and fallback mechanisms. Uses <code>.env</code> for bind configuration.</td>
+        <td>Native PHP solution leveraging <code>ldap_bind</code>, environment-based auth, and fallback logic.</td>
       </tr>
       <tr>
         <td><code>SpringBoot-API</code></td>
-        <td>Java Spring Boot app leveraging <code>Spring Security LDAP</code> with YAML-based profile setup.</td>
+        <td>Java-based implementation using Spring Security LDAP and profile-based YAML configuration.</td>
       </tr>
     </tbody>
   </table>
@@ -94,14 +90,14 @@
 
   <h2>🚀 Usage Instructions</h2>
   <ol>
-    <li><strong>Set LDAP Credentials:</strong> Configure your AD bind user and set <code>LDAP_PASSWORD</code> as a system environment variable.</li>
-    <li><strong>Update Configuration Files:</strong> Adjust host, bindDN, port, and filter logic per platform.</li>
-    <li><strong>Run the Application:</strong> Use the standard run command per folder below:</li>
+    <li><strong>Set Environment:</strong> Define <code>LDAP_PASSWORD</code> in your terminal or container environment.</li>
+    <li><strong>Adjust Configuration:</strong> Review and update LDAP host, port, base DN, and filters.</li>
+    <li><strong>Run the Application:</strong> Use the standard startup command below per module.</li>
   </ol>
 
-  <h3>Platform Run Commands</h3>
+  <h3>Run Commands</h3>
   <ul>
-    <li><strong>DotNet-API:</strong> Open solution in Visual Studio or run:
+    <li><strong>DotNet-API:</strong>
       <pre><code>dotnet run</code></pre>
     </li>
     <li><strong>Flask-API:</strong>
@@ -123,43 +119,43 @@ php -S localhost:8000 -t public</code></pre>
 
   <hr />
 
-  <h2>🔐 Best Practices: Using an InetOrgPerson AD Account</h2>
+  <h2>🔐 Best Practices: InetOrgPerson AD SSO Account</h2>
   <p>
-    For security, always bind your LDAP-based SSO tools using a <strong>dedicated AD service account</strong> of type 
-    <code>InetOrgPerson</code>. This minimizes exposure of administrative credentials and enables granular control.
+    For LDAP SSO integrations, use a <strong>dedicated <code>InetOrgPerson</code> account</strong> with 
+    restricted permissions to minimize risk and follow secure binding principles.
   </p>
 
-  <h3>🛡️ Recommended AD Delegations</h3>
+  <h3>🛡️ Recommended Delegations</h3>
   <ul>
-    <li><strong>Read-Only Attributes:</strong> Basic LDAP bind and read permissions.</li>
-    <li><strong>List/Search Controls:</strong> Allow enumeration of users and groups.</li>
-    <li><strong>Account Restrictions:</strong> Disable interactive login, prevent delegation, enforce strong password policy.</li>
+    <li><strong>Read-Only Attributes:</strong> Only allow lookup for attributes required in your bind and filter logic.</li>
+    <li><strong>List/Search Scope:</strong> Permit enumeration of users and groups (Base/OneLevel/Subtree as applicable).</li>
+    <li><strong>Access Controls:</strong> Disable interactive logon; enforce password expiration; restrict delegation rights.</li>
   </ul>
 
-  <h3>📌 Example AD Configuration</h3>
+  <h3>📌 Sample AD Account</h3>
   <ul>
     <li><strong>User:</strong> <code>HEADQ\ad-sso-authentication</code></li>
     <li><strong>DN:</strong> <code>CN=ad-sso-authentication,OU=ServiceAccounts,DC=headq,DC=scriptguy</code></li>
-    <li><strong>Type:</strong> <code>inetOrgPerson</code> with <code>Service Logon</code> rights only</li>
+    <li><strong>Type:</strong> <code>InetOrgPerson</code> with <em>logon as service</em> enabled</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Complementary Files Overview</h2>
+  <h2>📄 Complementary Files</h2>
   <ul>
-    <li><strong>example.env:</strong> Sample environment variables file for testing PHP and Flask APIs.</li>
-    <li><strong>ldap.config.json:</strong> Config schema for NodeJS API.</li>
-    <li><strong>application.yml:</strong> Spring Boot profile with LDAP settings.</li>
+    <li><strong>example.env</strong> – Sample environment setup for PHP and Flask APIs.</li>
+    <li><strong>ldap.config.json</strong> – Config schema for NodeJS-based integration.</li>
+    <li><strong>application.yml</strong> – Spring Boot LDAP profile configuration.</li>
   </ul>
 
   <hr />
 
-  <h2>💡 Tips for Optimization</h2>
+  <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Use Secure Bind Accounts:</strong> Never use full domain admin accounts for LDAP auth.</li>
-    <li><strong>Automate Deployment:</strong> Containerize each API with Docker for easier testing and CI pipelines.</li>
-    <li><strong>Centralize Secrets:</strong> Integrate with secret vaults like HashiCorp Vault or Azure Key Vault.</li>
+    <li><strong>Least Privilege Principle:</strong> Never bind using high-privilege domain accounts.</li>
+    <li><strong>Automate Environments:</strong> Use Docker Compose to containerize APIs with environment variables securely injected.</li>
+    <li><strong>Centralize Secrets:</strong> Adopt secret managers (e.g., Azure Key Vault, HashiCorp Vault) to manage bind credentials.</li>
   </ul>
 
   <hr />
-
+</div>
