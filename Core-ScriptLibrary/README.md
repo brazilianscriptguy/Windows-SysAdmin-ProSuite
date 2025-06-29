@@ -1,128 +1,140 @@
 <div>
-  <h1>📂 Core-ScriptLibrary: Reusable PowerShell Frameworks</h1>
+  <h1>📂 Core-ScriptLibrary Suite</h1>
 
-  <h2>🧰 Overview</h2>
+  <h2>📝 Overview</h2>
   <p>
-    The <strong>Core-ScriptLibrary</strong> is a foundational suite of <strong>PowerShell scripting templates</strong> and 
-    <strong>automation tools</strong> crafted for rapid deployment, modularity, and GUI integration. Designed to enhance script 
-    reusability, logging consistency, and operational standardization across your administrative toolsets.
+    The <strong>Core-ScriptLibrary Folder</strong> contains foundational <strong>PowerShell scripts</strong> designed for 
+    building robust, reusable script modules and GUI-driven tools. These scripts serve as templates and scaffolds 
+    for automating administrative tasks, improving code consistency, and streamlining the development of operational toolkits.
   </p>
 
   <ul>
-    <li>🎛️ <strong>GUI Support:</strong> Dynamic forms and menu-based GUIs simplify interaction and reduce script errors.</li>
-    <li>🪵 <strong>Logging Framework:</strong> Standardized <code>.log</code> generation for troubleshooting and diagnostics.</li>
-    <li>📊 <strong>Export Templates:</strong> Built-in support for <code>.csv</code> outputs for structured reporting.</li>
-    <li>🧱 <strong>Script Scaffolding:</strong> Template generators to unify your PowerShell codebase.</li>
+    <li><strong>📦 Reusable Components:</strong> Ideal for crafting modular scripts with standardized structure.</li>
+    <li><strong>🎛️ Dynamic Menus:</strong> GUI-based launchers help centralize script execution.</li>
+    <li><strong>🪵 Unified Logging:</strong> Scripts generate <code>.log</code> files for traceability and error tracking.</li>
+    <li><strong>📊 Export Reports:</strong> Where applicable, outputs in <code>.csv</code> for reporting and automation pipelines.</li>
   </ul>
 
   <hr />
 
-  <h2>📄 Script Descriptions</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+  <h2>🛠️ Prerequisites</h2>
+  <ol>
+    <li>
+      <strong>⚙️ PowerShell Version:</strong>
+      <p>Ensure you're using PowerShell 5.1 or later.</p>
+      <pre><code>$PSVersionTable.PSVersion</code></pre>
+    </li>
+    <li>
+      <strong>🔑 Administrator Privileges:</strong>
+      <p>Required to run scripts that modify system configurations or access protected paths.</p>
+    </li>
+    <li>
+      <strong>🖥️ Remote Server Administration Tools (RSAT):</strong>
+      <p>Install RSAT to support Active Directory, DNS, and DHCP modules if used by other templates.</p>
+      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
+    </li>
+    <li>
+      <strong>🔧 Execution Policy:</strong>
+      <p>Enable script execution with:</p>
+      <pre><code>Set-ExecutionPolicy RemoteSigned -Scope Process</code></pre>
+    </li>
+  </ol>
+
+  <hr />
+
+  <h2>📄 Script Descriptions (Alphabetical Order)</h2>
+  <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
-        <th style="padding: 8px;">Script</th>
+        <th style="padding: 8px;">Script Name</th>
         <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><strong>Create-Script-DefaultHeader.ps1</strong></td>
-        <td>Generates pre-filled headers for PowerShell scripts including versioning, authorship, and license metadata.</td>
+        <td>Generates a standardized PowerShell script header block with version, author, and metadata fields.</td>
       </tr>
       <tr>
         <td><strong>Create-Script-LoggingMethod.ps1</strong></td>
-        <td>Implements standardized logging blocks and helper functions for consistent diagnostics across scripts.</td>
+        <td>Implements a universal logging method for consistency across scripts and enhanced debugging.</td>
       </tr>
       <tr>
         <td><strong>Create-Script-MainStructure-Core.ps1</strong></td>
-        <td>Provides a complete PowerShell template: includes banner, logging, parameters, and modular sections.</td>
+        <td>Creates a structured script scaffold including header, logging, parameters, and function placeholders.</td>
       </tr>
       <tr>
         <td><strong>Extract-Script-Headers.ps1</strong></td>
-        <td>Scans script folders and extracts script headers to <code>.txt</code> for documentation or inventory purposes.</td>
+        <td>Extracts script header blocks from all <code>.ps1</code> files in a folder and documents them in <code>.txt</code> format.</td>
       </tr>
       <tr>
         <td><strong>Launch-Script-AutomaticMenu.ps1</strong></td>
-        <td>Displays an interactive GUI to browse and launch categorized scripts — ideal for technician toolkits.</td>
+        <td>Displays an interactive GUI with tabbed folders and launch buttons for categorized PowerShell scripts.</td>
       </tr>
     </tbody>
   </table>
 
   <hr />
 
-  <h2>🚀 How to Use</h2>
+  <h2>🚀 Getting Started</h2>
   <ol>
-    <li><strong>Clone the Repository:</strong>
+    <li><strong>Clone or download the repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li><strong>Navigate to the Tools:</strong> Go to <code>/Core-ScriptLibrary/</code>.</li>
-    <li><strong>Review Documentation:</strong> Each folder includes a <code>README.md</code> for context and examples.</li>
-    <li><strong>Run Scripts:</strong> Execute via:
+    <li><strong>Navigate to:</strong> <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/</code></li>
+    <li><strong>Read the <code>README.md</code>:</strong> Each subfolder includes documentation on how to use the tool.</li>
+    <li><strong>Run scripts via PowerShell:</strong>
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
-    <li><strong>Inspect Output:</strong> Check <code>.log</code> and <code>.csv</code> files in the script's folder.</li>
+    <li><strong>Review logs and output:</strong> Check generated <code>.log</code> and <code>.csv</code> files for script results.</li>
   </ol>
 
   <hr />
 
-  <h2>📝 Logging and Reporting</h2>
+  <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>📄 Logs:</strong> All execution steps and errors are written to <code>.log</code> files.</li>
-    <li><strong>📊 CSV Reports:</strong> Where applicable, data is exported in <code>.csv</code> for reporting or audits.</li>
+    <li><strong>📄 Logs:</strong> Execution details and errors are captured in <code>.log</code> files for troubleshooting.</li>
+    <li><strong>📊 Reports:</strong> Some templates produce structured data in <code>.csv</code> format.</li>
   </ul>
 
   <hr />
 
   <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Automate Menu Launchers:</strong> Pin GUI launchers for technician accessibility.</li>
-    <li><strong>Customize Template Headers:</strong> Add fields for ticket IDs, asset tags, etc.</li>
-    <li><strong>Centralize Output:</strong> Use UNC paths or a shared folder to store logs globally.</li>
+    <li><strong>Automate Deployment:</strong> Use task scheduler or remote execution tools for centralized script rollout.</li>
+    <li><strong>Customize Templates:</strong> Modify the default headers and structure to align with your IT standards.</li>
+    <li><strong>Centralize Output:</strong> Store log and report files in a network-shared directory.</li>
   </ul>
 
   <hr />
 
-  <h2>🛠️ Requirements</h2>
-  <ol>
-    <li><strong>PowerShell 5.1+</strong> (or Core where supported)</li>
-    <li><strong>Admin Privileges</strong> recommended for most system-level operations</li>
-    <li><strong>Execution Policy:</strong>
-      <pre><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</code></pre>
-    </li>
-    <li><strong>RSAT (If Working with AD Scripts)</strong>:
-      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
-    </li>
-  </ol>
-
-  <hr />
-
-  <h2>❓ Support & Contributions</h2>
+  <h2>❓ Additional Assistance</h2>
   <p style="text-align: justify; font-size: 16px; line-height: 1.6;">
-    These scripts are built for flexibility. Feel free to modify them to fit your workflow or organizational standard. Contributions are welcome via pull requests, or report any bugs in the <code>Issues</code> section.
+    These scripting templates are designed to be adapted to your environment. Customize the headers, log formatting, and 
+    UI structure as needed. Refer to the <code>README.md</code> files inside each script directory for specific usage examples.
   </p>
 
-  <div align="center">
+  <div align="center" style="margin-top: 20px;">
     <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
-      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
     </a>
     <a href="https://patreon.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon">
+      <img src="https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon" alt="Patreon Badge">
     </a>
     <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Buy%20Me%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="Buy Me Coffee">
     </a>
     <a href="https://ko-fi.com/brazilianscriptguy" target="_blank">
-      <img src="https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi">
+      <img src="https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi" alt="Ko-fi Badge">
     </a>
     <a href="https://gofund.me/4599d3e6" target="_blank">
-      <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme">
+      <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" alt="GoFundMe Badge">
     </a>
     <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank">
-      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp">
+      <img src="https://img.shields.io/badge/WhatsApp-Join%20Us-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
     </a>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues" target="_blank">
-      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github">
+      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="Issues Badge">
     </a>
   </div>
 </div>
