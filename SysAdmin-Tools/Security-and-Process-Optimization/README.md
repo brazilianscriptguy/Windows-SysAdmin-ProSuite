@@ -1,19 +1,19 @@
 <div>
-  <h1>🌐 Network and Infrastructure Management Tools</h1>
+  <h1>🛡️ Security and Process Optimization Tools</h1>
 
   <h2>📝 Overview</h2>
   <p>
-    The <strong>Network and Infrastructure Management</strong> folder contains a curated set of 
-    <strong>PowerShell scripts</strong> built to automate and optimize administration of core network services such as DNS, DHCP, WSUS, 
-    and related infrastructure functions. These tools aim to improve consistency, availability, and compliance across enterprise networks.
+    The <strong>Security and Process Optimization</strong> folder includes a collection of <strong>PowerShell tools</strong> 
+    designed to enhance endpoint protection, enforce compliance, and streamline administrative workflows. These scripts automate repetitive tasks, 
+    strengthen policy enforcement, and improve user/system hygiene in enterprise environments.
   </p>
 
   <h3>Key Features:</h3>
   <ul>
-    <li><strong>Graphical Interfaces:</strong> Several tools feature interactive GUIs to streamline configuration.</li>
-    <li><strong>Comprehensive Logging:</strong> Each script produces <code>.log</code> files for tracking actions and diagnosing issues.</li>
-    <li><strong>Exportable Reports:</strong> Scripts export <code>.csv</code> files with structured data for auditing and integration with analysis tools.</li>
-    <li><strong>Network Services Automation:</strong> Reduces manual workload by automating DNS, DHCP, WSUS, and service management.</li>
+    <li><strong>Automation-Driven:</strong> Reduces manual operations and promotes consistent execution.</li>
+    <li><strong>Security-Focused:</strong> Applies hardened configurations, disables risky services, and enforces policy compliance.</li>
+    <li><strong>Performance Insights:</strong> Analyzes resource usage, logon history, and system responsiveness.</li>
+    <li><strong>Compliance Audits:</strong> Extracts data for reporting, risk assessments, and audit documentation.</li>
   </ul>
 
   <hr />
@@ -23,29 +23,20 @@
     <li>
       <strong>⚙️ PowerShell</strong>
       <ul>
-        <li>Requires PowerShell 5.1 or later.</li>
-        <li>Check your version with:
+        <li>Requires <strong>PowerShell 5.1+</strong> on workstations or servers.</li>
+        <li>Verify with:
           <pre><code>$PSVersionTable.PSVersion</code></pre>
         </li>
       </ul>
     </li>
     <li>
-      <strong>🔑 Administrator Privileges</strong>
-      <p>Required for modifying system and network configurations.</p>
+      <strong>🔑 Administrator Rights</strong>
+      <p>Most scripts should be run with elevated privileges to apply system-level changes.</p>
     </li>
     <li>
-      <strong>🖥️ RSAT Components</strong>
-      <p>Install Remote Server Administration Tools (DNS, DHCP, etc.) with:</p>
-      <pre><code>Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online</code></pre>
-    </li>
-    <li>
-      <strong>🔧 Execution Policy</strong>
-      <p>Temporarily allow script execution:</p>
-      <pre><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process</code></pre>
-    </li>
-    <li>
-      <strong>📦 Dependencies</strong>
-      <p>Ensure modules such as <code>ActiveDirectory</code>, <code>DHCPServer</code>, <code>DNSServer</code> are installed and imported.</p>
+      <strong>📂 Execution Policy</strong>
+      <p>Enable script execution for your session:</p>
+      <pre><code>Set-ExecutionPolicy RemoteSigned -Scope Process</code></pre>
     </li>
   </ol>
 
@@ -61,48 +52,44 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Check-ServicesPort-Connectivity.ps1</strong></td>
-        <td>Verifies real-time connectivity of critical ports for network services.</td>
+        <td><strong>Analyze-SlowLogonEvents.ps1</strong></td>
+        <td>Parses Event Viewer data to identify slow logon events across systems and recommends actions.</td>
       </tr>
       <tr>
-        <td><strong>Create-NewDHCPReservations.ps1</strong></td>
-        <td>Creates new DHCP reservations with support for scope/domain selection.</td>
+        <td><strong>Clean-TempFiles-And-Logs.ps1</strong></td>
+        <td>Clears temp folders, old log files, and recycle bin contents to improve performance.</td>
       </tr>
       <tr>
-        <td><strong>Inventory-WSUSConfigs-Tool.ps1</strong></td>
-        <td>Gathers and exports WSUS server configuration details using a GUI.</td>
+        <td><strong>Disable-USB-StorageAccess.ps1</strong></td>
+        <td>Disables USB mass storage driver support to reduce data exfiltration risks.</td>
       </tr>
       <tr>
-        <td><strong>Restart-NetworkAdapter.ps1</strong></td>
-        <td>Restarts network adapters via a graphical interface for quick recovery.</td>
+        <td><strong>Enforce-SecureScreensaverPolicy.ps1</strong></td>
+        <td>Applies screen lock and timeout GPOs for idle sessions across user environments.</td>
       </tr>
       <tr>
-        <td><strong>Restart-SpoolerPoolServices.ps1</strong></td>
-        <td>Restarts the Print Spooler and LPD services with logging.</td>
+        <td><strong>Identify-LegacyTLSConfigurations.ps1</strong></td>
+        <td>Scans for outdated TLS/SSL registry settings to ensure compliance with modern protocols.</td>
       </tr>
       <tr>
-        <td><strong>Retrieve-DHCPReservations.ps1</strong></td>
-        <td>Exports DHCP reservations and supports filtering by hostname or description.</td>
+        <td><strong>Lock-Workstation-AfterTimeout.ps1</strong></td>
+        <td>Configures auto-lock policy via local group policy objects for unattended systems.</td>
       </tr>
       <tr>
-        <td><strong>Retrieve-Empty-DNSReverseLookupZone.ps1</strong></td>
-        <td>Identifies empty reverse lookup DNS zones for cleanup or review.</td>
+        <td><strong>Monitor-HighCPUProcesses.ps1</strong></td>
+        <td>Monitors system resource usage and generates alerts or logs when thresholds are exceeded.</td>
       </tr>
       <tr>
-        <td><strong>Retrieve-ServersDiskSpace.ps1</strong></td>
-        <td>Collects and reports disk usage from target servers for capacity planning.</td>
+        <td><strong>Remove-UnapprovedSoftware.ps1</strong></td>
+        <td>Uninstalls listed applications that violate corporate software usage policies.</td>
       </tr>
       <tr>
-        <td><strong>Synchronize-ADComputerTime.ps1</strong></td>
-        <td>Standardizes time across AD-joined devices and adjusts by region/timezone.</td>
+        <td><strong>Secure-LocalAdministratorsGroup.ps1</strong></td>
+        <td>Audits and resets local Administrators group membership based on organizational rules.</td>
       </tr>
       <tr>
-        <td><strong>Transfer-DHCPScopes.ps1</strong></td>
-        <td>Transfers DHCP scopes between servers with options for inactivation and rollback.</td>
-      </tr>
-      <tr>
-        <td><strong>Update-DNS-and-Sites-Services.ps1</strong></td>
-        <td>Updates AD Sites and DNS Subnets based on DHCP reservations and exports logs.</td>
+        <td><strong>Track-LogonHistory.ps1</strong></td>
+        <td>Generates login/logout activity reports for security monitoring and forensic analysis.</td>
       </tr>
     </tbody>
   </table>
@@ -111,26 +98,25 @@
 
   <h2>🚀 Usage Instructions</h2>
   <ol>
-    <li><strong>Run the Script:</strong> Right-click the file and choose <code>Run with PowerShell</code> or run it from an elevated shell.</li>
-    <li><strong>Provide Inputs:</strong> Follow any on-screen prompts or use preconfigured variables in the script.</li>
-    <li><strong>Review Outputs:</strong> Inspect <code>.log</code> files for execution logs and <code>.csv</code> files for reports.</li>
+    <li><strong>Run the Script:</strong> Right-click the script file and choose <code>Run with PowerShell</code>.</li>
+    <li><strong>Provide Inputs:</strong> Follow any GUI prompts or CLI instructions where required.</li>
+    <li><strong>Review Outputs:</strong> Examine logs and reports in the designated output folders.</li>
   </ol>
 
   <hr />
 
-  <h2>📄 Complementary Files Overview</h2>
+  <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>WSUS-Exported-Configs.csv:</strong> Export file containing WSUS server metadata and group settings.</li>
-    <li><strong>DHCP-Scope-Transfer-Log.log:</strong> Output log capturing DHCP transfer activity and status.</li>
+    <li><strong>📄 Logs:</strong> Logs are written to <code>C:\Logs-TEMP</code> or <code>C:\ITSM-Logs-WKS</code> by default.</li>
+    <li><strong>📊 Reports:</strong> Generated <code>.csv</code> files provide structured audit and inventory data.</li>
   </ul>
 
   <hr />
 
   <h2>💡 Tips for Optimization</h2>
   <ul>
-    <li><strong>Automate Execution:</strong> Schedule tasks using Task Scheduler or deploy through GPO.</li>
-    <li><strong>Centralize Output:</strong> Store logs and reports in a shared folder accessible to IT admins.</li>
-    <li><strong>Adjust for Scale:</strong> Use filtering and error-handling features to support large environments.</li>
-    <li><strong>Customize Scripts:</strong> Modify variables and settings for your network architecture.</li>
+    <li><strong>Automate Recurring Scripts:</strong> Use Task Scheduler or logon triggers to automate daily hygiene tasks.</li>
+    <li><strong>Maintain a Baseline:</strong> Apply consistent policies across devices using standardized scripts.</li>
+    <li><strong>Centralize Evidence:</strong> Send all logs to a shared network location for centralized review and SIEM ingestion.</li>
   </ul>
 </div>
