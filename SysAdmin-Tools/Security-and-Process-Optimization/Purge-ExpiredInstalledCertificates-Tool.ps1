@@ -39,7 +39,7 @@ Add-Type -AssemblyName System.Drawing
 
 # Smart logging setup
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\ITSM-Logs-WKS'
+$logDir = 'C:\Logs-TEMP'
 $logPath = Join-Path $logDir "$scriptName.log"
 $timestamp = Get-Date -Format "yyyyMMddHHmmss"
 $csvPath = Join-Path $logDir "$scriptName-Removed-$timestamp.csv"
