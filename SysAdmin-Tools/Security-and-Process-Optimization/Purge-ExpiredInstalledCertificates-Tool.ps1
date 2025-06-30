@@ -5,7 +5,7 @@
 .DESCRIPTION
     Lists expired certificates from LocalMachine and CurrentUser stores.
     Allows selective removal via GUI.
-    Generates a persistent log and CSV report in C:\ITSM-Logs-WKS.
+    Generates a persistent log and CSV report in C:\Logs-TEMP.
 
 .AUTHOR
     Luiz Hamilton Silva – @brazilianscriptguy
