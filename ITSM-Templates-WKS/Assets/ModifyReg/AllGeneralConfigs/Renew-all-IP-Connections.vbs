@@ -1,21 +1,51 @@
+'====================================================================
 ' Author: @brazilianscriptguy
-' Updated: June 19, 2025
-' Script for: RENEWING ALL IP ADDRESSING CONFIGURATIONS OF THE LOCAL MACHINE AND REGISTERING THE NEW STATION INFORMATION IN THE DOMAIN DNS
+' Last Updated: July 6, 2025
+' Purpose: Renew all IP addressing configurations of the local machine 
+'          and re-register its information in the domain DNS.
+'====================================================================
 
-' Script testing section for debugging with and without execution errors
-'On Error Resume Next
+' Uncomment the line below for silent error handling during development/debugging
+' On Error Resume Next
 
-' Creation of the object to interact with the operating system's script library
+' Create a Shell object to interact with the system shell
+Dim objShell
 Set objShell = CreateObject("WScript.Shell")
 
-' Execute the operating system's IPCONFIG command, with options to: release the current addresses; clear the local DNS table; renew network addresses via DHCP; register new DNS table
+' Log function (optional - logs to console if run via cscript)
+Sub Log(msg)
+    If InStr(LCase(WScript.FullName), "cscript") > 0 Then
+        WScript.Echo "[INFO] " & msg
+    End If
+End Sub
+
+' Release the current IP addresses
+Log "Releasing current IP configuration..."
 objShell.Run "ipconfig /release", 0, True
+
+' Flush the local DNS cache
+Log "Flushing DNS cache..."
 objShell.Run "ipconfig /flushdns", 0, True
+
+' Renew IP configuration via DHCP
+Log "Renewing IP configuration..."
 objShell.Run "ipconfig /renew", 0, True
+
+' Reset TCP/IP stack to default settings
+Log "Resetting TCP/IP stack..."
 objShell.Run "netsh int ip reset", 0, True
-objShell.Run "netsh int winsock reset", 0, True
 
-' Enable IPv6 settings for all local network adapters
-objShell.Run "cmd.exe /c powershell.exe -ExecutionPolicy Bypass Enable-NetAdapterBinding -Name '*' -ComponentID ms_tcpip6", 0, True
+' Reset Winsock catalog
+Log "Resetting Winsock catalog..."
+objShell.Run "netsh winsock reset", 0, True
 
-' End of Script
+' Enable IPv6 on all adapters using PowerShell
+Log "Enabling IPv6 on all adapters..."
+objShell.Run "cmd.exe /c powershell.exe -ExecutionPolicy Bypass -NoProfile -Command ""Enable-NetAdapterBinding -Name '*' -ComponentID ms_tcpip6""", 0, True
+
+Log "Network configuration reset completed."
+
+' Cleanup
+Set objShell = Nothing
+
+' End of script
