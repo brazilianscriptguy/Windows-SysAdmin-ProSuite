@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-    PowerShell GUI Tool for WSUS Maintenance (WID-Compatible)
+    PowerShell GUI for WSUS Cleanup and WID Database Maintenance
 
 .DESCRIPTION
-    Declines outdated, expired, and superseded updates.
-    Executes safe WSUS cleanup operations segmented by type.
-    Includes optional checkbox for CompressUpdates.
-    Logs and exports results to CSV in C:\Logs-TEMP.
+    - Declines superseded/expired/unapproved updates
+    - Runs segmented WSUS cleanup via WSUS API
+    - Adds SQL maintenance: DBCC CHECKDB, REINDEX, SHRINK for WID
+    - Optional CompressUpdates toggle
+    - All operations are GUI-driven with logging
 
 .AUTHOR
     Luiz Hamilton Silva – brazilianscriptguy
@@ -15,7 +16,7 @@
     Last Updated: July 9, 2025
 #>
 
-# Hide console window
+# Hide console
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -33,37 +34,51 @@ public class Window {
 "@
 [Window]::Hide()
 
-# Load .NET GUI types
+# Load GUI libraries
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Load WSUS assemblies
+# Load WSUS API
 [void][Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
 
-# Setup log and output paths
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+# Setup log
+$scriptName = "Maintain-WSUS-WID"
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$logDir = 'C:\Logs-TEMP'
-$csvPath = Join-Path $logDir "$scriptName-Results-$timestamp.csv"
+$logDir = "C:\Logs-TEMP"
+$logFile = Join-Path $logDir "$scriptName.log"
+$csvFile = Join-Path $logDir "$scriptName-$timestamp.csv"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory | Out-Null }
 
-if (-not (Test-Path $logDir)) {
-    New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-}
-
-# Logging function
 function Write-Log {
     param (
         [string]$Message,
         [string]$Level = "INFO"
     )
-    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $entry = "[$stamp] [$Level] $Message"
+    $entry = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Level, $Message
     Write-Host $entry
-    Add-Content -Path "$logDir\$scriptName.log" -Value $entry -Encoding UTF8
+    Add-Content -Path $logFile -Value $entry -Encoding UTF8
 }
 
-# Decline WSUS updates
+# SQL WID Execution
+function Run-WIDSql {
+    param (
+        [string]$SqlQuery,
+        [string]$Description
+    )
+    try {
+        $cmd = @"
+sqlcmd -S np:\\.\pipe\MICROSOFT##WID\tsql\query -E -Q "$SqlQuery"
+"@
+        Write-Log "Executing SQL: $Description"
+        Invoke-Expression $cmd
+        Write-Log "$Description completed."
+    } catch {
+        Write-Log "$Description failed: $_" "ERROR"
+    }
+}
+
+# WSUS Cleanup logic
 function Decline-Updates {
     param (
         [string]$Label,
@@ -73,70 +88,86 @@ function Decline-Updates {
     $scope.FromCreationDate = (Get-Date).AddDays(-365)
     $updates = $wsus.SearchUpdates($scope) | Where-Object $Filter
     $results = @()
-
-    foreach ($update in $updates) {
+    foreach ($u in $updates) {
         try {
-            $update.Decline()
+            $u.Decline()
             $results += [PSCustomObject]@{
-                KB        = $update.KnowledgeBaseArticles -join ","
-                Title     = $update.Title
+                KB        = $u.KnowledgeBaseArticles -join ","
+                Title     = $u.Title
                 Category  = $Label
-                CreatedOn = $update.CreationDate
+                CreatedOn = $u.CreationDate
             }
         } catch {
-            Write-Log "Failed to decline update: $($update.Title)" "ERROR"
+            Write-Log "Failed to decline update: $($u.Title)" "ERROR"
         }
     }
-
-    Write-Log "Declined $($results.Count) updates under category: $Label"
+    Write-Log "Declined $($results.Count) updates under: $Label"
     return $results
 }
 
-# Execute WSUS cleanup operations
 function Run-WSUSCleanup {
     param (
-        [string]$TaskLabel,
+        [string]$TaskName,
         [scriptblock]$ScopeFactory
     )
     try {
         $scope = & $ScopeFactory
-        $cleanup = $wsus.GetCleanupManager()
-        $cleanup.PerformCleanup($scope)
-        Write-Log "$TaskLabel cleanup completed successfully."
+        $wsus.GetCleanupManager().PerformCleanup($scope)
+        Write-Log "$TaskName cleanup completed."
     } catch {
-        Write-Log "$TaskLabel cleanup failed: $($_.Exception.Message)" "ERROR"
+        Write-Log "$TaskName cleanup failed: $_" "ERROR"
     }
 }
 
-# Main GUI
-function Show-WSUSMaintenanceForm {
+# GUI
+function Show-MaintenanceGUI {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "WSUS Maintenance Tool"
-    $form.Size = New-Object System.Drawing.Size(540, 250)
+    $form.Text = "WSUS and WID Maintenance Tool"
+    $form.Size = '600,300'
     $form.StartPosition = 'CenterScreen'
 
-    $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Select cleanup options and click Run Maintenance."
-    $label.Location = '10,10'
-    $label.Size = '500,20'
-    $form.Controls.Add($label)
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = "Choose your WSUS cleanup options:"
+    $lbl.Location = '10,10'
+    $lbl.Size = '550,20'
+    $form.Controls.Add($lbl)
 
     $chkCompress = New-Object System.Windows.Forms.CheckBox
-    $chkCompress.Text = "Include CompressUpdates (not recommended for WID)"
+    $chkCompress.Text = "Include CompressUpdates (optional)"
     $chkCompress.Location = '10,40'
-    $chkCompress.Size = '500,20'
-    $chkCompress.Checked = $false
+    $chkCompress.Size = '550,20'
     $form.Controls.Add($chkCompress)
+
+    $chkReindex = New-Object System.Windows.Forms.CheckBox
+    $chkReindex.Text = "Reindex WID SUSDB database"
+    $chkReindex.Location = '10,70'
+    $chkReindex.Size = '550,20'
+    $chkReindex.Checked = $true
+    $form.Controls.Add($chkReindex)
+
+    $chkShrink = New-Object System.Windows.Forms.CheckBox
+    $chkShrink.Text = "Shrink WID SUSDB database"
+    $chkShrink.Location = '10,100'
+    $chkShrink.Size = '550,20'
+    $chkShrink.Checked = $false
+    $form.Controls.Add($chkShrink)
+
+    $chkCheckDB = New-Object System.Windows.Forms.CheckBox
+    $chkCheckDB.Text = "Run DBCC CHECKDB on SUSDB"
+    $chkCheckDB.Location = '10,130'
+    $chkCheckDB.Size = '550,20'
+    $chkCheckDB.Checked = $true
+    $form.Controls.Add($chkCheckDB)
 
     $btnRun = New-Object System.Windows.Forms.Button
     $btnRun.Text = "Run Maintenance"
-    $btnRun.Location = '10,80'
-    $btnRun.Size = '240,30'
+    $btnRun.Location = '10,180'
+    $btnRun.Size = '280,30'
     $btnRun.Add_Click({
         try {
             $global:wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer("localhost", $false, 8530)
             Write-Log ""
-            Write-Log "Starting WSUS maintenance on 'localhost'..."
+            Write-Log "Starting WSUS maintenance..."
 
             $log1 = Decline-Updates "Unapproved" {
                 (-not $_.IsApproved) -and (-not $_.IsDeclined) -and ($_.CreationDate -lt (Get-Date).AddDays(-30))
@@ -150,63 +181,70 @@ function Show-WSUSMaintenanceForm {
                 $_.IsSuperseded -and -not $_.IsDeclined
             }
 
-            Write-Log "Executing cleanup operations..."
-
             Run-WSUSCleanup "Superseded Updates" {
                 $s = New-Object Microsoft.UpdateServices.Administration.CleanupScope
                 $s.DeclineSupersededUpdates = $true; return $s
             }
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 2
 
             Run-WSUSCleanup "Expired Updates" {
                 $s = New-Object Microsoft.UpdateServices.Administration.CleanupScope
                 $s.DeclineExpiredUpdates = $true; return $s
             }
-            Start-Sleep -Seconds 5
 
             Run-WSUSCleanup "Obsolete Updates" {
                 $s = New-Object Microsoft.UpdateServices.Administration.CleanupScope
                 $s.CleanupObsoleteUpdates = $true; return $s
             }
-            Start-Sleep -Seconds 5
 
             Run-WSUSCleanup "Obsolete Computers" {
                 $s = New-Object Microsoft.UpdateServices.Administration.CleanupScope
                 $s.CleanupObsoleteComputers = $true; return $s
             }
-            Start-Sleep -Seconds 5
 
             if ($chkCompress.Checked) {
                 Run-WSUSCleanup "Compress Updates" {
                     $s = New-Object Microsoft.UpdateServices.Administration.CleanupScope
                     $s.CompressUpdates = $true; return $s
                 }
-                Start-Sleep -Seconds 5
-            } else {
-                Write-Log "CompressUpdates cleanup skipped by user selection."
+            }
+
+            if ($chkCheckDB.Checked) {
+                Run-WIDSql -Description "DBCC CHECKDB" -SqlQuery "USE SUSDB; DBCC CHECKDB;"
+            }
+
+            if ($chkReindex.Checked) {
+                Run-WIDSql -Description "Reindex" -SqlQuery "
+USE SUSDB;
+EXEC sp_MSforeachtable 'ALTER INDEX ALL ON ? REBUILD WITH (FILLFACTOR = 80);'
+"
+            }
+
+            if ($chkShrink.Checked) {
+                Run-WIDSql -Description "Shrink" -SqlQuery "
+USE SUSDB;
+DBCC SHRINKDATABASE (SUSDB)
+"
             }
 
             $final = $log1 + $log2 + $log3
             if ($final.Count -gt 0) {
-                $final | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-                Write-Log "Maintenance completed. Report saved to: $csvPath"
-                [System.Windows.Forms.MessageBox]::Show("WSUS maintenance completed. Results saved to: $csvPath","Done",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
-            } else {
-                Write-Log "No updates were declined. No CSV report created."
-                [System.Windows.Forms.MessageBox]::Show("No updates were declined. No report created.","Info",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
+                $final | Export-Csv -Path $csvFile -NoTypeInformation -Encoding UTF8
+                Write-Log "Exported results to $csvFile"
             }
 
+            [System.Windows.Forms.MessageBox]::Show("Maintenance completed. Review the logs and output.","Done",[System.Windows.Forms.MessageBoxButtons]::OK)
         } catch {
-            Write-Log "Unexpected error occurred: $_" "ERROR"
-            [System.Windows.Forms.MessageBox]::Show("WSUS error: $_","Error",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "Fatal error: $_" "ERROR"
+            [System.Windows.Forms.MessageBox]::Show("A fatal error occurred. Check log.","Error",[System.Windows.Forms.MessageBoxButtons]::OK)
         }
     })
     $form.Controls.Add($btnRun)
 
     $btnClose = New-Object System.Windows.Forms.Button
     $btnClose.Text = "Close"
-    $btnClose.Location = '270,80'
-    $btnClose.Size = '240,30'
+    $btnClose.Location = '310,180'
+    $btnClose.Size = '250,30'
     $btnClose.Add_Click({ $form.Close() })
     $form.Controls.Add($btnClose)
 
@@ -214,7 +252,6 @@ function Show-WSUSMaintenanceForm {
     [void]$form.ShowDialog()
 }
 
-# Launch GUI
-Show-WSUSMaintenanceForm
+Show-MaintenanceGUI
 
 # End of script
