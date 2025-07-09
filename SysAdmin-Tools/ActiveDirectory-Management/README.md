@@ -70,7 +70,7 @@
     <tr><td><strong>Enforce-Expiration-ADUserPasswords.ps1</strong></td><td>Enables password expiration enforcement on user accounts.</td></tr>
     <tr><td><strong>Export-n-Import-GPOsTool.ps1</strong></td><td>GUI tool to export/import GPOs between domains or backups.</td></tr>
     <tr><td><strong>Fix-ADForest-DNSDelegation.ps1</strong></td><td>Resolves DNS delegation inconsistencies in the AD forest.</td></tr>
-    <tr><td><strong>Inventory-ADComputers-and-OUs.ps1</strong></td><td>Exports AD computer names with full OU paths across selected or all forest domains, using a GUI with filters and progress bar.</td></tr>
+    <tr><td><strong>Inventory-ADComputers-and-OUs.ps1</strong></td><td>Exports AD computers and OU paths from one or all domains via GUI.</td></tr>
     <tr><td><strong>Inventory-ADDomainComputers.ps1</strong></td><td>Exports a list of all domain-joined computers.</td></tr>
     <tr><td><strong>Inventory-ADGroups-their-Members.ps1</strong></td><td>Lists all AD groups and their associated members.</td></tr>
     <tr><td><strong>Inventory-ADMemberServers.ps1</strong></td><td>Generates reports on all domain member servers.</td></tr>
