@@ -26,4 +26,4 @@ A professional PowerShell GUI tool for **automated WSUS cleanup** and **Windows 
 1. **Run with Administrator privileges**
 2. Double-click the script or run:
    ```powershell
-   powershell.exe -ExecutionPolicy Bypass -File .\Maintain-WSUS-WithGUI.ps1
+   powershell.exe -ExecutionPolicy Bypass -File .\Maintenance-WSUS-Admin-Tool.ps1
