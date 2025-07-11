@@ -1,146 +1,128 @@
 <div>
-  <h1>⚙️ WSUS Management Tools</h1>
+  <h1>WSUS Management Tools</h1>
 
-  <h2>📝 Overview</h2>
+  <h2>Overview</h2>
   <p>
-    The <strong>WSUS Management</strong> folder contains a curated set of 
-    <strong>PowerShell scripts</strong> for administering and maintaining Windows Server Update Services (WSUS). 
-    This tool is optimized for scalable, secure, and automated management of WSUS servers and the 
-    <strong>SUSDB (Windows Internal Database)</strong> in Active Directory (AD) environments.
+    The <strong>WSUS-Management-Tools</strong> repository is a collection of professional-grade PowerShell scripts designed to automate, maintain, and optimize Windows Server Update Services (WSUS) and its underlying SUSDB (Windows Internal Database).
   </p>
 
-  <h3>✅ Key Features</h3>
+  <h3>Key Features</h3>
   <ul>
-    <li><strong>Graphical Interface:</strong> GUI-based script simplifies WSUS administration for administrators.</li>
-    <li><strong>Centralized Logging:</strong> Each execution logs results in structured <code>.log</code> files.</li>
-    <li><strong>Streamlined Maintenance:</strong> Automates update declines, WSUS API cleanups, and SUSDB optimization.</li>
-    <li><strong>Policy Compliance:</strong> Enforces WSUS maintenance baselines with optional SQL backups.</li>
+    <li><strong>Graphical User Interface:</strong> Modern GUI-based script for end-to-end WSUS administration.</li>
+    <li><strong>SQL Maintenance Automation:</strong> Generate and execute index rebuilds and fragmentation analysis on SUSDB.</li>
+    <li><strong>Assembly Verification:</strong> Automatically checks for WSUS Administration Console dependencies.</li>
+    <li><strong>Logging:</strong> Structured log and CSV output for declined updates and actions taken.</li>
+    <li><strong>Scheduling Support:</strong> Built-in support for task automation via Windows Task Scheduler.</li>
   </ul>
 
   <hr />
 
-  <h2>🛠️ Prerequisites</h2>
+  <h2>Prerequisites</h2>
   <ol>
     <li>
-      <strong>⚙️ PowerShell:</strong>
+      <strong>PowerShell</strong>
       <ul>
-        <li>Requires PowerShell version 5.1 or later.</li>
-        <li>Verify version:
+        <li>PowerShell 5.1 or later is required.</li>
+        <li>Check your version:
           <pre><code>$PSVersionTable.PSVersion</code></pre>
         </li>
       </ul>
     </li>
     <li>
-      <strong>🔑 Administrator Privileges:</strong>
-      <p>All scripts require elevated permissions to execute WSUS and SQL tasks.</p>
+      <strong>Administrator Privileges</strong>
+      <p>All scripts must be run as Administrator due to WSUS and SQL access.</p>
     </li>
     <li>
-      <strong>📦 Required Modules:</strong>
-      <p>Ensure modules such as <code>UpdateServices</code> (via WSUS Administration Console) and <code>ActiveDirectory</code> (optional, for server discovery) are available.</p>
+      <strong>Required Modules</strong>
+      <ul>
+        <li><code>UpdateServices</code> — Installed with WSUS Admin Console.</li>
+        <li><code>ActiveDirectory</code> — Optional, used for WSUS server auto-discovery.</li>
+      </ul>
     </li>
     <li>
-      <strong>🗃 SQLCMD Tools:</strong>
-      <p>
-        Required for executing DBCC commands and custom SQL scripts on SUSDB.
-        Ensure <code>sqlcmd.exe</code> is in the system <code>PATH</code> or specify its full path manually.
-      </p>
+      <strong>SQLCMD Tools</strong>
+      <ul>
+        <li>Required for running queries on WID (SUSDB).</li>
+        <li>Ensure <code>sqlcmd.exe</code> is in PATH or specify the full path in your script.</li>
+      </ul>
     </li>
     <li>
-      <strong>🔧 Execution Policy:</strong>
+      <strong>Execution Policy</strong>
       <pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned</code></pre>
     </li>
     <li>
-      <strong>📂 SQL Scripts Location:</strong>
-      <p>Ensure the following SQL files are placed in <code>C:\Scripts</code> (or adjust path accordingly):</p>
+      <strong>SQL Scripts Location</strong>
+      <p>Ensure the following SQL files are located in <code>C:\Scripts</code>:</p>
       <ul>
         <li><code>wsus-reindex-EXAMPLE.sql</code></li>
         <li><code>wsus-verify-fragmentation.sql</code></li>
       </ul>
     </li>
     <li>
-      <strong>🧩 WSUS Admin Assembly:</strong>
-      <p>To automate WSUS using PowerShell, ensure the <code>Microsoft.UpdateServices.Administration.dll</code> is available in GAC.</p>
-
-      <p>📍 <strong>Default Location:</strong><br />
-      <code>C:\Windows\Microsoft.NET\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration</code></p>
-
-      <p>✅ <strong>PowerShell Verification Script:</strong></p>
-      <pre><code># Check if WSUS Admin Assembly is registered
-$assembly = [AppDomain]::CurrentDomain.GetAssemblies() |
-    Where-Object { $_.FullName -like "Microsoft.UpdateServices.Administration*" }
-
-if (-not $assembly) {
-    try {
-        [Reflection.Assembly]::Load("Microsoft.UpdateServices.Administration") | Out-Null
-        Write-Host "✅ WSUS Administration assembly loaded successfully."
-    } catch {
-        Write-Warning "❌ Microsoft.UpdateServices.Administration.dll not found. Install WSUS Console on this system."
-    }
-} else {
-    Write-Host "✅ WSUS Administration assembly already loaded in current session."
-}
-</code></pre>
-
-      <p><strong>To Install WSUS Console (if missing):</strong></p>
-      <pre><code>Install-WindowsFeature -Name UpdateServices-UI</code></pre>
+      <strong>WSUS Administration Console</strong>
+      <p>
+        To verify that the <code>Microsoft.UpdateServices.Administration.dll</code> is available in the Global Assembly Cache (GAC), run:
+      </p>
+      <pre><code>.\Check-WSUS-AdminAssembly.ps1</code></pre>
+      <p>
+        This will check if the WSUS Admin assembly is already loaded or available in the GAC, and provide instructions if missing.
+      </p>
     </li>
   </ol>
 
   <hr />
 
-  <h2>📜 Script Descriptions (Alphabetical Order)</h2>
+  <h2>Script Descriptions</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
         <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Function</th>
+        <th style="padding: 8px;">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>WSUS-Admin-Maintenance-Tool.ps1</strong></td>
-        <td>
-          All-in-one GUI script to automate WSUS administration. Offers update declining (expired, unapproved, superseded), 
-          WSUS API cleanup with optional compression, SUSDB maintenance with custom SQL scripts 
-          (<code>wsus-reindex-EXAMPLE.sql</code> and <code>wsus-verify-fragmentation.sql</code>), 
-          and optional SQL backup. Auto-detects WSUS servers from the AD forest.
-        </td>
+        <td><strong>Maintenance-WSUS-Admin-Tool.ps1</strong></td>
+        <td>All-in-one GUI tool for WSUS cleanup, decline rules, compression, SUSDB maintenance, backup, and logging. Integrates with Active Directory for WSUS auto-discovery.</td>
+      </tr>
+      <tr>
+        <td><strong>Check-WSUS-AdminAssembly.ps1</strong></td>
+        <td>Validates that the WSUS Console is installed and the required .NET assembly is available in the GAC.</td>
       </tr>
       <tr>
         <td><strong>Generate-WSUSReindexScript.ps1</strong></td>
-        <td>PowerShell script that queries SUSDB for fragmented indexes and generates a reindex SQL file.</td>
+        <td>Generates <code>wsus-reindex.sql</code> T-SQL script based on index fragmentation analysis. Uses <code>sqlcmd</code> to query SUSDB.</td>
       </tr>
     </tbody>
   </table>
 
   <hr />
 
-  <h2>🚀 Usage Instructions</h2>
+  <h2>Usage Instructions</h2>
   <ol>
-    <li><strong>Run the Script:</strong> Right-click <code>WSUS-Admin-Maintenance-Tool.ps1</code> → <em>Run with PowerShell</em> as Administrator.</li>
-    <li><strong>Select Options:</strong> Choose WSUS server and maintenance tasks via GUI.</li>
-    <li><strong>View Logs:</strong> Check <code>$env:ProgramData\WSUS-GUI\Logs</code> for detailed logs.</li>
-    <li><strong>Export:</strong> Optional CSV export of declined updates and SQL backup if enabled.</li>
+    <li>Run <code>Maintenance-WSUS-Admin-Tool.ps1</code> with elevated privileges (Right-click → Run with PowerShell).</li>
+    <li>Select a WSUS server and desired maintenance options via the graphical interface.</li>
+    <li>Click “Run Maintenance” to begin. Logs and CSV files will be generated automatically.</li>
   </ol>
 
   <hr />
 
-  <h2>📁 Complementary Files</h2>
+  <h2>Output Artifacts</h2>
   <ul>
-    <li><strong>*.log:</strong> Execution log with timestamps, stored in <code>$env:ProgramData\WSUS-GUI\Logs</code>.</li>
-    <li><strong>*.csv:</strong> Declined update report after maintenance run.</li>
-    <li><strong>*.bak:</strong> Optional SUSDB backup file (if selected).</li>
-    <li><strong>*.sql:</strong> SQL scripts for database health (reindex and fragmentation audit).</li>
+    <li><strong>*.log</strong> — Detailed logs stored in <code>$env:ProgramData\WSUS-GUI\Logs</code></li>
+    <li><strong>*.csv</strong> — Export of declined updates in CSV format</li>
+    <li><strong>*.bak</strong> — Optional SUSDB backup files (if selected)</li>
+    <li><strong>wsus-reindex-EXAMPLE.sql</strong> — SQL script for index optimization</li>
+    <li><strong>wsus-verify-fragmentation.sql</strong> — SQL script for fragmentation analysis</li>
   </ul>
 
   <hr />
 
-  <h2>💡 Optimization Tips</h2>
+  <h2>Maintenance Recommendations</h2>
   <ul>
-    <li><strong>GPO Scheduling:</strong> Trigger weekly runs using Task Scheduler and Group Policy.</li>
-    <li><strong>Centralized Logging:</strong> Point <code>$logDir</code> to a network share for audit compliance.</li>
-    <li><strong>SQL Prechecks:</strong> Use <code>wsus-verify-fragmentation.sql</code> before performing reindexing.</li>
-    <li><strong>Backup First:</strong> Always take a database backup before shrinking or compressing.</li>
-    <li><strong>Test Mode:</strong> Run in staging before applying to production WSUS servers.</li>
+    <li>Run WSUS maintenance weekly using the “Schedule Task” button in the GUI.</li>
+    <li>Review logs and reports regularly for update health and DB status.</li>
+    <li>Ensure <code>sqlcmd</code> is available on all WSUS servers for database operations.</li>
+    <li>Test custom SQL maintenance in staging environments before production use.</li>
   </ul>
 </div>
