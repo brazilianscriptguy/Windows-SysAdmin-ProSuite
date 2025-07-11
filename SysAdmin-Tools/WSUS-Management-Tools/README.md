@@ -43,7 +43,7 @@
       <strong>SQLCMD Tools</strong>
       <ul>
         <li>Required for running queries on WID (SUSDB).</li>
-        <li>Ensure <code>sqlcmd.exe</code> is in PATH or specify the full path in your script.</li>
+        <li>Ensure <code>sqlcmd.exe</code> is in PATH or specify the full path in your script (e.g., <code>$sqlcmdPath = "C:\Path\To\sqlcmd.exe"</code> if not found).</li>
       </ul>
     </li>
     <li>
@@ -52,9 +52,9 @@
     </li>
     <li>
       <strong>SQL Scripts Location</strong>
-      <p>Ensure the following SQL files are located in <code>C:\Scripts</code>:</p>
+      <p>Ensure the following SQL files are located in <code>C:\Scripts</code> (adjust path in script if needed):</p>
       <ul>
-        <li><code>wsus-reindex-EXAMPLE.sql</code></li>
+        <li><code>wsus-reindex.sql</code></li>
         <li><code>wsus-verify-fragmentation.sql</code></li>
       </ul>
     </li>
@@ -82,8 +82,8 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Maintenance-WSUS-Admin-Tool.ps1</strong></td>
-        <td>All-in-one GUI tool for WSUS cleanup, decline rules, compression, SUSDB maintenance, backup, and logging. Integrates with Active Directory for WSUS auto-discovery.</td>
+        <td><strong>WSUS-Admin-Maintenance-Tool.ps1</strong></td>
+        <td>All-in-one GUI tool for WSUS cleanup, decline rules (expired, unapproved, superseded), compression, SUSDB maintenance with custom SQL scripts (<code>wsus-reindex.sql</code> for index rebuilding and <code>wsus-verify-fragmentation.sql</code> for fragmentation analysis), backup, and logging. Integrates with Active Directory for WSUS auto-discovery.</td>
       </tr>
       <tr>
         <td><strong>Check-WSUS-AdminAssembly.ps1</strong></td>
@@ -100,7 +100,7 @@
 
   <h2>Usage Instructions</h2>
   <ol>
-    <li>Run <code>Maintenance-WSUS-Admin-Tool.ps1</code> with elevated privileges (Right-click → Run with PowerShell).</li>
+    <li>Run <code>WSUS-Admin-Maintenance-Tool.ps1</code> with elevated privileges (Right-click → Run with PowerShell).</li>
     <li>Select a WSUS server and desired maintenance options via the graphical interface.</li>
     <li>Click “Run Maintenance” to begin. Logs and CSV files will be generated automatically.</li>
   </ol>
@@ -112,7 +112,7 @@
     <li><strong>*.log</strong> — Detailed logs stored in <code>$env:ProgramData\WSUS-GUI\Logs</code></li>
     <li><strong>*.csv</strong> — Export of declined updates in CSV format</li>
     <li><strong>*.bak</strong> — Optional SUSDB backup files (if selected)</li>
-    <li><strong>wsus-reindex-EXAMPLE.sql</strong> — SQL script for index optimization</li>
+    <li><strong>wsus-reindex.sql</strong> — SQL script for index optimization</li>
     <li><strong>wsus-verify-fragmentation.sql</strong> — SQL script for fragmentation analysis</li>
   </ul>
 
@@ -124,5 +124,7 @@
     <li>Review logs and reports regularly for update health and DB status.</li>
     <li>Ensure <code>sqlcmd</code> is available on all WSUS servers for database operations.</li>
     <li>Test custom SQL maintenance in staging environments before production use.</li>
+    <li>Perform DB backups before enabling compression or reindexing on large SUSDB databases.</li>
+    <li>Modify the script’s <code>$logDir</code> to point to a shared network folder for centralized logging if needed.</li>
   </ul>
 </div>
