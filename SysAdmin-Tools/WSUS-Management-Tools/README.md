@@ -25,7 +25,7 @@
       <strong>⚙️ PowerShell:</strong>
       <ul>
         <li>Requires PowerShell version 5.1 or later.</li>
-        <li>Check version:
+        <li>Verify version:
           <pre><code>$PSVersionTable.PSVersion</code></pre>
         </li>
       </ul>
@@ -36,11 +36,26 @@
     </li>
     <li>
       <strong>📦 Required Modules:</strong>
-      <p>Ensure modules such as <code>UpdateServices</code> (via WSUS Administration Console) and <code>ActiveDirectory</code> are available.</p>
+      <p>Ensure modules such as <code>UpdateServices</code> (via WSUS Administration Console) and <code>ActiveDirectory</code> (optional, for server discovery) are available.</p>
     </li>
     <li>
       <strong>🗃 SQLCMD Tools:</strong>
-      <p>Required for executing DBCC commands and custom SQL scripts on SUSDB. Ensure <code>sqlcmd.exe</code> is in the system <code>PATH</code> or specify its full path.</p>
+      <p>
+        Required for executing DBCC commands and custom SQL scripts on SUSDB.
+        Ensure <code>sqlcmd.exe</code> is in the system <code>PATH</code> or specify its full path manually (e.g., <code>$sqlcmdPath = "C:\Path\To\sqlcmd.exe"</code> if not found).
+      </p>
+    </li>
+    <li>
+      <strong>🔧 Execution Policy:</strong>
+      <pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned</code></pre>
+    </li>
+    <li>
+      <strong>📂 SQL Script Files:</strong>
+      <p>Place <code>wsus-reindex.sql</code> and <code>wsus-verify-fragmentation.sql</code> in <code>C:\Scripts</code> (adjust path in script if needed).</p>
+    </li>
+    <li>
+      <strong>🔧 WSUS Assembly:</strong>
+      <p>Ensure the WSUS Administration Console is installed, providing the assembly at <code>C:\Windows\Microsoft.Net\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration\...</code>.</p>
     </li>
   </ol>
 
@@ -70,7 +85,7 @@
 
   <h2>🚀 Usage Instructions</h2>
   <ol>
-    <li><strong>Run the Script:</strong> Right-click on <code>WSUS-Admin-Maintenance-Tool.ps1</code> and choose <em>Run with PowerShell</em>.</li>
+    <li><strong>Run the Script:</strong> Right-click on <code>WSUS-Admin-Maintenance-Tool.ps1</code> and choose <em>Run with PowerShell</em> as Administrator.</li>
     <li><strong>Input Parameters:</strong> Select a WSUS server from the dropdown and check desired maintenance tasks via the GUI.</li>
     <li><strong>Check Results:</strong> Logs are saved in <code>$env:ProgramData\WSUS-GUI\Logs</code>, with optional CSV exports for declined updates.</li>
   </ol>
@@ -90,7 +105,9 @@
   <ul>
     <li><strong>Leverage GPO Scheduling:</strong> Use the <strong>Schedule Task</strong> button to trigger weekly maintenance via GPO.</li>
     <li><strong>Use Task Scheduler:</strong> Schedule repetitive tasks using Windows Task Scheduler for automation.</li>
-    <li><strong>Centralize Logs:</strong> Modify the script’s <code>$logDir</code> to point to a network share for unified audit.</li>
+    <li><strong>Centralize Logs:</strong> Modify the script’s <code>$logDir</code> to point to a shared network folder for unified audit.</li>
     <li><strong>Parameterize for Reuse:</strong> Adjust variables like <code>$sqlScriptDir</code> to fit different environments.</li>
+    <li><strong>Backup Strategy:</strong> Perform DB backups before enabling compression or reindexing on large SUSDB databases.</li>
+    <li><strong>Safe Execution:</strong> Test new WSUS cleanup or SQL maintenance options in a staging environment before production.</li>
   </ul>
 </div>
