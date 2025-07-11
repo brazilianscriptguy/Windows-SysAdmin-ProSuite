@@ -1,4 +1,4 @@
-# Maintain-WSUS-WithGUI.ps1
+# Maintain-WSUS-Tool.ps1
 
 ### Purpose:
 A professional PowerShell GUI tool for **automated WSUS cleanup** and **Windows Internal Database (WID)** maintenance — including update declines, WSUS API cleanups, and optional DBCC tasks on SUSDB.
