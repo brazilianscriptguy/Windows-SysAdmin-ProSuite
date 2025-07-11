@@ -1,23 +1,23 @@
 <div>
-  <h1>🧰 WSUS Management Tool</h1>
+  <h1>🛠️ WSUS Management Tools</h1>
 
   <h2>📝 Overview</h2>
   <p>
-    The <strong>Maintenance-WSUS-Admin-Tool.ps1</strong> is a comprehensive PowerShell-based GUI script
-    designed for automating <strong>WSUS maintenance</strong> and performing optional <strong>SUSDB (WID) SQL tasks</strong>.
-    Built with enterprise environments in mind, it simplifies administrative tasks such as declining updates, executing cleanup,
-    and maintaining the Windows Internal Database — all through an intuitive interface.
+    The <strong>WSUS Management</strong> folder includes a professional-grade PowerShell GUI script 
+    for administering and maintaining Windows Server Update Services (WSUS). 
+    This tool is purpose-built for automating update declines, WSUS API cleanups, and optional maintenance on 
+    <strong>SUSDB (Windows Internal Database)</strong>. It is ideal for large-scale enterprise WSUS deployments.
   </p>
 
-  <h3>Key Features:</h3>
+  <h3>✅ Key Features</h3>
   <ul>
-    <li><strong>Graphical Interface:</strong> Full-featured GUI with checkboxes, progress bar, and feedback.</li>
-    <li><strong>Automated Update Decline:</strong> Handles expired, unapproved, and superseded updates.</li>
-    <li><strong>WSUS API Cleanup:</strong> Executes <code>CleanupManager</code> operations including optional compression.</li>
-    <li><strong>SUSDB Maintenance:</strong> Runs <code>DBCC CHECKDB</code>, index rebuild, and optional shrink on WID-based databases.</li>
-    <li><strong>Optional Database Backup:</strong> Backs up <code>SUSDB</code> (optional, shown with warning for large deployments).</li>
-    <li><strong>Remote WSUS Server Detection:</strong> Auto-detects all WSUS servers across the Active Directory forest.</li>
-    <li><strong>Logging and CSV Export:</strong> Writes output to <code>C:\Logs-TEMP</code> for audit and reporting.</li>
+    <li><strong>Graphical Interface:</strong> User-friendly GUI to perform WSUS tasks without command-line interaction.</li>
+    <li><strong>Remote WSUS Server Detection:</strong> Dynamically finds and lists WSUS servers across the AD forest.</li>
+    <li><strong>Update Decline Options:</strong> Handles expired, unapproved, and superseded updates automatically.</li>
+    <li><strong>WSUS API Cleanup:</strong> Executes official WSUS cleanup methods including optional compression.</li>
+    <li><strong>SQL WID Maintenance:</strong> Supports DBCC CHECKDB, index rebuild, and shrink for WID (SUSDB).</li>
+    <li><strong>Optional SUSDB Backup:</strong> Toggle to back up the database before cleanup (with warnings for large deployments).</li>
+    <li><strong>Logging and Reporting:</strong> Exports detailed logs and declined update reports in CSV format.</li>
   </ul>
 
   <hr />
@@ -25,14 +25,15 @@
   <h2>🛠️ Prerequisites</h2>
   <ol>
     <li>
-      <strong>⚙️ PowerShell 5.1+</strong>
+      <strong>⚙️ PowerShell</strong>
       <ul>
-        <li>Check version:
+        <li>Requires PowerShell 5.1 or later.</li>
+        <li>Verify version:
           <pre><code>$PSVersionTable.PSVersion</code></pre>
         </li>
       </ul>
     </li>
-    <li><strong>🔑 Administrator Privileges</strong></li>
+    <li><strong>🔑 Administrator Privileges:</strong> Required for all WSUS and SQL tasks.</li>
     <li>
       <strong>📦 Required Modules:</strong>
       <ul>
@@ -41,31 +42,34 @@
       </ul>
     </li>
     <li>
-      <strong>🗃 SQL Tools (for WID Maintenance)</strong>
-      <p>Ensure <code>sqlcmd.exe</code> is available in system <code>PATH</code>.</p>
+      <strong>🗃 SQLCMD Tools:</strong>
+      <ul>
+        <li>Required for executing DBCC commands on SUSDB.</li>
+        <li>Ensure <code>sqlcmd.exe</code> is in system <code>PATH</code>.</li>
+      </ul>
     </li>
     <li>
       <strong>🔧 Execution Policy:</strong>
-      <pre><code>Set-ExecutionPolicy RemoteSigned -Scope Process</code></pre>
+      <pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned</code></pre>
     </li>
   </ol>
 
   <hr />
 
-  <h2>📄 Script Details</h2>
+  <h2>📜 Script Descriptions (Alphabetical Order)</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
         <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Description</th>
+        <th style="padding: 8px;">Function</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><strong>Maintenance-WSUS-Admin-Tool.ps1</strong></td>
         <td>
-          All-in-one GUI script for WSUS administration. Supports declining updates, WSUS cleanup via API, 
-          SQL-based maintenance on WID (check DB, reindex, shrink), and automatic WSUS server discovery from AD forest.
+          All-in-one GUI script to automate WSUS administration. Offers update declining, WSUS API cleanup, 
+          SUSDB maintenance (DBCC, reindex, shrink), and optional SQL backup. Auto-detects WSUS servers from the AD forest.
         </td>
       </tr>
     </tbody>
@@ -73,30 +77,31 @@
 
   <hr />
 
-  <h2>🚀 How to Use</h2>
+  <h2>🚀 Usage Instructions</h2>
   <ol>
-    <li><strong>Right-click</strong> the script file and select <em>Run with PowerShell</em>.</li>
-    <li>Choose a WSUS server from the dropdown (auto-filled from forest).</li>
-    <li>Check the maintenance tasks you wish to perform.</li>
-    <li>Click <strong>Run Maintenance</strong> and monitor the progress bar.</li>
-    <li>After execution, review logs and optional CSV files in <code>C:\Logs-TEMP</code>.</li>
+    <li><strong>Run the Script:</strong> Right-click the <code>.ps1</code> file and choose <em>Run with PowerShell</em>.</li>
+    <li><strong>Server Selection:</strong> Pick a WSUS server from the dropdown (auto-populated from AD).</li>
+    <li><strong>Select Actions:</strong> Use the checkboxes to define maintenance tasks.</li>
+    <li><strong>Run:</strong> Click <strong>Run Maintenance</strong> and monitor the progress via GUI feedback.</li>
+    <li><strong>Check Results:</strong> Logs and CSV exports will be available in <code>C:\Logs-TEMP</code>.</li>
   </ol>
 
   <hr />
 
-  <h2>📁 Output Files</h2>
+  <h2>📁 Complementary Files</h2>
   <ul>
-    <li><strong>*.log</strong> — Execution logs with timestamps and results</li>
-    <li><strong>*.csv</strong> — Declined update lists (if applicable)</li>
-    <li><strong>*.bak</strong> — Database backup files (if enabled)</li>
+    <li><strong>*.log:</strong> Execution log with timestamps and detailed results.</li>
+    <li><strong>*.csv:</strong> Declined update report exported after execution.</li>
+    <li><strong>*.bak:</strong> Optional SUSDB database backup file (if enabled).</li>
   </ul>
 
   <hr />
 
-  <h2>💡 Tips</h2>
+  <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Run monthly:</strong> Schedule with Task Scheduler for recurring maintenance.</li>
-    <li><strong>Skip compress on large WID:</strong> Use only when needed to reduce downtime.</li>
-    <li><strong>Centralize logs:</strong> Redirect to a shared UNC path for organization-wide visibility.</li>
+    <li><strong>Use Task Scheduler:</strong> Automate regular cleanup with weekly/monthly triggers.</li>
+    <li><strong>Backup Strategy:</strong> Perform DB backups before enabling compression on large databases.</li>
+    <li><strong>Centralize Logs:</strong> Modify script to store logs on a shared network folder.</li>
+    <li><strong>Safe Execution:</strong> Test new WSUS cleanup options in staging before production.</li>
   </ul>
 </div>
