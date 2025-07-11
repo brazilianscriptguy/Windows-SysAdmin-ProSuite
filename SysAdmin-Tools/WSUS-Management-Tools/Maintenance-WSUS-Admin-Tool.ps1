@@ -7,7 +7,7 @@
     Optionally enables and configures proxy server settings for efficient update downloads. Requires the WSUS Administration Console components to be installed.
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy[](https://twitter.com/brazilianscriptguy)
+    Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
     Last Updated: July 11, 2025
