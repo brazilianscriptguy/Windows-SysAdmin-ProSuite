@@ -7,6 +7,13 @@
     enforce ITSM policies, and streamline configuration workflows across the enterprise.
   </p>
 
+  <p>
+    📘 For full technical reference and procedural details, please consult the official documentation:<br>
+    <strong>JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf</strong><br>
+    This guide provides step-by-step instructions across nine structured units, including domain preparation, 
+    workstation standardization, printer setup, and host naming conventions.
+  </p>
+
   <hr />
 
   <h2>🌟 Key Features</h2>
