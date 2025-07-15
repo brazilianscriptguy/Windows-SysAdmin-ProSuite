@@ -56,13 +56,16 @@
       <tr><td><strong>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</strong></td><td>Synchronizes local folders from a network share using GPO scripting.</td></tr>
       <tr><td><strong>Deploy-FortiClientVPN-viaGPO.ps1</strong></td><td>Installs FortiClient VPN across endpoints via GPO for secure access.</td></tr>
       <tr><td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td><td>Deploys FusionInventory Agent for inventory tracking and reporting.</td></tr>
-      <tr><td><strong>Deploy-GLPIAgent-viaGPO.ps1</strong></td><td>Installs GLPI Agent for asset and inventory management.</td></tr>
+      <tr><td><strong>Deploy-GLPI-Agent-viaGPO.ps1</strong></td><td>Installs GLPI Agent for asset and inventory management.</td></tr>
+      <tr><td><strong>Deploy-JavaJRE-viaGPO.ps1</strong></td><td>Deploys Java Runtime Environment silently via GPO.</td></tr>
       <tr><td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td><td>Deploys Kaspersky Endpoint Security using GPO deployment methods.</td></tr>
+      <tr><td><strong>Deploy-LibreOfficeFullPackage-viaGPO.ps1</strong></td><td>Installs LibreOffice full suite silently on domain machines.</td></tr>
       <tr><td><strong>Deploy-PowerShell-viaGPO.ps1</strong></td><td>Ensures correct installation and updates of PowerShell runtime.</td></tr>
       <tr><td><strong>Deploy-ZoomWorkplace-viaGPO.ps1</strong></td><td>Deploys Zoom app to domain computers for enterprise communication.</td></tr>
       <tr><td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td><td>Applies BGInfo to display system metadata on desktops.</td></tr>
       <tr><td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td><td>Sets up a KMS server for centralized license activation.</td></tr>
       <tr><td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td><td>Configures RDS Licensing Server for CAL management.</td></tr>
+      <tr><td><strong>Install-Winget-on-Windows-Servers-viaGPO.ps1</strong></td><td>Installs winget CLI and dependencies on Windows Server systems.</td></tr>
       <tr><td><strong>Remove-ReaQtaHive-Services-Tool.ps1</strong></td><td>Uninstalls ReaQta services and cleans up all associated artifacts.</td></tr>
       <tr><td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td><td>Removes non-compliant shares and mapped drives using GPO.</td></tr>
       <tr><td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td><td>Uninstalls manually defined non-compliant software on the local machine.</td></tr>
