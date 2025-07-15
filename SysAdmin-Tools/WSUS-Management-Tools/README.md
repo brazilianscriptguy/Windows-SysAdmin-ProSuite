@@ -86,7 +86,7 @@
       </tr>
       <tr>
         <td><strong>Maintenance-WSUS-Admin-Tool.ps1</strong></td>
-        <td>Comprehensive GUI tool for WSUS maintenance. Handles update declines (superseded, expired, unapproved), WSUS cleanup, WID database tasks (checkdb, shrink, reindex), and exports declined updates to CSV.</td>
+        <td>Handles update declines (superseded, expired, unapproved), WSUS cleanup, WID database tasks (checkdb, shrink, reindex), and exports declined updates to CSV.</td>
       </tr>
     </tbody>
   </table>
