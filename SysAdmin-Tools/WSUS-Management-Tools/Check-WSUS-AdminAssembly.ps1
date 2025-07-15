@@ -11,7 +11,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: July 11, 2025
+    Last Updated: July 15, 2025
 #>
 
 Add-Type -AssemblyName System.Windows.Forms
