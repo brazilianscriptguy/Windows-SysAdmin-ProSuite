@@ -137,7 +137,8 @@
       <tr><td>1.0</td><td>2023-01-01</td><td>Initial release</td><td>Luiz Hamilton Silva</td></tr>
       <tr><td>1.1</td><td>2023-06-15</td><td>Added templates and Core library</td><td>Luiz Hamilton Silva</td></tr>
       <tr><td>1.2</td><td>2024-04-27</td><td>Updated support tables and links</td><td>Luiz Hamilton Silva</td></tr>
-      <tr><td>2.8</td><td>2025-07-21</td><td>Added tools for total Active Directory Services integration</td><td>Luiz Hamilton Silva</td></tr>    
+      <tr><td>2.8</td><td>2025-07-21</td><td>Added tools for total Active Directory Services integration</td><td>Luiz Hamilton Silva</td></tr>
+      <p align="center" style="color: #777;">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
     </tbody>
   </table>
 </section>
