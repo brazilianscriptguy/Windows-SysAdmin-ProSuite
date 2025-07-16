@@ -82,7 +82,7 @@
       </tr>
       <tr>
         <td><strong>Generate-WSUSReindexScript.ps1</strong></td>
-        <td>Connects to SUSDB using SQLCMD and generates <code>wsus-reindex.sql</code> for indexes with fragmentation, using default values as above 10% and over 100 pages.</td>
+        <td>Connects to SUSDB using SQLCMD and generates <code>wsus-reindex.sql</code> for indexes with fragmentation, using default values as above 10% and over 100 pages (could be customized).</td>
       </tr>
       <tr>
         <td><strong>Maintenance-WSUS-Admin-Tool.ps1</strong></td>
