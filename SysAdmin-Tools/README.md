@@ -84,7 +84,8 @@
       </tr>
     <td>WUS Maintenance Tools.</td>
         <td>
-          <a href="WUS-Management-Tools/README.md" target="_blank">
+          <a href="WSUS-Management-Tools/README.md" target="_blank">
+            <td>Deployment and configuration scripts to ensure consistency across Windows systems.</td>
             <img src="https://img.shields.io/badge/Security%20Optimization-README-blue?style=for-the-badge&logo=github" alt="Security Optimization">
           </a>
         </td>
