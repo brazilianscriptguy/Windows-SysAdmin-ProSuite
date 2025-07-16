@@ -1,6 +1,6 @@
 <div>
   <h1>🔧 SysAdmin-Tools Suite</h1>
-  <p>
+  <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
     Welcome to the <strong>SysAdmin-Tools</strong> suite — a powerful collection of 
     <strong>PowerShell automation scripts</strong> crafted to streamline and centralize the management of Active Directory (AD), 
     Windows Server roles, network infrastructure, and workstation configurations. These tools simplify complex administrative tasks, 
@@ -10,7 +10,7 @@
   <hr />
 
   <h2>🌟 Key Features</h2>
-  <ul>
+  <ul style="font-size: 16px; line-height: 1.8;">
     <li><strong>User-Friendly Interfaces:</strong> All scripts feature an intuitive GUI for ease of use.</li>
     <li><strong>Detailed Logging:</strong> Every execution generates structured <code>.log</code> files for auditing and troubleshooting.</li>
     <li><strong>Exportable Reports:</strong> Many scripts output results in <code>.csv</code> format for easy analysis and integration with analytics tools.</li>
@@ -19,7 +19,7 @@
   <hr />
 
   <h2>📁 Folder Structure and Categories</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">
+  <table border="1" style="border-collapse: collapse; width: 100%; text-align: left; font-size: 15px;">
     <thead>
       <tr>
         <th style="padding: 8px;">Folder</th>
@@ -39,7 +39,7 @@
       </tr>
       <tr>
         <td><strong>ActiveDirectory-SSO-Integrations</strong></td>
-        <td>Demonstrates multiple integration models for implementing Single Sign-On (SSO) using Active Directory via LDAP protocols.</td>
+        <td>Demonstrates integration models for Single Sign-On (SSO) using Active Directory via LDAP protocols.</td>
         <td>
           <a href="ActiveDirectory-SSO-Integrations/README.md" target="_blank">
             <img src="https://img.shields.io/badge/SSO%20Integrations-README-blue?style=for-the-badge&logo=github" alt="SSO Integrations">
@@ -57,7 +57,7 @@
       </tr>
       <tr>
         <td><strong>Network-and-Infrastructure-Management</strong></td>
-        <td>Scripts for managing network services such as DNS, DHCP, and WSUS, ensuring reliable infrastructure health.</td>
+        <td>Scripts for managing DNS, DHCP, WSUS and ensuring reliable infrastructure health.</td>
         <td>
           <a href="Network-and-Infrastructure-Management/README.md" target="_blank">
             <img src="https://img.shields.io/badge/Network%20Management-README-blue?style=for-the-badge&logo=github" alt="Network Management">
@@ -82,20 +82,22 @@
           </a>
         </td>
       </tr>
-    <td>WUS Maintenance Tools.</td>
+      <tr>
+        <td><strong>WSUS-Management-Tools</strong></td>
+        <td>Maintenance and cleanup suite for Windows Server Update Services (WSUS).</td>
         <td>
           <a href="WSUS-Management-Tools/README.md" target="_blank">
-            <td>Deployment and configuration scripts to ensure consistency across Windows systems.</td>
-            <img src="https://img.shields.io/badge/Security%20Optimization-README-blue?style=for-the-badge&logo=github" alt="Security Optimization">
+            <img src="https://img.shields.io/badge/WSUS%20Tools-README-blue?style=for-the-badge&logo=github" alt="WSUS Tools">
           </a>
         </td>
+      </tr>
     </tbody>
   </table>
 
   <hr />
 
   <h2>🛠️ Prerequisites</h2>
-  <ol>
+  <ol style="font-size: 16px; line-height: 1.8;">
     <li>
       <strong>🖥️ Remote Server Administration Tools (RSAT):</strong><br>
       Install RSAT components to manage AD, DNS, DHCP, etc.
@@ -121,7 +123,7 @@
   <hr />
 
   <h2>🚀 Getting Started</h2>
-  <ol>
+  <ol style="font-size: 16px; line-height: 1.8;">
     <li><strong>Clone the Repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
@@ -132,15 +134,13 @@
       <p>Open each folder’s <code>README.md</code> for specific usage instructions.</p>
     </li>
     <li><strong>Run the Scripts:</strong>
-      <p>Execute PowerShell scripts with:</p>
       <pre><code>.\ScriptName.ps1</code></pre>
     </li>
-    <li>
-      <strong>Review Logs and Reports:</strong><br>
+    <li><strong>Review Logs and Reports:</strong>
       <p>
-        Logs for general administrative scripts are saved in <code>C:\Logs-TEMP\</code> or the current script directory. 
-        ITSM tools store logs in <code>C:\ITSM-Logs-WKS\</code> (for workstations) or <code>C:\ITSM-Logs-SVR\</code> (for servers). 
-        Review <code>.log</code> files for diagnostic output and <code>.csv</code> files for reporting.
+        Logs are stored in <code>C:\Logs-TEMP\</code> or the script's working directory.<br>
+        ITSM-specific tools log to <code>C:\ITSM-Logs-WKS\</code> or <code>C:\ITSM-Logs-SVR\</code>.<br>
+        Review <code>.log</code> for diagnostics and <code>.csv</code> for reporting.
       </p>
     </li>
   </ol>
@@ -148,7 +148,7 @@
   <hr />
 
   <h2>📝 Logging and Reporting</h2>
-  <ul>
+  <ul style="font-size: 16px; line-height: 1.8;">
     <li><strong>Logs:</strong> Every script outputs <code>.log</code> files with detailed execution information.</li>
     <li><strong>Reports:</strong> Many tools generate <code>.csv</code> files for data analysis and compliance audits.</li>
   </ul>
@@ -156,33 +156,32 @@
   <hr />
 
   <h2>❓ Support & Customization</h2>
-  <p style="text-align: justify; font-size: 16px; line-height: 1.6;">
+  <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
     All scripts are modular and customizable to fit your unique enterprise needs. For implementation guidance or troubleshooting, 
     refer to each folder’s <code>README.md</code> or reach out via the support channels below.
   </p>
 
-  <div align="center">
-    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
+  <div align="center" style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;">
+    <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
+      <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
     </a>
-    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Patreon Badge">
+    <a href="https://www.patreon.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon" alt="Patreon">
     </a>
-    <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="BuyMeACoffee Badge">
+    <a href="https://buymeacoffee.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee" alt="BuyMeCoffee">
     </a>
-    <a href="https://ko-fi.com/brazilianscriptguy" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" alt="Ko-fi Badge">
+    <a href="https://ko-fi.com/brazilianscriptguy" target="_blank">
+      <img src="https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi" alt="Ko-fi">
     </a>
-    <a href="https://gofund.me/4599d3e6" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" alt="GoFundMe Badge">
+    <a href="https://gofund.me/4599d3e6" target="_blank">
+      <img src="https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme" alt="GoFundMe">
     </a>
-    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Badge">
+    <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank">
+      <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp">
     </a>
-    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md" 
-       target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="Report Issues Badge">
+    <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md" target="_blank">
+      <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues">
     </a>
   </div>
 
