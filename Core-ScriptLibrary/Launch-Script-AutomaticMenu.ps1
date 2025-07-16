@@ -1,19 +1,19 @@
 <#
 .SYNOPSIS
-    PowerShell GUI for Executing Scripts Organized by Tabs with Real-Time Search.
+    PowerShell GUI for Executing Scripts Organized by Tabs with Real-Time Search
 
 .DESCRIPTION
-    Dynamically reads the current folder and its subfolders, creating tabs for each subfolder.
-    Allows real-time script search limited to the current selected tab and executes selected scripts.
+    Dynamically scans current and subfolders, creates a tab per subfolder,
+    displays scripts with live filtering, and allows the execution of selected scripts from each category.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: January 10, 2025
+    Version 2.0 - July 16, 2025
 #>
 
-# Hide PowerShell console window
+#region --- Hide Console ---
 function Hide-Console {
     Add-Type @"
     using System;
@@ -33,15 +33,18 @@ function Hide-Console {
     [Window]::Hide()
 }
 Hide-Console
+#endregion
 
-# Import necessary assemblies
+#region --- Load Assemblies ---
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+#endregion
 
-# Retrieve scripts in current root folder and subfolders
+#region --- Get Scripts Per Folder ---
 function Get-ScriptsByCategory {
     $rootFolder = (Get-Location).Path
-    Write-Host "Root Folder: $rootFolder" -ForegroundColor Cyan
+    Write-Host "Scanning root folder: $rootFolder" -ForegroundColor Cyan
+
     $directories = Get-ChildItem -Path $rootFolder -Directory -Recurse
     $scriptsByCategory = @{}
 
@@ -54,8 +57,9 @@ function Get-ScriptsByCategory {
 
     return $scriptsByCategory
 }
+#endregion
 
-# Update the list box in real-time based on search text
+#region --- Real-time ListBox Filter ---
 function Update-ListBox {
     param (
         [System.Windows.Forms.TextBox]$SearchBox,
@@ -67,9 +71,8 @@ function Update-ListBox {
     $ListBox.BeginUpdate()
     $ListBox.Items.Clear()
 
-    # Filter scripts based on search text
     $matchingScripts = $OriginalList | Where-Object { $_.Name.ToLower().Contains($searchText) }
-    if ($matchingScripts) {
+    if ($matchingScripts.Count -gt 0) {
         foreach ($script in $matchingScripts) {
             $ListBox.Items.Add($script.Name)
         }
@@ -79,113 +82,115 @@ function Update-ListBox {
 
     $ListBox.EndUpdate()
 }
+#endregion
 
-# Create and display the GUI
+#region --- GUI Layout and Execution ---
 function Create-GUI {
-    # Form Setup
-    $Form = [System.Windows.Forms.Form]::new()
-    $Form.Text = 'SysAdmin Tool Set Interface'
-    $Form.Size = [System.Drawing.Size]::new(1200, 900)
-    $Form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    # Main Form
+    $Form = New-Object System.Windows.Forms.Form
+    $Form.Text = "SysAdmin Tool Set Interface"
+    $Form.Size = New-Object System.Drawing.Size(1200, 900)
+    $Form.StartPosition = "CenterScreen"
     $Form.BackColor = [System.Drawing.Color]::WhiteSmoke
 
-    # TabControl for script categories
-    $TabControl = [System.Windows.Forms.TabControl]::new()
-    $TabControl.Size = [System.Drawing.Size]::new($Form.Width - 40, $Form.Height - 150)
-    $TabControl.Location = [System.Drawing.Point]::new(10, 10)
+    # TabControl
+    $TabControl = New-Object System.Windows.Forms.TabControl
+    $TabControl.Size = New-Object System.Drawing.Size($Form.Width - 40, $Form.Height - 150)
+    $TabControl.Location = New-Object System.Drawing.Point(10, 10)
     $TabControl.Anchor = 'Top, Left, Right, Bottom'
     $Form.Controls.Add($TabControl)
 
-    # Fetch script categories and populate tabs
+    # Populate Tabs with Script Lists
     $ScriptsByCategory = Get-ScriptsByCategory
     $TabControls = @{}
 
     foreach ($Category in $ScriptsByCategory.Keys) {
-        # Create a tab for each category
-        $TabPage = [System.Windows.Forms.TabPage]::new()
+        $TabPage = New-Object System.Windows.Forms.TabPage
         $TabPage.Text = $Category
 
-        # Search Box
-        $SearchBox = [System.Windows.Forms.TextBox]::new()
-        $SearchBox.Size = [System.Drawing.Size]::new($TabPage.Width - 20, 25)
-        $SearchBox.Location = [System.Drawing.Point]::new(10, 10)
-        $SearchBox.Font = [System.Drawing.Font]::new("Arial", 10)
+        # Search TextBox
+        $SearchBox = New-Object System.Windows.Forms.TextBox
+        $SearchBox.Size = New-Object System.Drawing.Size($TabPage.Width - 20, 25)
+        $SearchBox.Location = New-Object System.Drawing.Point(10, 10)
+        $SearchBox.Font = New-Object System.Drawing.Font("Segoe UI", 10)
         $SearchBox.Anchor = 'Top, Left, Right'
         $TabPage.Controls.Add($SearchBox)
 
-        # ListBox for scripts
-        $ListBox = [System.Windows.Forms.CheckedListBox]::new()
-        $ListBox.Size = [System.Drawing.Size]::new($TabPage.Width - 20, $TabPage.Height - 80)
-        $ListBox.Location = [System.Drawing.Point]::new(10, 40)
-        $ListBox.Font = [System.Drawing.Font]::new("Arial", 9)
+        # CheckedListBox for script files
+        $ListBox = New-Object System.Windows.Forms.CheckedListBox
+        $ListBox.Size = New-Object System.Drawing.Size($TabPage.Width - 20, $TabPage.Height - 80)
+        $ListBox.Location = New-Object System.Drawing.Point(10, 40)
+        $ListBox.Font = New-Object System.Drawing.Font("Segoe UI", 9)
         $ListBox.Anchor = 'Top, Left, Right, Bottom'
         $ListBox.ScrollAlwaysVisible = $true
         $TabPage.Controls.Add($ListBox)
 
-        # Capture variables for this tab
+        # Wire up search
         $CurrentScripts = $ScriptsByCategory[$Category]
-        $CurrentSearchBox = $SearchBox
-        $CurrentListBox = $ListBox
-
-        # Add TextChanged event for real-time search
         $SearchBox.Add_TextChanged({
-            Update-ListBox -SearchBox $CurrentSearchBox -ListBox $CurrentListBox -OriginalList $CurrentScripts
+            Update-ListBox -SearchBox $SearchBox -ListBox $ListBox -OriginalList $CurrentScripts
         })
 
-        # Populate the ListBox initially
+        # Initial population
         Update-ListBox -SearchBox $SearchBox -ListBox $ListBox -OriginalList $CurrentScripts
 
-        # Add controls to the dictionary for later access
+        # Store control references
         $TabControls[$Category] = @{
             SearchBox = $SearchBox
-            ListBox = $ListBox
-            Scripts = $CurrentScripts
+            ListBox   = $ListBox
+            Scripts   = $CurrentScripts
         }
 
-        # Add the TabPage to the TabControl
+        # Add to GUI
         $TabControl.TabPages.Add($TabPage)
     }
 
     # Execute Button
-    $ExecuteButton = [System.Windows.Forms.Button]::new()
-    $ExecuteButton.Text = 'Execute'
-    $ExecuteButton.Size = [System.Drawing.Size]::new(150, 40)
-    $ExecuteButton.Location = [System.Drawing.Point]::new(($Form.ClientSize.Width - 150) / 2, $Form.ClientSize.Height - 80)
-    $ExecuteButton.Anchor = 'Bottom'
+    $ExecuteButton = New-Object System.Windows.Forms.Button
+    $ExecuteButton.Text = "Execute Selected"
+    $ExecuteButton.Size = New-Object System.Drawing.Size(180, 40)
+    $ExecuteButton.Location = New-Object System.Drawing.Point(($Form.ClientSize.Width - 180) / 2, $Form.ClientSize.Height - 80)
+    $ExecuteButton.Anchor = "Bottom"
     $ExecuteButton.BackColor = [System.Drawing.Color]::LightSkyBlue
-    $ExecuteButton.FlatStyle = 'Flat'
+    $ExecuteButton.FlatStyle = "Flat"
+
     $ExecuteButton.Add_Click({
         $ScriptsExecuted = $false
-
         $SelectedTab = $TabControl.SelectedTab
+
         if ($SelectedTab -ne $null) {
             $Category = $SelectedTab.Text
             $Controls = $TabControls[$Category]
 
             foreach ($ScriptName in $Controls.ListBox.CheckedItems) {
                 if ($ScriptName -eq "<No matching scripts found>") { continue }
-                $ScriptPath = $Controls.Scripts | Where-Object { $_.Name -eq $ScriptName } | Select-Object -ExpandProperty FullName
+
+                $ScriptPath = ($Controls.Scripts | Where-Object { $_.Name -eq $ScriptName }).FullName
                 if (Test-Path $ScriptPath) {
-                    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`"" -NoNewWindow
-                    Write-Host "Executed: $ScriptPath" -ForegroundColor Green
-                    $ScriptsExecuted = $true
+                    try {
+                        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`"" -NoNewWindow
+                        Write-Host "Executed: $ScriptPath" -ForegroundColor Green
+                        $ScriptsExecuted = $true
+                    } catch {
+                        [System.Windows.Forms.MessageBox]::Show("Failed to start script: $ScriptPath", "Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    }
                 } else {
-                    [System.Windows.Forms.MessageBox]::Show("Script not found: $ScriptPath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    [System.Windows.Forms.MessageBox]::Show("Script not found: $ScriptPath", "File Missing", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
                 }
             }
         }
 
         if (-not $ScriptsExecuted) {
-            [System.Windows.Forms.MessageBox]::Show("No scripts selected for execution.", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            [System.Windows.Forms.MessageBox]::Show("No scripts selected for execution.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         }
     })
+
     $Form.Controls.Add($ExecuteButton)
 
-    # Show the Form
-    [void] $Form.ShowDialog()
+    # Show GUI
+    [void]$Form.ShowDialog()
 }
+#endregion
 
-# Run the GUI
+# Launch GUI
 Create-GUI
-
-# End of script
