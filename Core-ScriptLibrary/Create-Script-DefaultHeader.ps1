@@ -1,40 +1,41 @@
 <#
 .SYNOPSIS
-    [Provide a brief, single-line summary of the script's purpose.]
+    Brief, one-line summary of what the script accomplishes.
 
 .DESCRIPTION
-    [Provide a detailed description of what the script does. Mention key tasks, processes, or features.]
+    A detailed explanation of the script's functionality. 
+    Describe its main tasks, any automation or integration it performs, and how it should be used.
 
 .FEATURES
-    - [Feature 1: Briefly describe a key feature or capability.]
-    - [Feature 2: Add another feature here.]
-    - [Feature 3: Continue listing all relevant features.]
-    - [Feature N: Additional features as needed.]
+    - Feature 1: Brief description of the first key feature.
+    - Feature 2: Description of another major capability.
+    - Feature 3: Add as many features as needed to outline benefits.
+    - Feature N: Final or additional feature.
 
 .PARAMETERS
-    [List parameters (if applicable) along with descriptions.]
-    -ParameterName: [Description of the parameter.]
-    -AnotherParameter: [Description of another parameter.]
+    -ParameterName <Type>: Description of what this parameter controls or modifies.
+    -AnotherParameter <Type>: Description for the second parameter.
+    [Add additional parameters as needed.]
 
 .AUTHOR
-    [Your Name or Alias] - @[Your Social Handle or Contact Information]
+    Your Full Name or Alias - @YourSocialHandle or ContactInfo
 
 .VERSION
-    [Version Number] - [Date in Month Day, Year format]
+    Version x.x - Month Day, Year
 
 .NOTES
-    - [Special notes or requirements, such as prerequisites or specific environments.]
-    - [Additional helpful information or caveats.]
+    - This script requires PowerShell version [X.X] or higher.
+    - Ensure the script is executed with appropriate permissions (e.g., Administrator).
+    - Any additional usage notes, caveats, or platform dependencies.
 
 .EXAMPLES
-    Example 1:
-    [Provide an example of how to run the script, including expected input/output.]
+    Example 1: Running with all parameters
     ```powershell
-    Example-Command -ParameterName Value
+    .\MyScript.ps1 -ParameterName 'Value' -AnotherParameter 123
     ```
-    Example 2:
-    [Add additional examples as needed.]
+
+    Example 2: Minimal execution with defaults
     ```powershell
-    Another-ExampleCommand
+    .\MyScript.ps1
     ```
 #>
