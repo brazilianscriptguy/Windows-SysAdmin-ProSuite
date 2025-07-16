@@ -3,45 +3,39 @@
     WSUS Update Source and Proxy Configuration Script
 
 .DESCRIPTION
-    A PowerShell script designed to configure the WSUS (Windows Server Update Services) server to utilize Microsoft Update as the upstream update source. 
+    A PowerShell script designed to configure the WSUS (Windows Server Update Services) server to utilize Microsoft Update as the upstream update source.
     Optionally enables and configures proxy server settings for efficient update downloads. Requires the WSUS Administration Console components to be installed.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: July 11, 2025
-    Version: 1.0
+    Last Updated: July 16, 2025 09:10 AM -03
+    Version: 2.6
 #>
 
-# Logging function (moved to top to ensure availability)
-function Write-Log {
+#region --- Global Setup and Logging
+
+# Setup Logging with single consolidated file
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir     = 'C:\Logs-TEMP\WSUS-GUI\Logs'
+$timestamp  = Get-Date -Format "yyyyMMdd-HHmmss"  # Set once at script start: 20250716-0910
+$logPath    = Join-Path $logDir "$scriptName-$timestamp.log"
+
+if (-not (Test-Path $logDir)) {
+    New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+}
+
+function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
         [string]$Message,
-        [ValidateSet("INFO", "WARNING", "ERROR")]
-        [string]$Level = "INFO"
+        [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")]
+        [string]$MessageType = "INFO"
     )
-    $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$time] [$Level] $Message"
-    $logDir = Join-Path $env:ProgramData "WSUS-GUI\Logs"
-    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $logFile = Join-Path $logDir "$scriptName-$timestamp.log"
-    if (-not (Test-Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-    }
-    Add-Content -Path $logFile -Value $logMessage -ErrorAction SilentlyContinue
-    if ($txtLog -and $txtLog.IsHandleCreated) {
-        $txtLog.Invoke([Action]{ $txtLog.AppendText("$logMessage`r`n"); $txtLog.SelectionStart = $txtLog.TextLength; $txtLog.ScrollToCaret() })
-    }
-    if ($Level -in @("WARNING", "ERROR")) {
-        $eventSource = "WSUSMaintenanceTool"
-        if (-not [System.Diagnostics.EventLog]::SourceExists($eventSource)) {
-            New-EventLog -LogName Application -Source $eventSource
-        }
-        Write-EventLog -LogName Application -Source $eventSource -EventId 1000 -EntryType $Level -Message $logMessage
-    }
+    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $entry = "[$stamp] [$MessageType] $Message"
+    Add-Content -Path $logPath -Value $entry -Encoding UTF8
+    Write-Host $entry
 }
 
 # Hide Console Window
@@ -67,147 +61,203 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Attempt to load WSUS administration assembly
-$wsusAssemblyPath = "C:\Windows\Microsoft.Net\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration\v4.0_4.0.0.0__31bf3856ad364e35\Microsoft.UpdateServices.Administration.dll"
-try {
-    $assembly = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
-    if ($assembly) {
-        Write-Log "WSUS Administration assembly loaded successfully from GAC." -Level INFO
-    } else {
-        throw "Assembly not loaded from GAC."
-    }
-} catch {
-    Write-Log "Failed to load WSUS assembly from GAC: $_" -Level WARNING
-    if (Test-Path $wsusAssemblyPath) {
-        try {
-            Add-Type -Path $wsusAssemblyPath -ErrorAction Stop
-            Write-Log "WSUS Administration assembly loaded successfully from $wsusAssemblyPath." -Level INFO
-        } catch {
-            Write-Log "Error: Failed to load WSUS assembly from ${wsusAssemblyPath}: $_" -Level ERROR
-            [System.Windows.Forms.MessageBox]::Show("Failed to load WSUS assembly. Ensure the WSUS Administration Console is installed.`nDetails: $_", "Error", 'OK', 'Error')
-            exit 1
+#endregion
+
+#region --- Configuration
+
+$global:Config = @{
+    WsusAssemblyPath = "C:\Windows\Microsoft.Net\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration\v4.0_4.0.0.0__31bf3856ad364e35\Microsoft.UpdateServices.Administration.dll"
+    SqlScriptDir     = "C:\Logs-TEMP\WSUS-GUI\Scripts"
+    WsusUtilPath     = "C:\Program Files\Update Services\Tools\wsusutil.exe"
+    LogDir           = 'C:\Logs-TEMP\WSUS-GUI\Logs'
+    BackupDir        = 'C:\Logs-TEMP\WSUS-GUI\Backups'
+    CsvDir           = 'C:\Logs-TEMP\WSUS-GUI\CSV'
+    SettingsFile     = 'C:\Logs-TEMP\WSUS-GUI\settings.json'
+}
+
+# Load or prompt for configuration
+if (Test-Path $Config.SettingsFile) {
+    $loadedConfig = Get-Content $Config.SettingsFile -Raw | ConvertFrom-Json
+    foreach ($key in $loadedConfig.PSObject.Properties.Name) {
+        if ($Config.ContainsKey($key)) {
+            $Config[$key] = $loadedConfig.$key
         }
-    } else {
-        Write-Log "Error: WSUS assembly not found at ${wsusAssemblyPath}. Ensure the WSUS Administration Console is installed." -Level ERROR
-        [System.Windows.Forms.MessageBox]::Show("WSUS assembly not found at ${wsusAssemblyPath}. Ensure the WSUS Administration Console is installed.", "Error", 'OK', 'Error')
-        exit 1
     }
+} else {
+    $formConfig = New-Object System.Windows.Forms.Form
+    $formConfig.Text = "Configure Paths"
+    $formConfig.Size = New-Object System.Drawing.Size(400, 200)
+    $formConfig.StartPosition = 'CenterScreen'
+
+    $lblWsusAssembly = New-Object System.Windows.Forms.Label; $lblWsusAssembly.Text = "WSUS Assembly Path:"; $lblWsusAssembly.Location = New-Object System.Drawing.Point(10, 20); $formConfig.Controls.Add($lblWsusAssembly)
+    $txtWsusAssembly = New-Object System.Windows.Forms.TextBox; $txtWsusAssembly.Text = $Config.WsusAssemblyPath; $txtWsusAssembly.Location = New-Object System.Drawing.Point(150, 20); $txtWsusAssembly.Size = New-Object System.Drawing.Size(230, 20); $formConfig.Controls.Add($txtWsusAssembly)
+
+    $btnSave = New-Object System.Windows.Forms.Button; $btnSave.Text = "Save"; $btnSave.Location = New-Object System.Drawing.Point(150, 150); $btnSave.Add_Click({
+        $Config.WsusAssemblyPath = $txtWsusAssembly.Text
+        $Config | ConvertTo-Json | Set-Content -Path $Config.SettingsFile -Force
+        $formConfig.Close()
+    }); $formConfig.Controls.Add($btnSave)
+
+    [void]$formConfig.ShowDialog()
 }
 
-# Verify AdminProxy type is available
-if (-not ([Microsoft.UpdateServices.Administration.AdminProxy])) {
-    Write-Log "Error: AdminProxy type not found after loading assembly." -Level ERROR
-    [System.Windows.Forms.MessageBox]::Show("AdminProxy type not found. The WSUS Administration assembly may be corrupted or incompatible.", "Error", 'OK', 'Error')
-    exit 1
-}
-
-# Logging and settings setup
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$logDir = Join-Path $env:ProgramData "WSUS-GUI\Logs"
-$logFile = Join-Path $logDir "$scriptName-$timestamp.log"
-$csvFile = Join-Path $logDir "$scriptName-Declined-$timestamp.csv"
-$backupDir = Join-Path $env:ProgramData "WSUS-GUI\Backups"
-$settingsFile = Join-Path $env:APPDATA "WSUS-GUI\settings.json"
-$sqlScriptDir = "C:\Scripts"  # Corrected to match your path
-# Resolve sqlcmd.exe path from environment variables
 $sqlcmdPath = (Get-Command sqlcmd.exe -ErrorAction SilentlyContinue).Source
 if (-not $sqlcmdPath) {
-    Write-Log "sqlcmd.exe not found in environment variables. Please specify the full path manually." -Level ERROR
+    Log-Message "sqlcmd.exe not found. Please install SQL Server tools or specify the path." -MessageType ERROR
     [System.Windows.Forms.MessageBox]::Show("sqlcmd.exe not found. Please install SQL Server tools or specify the path.", "Error", 'OK', 'Error')
     exit 1
 }
-Write-Log "Using sqlcmd.exe path: $sqlcmdPath" -Level INFO
+Log-Message "Using sqlcmd.exe path: $sqlcmdPath" -MessageType INFO
 
 # Ensure directories exist
-foreach ($dir in @($logDir, $backupDir)) {
+foreach ($dir in @($Config.LogDir, $Config.BackupDir, $Config.CsvDir, $Config.SqlScriptDir)) {
     if (-not (Test-Path $dir)) {
         New-Item -Path $dir -ItemType Directory -Force | Out-Null
     }
 }
 
-# Save and load settings
+#endregion
+
+#region --- Assembly Validation
+
+function Validate-WSUSAssembly {
+    $wsusAssemblyPath = $Config.WsusAssemblyPath
+    try {
+        $assembly = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
+        if ($assembly) {
+            Log-Message "WSUS Administration assembly loaded successfully from GAC." -MessageType INFO
+            [System.Windows.Forms.MessageBox]::Show("WSUS Administration assembly loaded successfully from the Global Assembly Cache (GAC).", "Success", 'OK', 'Information')
+            return
+        } else {
+            throw "Assembly not loaded from GAC."
+        }
+    } catch {
+        Log-Message "Failed to load WSUS assembly from GAC: $_" -MessageType WARNING
+    }
+
+    if (Test-Path $wsusAssemblyPath) {
+        try {
+            Add-Type -Path $wsusAssemblyPath -ErrorAction Stop
+            Log-Message "WSUS Administration assembly loaded successfully from $wsusAssemblyPath." -MessageType INFO
+            [System.Windows.Forms.MessageBox]::Show("WSUS Administration assembly loaded successfully from path:`n$wsusAssemblyPath", "Success", 'OK', 'Information')
+        } catch {
+            $msg = "Error: Failed to load WSUS assembly from:`n$wsusAssemblyPath`n`nDetails: $_"
+            Log-Message $msg -MessageType ERROR
+            [System.Windows.Forms.MessageBox]::Show($msg, "Error", 'OK', 'Error')
+            exit 1
+        }
+    } else {
+        $msg = "WSUS assembly not found at:`n$wsusAssemblyPath`n`nEnsure the WSUS Administration Console is installed using one of the following methods:`n"
+        $msg += "`n1. Server Manager:`n   - Add Roles and Features > Features > Windows Server Update Services > WSUS Tools"
+        $msg += "`n2. PowerShell:`n   - Install-WindowsFeature -Name UpdateServices-UI"
+        Log-Message "Error: WSUS assembly not found at $wsusAssemblyPath." -MessageType ERROR
+        [System.Windows.Forms.MessageBox]::Show($msg, "Error", 'OK', 'Error')
+        exit 1
+    }
+}
+
+#endregion
+
+#region --- Script Functions
+
 function Save-Settings {
     $settings = @{
-        DeclineUnapproved   = $chkDeclineUnapproved.Checked
-        DeclineExpired     = $chkDeclineExpired.Checked
-        DeclineSuperseded  = $chkDeclineSuperseded.Checked
-        CompressUpdates    = $chkCompress.Checked
-        PurgeUnassigned    = $chkPurge.Checked
+        DeclineUnapproved    = $chkDeclineUnapproved.Checked
+        DeclineExpired      = $chkDeclineExpired.Checked
+        DeclineSuperseded   = $chkDeclineSuperseded.Checked
+        CompressUpdates     = $chkCompress.Checked
+        PurgeUnassigned     = $chkPurge.Checked
         RemoveClassifications = $chkRemoveClassifications.Checked
-        CheckDB            = $chkCheckDB.Checked
-        CheckFragmentation = $chkCheckFragmentation.Checked
-        Reindex            = $chkReindex.Checked
-        ShrinkDB           = $chkShrink.Checked
-        BackupDB           = $chkBackup.Checked
-        SelectedServer     = $comboServer.SelectedItem
+        CheckDB             = $chkCheckDB.Checked
+        CheckFragmentation  = $chkCheckFragmentation.Checked
+        Reindex             = $chkReindex.Checked
+        ShrinkDB            = $chkShrink.Checked
+        BackupDB            = $chkBackup.Checked
+        SelectedServer      = $comboServer.SelectedItem
+        WsusAssemblyPath    = $Config.WsusAssemblyPath
+        SqlScriptDir        = $Config.SqlScriptDir
+        WsusUtilPath        = $Config.WsusUtilPath
     }
-    $settings | ConvertTo-Json | Set-Content -Path $settingsFile -Force
+    $settings | ConvertTo-Json | Set-Content -Path $Config.SettingsFile -Force
 }
 
 function Load-Settings {
-    if (Test-Path $settingsFile) {
-        $settings = Get-Content $settingsFile -Raw | ConvertFrom-Json
-        $chkDeclineUnapproved.Checked = $settings.DeclineUnapproved
-        $chkDeclineExpired.Checked = $settings.DeclineExpired
-        $chkDeclineSuperseded.Checked = $settings.DeclineSuperseded
-        $chkCompress.Checked = $settings.CompressUpdates
-        $chkPurge.Checked = $settings.PurgeUnassigned
-        $chkRemoveClassifications.Checked = $settings.RemoveClassifications
-        $chkCheckDB.Checked = $settings.CheckDB
-        $chkCheckFragmentation.Checked = $settings.CheckFragmentation
-        $chkReindex.Checked = $settings.Reindex
-        $chkShrink.Checked = $settings.ShrinkDB
-        $chkBackup.Checked = $settings.BackupDB
+    if (Test-Path $Config.SettingsFile) {
+        $settings = Get-Content $Config.SettingsFile -Raw | ConvertFrom-Json
+        $chkDeclineUnapproved.Checked = if ($settings.DeclineUnapproved) { $settings.DeclineUnapproved } else { $false }
+        $chkDeclineExpired.Checked = if ($settings.DeclineExpired) { $settings.DeclineExpired } else { $false }
+        $chkDeclineSuperseded.Checked = if ($settings.DeclineSuperseded) { $settings.DeclineSuperseded } else { $false }
+        $chkCompress.Checked = if ($settings.CompressUpdates) { $settings.CompressUpdates } else { $false }
+        $chkPurge.Checked = if ($settings.PurgeUnassigned) { $settings.PurgeUnassigned } else { $false }
+        $chkRemoveClassifications.Checked = if ($settings.RemoveClassifications) { $settings.RemoveClassifications } else { $false }
+        $chkCheckDB.Checked = if ($settings.CheckDB) { $settings.CheckDB } else { $false }
+        $chkCheckFragmentation.Checked = if ($settings.CheckFragmentation) { $settings.CheckFragmentation } else { $false }
+        $chkReindex.Checked = if ($settings.Reindex) { $settings.Reindex } else { $false }
+        $chkShrink.Checked = if ($settings.ShrinkDB) { $settings.ShrinkDB } else { $false }
+        $chkBackup.Checked = if ($settings.BackupDB) { $settings.BackupDB } else { $false }
         if ($comboServer.Items.Contains($settings.SelectedServer)) {
             $comboServer.SelectedItem = $settings.SelectedServer
         }
+        if ($settings.WsusAssemblyPath) { $Config.WsusAssemblyPath = $settings.WsusAssemblyPath }
+        if ($settings.SqlScriptDir) { $Config.SqlScriptDir = $settings.SqlScriptDir }
+        if ($settings.WsusUtilPath) { $Config.WsusUtilPath = $settings.WsusUtilPath }
     }
 }
 
-# Auto-discover WSUS servers
 function Get-WSUSServers {
     $servers = @("localhost")
     try {
-        Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-        $wsusServers = Get-ADObject -Filter {objectClass -eq "microsoftWSUS"} -Properties dNSHostName |
-                       Select-Object -ExpandProperty dNSHostName
-        if ($wsusServers) {
-            $servers += $wsusServers
+        if (Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue) {
+            Import-Module ActiveDirectory -ErrorAction Stop
+            $wsusServers = Get-ADObject -Filter {objectClass -eq "microsoftWSUS"} -Properties dNSHostName | Select-Object -ExpandProperty dNSHostName -ErrorAction Stop
+            if ($wsusServers) {
+                $servers += $wsusServers
+            }
+            Log-Message "Discovered WSUS servers via AD: $($servers -join ', ')" -MessageType INFO
+        } else {
+            Log-Message "Active Directory module not available, using local server only." -MessageType WARNING
         }
-        Write-Log "Discovered WSUS servers: $($servers -join ', ')" -Level INFO
     } catch {
-        Write-Log "Failed to discover WSUS servers via AD: $_" -Level WARNING
+        Log-Message "Failed to discover WSUS servers via AD: $_" -MessageType WARNING
     }
-    return $servers
+    return $servers | Sort-Object -Unique
 }
 
-# Check WSUS connection
 function Test-WSUSConnection {
     param (
         [string]$ServerName = "localhost",
         [int]$Port = 8530,
-        [bool]$UseSSL = $false
+        [bool]$UseSSL = $false,
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 2
     )
-    try {
-        $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($ServerName, $UseSSL, $Port)
-        Write-Log "Successfully connected to WSUS server: $ServerName" -Level INFO
-        return $wsus
-    } catch {
-        Write-Log "Failed to connect to WSUS server ($ServerName): $_" -Level ERROR
-        throw
+    $retryCount = 0
+    while ($retryCount -lt $MaxRetries) {
+        try {
+            $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($ServerName, $UseSSL, $Port)
+            if ($wsus -and ($wsus | Get-Member -Name "SearchUpdates" -MemberType Method)) {
+                Log-Message "Successfully connected to WSUS server: $ServerName (Port: $Port, SSL: $UseSSL)" -MessageType INFO
+                return $wsus
+            }
+            throw "WSUS connection validation failed."
+        } catch {
+            $retryCount++
+            Log-Message "Failed to connect to WSUS server ($ServerName, Attempt $retryCount/$MaxRetries): $_" -MessageType WARNING
+            if ($retryCount -ge $MaxRetries) {
+                Log-Message "Max retries reached for WSUS connection to $ServerName" -MessageType ERROR
+                throw
+            }
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
     }
+    throw "Unexpected exit from Test-WSUSConnection"
 }
 
-# Maintenance function: Decline updates
 function Decline-Updates {
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$Type,
-        [Parameter(Mandatory=$true)]
-        [scriptblock]$Filter,
-        [Parameter(Mandatory=$true)]
-        [string]$ServerName,
+        [Parameter(Mandatory=$true)][string]$Type,
+        [Parameter(Mandatory=$true)][scriptblock]$Filter,
+        [Parameter(Mandatory=$true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -215,20 +265,17 @@ function Decline-Updates {
         $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
         $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
         $scope.FromCreationDate = (Get-Date).AddDays(-365)
-
         $updates = $wsus.SearchUpdates($scope) | Where-Object $Filter
-
         if ($updates.Count -eq 0) {
-            Write-Log "$Type updates: None found matching criteria." -Level INFO
+            Log-Message "$Type updates: None found matching criteria." -MessageType INFO
             return @()
         }
-
-        Write-Log "$Type updates: Found $($updates.Count) updates. Declining..." -Level INFO
+        Log-Message "$Type updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
         $log = @()
         foreach ($update in $updates) {
             try {
                 $update.Decline()
-                Write-Log "Declined $Type update: $($update.Title)" -Level INFO
+                Log-Message "Declined $Type update: $($update.Title)" -MessageType INFO
                 $log += [PSCustomObject]@{
                     KB          = $update.KnowledgeBaseArticles -join ","
                     Title       = $update.Title
@@ -238,21 +285,19 @@ function Decline-Updates {
                     Server      = $ServerName
                 }
             } catch {
-                Write-Log "Failed to decline $Type update: $($update.Title) - $_" -Level ERROR
+                Log-Message "Failed to decline $Type update: $($update.Title) - $_" -MessageType ERROR
             }
         }
         return $log
     } catch {
-        Write-Log "Error in Decline-Updates ($Type): $_" -Level ERROR
+        Log-Message "Error in Decline-Updates ($Type): $_" -MessageType ERROR
         throw
     }
 }
 
-# Maintenance function: Decline updates by classification
 function Decline-ByClassification {
     param (
-        [Parameter(Mandatory=$true)]
-        [string]$ServerName,
+        [Parameter(Mandatory=$true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -260,23 +305,20 @@ function Decline-ByClassification {
         $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
         $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
         $scope.FromCreationDate = (Get-Date).AddDays(-365)
-
         $classifications = @("Itanium", "Windows XP")
         $updates = $wsus.SearchUpdates($scope) | Where-Object {
             $_.IsDeclined -eq $false -and ($_.Title -match ($classifications -join "|") -or $_.Description -match ($classifications -join "|"))
         }
-
         if ($updates.Count -eq 0) {
-            Write-Log "Classification-based updates: None found matching criteria." -Level INFO
+            Log-Message "Classification-based updates: None found matching criteria." -MessageType INFO
             return @()
         }
-
-        Write-Log "Classification-based updates: Found $($updates.Count) updates. Declining..." -Level INFO
+        Log-Message "Classification-based updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
         $log = @()
         foreach ($update in $updates) {
             try {
                 $update.Decline()
-                Write-Log "Declined classification-based update: $($update.Title)" -Level INFO
+                Log-Message "Declined classification-based update: $($update.Title)" -MessageType INFO
                 $log += [PSCustomObject]@{
                     KB          = $update.KnowledgeBaseArticles -join ","
                     Title       = $update.Title
@@ -286,23 +328,20 @@ function Decline-ByClassification {
                     Server      = $ServerName
                 }
             } catch {
-                Write-Log "Failed to decline classification-based update: $($update.Title) - $_" -Level ERROR
+                Log-Message "Failed to decline classification-based update: $($update.Title) - $_" -MessageType ERROR
             }
         }
         return $log
     } catch {
-        Write-Log "Error in Decline-ByClassification: $_" -Level ERROR
+        Log-Message "Error in Decline-ByClassification: $_" -MessageType ERROR
         throw
     }
 }
 
-# Maintenance function: WSUS cleanup
 function Run-WSUSCleanup {
     param (
-        [Parameter(Mandatory=$true)]
-        [bool]$IncludeCompress,
-        [Parameter(Mandatory=$true)]
-        [string]$ServerName,
+        [Parameter(Mandatory=$true)][bool]$IncludeCompress,
+        [Parameter(Mandatory=$true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -316,42 +355,52 @@ function Run-WSUSCleanup {
             [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteComputers
         )
         if ($IncludeCompress) { $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::CompressUpdates }
-
+        $success = $false
         foreach ($step in $steps) {
             try {
-                Write-Log "Running cleanup step: $step" -Level INFO
+                Log-Message "Running cleanup step: $step" -MessageType INFO
                 $cleanup.PerformCleanup($step)
-                Write-Log "Cleanup step '$step' completed." -Level INFO
+                Log-Message "Cleanup step '$step' completed." -MessageType INFO
+                $success = $true
             } catch {
-                Write-Log "Cleanup step '$step' failed: $_" -Level ERROR
+                Log-Message "Cleanup step '$step' failed with assembly method: $_" -MessageType WARNING
             }
         }
+        if (-not $success -and (Test-Path $Config.WsusUtilPath)) {
+            Log-Message "Falling back to wsusutil.exe for cleanup..." -MessageType INFO
+            $output = & $Config.WsusUtilPath deleteunneededrevisions 2>&1
+            Log-Message "wsusutil.exe deleteunneededrevisions output: $output" -MessageType INFO
+            if ($IncludeCompress) {
+                $output = & $Config.WsusUtilPath compress 2>&1
+                Log-Message "wsusutil.exe compress output: $output" -MessageType INFO
+            }
+            Log-Message "WSUS cleanup completed using wsusutil.exe." -MessageType INFO
+        } elseif (-not $success) {
+            Log-Message "Error: No cleanup method succeeded and wsusutil.exe not found at $($Config.WsusUtilPath)" -MessageType ERROR
+            throw "Cleanup failed"
+        }
     } catch {
-        Write-Log "Error in Run-WSUSCleanup: $_" -Level ERROR
+        Log-Message "Error in Run-WSUSCleanup: $_" -MessageType ERROR
         throw
     }
 }
 
-# Maintenance function: Purge unassigned files
 function Purge-UnassignedFiles {
-    param (
-        [string]$WsusUtilPath = "C:\Program Files\Update Services\Tools\wsusutil.exe"
-    )
+    param ([string]$WsusUtilPath = $Config.WsusUtilPath)
     try {
         if (-not (Test-Path $WsusUtilPath)) {
-            Write-Log "wsusutil.exe not found at $WsusUtilPath" -Level ERROR
+            Log-Message "wsusutil.exe not found at $WsusUtilPath" -MessageType ERROR
             throw "wsusutil.exe not found"
         }
-        Write-Log "Running wsusutil.exe reset to purge unassigned files..." -Level INFO
+        Log-Message "Running wsusutil.exe reset to purge unassigned files..." -MessageType INFO
         $output = & $WsusUtilPath reset 2>&1
-        Write-Log "wsusutil.exe reset output: $output" -Level INFO
+        Log-Message "wsusutil.exe reset output: $output" -MessageType INFO
     } catch {
-        Write-Log "Error in Purge-UnassignedFiles: $_" -Level ERROR
+        Log-Message "Error in Purge-UnassignedFiles: $_" -MessageType ERROR
         throw
     }
 }
 
-# Maintenance function: SQL WID operations
 function Run-WIDMaintenance {
     param (
         [bool]$DoCheckDB,
@@ -362,78 +411,79 @@ function Run-WIDMaintenance {
     )
     try {
         $widPipe = "np:\\.\pipe\MICROSOFT##WID\tsql\query"
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
         if ($DoBackup) {
-            $backupFile = Join-Path $backupDir "SUSDB-Backup-$timestamp.bak"
-            Write-Log "Backing up SUSDB to $backupFile..." -Level INFO
+            $backupFile = Join-Path $Config.BackupDir "SUSDB-Backup-$timestamp.bak"
+            Log-Message "Backing up SUSDB to $backupFile..." -MessageType INFO
             $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "BACKUP DATABASE SUSDB TO DISK = '$backupFile' WITH INIT")
             $output = & $sqlcmdPath $args 2>&1
-            Write-Log "Backup output: $output" -Level INFO
+            Log-Message "Backup output: $output" -MessageType INFO
         }
 
         if ($DoCheckDB) {
-            Write-Log "Running DBCC CHECKDB..." -Level INFO
+            Log-Message "Running DBCC CHECKDB..." -MessageType INFO
             $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC CHECKDB")
             $output = & $sqlcmdPath $args 2>&1
-            Write-Log "DBCC CHECKDB output: $output" -Level INFO
+            Log-Message "DBCC CHECKDB output: $output" -MessageType INFO
         }
 
         if ($DoCheckFragmentation) {
-            $fragmentationScript = Join-Path $sqlScriptDir "wsus-verify-fragmentation.sql"
+            $fragmentationScript = Join-Path $Config.SqlScriptDir "wsus-verify-fragmentation.sql"
             if (Test-Path $fragmentationScript) {
-                Write-Log "Checking index fragmentation with $fragmentationScript..." -Level INFO
+                Log-Message "Checking index fragmentation with $fragmentationScript..." -MessageType INFO
                 $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$fragmentationScript`"")
                 $output = & $sqlcmdPath $args 2>&1
-                Write-Log "Fragmentation check output: $output" -Level INFO
+                Log-Message "Fragmentation check output: $output" -MessageType INFO
             } else {
-                Write-Log "Fragmentation script not found at $fragmentationScript" -Level ERROR
+                Log-Message "Fragmentation script not found at $fragmentationScript" -MessageType WARNING
             }
         }
 
         if ($DoReindex) {
-            $reindexScript = Join-Path $sqlScriptDir "wsus-reindex.sql"
+            $reindexScript = Join-Path $Config.SqlScriptDir "wsus-reindex.sql"
             if (Test-Path $reindexScript) {
-                Write-Log "Reindexing with $reindexScript..." -Level INFO
+                Log-Message "Reindexing with $reindexScript..." -MessageType INFO
                 $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$reindexScript`"")
                 $output = & $sqlcmdPath $args 2>&1
-                Write-Log "Reindex output: $output" -Level INFO
+                Log-Message "Reindex output: $output" -MessageType INFO
             } else {
-                Write-Log "Reindex script not found at $reindexScript" -Level ERROR
+                Log-Message "Reindex script not found at $reindexScript" -MessageType WARNING
             }
         }
 
         if ($DoShrink) {
-            Write-Log "Shrinking SUSDB..." -Level INFO
+            Log-Message "Shrinking SUSDB..." -MessageType INFO
             $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC SHRINKDATABASE (SUSDB, 10)")
             $output = & $sqlcmdPath $args 2>&1
-            Write-Log "Shrink database output: $output" -Level INFO
+            Log-Message "Shrink database output: $output" -MessageType INFO
         }
     } catch {
-        Write-Log "Error in Run-WIDMaintenance: $_" -Level ERROR
+        Log-Message "Error in Run-WIDMaintenance: $_" -MessageType ERROR
         throw
     }
 }
 
-# Create scheduled task
 function Create-ScheduledTask {
+    param ([string]$ScriptPath = $PSCommandPath, [string]$TaskName = "WSUSMaintenanceTask", [string]$Time = "02:00")
     try {
-        $taskName = "WSUSMaintenanceTask"
-        $scriptPath = $PSCommandPath
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-        $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At "2:00AM"
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+        $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At $Time
         $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Weekly WSUS Maintenance" -Force
-        Write-Log "Scheduled task '$taskName' created successfully." -Level INFO
-        [System.Windows.Forms.MessageBox]::Show("Scheduled task '$taskName' created successfully.", "Success", 'OK', 'Information')
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Weekly WSUS Maintenance" -Force
+        Log-Message "Scheduled task '$TaskName' created successfully at $Time." -MessageType INFO
+        [System.Windows.Forms.MessageBox]::Show("Scheduled task '$TaskName' created successfully at $Time.", "Success", 'OK', 'Information')
     } catch {
-        Write-Log "Failed to create scheduled task: $_" -Level ERROR
+        Log-Message "Failed to create scheduled task: $_" -MessageType ERROR
         [System.Windows.Forms.MessageBox]::Show("Failed to create scheduled task: $_", "Error", 'OK', 'Error')
     }
 }
 
-# GUI Window setup
+#endregion
+
+#region --- GUI Bootstrapping
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "WSUS and WID Maintenance Tool"
 $form.Size = New-Object System.Drawing.Size(620, 700)
@@ -442,7 +492,6 @@ $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSCommandPath)
 
-# WSUS server selection
 $lblServer = New-Object System.Windows.Forms.Label
 $lblServer.Text = "WSUS Server:"
 $lblServer.Location = New-Object System.Drawing.Point(20, 20)
@@ -457,7 +506,6 @@ $comboServer.Items.AddRange((Get-WSUSServers))
 $comboServer.SelectedIndex = 0
 $form.Controls.Add($comboServer)
 
-# WSUS maintenance group
 $groupWSUS = New-Object System.Windows.Forms.GroupBox
 $groupWSUS.Text = "WSUS Maintenance Options"
 $groupWSUS.Size = New-Object System.Drawing.Size(570, 200)
@@ -500,7 +548,6 @@ $chkRemoveClassifications.Location = New-Object System.Drawing.Point(15, 150)
 $chkRemoveClassifications.Width = 540
 $groupWSUS.Controls.Add($chkRemoveClassifications)
 
-# SQL maintenance group
 $groupSQL = New-Object System.Windows.Forms.GroupBox
 $groupSQL.Text = "SUSDB (WID) SQL Maintenance"
 $groupSQL.Size = New-Object System.Drawing.Size(570, 150)
@@ -537,7 +584,6 @@ $chkShrink.Location = New-Object System.Drawing.Point(15, 125)
 $chkShrink.Width = 540
 $groupSQL.Controls.Add($chkShrink)
 
-# Progress bar
 $progress = New-Object System.Windows.Forms.ProgressBar
 $progress.Location = New-Object System.Drawing.Point(20, 420)
 $progress.Size = New-Object System.Drawing.Size(570, 20)
@@ -545,39 +591,42 @@ $progress.Minimum = 0
 $progress.Maximum = 100
 $form.Controls.Add($progress)
 
-# Status label
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Location = New-Object System.Drawing.Point(20, 450)
 $statusLabel.Size = New-Object System.Drawing.Size(570, 20)
 $statusLabel.Text = "Ready to execute..."
 $form.Controls.Add($statusLabel)
 
-# Log output textbox
-$txtLog = New-Object System.Windows.Forms.TextBox
-$txtLog.Location = New-Object System.Drawing.Point(20, 470)
-$txtLog.Size = New-Object System.Drawing.Size(570, 100)
-$txtLog.Multiline = $true
-$txtLog.ScrollBars = 'Vertical'
-$txtLog.ReadOnly = $true
-$form.Controls.Add($txtLog)
+$script:txtLog = New-Object System.Windows.Forms.TextBox
+$script:txtLog.Location = New-Object System.Drawing.Point(20, 470)
+$script:txtLog.Size = New-Object System.Drawing.Size(570, 100)
+$script:txtLog.Multiline = $true
+$script:txtLog.ScrollBars = 'Vertical'
+$script:txtLog.ReadOnly = $true
+$form.Controls.Add($script:txtLog)
 
-# Execute button
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Run Maintenance"
 $btnRun.Size = New-Object System.Drawing.Size(180, 35)
 $btnRun.Location = New-Object System.Drawing.Point(20, 580)
-$btnRun.Enabled = $true
 $form.Controls.Add($btnRun)
 
-# Schedule button
 $btnSchedule = New-Object System.Windows.Forms.Button
 $btnSchedule.Text = "Schedule Task"
 $btnSchedule.Size = New-Object System.Drawing.Size(180, 35)
 $btnSchedule.Location = New-Object System.Drawing.Point(220, 580)
-$btnSchedule.Add_Click({ Create-ScheduledTask })
+$btnSchedule.Add_Click({
+    $timeForm = New-Object System.Windows.Forms.Form
+    $timeForm.Text = "Schedule Time"
+    $timeForm.Size = New-Object System.Drawing.Size(300, 150)
+    $timeForm.StartPosition = 'CenterScreen'
+    $lblTime = New-Object System.Windows.Forms.Label; $lblTime.Text = "Time (HH:MM):"; $lblTime.Location = New-Object System.Drawing.Point(10, 20); $timeForm.Controls.Add($lblTime)
+    $txtTime = New-Object System.Windows.Forms.TextBox; $txtTime.Text = "02:00"; $txtTime.Location = New-Object System.Drawing.Point(100, 20); $timeForm.Controls.Add($txtTime)
+    $btnSet = New-Object System.Windows.Forms.Button; $btnSet.Text = "Set"; $btnSet.Location = New-Object System.Drawing.Point(100, 70); $btnSet.Add_Click({ Create-ScheduledTask -Time $txtTime.Text; $timeForm.Close() }); $timeForm.Controls.Add($btnSet)
+    [void]$timeForm.ShowDialog()
+})
 $form.Controls.Add($btnSchedule)
 
-# Close button
 $btnClose = New-Object System.Windows.Forms.Button
 $btnClose.Text = "Close"
 $btnClose.Size = New-Object System.Drawing.Size(180, 35)
@@ -585,26 +634,26 @@ $btnClose.Location = New-Object System.Drawing.Point(410, 580)
 $btnClose.Add_Click({ Save-Settings; $form.Close() })
 $form.Controls.Add($btnClose)
 
-# Runspace pool for background execution
 $runspacePool = [RunspaceFactory]::CreateRunspacePool(1, 4)
 $runspacePool.Open()
 
-# Execution logic
 $btnRun.Add_Click({
     try {
         $btnRun.Enabled = $false
         $btnSchedule.Enabled = $false
         $progress.Value = 0
         $statusLabel.Text = "Starting WSUS maintenance..."
-        $txtLog.Clear()
-        Write-Log "Starting WSUS maintenance..." -Level INFO
+        $script:txtLog.Clear()
+        Log-Message "Starting WSUS maintenance..." -MessageType INFO
         Save-Settings
 
+        # Validate WSUS assembly before proceeding
+        Validate-WSUSAssembly
+
         $selectedServer = $comboServer.SelectedItem
-        # Pre-check WSUS connectivity
-        Write-Log "Testing WSUS connection to $selectedServer..." -Level INFO
+        Log-Message "Testing WSUS connection to $selectedServer..." -MessageType INFO
         $wsus = Test-WSUSConnection -ServerName $selectedServer
-        Write-Log "WSUS connection test passed." -Level INFO
+        Log-Message "WSUS connection test passed." -MessageType INFO
 
         $tasks = @()
         if ($chkDeclineUnapproved.Checked) { $tasks += "DeclineUnapproved" }
@@ -621,365 +670,271 @@ $btnRun.Add_Click({
 
         $totalTasks = $tasks.Count
         if ($totalTasks -eq 0) {
-            Write-Log "No tasks selected." -Level WARNING
+            Log-Message "No tasks selected." -MessageType WARNING
             $statusLabel.Text = "No tasks selected."
             [System.Windows.Forms.MessageBox]::Show("Please select at least one maintenance task.", "Warning", 'OK', 'Warning')
             return
         }
 
         $progress.Maximum = $totalTasks * 100
-        $progressStep = 100 / $totalTasks
-        $currentStep = 0
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $csvFile = Join-Path $Config.CsvDir "$scriptName-Declined-$timestamp.csv"
         $declined = @()
 
-        # Define runspace script block with all required functions
         $runspace = [PowerShell]::Create().AddScript({
-            param($Tasks, $SelectedServer, $ChkCompress, $ChkPurge, $ChkRemoveClassifications, $ChkBackup, $ChkCheckDB, $ChkCheckFragmentation, $ChkReindex, $ChkShrink, $CsvFile, $LogFile, $BackupDir, $SqlScriptDir, $SqlcmdPath, $WsusAssemblyPath)
+            param($Tasks, $SelectedServer, $ChkCompress, $ChkPurge, $ChkRemoveClassifications, $ChkBackup, $ChkCheckDB, $ChkCheckFragmentation, $ChkReindex, $ChkShrink, $CsvFile, $LogPath, $BackupDir, $SqlScriptDir, $SqlcmdPath, $WsusUtilPath, $WsusAssemblyPath)
 
-            # Load WSUS assembly in runspace
-            try {
-                $assembly = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
-                if (-not $assembly) {
-                    throw "Failed to load assembly from GAC."
-                }
-                Write-Log "WSUS Administration assembly loaded in runspace from GAC." -Level INFO
-            } catch {
-                Write-Log "Failed to load WSUS assembly from GAC in runspace: $_" -Level WARNING
-                if (Test-Path $WsusAssemblyPath) {
-                    try {
-                        Add-Type -Path $WsusAssemblyPath -ErrorAction Stop
-                        Write-Log "WSUS Administration assembly loaded in runspace from $WsusAssemblyPath." -Level INFO
-                    } catch {
-                        Write-Log "Error: Failed to load WSUS assembly from ${WsusAssemblyPath} in runspace: $_" -Level ERROR
-                        throw
-                    }
-                } else {
-                    Write-Log "Error: WSUS assembly not found at ${WsusAssemblyPath} in runspace." -Level ERROR
-                    throw
-                }
+            $ErrorActionPreference = 'Stop'
+            $script:txtLog = $null
+
+            function Log-Message {
+                param ([string]$Message, [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")][string]$MessageType = "INFO")
+                $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                $entry = "[$stamp] [$MessageType] $Message"
+                Add-Content -Path $LogPath -Value $entry -Encoding UTF8
             }
 
-            # Define Write-Log within runspace
-            function Write-Log {
-                param (
-                    [Parameter(Mandatory=$true)]
-                    [string]$Message,
-                    [ValidateSet("INFO", "WARNING", "ERROR")]
-                    [string]$Level = "INFO"
-                )
-                $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-                $logMessage = "[$time] [$Level] $Message"
-                Add-Content -Path $LogFile -Value $logMessage -ErrorAction SilentlyContinue
-            }
-
-            # Define Test-WSUSConnection
             function Test-WSUSConnection {
-                param (
-                    [string]$ServerName = "localhost",
-                    [int]$Port = 8530,
-                    [bool]$UseSSL = $false
-                )
+                param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
                 try {
                     $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($ServerName, $UseSSL, $Port)
-                    Write-Log "Successfully connected to WSUS server: $ServerName" -Level INFO
+                    Log-Message "Successfully connected to WSUS server: $ServerName" -MessageType INFO
                     return $wsus
                 } catch {
-                    Write-Log "Failed to connect to WSUS server ($ServerName): $_" -Level ERROR
+                    Log-Message "Failed to connect to WSUS server ($ServerName): $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Define Decline-Updates
             function Decline-Updates {
-                param (
-                    [Parameter(Mandatory=$true)]
-                    [string]$Type,
-                    [Parameter(Mandatory=$true)]
-                    [scriptblock]$Filter,
-                    [Parameter(Mandatory=$true)]
-                    [string]$ServerName,
-                    [int]$Port = 8530,
-                    [bool]$UseSSL = $false
-                )
+                param ([string]$Type, [scriptblock]$Filter, [string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
                 try {
                     $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
                     $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
                     $scope.FromCreationDate = (Get-Date).AddDays(-365)
-
                     $updates = $wsus.SearchUpdates($scope) | Where-Object $Filter
-
-                    if ($updates.Count -eq 0) {
-                        Write-Log "$Type updates: None found matching criteria." -Level INFO
-                        return @()
-                    }
-
-                    Write-Log "$Type updates: Found $($updates.Count) updates. Declining..." -Level INFO
+                    if ($updates.Count -eq 0) { return @() }
+                    Log-Message "$Type updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
                     $log = @()
                     foreach ($update in $updates) {
                         try {
                             $update.Decline()
-                            Write-Log "Declined $Type update: $($update.Title)" -Level INFO
-                            $log += [PSCustomObject]@{
-                                KB          = $update.KnowledgeBaseArticles -join ","
-                                Title       = $update.Title
-                                Type        = $Type
-                                Date        = $update.CreationDate
-                                DeclinedOn  = Get-Date
-                                Server      = $ServerName
-                            }
+                            Log-Message "Declined $Type update: $($update.Title)" -MessageType INFO
+                            $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = $Type; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
                         } catch {
-                            Write-Log "Failed to decline $Type update: $($update.Title) - $_" -Level ERROR
+                            Log-Message "Failed to decline $Type update: $($update.Title) - $_" -MessageType ERROR
                         }
                     }
                     return $log
                 } catch {
-                    Write-Log "Error in Decline-Updates ($Type): $_" -Level ERROR
+                    Log-Message "Error in Decline-Updates ($Type): $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Define Decline-ByClassification
             function Decline-ByClassification {
-                param (
-                    [Parameter(Mandatory=$true)]
-                    [string]$ServerName,
-                    [int]$Port = 8530,
-                    [bool]$UseSSL = $false
-                )
+                param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
                 try {
                     $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
                     $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
                     $scope.FromCreationDate = (Get-Date).AddDays(-365)
-
                     $classifications = @("Itanium", "Windows XP")
-                    $updates = $wsus.SearchUpdates($scope) | Where-Object {
-                        $_.IsDeclined -eq $false -and ($_.Title -match ($classifications -join "|") -or $_.Description -match ($classifications -join "|"))
-                    }
-
-                    if ($updates.Count -eq 0) {
-                        Write-Log "Classification-based updates: None found matching criteria." -Level INFO
-                        return @()
-                    }
-
-                    Write-Log "Classification-based updates: Found $($updates.Count) updates. Declining..." -Level INFO
+                    $updates = $wsus.SearchUpdates($scope) | Where-Object { $_.IsDeclined -eq $false -and ($_.Title -match ($classifications -join "|") -or $_.Description -match ($classifications -join "|")) }
+                    if ($updates.Count -eq 0) { return @() }
+                    Log-Message "Classification-based updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
                     $log = @()
                     foreach ($update in $updates) {
                         try {
                             $update.Decline()
-                            Write-Log "Declined classification-based update: $($update.Title)" -Level INFO
-                            $log += [PSCustomObject]@{
-                                KB          = $update.KnowledgeBaseArticles -join ","
-                                Title       = $update.Title
-                                Type        = "Classification"
-                                Date        = $update.CreationDate
-                                DeclinedOn  = Get-Date
-                                Server      = $ServerName
-                            }
+                            Log-Message "Declined classification-based update: $($update.Title)" -MessageType INFO
+                            $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = "Classification"; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
                         } catch {
-                            Write-Log "Failed to decline classification-based update: $($update.Title) - $_" -Level ERROR
+                            Log-Message "Failed to decline classification-based update: $($update.Title) - $_" -MessageType ERROR
                         }
                     }
                     return $log
                 } catch {
-                    Write-Log "Error in Decline-ByClassification: $_" -Level ERROR
+                    Log-Message "Error in Decline-ByClassification: $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Define Run-WSUSCleanup
             function Run-WSUSCleanup {
-                param (
-                    [Parameter(Mandatory=$true)]
-                    [bool]$IncludeCompress,
-                    [Parameter(Mandatory=$true)]
-                    [string]$ServerName,
-                    [int]$Port = 8530,
-                    [bool]$UseSSL = $false
-                )
+                param ([bool]$IncludeCompress, [string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
                 try {
                     $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
                     $cleanup = $wsus.GetCleanupManager()
-                    $steps = @(
-                        [Microsoft.UpdateServices.Administration.CleanupScope]::SupersededUpdates,
-                        [Microsoft.UpdateServices.Administration.CleanupScope]::ExpiredUpdates,
-                        [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteUpdates,
-                        [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteComputers
-                    )
+                    $steps = @([Microsoft.UpdateServices.Administration.CleanupScope]::SupersededUpdates, [Microsoft.UpdateServices.Administration.CleanupScope]::ExpiredUpdates, [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteUpdates, [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteComputers)
                     if ($IncludeCompress) { $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::CompressUpdates }
-
+                    $success = $false
                     foreach ($step in $steps) {
                         try {
-                            Write-Log "Running cleanup step: $step" -Level INFO
+                            Log-Message "Running cleanup step: $step" -MessageType INFO
                             $cleanup.PerformCleanup($step)
-                            Write-Log "Cleanup step '$step' completed." -Level INFO
+                            Log-Message "Cleanup step '$step' completed." -MessageType INFO
+                            $success = $true
                         } catch {
-                            Write-Log "Cleanup step '$step' failed: $_" -Level ERROR
+                            Log-Message "Cleanup step '$step' failed with assembly method: $_" -MessageType WARNING
                         }
                     }
+                    if (-not $success -and (Test-Path $WsusUtilPath)) {
+                        Log-Message "Falling back to wsusutil.exe for cleanup..." -MessageType INFO
+                        $output = & $WsusUtilPath deleteunneededrevisions 2>&1
+                        Log-Message "wsusutil.exe deleteunneededrevisions output: $output" -MessageType INFO
+                        if ($IncludeCompress) {
+                            $output = & $WsusUtilPath compress 2>&1
+                            Log-Message "wsusutil.exe compress output: $output" -MessageType INFO
+                        }
+                        Log-Message "WSUS cleanup completed using wsusutil.exe." -MessageType INFO
+                    } elseif (-not $success) {
+                        Log-Message "Error: No cleanup method succeeded and wsusutil.exe not found at $WsusUtilPath" -MessageType ERROR
+                        throw "Cleanup failed"
+                    }
                 } catch {
-                    Write-Log "Error in Run-WSUSCleanup: $_" -Level ERROR
+                    Log-Message "Error in Run-WSUSCleanup: $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Define Purge-UnassignedFiles
             function Purge-UnassignedFiles {
-                param (
-                    [string]$WsusUtilPath = "C:\Program Files\Update Services\Tools\wsusutil.exe"
-                )
+                param ([string]$WsusUtilPath)
                 try {
                     if (-not (Test-Path $WsusUtilPath)) {
-                        Write-Log "wsusutil.exe not found at $WsusUtilPath" -Level ERROR
+                        Log-Message "wsusutil.exe not found at $WsusUtilPath" -MessageType ERROR
                         throw "wsusutil.exe not found"
                     }
-                    Write-Log "Running wsusutil.exe reset to purge unassigned files..." -Level INFO
+                    Log-Message "Running wsusutil.exe reset to purge unassigned files..." -MessageType INFO
                     $output = & $WsusUtilPath reset 2>&1
-                    Write-Log "wsusutil.exe reset output: $output" -Level INFO
+                    Log-Message "wsusutil.exe reset output: $output" -MessageType INFO
                 } catch {
-                    Write-Log "Error in Purge-UnassignedFiles: $_" -Level ERROR
+                    Log-Message "Error in Purge-UnassignedFiles: $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Define Run-WIDMaintenance
             function Run-WIDMaintenance {
-                param (
-                    [bool]$DoCheckDB,
-                    [bool]$DoCheckFragmentation,
-                    [bool]$DoReindex,
-                    [bool]$DoShrink,
-                    [bool]$DoBackup
-                )
+                param ([bool]$DoCheckDB, [bool]$DoCheckFragmentation, [bool]$DoReindex, [bool]$DoShrink, [bool]$DoBackup)
                 try {
                     $widPipe = "np:\\.\pipe\MICROSOFT##WID\tsql\query"
-
+                    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
                     if ($DoBackup) {
-                        $backupFile = Join-Path $BackupDir "SUSDB-Backup-$((Get-Date).ToString('yyyyMMdd_HHmmss')).bak"
-                        Write-Log "Backing up SUSDB to $backupFile..." -Level INFO
+                        $backupFile = Join-Path $BackupDir "SUSDB-Backup-$timestamp.bak"
+                        Log-Message "Backing up SUSDB to $backupFile..." -MessageType INFO
                         $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "BACKUP DATABASE SUSDB TO DISK = '$backupFile' WITH INIT")
                         $output = & $SqlcmdPath $args 2>&1
-                        Write-Log "Backup output: $output" -Level INFO
+                        Log-Message "Backup output: $output" -MessageType INFO
                     }
-
                     if ($DoCheckDB) {
-                        Write-Log "Running DBCC CHECKDB..." -Level INFO
+                        Log-Message "Running DBCC CHECKDB..." -MessageType INFO
                         $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC CHECKDB")
                         $output = & $SqlcmdPath $args 2>&1
-                        Write-Log "DBCC CHECKDB output: $output" -Level INFO
+                        Log-Message "DBCC CHECKDB output: $output" -MessageType INFO
                     }
-
                     if ($DoCheckFragmentation) {
                         $fragmentationScript = Join-Path $SqlScriptDir "wsus-verify-fragmentation.sql"
                         if (Test-Path $fragmentationScript) {
-                            Write-Log "Checking index fragmentation with $fragmentationScript..." -Level INFO
+                            Log-Message "Checking index fragmentation with $fragmentationScript..." -MessageType INFO
                             $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$fragmentationScript`"")
                             $output = & $SqlcmdPath $args 2>&1
-                            Write-Log "Fragmentation check output: $output" -Level INFO
+                            Log-Message "Fragmentation check output: $output" -MessageType INFO
                         } else {
-                            Write-Log "Fragmentation script not found at $fragmentationScript" -Level ERROR
+                            Log-Message "Fragmentation script not found at $fragmentationScript" -MessageType WARNING
                         }
                     }
-
                     if ($DoReindex) {
                         $reindexScript = Join-Path $SqlScriptDir "wsus-reindex.sql"
                         if (Test-Path $reindexScript) {
-                            Write-Log "Reindexing with $reindexScript..." -Level INFO
+                            Log-Message "Reindexing with $reindexScript..." -MessageType INFO
                             $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$reindexScript`"")
                             $output = & $SqlcmdPath $args 2>&1
-                            Write-Log "Reindex output: $output" -Level INFO
+                            Log-Message "Reindex output: $output" -MessageType INFO
                         } else {
-                            Write-Log "Reindex script not found at $reindexScript" -Level ERROR
+                            Log-Message "Reindex script not found at $reindexScript" -MessageType WARNING
                         }
                     }
-
                     if ($DoShrink) {
-                        Write-Log "Shrinking SUSDB..." -Level INFO
+                        Log-Message "Shrinking SUSDB..." -MessageType INFO
                         $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC SHRINKDATABASE (SUSDB, 10)")
                         $output = & $SqlcmdPath $args 2>&1
-                        Write-Log "Shrink database output: $output" -Level INFO
+                        Log-Message "Shrink database output: $output" -MessageType INFO
                     }
                 } catch {
-                    Write-Log "Error in Run-WIDMaintenance: $_" -Level ERROR
+                    Log-Message "Error in Run-WIDMaintenance: $_" -MessageType ERROR
                     throw
                 }
             }
 
-            # Runspace execution logic
-            $ErrorActionPreference = 'Stop'
             $declined = @()
-            Write-Log "Runspace started for tasks: $($Tasks -join ', ')" -Level INFO
-
+            Log-Message "Runspace started for tasks: $($Tasks -join ', ')" -MessageType INFO
             foreach ($task in $Tasks) {
-                if ($task -eq "DeclineUnapproved") {
-                    $declined += Decline-Updates -Type "Unapproved" -Filter { -not $_.IsApproved -and -not $_.IsDeclined -and $_.CreationDate -lt (Get-Date).AddDays(-30) } -ServerName $SelectedServer
-                }
-                if ($task -eq "DeclineExpired") {
-                    $declined += Decline-Updates -Type "Expired" -Filter { $_.IsExpired -and -not $_.IsDeclined } -ServerName $SelectedServer
-                }
-                if ($task -eq "DeclineSuperseded") {
-                    $declined += Decline-Updates -Type "Superseded" -Filter { $_.IsSuperseded -and -not $_.IsDeclined } -ServerName $SelectedServer
-                }
-                if ($task -eq "RemoveClassifications") {
-                    $declined += Decline-ByClassification -ServerName $SelectedServer
-                }
-                if ($task -eq "WSUSCleanup") {
-                    Run-WSUSCleanup -IncludeCompress $ChkCompress -ServerName $SelectedServer
-                }
-                if ($task -eq "PurgeUnassigned") {
-                    Purge-UnassignedFiles
-                }
-                if ($task -in @("BackupDB", "CheckDB", "CheckFragmentation", "Reindex", "ShrinkDB")) {
-                    Run-WIDMaintenance -DoBackup ($task -eq "BackupDB" -and $ChkBackup) -DoCheckDB ($task -eq "CheckDB" -and $ChkCheckDB) -DoCheckFragmentation ($task -eq "CheckFragmentation" -and $ChkCheckFragmentation) -DoReindex ($task -eq "Reindex" -and $ChkReindex) -DoShrink ($task -eq "ShrinkDB" -and $ChkShrink)
+                Log-Message "Executing task: $task" -MessageType INFO
+                switch ($task) {
+                    "DeclineUnapproved" { $declined += Decline-Updates -Type "Unapproved" -Filter { -not $_.IsApproved -and -not $_.IsDeclined -and $_.CreationDate -lt (Get-Date).AddDays(-30) } -ServerName $SelectedServer }
+                    "DeclineExpired" { $declined += Decline-Updates -Type "Expired" -Filter { $_.IsExpired -and -not $_.IsDeclined } -ServerName $SelectedServer }
+                    "DeclineSuperseded" { $declined += Decline-Updates -Type "Superseded" -Filter { $_.IsSuperseded -and -not $_.IsDeclined } -ServerName $SelectedServer }
+                    "RemoveClassifications" { $declined += Decline-ByClassification -ServerName $SelectedServer }
+                    "WSUSCleanup" { Run-WSUSCleanup -IncludeCompress $ChkCompress -ServerName $SelectedServer }
+                    "PurgeUnassigned" { Purge-UnassignedFiles -WsusUtilPath $WsusUtilPath }
+                    { $_ -in @("BackupDB", "CheckDB", "CheckFragmentation", "Reindex", "ShrinkDB") } {
+                        Run-WIDMaintenance -DoBackup ($task -eq "BackupDB" -and $ChkBackup) -DoCheckDB ($task -eq "CheckDB" -and $ChkCheckDB) -DoCheckFragmentation ($task -eq "CheckFragmentation" -and $ChkCheckFragmentation) -DoReindex ($task -eq "Reindex" -and $ChkReindex) -DoShrink ($task -eq "ShrinkDB" -and $ChkShrink)
+                    }
                 }
             }
-
             if ($declined.Count -gt 0) {
                 $declined | Export-Csv -Path $CsvFile -NoTypeInformation -Encoding UTF8
+                Log-Message "Declined updates exported to $CsvFile" -MessageType INFO
             }
-            Write-Log "Runspace execution completed." -Level INFO
+            Log-Message "Runspace execution completed." -MessageType INFO
             return $declined
-        }).AddArgument($tasks).AddArgument($selectedServer).AddArgument($chkCompress.Checked).AddArgument($chkPurge.Checked).AddArgument($chkRemoveClassifications.Checked).AddArgument($chkBackup.Checked).AddArgument($chkCheckDB.Checked).AddArgument($chkCheckFragmentation.Checked).AddArgument($chkReindex.Checked).AddArgument($chkShrink.Checked).AddArgument($csvFile).AddArgument($logFile).AddArgument($backupDir).AddArgument($sqlScriptDir).AddArgument($sqlcmdPath).AddArgument($wsusAssemblyPath)
+        }).AddArgument($tasks).AddArgument($selectedServer).AddArgument($chkCompress.Checked).AddArgument($chkPurge.Checked).AddArgument($chkRemoveClassifications.Checked).AddArgument($chkBackup.Checked).AddArgument($chkCheckDB.Checked).AddArgument($chkCheckFragmentation.Checked).AddArgument($chkReindex.Checked).AddArgument($chkShrink.Checked).AddArgument($csvFile).AddArgument($logPath).AddArgument($Config.BackupDir).AddArgument($Config.SqlScriptDir).AddArgument($sqlcmdPath).AddArgument($Config.WsusUtilPath).AddArgument($Config.WsusAssemblyPath)
         $runspace.RunspacePool = $runspacePool
         $handle = $runspace.BeginInvoke()
 
+        $taskDurations = @{
+            "DeclineUnapproved" = 10; "DeclineExpired" = 10; "DeclineSuperseded" = 10; "RemoveClassifications" = 10
+            "WSUSCleanup" = 20; "PurgeUnassigned" = 15; "BackupDB" = 30; "CheckDB" = 20
+            "CheckFragmentation" = 15; "Reindex" = 25; "ShrinkDB" = 20
+        }
+        $totalDuration = ($tasks | ForEach-Object { $taskDurations[$_] } | Measure-Object -Sum).Sum
+        $progressStep = 100 / $totalDuration
+        $currentTime = 0
+
         while (-not $handle.IsCompleted) {
             Start-Sleep -Milliseconds 500
-            $currentStep += $progressStep / 10
-            $progress.Value = [Math]::Min([int]($currentStep * 100), $progress.Maximum)
+            $currentTime += 0.5
+            $progress.Value = [Math]::Min([int]($currentTime * $progressStep), $progress.Maximum)
             [System.Windows.Forms.Application]::DoEvents()
         }
 
         $result = $runspace.EndInvoke($handle)
         $runspace.Dispose()
 
-        if ($result) {
-            Write-Log "Declined updates exported to $csvFile" -Level INFO
-        }
-
         $progress.Value = $progress.Maximum
-        $statusLabel.Text = "Maintenance complete. Log saved to $logFile"
-        Write-Log "Maintenance complete." -Level INFO
-        [System.Windows.Forms.MessageBox]::Show("Maintenance completed successfully.`nLog: $logFile`nCSV: $csvFile", "Complete", 'OK', 'Information')
+        $statusLabel.Text = "Maintenance complete. Log saved to $logPath"
+        Log-Message "Maintenance complete." -MessageType INFO
+        [System.Windows.Forms.MessageBox]::Show("Maintenance completed successfully.`nLog: $logPath`nCSV: $csvFile", "Complete", 'OK', 'Information')
     } catch {
-        Write-Log "Execution failed: $_" -Level ERROR
+        Log-Message "Execution failed: $_" -MessageType ERROR
         $statusLabel.Text = "Maintenance failed. Check log for details."
-        [System.Windows.Forms.MessageBox]::Show("Maintenance failed: $_`nLog: $logFile", "Error", 'OK', 'Error')
+        [System.Windows.Forms.MessageBox]::Show("Maintenance failed: $_`nLog: $logPath", "Error", 'OK', 'Error')
     } finally {
         $btnRun.Enabled = $true
         $btnSchedule.Enabled = $true
     }
 })
 
-# Load settings and show GUI
 try {
     Load-Settings
-    Write-Log "Starting WSUS Maintenance GUI" -Level INFO
+    Log-Message "Starting WSUS Maintenance GUI" -MessageType INFO
+    $form.Add_Shown({ $form.Activate() })
     [void]$form.ShowDialog()
-    Write-Log "WSUS Maintenance GUI closed" -Level INFO
+    Log-Message "WSUS Maintenance GUI closed" -MessageType INFO
 } finally {
     Save-Settings
     $runspacePool.Close()
     $runspacePool.Dispose()
 }
+
+#endregion
 
 # End of script
