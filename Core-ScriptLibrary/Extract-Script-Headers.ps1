@@ -1,22 +1,24 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Extracting Headers from .ps1 Files into a Single Merged File.
+    PowerShell Script for Extracting Headers from .ps1 Files into a Single Merged File
 
 .DESCRIPTION
-    This script recursively searches the specified root folder and its subfolders for `.ps1` files,
-    extracts their headers, and writes all headers into a single merged `.txt` file in the root folder.
+    Recursively scans the selected root folder for `.ps1` files,
+    extracts the initial comment-based help (header) from each script,
+    and writes them to a single consolidated `.txt` file.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: January 10, 2025
+    Version 2.0 - July 16, 2025
 #>
 
 param (
     [switch]$ShowConsole = $false
 )
 
+#region --- Console Visibility ---
 if (-not $ShowConsole) {
     Add-Type @"
     using System;
@@ -29,26 +31,39 @@ if (-not $ShowConsole) {
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         public static void Hide() {
             var handle = GetConsoleWindow();
-            ShowWindow(handle, 0); // 0 = SW_HIDE
-        }
-        public static void Show() {
-            var handle = GetConsoleWindow();
-            ShowWindow(handle, 5); // 5 = SW_SHOW
+            ShowWindow(handle, 0);
         }
     }
 "@
     [Window]::Hide()
 }
+#endregion
 
+#region --- Assembly References ---
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+#endregion
 
-# Logging function
+#region --- Logging & Initialization ---
+function Initialize-ScriptPaths {
+    param (
+        [string]$DefaultLogDir = 'C:\Logs-TEMP'
+    )
+    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
+    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $logDir = if ($env:LOG_PATH -and $env:LOG_PATH -ne "") { $env:LOG_PATH } else { $DefaultLogDir }
+    $logPath = Join-Path $logDir "${scriptName}_${timestamp}.log"
+
+    return @{
+        LogDir     = $logDir
+        LogPath    = $logPath
+        ScriptName = $scriptName
+    }
+}
+
 function Log-Message {
     param (
-        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO"
     )
@@ -59,185 +74,158 @@ function Log-Message {
         if (-not (Test-Path $global:LogDir)) {
             New-Item -Path $global:LogDir -ItemType Directory -Force | Out-Null
         }
-        Add-Content -Path $global:LogPath -Value $logEntry -ErrorAction Stop
+        Add-Content -Path $global:LogPath -Value $logEntry
     } catch {
-        Write-Warning "Failed to write log: $logEntry"
-        Write-Host $logEntry
+        Write-Warning "Log write failed: $logEntry"
     }
+
+    Write-Host $logEntry
 }
 
-# Error handling function
 function Handle-Error {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$ErrorMessage
-    )
-    Log-Message -Message "$ErrorMessage" -MessageType "ERROR"
+    param ([string]$ErrorMessage)
+
+    Log-Message -Message $ErrorMessage -MessageType "ERROR"
     [System.Windows.Forms.MessageBox]::Show(
-        $ErrorMessage, 
-        "Error", 
-        [System.Windows.Forms.MessageBoxButtons]::OK, 
+        $ErrorMessage,
+        "Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Error
     )
 }
+#endregion
 
-# Initialize paths
-function Initialize-ScriptPaths {
-    param (
-        [string]$DefaultLogDir = 'C:\Logs-TEMP'
-    )
-    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-
-    $logDir = if ($env:LOG_PATH -and $env:LOG_PATH -ne "") { $env:LOG_PATH } else { $DefaultLogDir }
-    $logFileName = "${scriptName}_${timestamp}.log"
-    $logPath = Join-Path $logDir $logFileName
-
-    return @{
-        LogDir     = $logDir
-        LogPath    = $logPath
-        ScriptName = $scriptName
-    }
-}
-
-# Initialize paths globally
-$Paths = Initialize-ScriptPaths
-$global:LogDir = $Paths.LogDir
-$global:LogPath = $Paths.LogPath
-
-# Extract headers from a .ps1 file
+#region --- Header Extraction Logic ---
 function Extract-FileHeader {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$FilePath
-    )
+    param ([string]$FilePath)
 
     $Header = @()
-    $CollectingHeader = $false
+    $Collecting = $false
 
     try {
-        foreach ($Line in Get-Content -Path $FilePath -ErrorAction Stop) {
-            if ($Line -match "<#") { $CollectingHeader = $true }
-            if ($CollectingHeader) { $Header += $Line }
-            if ($Line -match "#>") { break }
+        foreach ($line in Get-Content -Path $FilePath -ErrorAction Stop) {
+            if ($line -match '<#') { $Collecting = $true }
+            if ($Collecting) { $Header += $line }
+            if ($line -match '#>') { break }
         }
     } catch {
-        Handle-Error "Error reading file: $FilePath. $_"
+        Handle-Error "Failed to read file: $FilePath. $_"
     }
 
     return $Header
 }
 
-# Perform header extraction into a single file
 function Start-HeaderExtraction {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$RootFolder
-    )
+    param ([string]$RootFolder)
 
     try {
-        Log-Message -Message "Starting header extraction in: $RootFolder" -MessageType "INFO"
-        $MergedFile = Join-Path -Path $RootFolder -ChildPath "Merged-Headers.txt"
-        Set-Content -Path $MergedFile -Value "### Merged Headers for Root Folder: $RootFolder ###`n"
+        Log-Message -Message "Header extraction started in: $RootFolder"
 
-        $AllFolders = Get-ChildItem -Path $RootFolder -Directory -Recurse -ErrorAction Stop
-        $TotalFiles = (Get-ChildItem -Path $RootFolder -Filter *.ps1 -Recurse -File).Count
-        $ProcessedFiles = 0
+        $MergedFile = Join-Path $RootFolder "Merged-Headers.txt"
+        Set-Content -Path $MergedFile -Value "### Merged Headers from Folder: $RootFolder ###`n"
 
-        foreach ($Folder in $AllFolders) {
-            Add-Content -Path $MergedFile -Value "### Folder: $($Folder.FullName) ###`n"
+        $PS1Files = Get-ChildItem -Path $RootFolder -Recurse -Filter *.ps1 -File -ErrorAction Stop
+        $Total = $PS1Files.Count
+        $Index = 0
 
-            foreach ($PS1File in Get-ChildItem -Path $Folder.FullName -Filter *.ps1 -File -ErrorAction SilentlyContinue) {
-                $ProcessedFiles++
-                Write-Progress -Activity "Extracting Headers" -Status "Processing $($PS1File.FullName)" -PercentComplete (($ProcessedFiles / $TotalFiles) * 100)
+        foreach ($File in $PS1Files) {
+            $Index++
+            Write-Progress -Activity "Extracting Headers" -Status $File.FullName -PercentComplete (($Index / $Total) * 100)
 
-                Add-Content -Path $MergedFile -Value "### File: $($PS1File.Name) ###`n"
+            Add-Content -Path $MergedFile -Value "### File: $($File.FullName) ###`n"
 
-                $Header = Extract-FileHeader -FilePath $PS1File.FullName
-                if ($Header.Count -gt 0) {
-                    Add-Content -Path $MergedFile -Value ($Header -join "`n")
-                } else {
-                    Add-Content -Path $MergedFile -Value "No header found in $($PS1File.Name).`n"
-                }
-                Add-Content -Path $MergedFile -Value "`n"
+            $Header = Extract-FileHeader -FilePath $File.FullName
+            if ($Header.Count -gt 0) {
+                Add-Content -Path $MergedFile -Value ($Header -join "`n")
+            } else {
+                Add-Content -Path $MergedFile -Value "No header found in: $($File.Name)`n"
             }
+
+            Add-Content -Path $MergedFile -Value "`n"
         }
 
-        Log-Message -Message "Header extraction completed successfully. Merged file: $MergedFile" -MessageType "INFO"
+        Log-Message -Message "Header extraction complete. Output: $MergedFile"
         return $MergedFile
     } catch {
-        Handle-Error "An error occurred during header extraction. $_"
+        Handle-Error "Extraction failed: $_"
     }
 }
+#endregion
 
-# GUI for folder selection and execution
+#region --- GUI Logic ---
 function Show-GUI {
     $Form = New-Object System.Windows.Forms.Form
     $Form.Text = "PowerShell Header Extractor"
-    $Form.Size = New-Object System.Drawing.Size(560, 350)
+    $Form.Size = New-Object System.Drawing.Size(560, 320)
     $Form.StartPosition = "CenterScreen"
 
-    $ProgressBar = New-Object System.Windows.Forms.ProgressBar
-    $ProgressBar.Size = New-Object System.Drawing.Size(500, 20)
-    $ProgressBar.Location = New-Object System.Drawing.Point(20, 250)
-    $Form.Controls.Add($ProgressBar)
+    # Folder Label
+    $Label = New-Object System.Windows.Forms.Label
+    $Label.Text = "Select Root Folder:"
+    $Label.Location = New-Object System.Drawing.Point(10, 20)
+    $Label.AutoSize = $true
+    $Form.Controls.Add($Label)
 
-    $FolderLabel = New-Object System.Windows.Forms.Label
-    $FolderLabel.Text = "Root Folder:"
-    $FolderLabel.Location = New-Object System.Drawing.Point(10, 20)
-    $FolderLabel.AutoSize = $true
-    $Form.Controls.Add($FolderLabel)
+    # TextBox
+    $TextBox = New-Object System.Windows.Forms.TextBox
+    $TextBox.Size = New-Object System.Drawing.Size(350, 20)
+    $TextBox.Location = New-Object System.Drawing.Point(130, 20)
+    $TextBox.Text = (Get-Location).Path
+    $Form.Controls.Add($TextBox)
 
-    $FolderTextbox = New-Object System.Windows.Forms.TextBox
-    $FolderTextbox.Size = New-Object System.Drawing.Size(350, 20)
-    $FolderTextbox.Location = New-Object System.Drawing.Point(100, 20)
-    $FolderTextbox.Text = (Get-Location).Path
-    $Form.Controls.Add($FolderTextbox)
-
-    $BrowseFolderButton = New-Object System.Windows.Forms.Button
-    $BrowseFolderButton.Text = "Browse"
-    $BrowseFolderButton.Size = New-Object System.Drawing.Size(75, 30)
-    $BrowseFolderButton.Location = New-Object System.Drawing.Point(460, 20)
-    $BrowseFolderButton.Add_Click({
-        $FolderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-        if ($FolderBrowser.ShowDialog() -eq "OK") {
-            $FolderTextbox.Text = $FolderBrowser.SelectedPath
+    # Browse Button
+    $Browse = New-Object System.Windows.Forms.Button
+    $Browse.Text = "Browse"
+    $Browse.Size = New-Object System.Drawing.Size(75, 23)
+    $Browse.Location = New-Object System.Drawing.Point(490, 18)
+    $Browse.Add_Click({
+        $Dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+        if ($Dialog.ShowDialog() -eq "OK") {
+            $TextBox.Text = $Dialog.SelectedPath
         }
     })
-    $Form.Controls.Add($BrowseFolderButton)
+    $Form.Controls.Add($Browse)
 
-    $RunButton = New-Object System.Windows.Forms.Button
-    $RunButton.Text = "Run"
-    $RunButton.Size = New-Object System.Drawing.Size(100, 30)
-    $RunButton.Location = New-Object System.Drawing.Point(120, 280)
-    $RunButton.Add_Click({
-        $RootFolder = $FolderTextbox.Text
-        if (-not (Test-Path -Path $RootFolder)) {
-            Handle-Error "Invalid root folder path."
+    # Run Button
+    $Run = New-Object System.Windows.Forms.Button
+    $Run.Text = "Run"
+    $Run.Size = New-Object System.Drawing.Size(100, 30)
+    $Run.Location = New-Object System.Drawing.Point(130, 70)
+    $Run.Add_Click({
+        $Path = $TextBox.Text.Trim()
+        if (-not (Test-Path $Path)) {
+            Handle-Error "Invalid folder path."
             return
         }
 
-        $MergedFile = Start-HeaderExtraction -RootFolder $RootFolder
-        [System.Windows.Forms.MessageBox]::Show(
-            "Header extraction completed successfully. Merged headers are stored in: $MergedFile", 
-            "Success", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
+        $MergedFile = Start-HeaderExtraction -RootFolder $Path
+        if ($MergedFile) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Extraction completed. Merged file:`n$MergedFile",
+                "Success",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        }
     })
-    $Form.Controls.Add($RunButton)
+    $Form.Controls.Add($Run)
 
-    $ExitButton = New-Object System.Windows.Forms.Button
-    $ExitButton.Text = "Exit"
-    $ExitButton.Size = New-Object System.Drawing.Size(100, 30)
-    $ExitButton.Location = New-Object System.Drawing.Point(240, 280)
-    $ExitButton.Add_Click({ $Form.Close() })
-    $Form.Controls.Add($ExitButton)
+    # Exit Button
+    $Exit = New-Object System.Windows.Forms.Button
+    $Exit.Text = "Exit"
+    $Exit.Size = New-Object System.Drawing.Size(100, 30)
+    $Exit.Location = New-Object System.Drawing.Point(250, 70)
+    $Exit.Add_Click({ $Form.Close() })
+    $Form.Controls.Add($Exit)
 
     $Form.ShowDialog()
 }
+#endregion
 
-# Show the GUI
+# Global Path Init
+$global:Paths = Initialize-ScriptPaths
+$global:LogDir = $Paths.LogDir
+$global:LogPath = $Paths.LogPath
+
+# Run GUI
 Show-GUI
-
-# End of script
