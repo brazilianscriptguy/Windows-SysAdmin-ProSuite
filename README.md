@@ -8,53 +8,53 @@
 </p>
 
 <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
-✨ All scripts feature intuitive <strong>graphical user interfaces (GUI)</strong>, generate detailed <code>.log</code> files, and many include <code>.csv</code> export capabilities for seamless auditing and reporting.
+  ✨ All scripts feature intuitive <strong>graphical user interfaces (GUI)</strong>, generate detailed <code>.log</code> files, and many include <code>.csv</code> export capabilities for seamless auditing and reporting.
 </p>
 
 <hr />
 
 <h2>🛠️ Introduction</h2>
-<p style="text-align: justify;">
+<p style="text-align: justify; font-size: 16px;">
   This toolkit addresses core areas of IT management, including automation, compliance, infrastructure configuration, digital forensics, and system hardening. The following directories contain purpose-built modules:
 </p>
 
-<ul>
+<ul style="font-size: 16px; line-height: 1.8;">
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
     </a>
-    <span>Incident response, forensic tools, and real-time log analysis utilities.</span>
+    Incident response, forensic tools, and real-time log analysis utilities.
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Asset-red?style=flat-square&logo=vscode" alt="Core-ScriptLibrary Badge">
     </a>
-    <span>Reusable automation modules for scalable and adaptable PowerShell solutions.</span>
+    Reusable automation modules for scalable and adaptable PowerShell solutions.
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=flat-square&logo=server" alt="ITSM-Templates-SVR Badge">
     </a>
-    <span>Server-side templates for ITSM compliance, security hardening, and role-specific tasks.</span>
+    Server-side templates for ITSM compliance, security hardening, and role-specific tasks.
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=flat-square&logo=windows" alt="ITSM-Templates-WKS Badge">
     </a>
-    <span>Workstation-side tools for pre/post domain join, compliance, and user provisioning.</span>
+    Workstation-side tools for pre/post domain join, compliance, and user provisioning.
   </li>
   <li>
     <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=flat-square&logo=windows" alt="SysAdmin-Tools Badge">
     </a>
-    <span>Scripts for managing Active Directory, GPOs, security policies, and infrastructure services.</span>
+    Scripts for managing Active Directory, GPOs, security policies, and infrastructure services.
   </li>
 </ul>
 
 <hr />
 
 <h2>💻 Core Features</h2>
-<ul>
+<ul style="font-size: 16px; line-height: 1.8;">
   <li>
     <img src="https://img.shields.io/badge/Forensic%20Analysis-orange?style=flat-square&logo=security" alt="Forensics Badge">
     Real-time forensic scanning, evidence capture, and incident response automation.
@@ -80,7 +80,7 @@
 <hr />
 
 <h2>🌟 Key Highlights</h2>
-<ul>
+<ul style="font-size: 16px; line-height: 1.8;">
   <li>
     <img src="https://img.shields.io/badge/GUI%20Driven-yellow?style=flat-square&logo=windowsterminal" alt="GUI Badge">
     Simplified graphical interfaces make every tool accessible and intuitive.
@@ -98,25 +98,32 @@
 <hr />
 
 <h2>🚀 Getting Started</h2>
-<ol>
-  <li><strong>Clone this repository:</strong><br>
+<ol style="font-size: 16px; line-height: 1.8;">
+  <li><strong>Clone this repository:</strong>
     <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
   </li>
   <li><strong>Explore subdirectories:</strong><br>
     Navigate through the folders: <code>BlueTeam-Tools</code>, <code>Core-ScriptLibrary</code>, <code>ITSM-Templates-SVR</code>, <code>ITSM-Templates-WKS</code>, and <code>SysAdmin-Tools</code>.
   </li>
-  <li><strong>Run a script:</strong><br>
+  <li><strong>Run a script:</strong>
     <ul>
       <li><strong>PowerShell (.ps1):</strong> Right-click → <em>Run with PowerShell</em> or use the terminal.</li>
       <li><strong>VBScript (.vbs):</strong> Right-click → <em>Open with Command Prompt</em>.</li>
     </ul>
   </li>
-  <li>
-  <strong>Review Logs and Reports:</strong><br>
-  Logs for <code>ITSM</code> scripts are stored in <code>C:\ITSM-Logs-WKS\</code> (workstations) and <code>C:\ITSM-Logs-SVR\</code> (servers).<br>
-  General administrative scripts output logs to <code>C:\Logs-TEMP\</code> or the script's current working directory.<br>
-  Look for <code>.log</code> files to trace execution and <code>.csv</code> files for exportable reports and audit records.
-</li>
+  <li><strong>Review Logs and Reports:</strong><br>
+    Logs for <code>ITSM</code> scripts are stored in:
+    <ul>
+      <li><code>C:\ITSM-Logs-WKS\</code> (workstations)</li>
+      <li><code>C:\ITSM-Logs-SVR\</code> (servers)</li>
+    </ul>
+    General administrative logs output to:
+    <ul>
+      <li><code>C:\Logs-TEMP\</code></li>
+      <li>Or the current working directory of the script</li>
+    </ul>
+    Look for <code>.log</code> files to trace execution and <code>.csv</code> files for exportable reports and audit records.
+  </li>
 </ol>
 
 <hr />
@@ -127,7 +134,7 @@
   For documentation, troubleshooting, or advanced use cases, check the <code>README.md</code> files inside each directory.
 </p>
 
-<div align="center" style="margin-top: 15px;">
+<div align="center" style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;">
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
   </a>
@@ -144,7 +151,7 @@
     <img src="https://img.shields.io/badge/GoFundMe-green?style=for-the-badge&logo=gofundme" alt="GoFundMe">
   </a>
   <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues" target="_blank">
-    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="Issues">
+    <img src="https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github" alt="GitHub Issues">
   </a>
   <a href="https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c" target="_blank">
     <img src="https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp" alt="WhatsApp Channel">
@@ -155,4 +162,4 @@
   💼 Thank you for choosing <strong>Windows-SysAdmin-ProSuite</strong> — your all-in-one solution for IT automation, compliance, and secure systems engineering.
 </p>
 
-<p align="center">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
+<p align="center" style="color: #777;">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
