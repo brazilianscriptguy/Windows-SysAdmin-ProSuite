@@ -104,7 +104,7 @@ function Start-HeaderExtraction {
 
     try {
         Log-Message "Starting header extraction from: $RootFolder"
-        $MergedFile = Join-Path $RootFolder "Merged-Headers.txt"
+        $MergedFile = Join-Path $RootFolder "Merged-PowerShellScripts-Headers.txt"
         Set-Content -Path $MergedFile -Value "### Merged Headers from Folder: $RootFolder ###`n"
 
         $PS1Files = Get-ChildItem -Path $RootFolder -Recurse -Filter "*.ps1" -File -ErrorAction Stop
@@ -138,8 +138,8 @@ function Start-HeaderExtraction {
 
 function Show-GUI {
     $Form = New-Object System.Windows.Forms.Form
-    $Form.Text = "PowerShell Header Extractor"
-    $Form.Size = New-Object System.Drawing.Size(600, 190)
+    $Form.Text = "PowerShell Scripts Headers Extractor"
+    $Form.Size = New-Object System.Drawing.Size(640, 180)
     $Form.StartPosition = "CenterScreen"
     $Form.MaximizeBox = $false
     $Form.FormBorderStyle = 'FixedDialog'
@@ -204,3 +204,5 @@ function Show-GUI {
 
 # Start UI
 Show-GUI
+
+# End of script
