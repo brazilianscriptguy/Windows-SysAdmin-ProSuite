@@ -1,25 +1,21 @@
 <#
 .SYNOPSIS
-    Provides a reusable PowerShell script template for administrative automation tasks.
+    Brief, one-line summary of what the script accomplishes.
 
 .DESCRIPTION
-    This script serves as a customizable template for creating robust PowerShell scripts. It includes
-    parameter handling, logging, error management, and a sample task (file creation). It can be adapted
-    for various administrative workflows, such as system configuration, reporting, or integration with
-    external tools. Use this as a starting point and modify the main logic to suit specific needs.
+    A detailed explanation of the script's functionality. Describe its main tasks, automation features,
+    integration capabilities, and intended usage within the Windows-SysAdmin-ProSuite.
 
 .FEATURES
-    - Reusable Template: A scaffold for building consistent PowerShell scripts.
-    - Logging Support: Generates detailed log files for tracking execution.
-    - Error Handling: Implements try-catch blocks for robust error management.
-    - Parameter Flexibility: Supports configurable inputs for customization.
-    - Sample Task: Includes a basic file creation example to demonstrate structure.
+    - Feature 1: Brief description of the first key feature.
+    - Feature 2: Description of another major capability.
+    - Feature 3: Additional feature to highlight benefits.
+    - Feature N: Final or optional feature.
 
 .PARAMETERS
-    -Path <string>: Specifies the directory path where the sample file will be created. Defaults to the script's directory.
-    -FileName <string>: Defines the name of the file to create. Defaults to 'output.txt'.
-    -LogPath <string>: Sets the path for log file storage. Defaults to $env:LOCALAPPDATA\ScriptLogs.
-    -Verbose <switch>: Enables verbose output for detailed execution tracking.
+    -ParameterName <Type>: Description of what this parameter controls or modifies.
+    -AnotherParameter <Type>: Description for the second parameter.
+    [Add additional parameters as needed.]
 
 .AUTHOR
     BrazilianScriptGuy - @brazilianscriptguy
@@ -31,17 +27,16 @@
     - Requires PowerShell 5.1 or higher.
     - Must be run with Administrator privileges for certain operations.
     - Compatible with PowerShell 7+ for enhanced features.
-    - Customize the SAMPLE_TASK region with your specific logic.
+    - Customize the main body with specific logic for your task.
 
 .EXAMPLES
-    Example 1: Running with custom path and filename
+    Example 1: Running with all parameters
     ```powershell
-    .\ScriptTemplate.ps1 -Path "C:\Temp" -FileName "report.txt" -Verbose
+    .\ScriptName.ps1 -ParameterName 'Value' -AnotherParameter 123
     ```
 
     Example 2: Minimal execution with defaults
     ```powershell
-    .\ScriptTemplate.ps1
+    .\ScriptName.ps1
     ```
 #>
-
