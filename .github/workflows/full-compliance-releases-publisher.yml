@@ -1,0 +1,215 @@
+name: Build and Release Specialized Packages
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-old-releases:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gh
+
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Delete Older Releases for Managed Tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          MANAGED_TAGS=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files")
+          for tag in "${MANAGED_TAGS[@]}"; do
+            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
+            if [ -z "$releases" ]; then continue; fi
+            sorted_releases=$(echo "$releases" | sort)
+            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
+            for old_tag in $releases_to_delete; do
+              gh release delete "$old_tag" -y
+              git push --delete origin "$old_tag"
+            done
+          done
+
+  build-and-release:
+    needs: cleanup-old-releases
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
+          "All-Repository-Files"
+        ]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip jq gh dotnet-sdk-6.0
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+
+      - name: Run PowerShell Script Linting
+        run: |
+          mkdir -p analysis-reports
+          pwsh -Command '
+            $files = Get-ChildItem -Recurse -Filter *.ps1
+            $output = @()
+            foreach ($file in $files) {
+              $result = Invoke-ScriptAnalyzer -Path $file.FullName -Severity Warning,Error
+              $output += $result
+            }
+            if ($output.Count -gt 0) {
+              $output | Out-File -FilePath "analysis-reports/PSScriptAnalyzer.txt"
+            } else {
+              "No issues found." | Out-File "analysis-reports/PSScriptAnalyzer.txt"
+            }
+          '
+
+      - name: Upload Script Analysis Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: PSScriptAnalyzer-Report-${{ matrix.release_name }}
+          path: analysis-reports/PSScriptAnalyzer.txt
+
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Handle Existing Release and Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ matrix.release_name }}"
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            gh release delete "$TAG_NAME" -y
+            git push --delete origin "$TAG_NAME"
+          fi
+
+      - name: Build and Package ${{ matrix.release_name }}
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
+        run: |
+          set -e
+          mkdir -p artifacts
+
+          case "$RELEASE_NAME" in
+            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
+              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
+              cp README.md "./temp-$RELEASE_NAME/" || true
+              cp LICENSE "./temp-$RELEASE_NAME/" || true
+              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
+              sha256sum "artifacts/$RELEASE_NAME.zip" > "artifacts/$RELEASE_NAME.zip.sha256"
+              rm -rf "temp-$RELEASE_NAME"
+              ;;
+
+            GPOs-Templates)
+              mkdir -p GPOs-Templates
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
+              cp README.md GPOs-Templates/ || true
+              cp LICENSE GPOs-Templates/ || true
+              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              sha256sum artifacts/GPOs-Templates.zip > artifacts/GPOs-Templates.zip.sha256
+              rm -rf GPOs-Templates
+              ;;
+
+            READMEs-Files-Package)
+              mkdir -p READMEs-Files-Package
+              cp README.md READMEs-Files-Package/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
+                repo_dir=$(dirname "$file")
+                repo_name=$(basename "$repo_dir")
+                new_filename="${repo_name}-README.md"
+                cp "$file" "READMEs-Files-Package/$new_filename"
+              done
+              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              sha256sum artifacts/READMEs-Files-Package.zip > artifacts/READMEs-Files-Package.zip.sha256
+              rm -rf READMEs-Files-Package
+              ;;
+
+            All-Repository-Files)
+              mkdir -p All-Repository-Files
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                cp -r "$dir" All-Repository-Files/
+              done
+              cp README.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              sha256sum artifacts/All-Repository-Files.zip > artifacts/All-Repository-Files.zip.sha256
+              rm -rf All-Repository-Files
+              ;;
+          esac
+
+      - name: Build NuGet Package (if .csproj exists)
+        if: ${{ matrix.release_name == 'Core-ScriptLibrary' || matrix.release_name == 'SysAdmin-Tools' }}
+        run: |
+          dotnet pack "${{ matrix.release_name }}" --output artifacts --configuration Release || echo "No .csproj found, skipping..."
+
+      - name: Push NuGet Package to GitHub Packages
+        if: ${{ matrix.release_name == 'Core-ScriptLibrary' || matrix.release_name == 'SysAdmin-Tools' }}
+        run: |
+          dotnet nuget push artifacts/*.nupkg \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+      - name: Create New Release with CHANGELOG Notes
+        id: create_release
+        uses: actions/create-release@v1.1.0
+        with:
+          tag_name: ${{ matrix.release_name }}
+          release_name: ${{ matrix.release_name }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset - ZIP
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip
+          asset_name: ${{ matrix.release_name }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset - SHA256
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip.sha256
+          asset_name: ${{ matrix.release_name }}.zip.sha256
+          asset_content_type: text/plain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
