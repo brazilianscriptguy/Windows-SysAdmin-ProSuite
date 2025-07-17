@@ -3,17 +3,20 @@
     PowerShell Script for Updating DNS Zones and AD Sites and Services Subnets.
 
 .DESCRIPTION
-    This script automates the update of DNS zones and Active Directory Sites and Services 
-    subnets based on DHCP data, ensuring that all network information is properly configured and up-to-date.
+    Automates the update of DNS reverse zones and Active Directory Sites and Services 
+    subnets based on DHCP data.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: July 17, 2025
+    Version: 2.4
 #>
 
-# Hide the PowerShell console window
+#region --- Global Setup and Logging
+
+# Hide PowerShell window
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -25,242 +28,169 @@ public class Window {
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     public static void Hide() {
         var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+        ShowWindow(handle, 0);
     }
     public static void Show() {
         var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
+        ShowWindow(handle, 5);
     }
 }
 "@
-
 [Window]::Hide()
 
-# Import necessary libraries for GUI and system operations
+# Load assemblies
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Function to display error messages
-function Show-ErrorMessage {
-    param ([string]$message)
-    [System.Windows.Forms.MessageBox]::Show($message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message "Error: $message" -MessageType "ERROR"
-}
-
-# Get the FQDN of the current machine
-function Get-FQDN {
-    try {
-        $FQDN = ([System.Net.Dns]::GetHostEntry($env:COMPUTERNAME)).HostName
-    } catch {
-        $FQDN = $env:COMPUTERNAME
-        Log-Message -Message "Could not determine FQDN. Using COMPUTERNAME: $FQDN" -MessageType "WARNING"
-    }
-    return $FQDN
-}
-
-# Get the Domain Name (without the full FQDN)
-function Get-DomainName {
-    try {
-        # Retrieve domain information using WMI
-        $ComputerSystem = Get-WmiObject Win32_ComputerSystem
-        $Domain = $ComputerSystem.Domain
-        # Extract just the domain name (first part before the dot)
-        $DomainName = $Domain.Split('.')[0]
-        return $DomainName
-    } catch {
-        Show-ErrorMessage "Unable to fetch Domain Name automatically."
-        return "YourDomainHere"
-    }
-}
-
-# Determine the script name and set up logging path
+# Configure logging with timestamped files
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir "$scriptName-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
-# Ensure the log directory exists
 if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
-    }
+    try { New-Item -Path $logDir -ItemType Directory -Force | Out-Null } catch { Write-Warning "Failed to create log directory: $_" }
 }
 
-# Enhanced logging function with error handling
 function Log-Message {
     param (
         [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
+    $entry = "[$timestamp] [$MessageType] $Message"
+    if (Test-Path $logDir) {
+        try { Add-Content -Path $logPath -Value $entry -ErrorAction Stop } catch { Write-Warning "Failed to write to log: $_" }
+    } else {
+        Write-Warning "Log directory missing; cannot write: $entry"
+    }
+}
+
+Log-Message "Starting $scriptName execution."
+
+#endregion
+
+#region --- Module and Assembly Validation
+
+# Import required modules with validation
+foreach ($module in @("ActiveDirectory", "DhcpServer", "DnsServer")) {
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        if (-not (Get-Module -Name $module -ListAvailable)) {
+            throw "Module ${module} not found"
+        }
+        if (-not (Get-Module -Name $module)) {
+            Import-Module $module -ErrorAction Stop
+            Log-Message "${module} module loaded"
+        }
     } catch {
-        Write-Error "Failed to write to log: $_"
+        Log-Message "Failed to load ${module}: $($_.Exception.Message)" -MessageType "ERROR"
+        Show-ErrorMessage "Missing or failed to load required module: ${module}. Please install it and retry."
+        exit 1
     }
 }
 
-# Import necessary modules
-Try {
-    if (-not (Get-Module -Name ActiveDirectory)) {
-        Import-Module ActiveDirectory -ErrorAction Stop
+#endregion
+
+#region --- Utility Functions
+
+function Show-ErrorMessage {
+    param ([string]$message)
+    [System.Windows.Forms.MessageBox]::Show($message, 'Error', 'OK', 'Error') | Out-Null
+    Log-Message "ERROR: $message" -MessageType "ERROR"
+}
+
+function Get-FQDN {
+    try {
+        return ([System.Net.Dns]::GetHostEntry($env:COMPUTERNAME)).HostName
+    } catch {
+        Log-Message "WARNING: FQDN fallback to COMPUTERNAME" -MessageType "WARNING"
+        return $env:COMPUTERNAME
     }
-    Log-Message "Active Directory module imported successfully."
-} Catch {
-    Show-ErrorMessage "Failed to import Active Directory module: $($_.Exception.Message)`nPlease ensure the Active Directory module is installed."
-    return
 }
 
-Try {
-    Import-Module DhcpServer -ErrorAction Stop
-    Log-Message "DHCP Server module imported successfully."
-} Catch {
-    Show-ErrorMessage "Failed to import DHCP Server module: $($_.Exception.Message)`nPlease ensure the DHCP Server module is installed."
-    return
+function Get-DomainName {
+    try {
+        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+        return ($cs.Domain.Split('.')[0])
+    } catch {
+        Show-ErrorMessage "Unable to resolve domain. Set manually."
+        return "YourDomainHere"
+    }
 }
 
-Try {
-    Import-Module DnsServer -ErrorAction Stop
-    Log-Message "DNS Server module imported successfully."
-} Catch {
-    Show-ErrorMessage "Failed to import DNS Server module: $($_.Exception.Message)`nPlease ensure the DNS Server module is installed."
-    return
-}
-
-# Function to convert a subnet mask to CIDR prefix length
 function Get-PrefixLength {
-    param (
-        [string]$SubnetMask
-    )
-
-    $binaryMask = ([Convert]::ToString(([IPAddress]$SubnetMask).Address, 2)).PadLeft(32, '0')
-    return ($binaryMask.ToCharArray() | Where-Object { $_ -eq '1' }).Count
+    param ([string]$SubnetMask)
+    $bin = ([Convert]::ToString(([IPAddress]$SubnetMask).Address, 2)).PadLeft(32, '0')
+    return ($bin.ToCharArray() | Where-Object { $_ -eq '1' }).Count
 }
 
-# Function to calculate the network ID for a given subnet
 function Get-NetworkId {
-    param (
-        [string]$IPAddress,
-        [string]$SubnetMask
-    )
+    param ([string]$IPAddress, [string]$SubnetMask)
     $ip = [IPAddress]::Parse($IPAddress)
     $mask = [IPAddress]::Parse($SubnetMask)
-
-    $ipBytes = $ip.GetAddressBytes()
-    $maskBytes = $mask.GetAddressBytes()
-
-    $networkBytes = @()
-    for ($i = 0; $i -lt $ipBytes.Length; $i++) {
-        $networkBytes += ($ipBytes[$i] -band $maskBytes[$i])
+    $network = [byte[]]::new(4)
+    for ($i = 0; $i -lt 4; $i++) {
+        $network[$i] = $ip.GetAddressBytes()[$i] -band $mask.GetAddressBytes()[$i]
     }
-
-    return [IPAddress]::new([byte[]]$networkBytes).ToString()
+    return [IPAddress]::new($network).ToString()
 }
 
-# Function to construct a reverse DNS zone name
 function Construct-ReverseZoneName {
-    param (
-        [string]$NetworkId,
-        [int]$PrefixLength
-    )
-
-    $networkParts = $NetworkId.Split('.')
-
+    param ([string]$NetworkId, [int]$PrefixLength)
+    $parts = $NetworkId.Split('.')
     switch ($PrefixLength) {
-        24 { return "$($networkParts[2]).$($networkParts[1]).$($networkParts[0]).in-addr.arpa" }
+        24 { return "$($parts[2]).$($parts[1]).$($parts[0]).in-addr.arpa" }
         default {
-            Write-Host "Unsupported prefix length for reverse DNS zone: $PrefixLength" -ForegroundColor Yellow
+            Log-Message "Unsupported CIDR: /$PrefixLength" -MessageType "WARNING"
             return ""
         }
     }
 }
 
-# Function to add or update a reverse DNS zone for a given subnet
 function Add-OrUpdate-ReverseDNSZone {
     param (
         [string]$SubnetCIDR,
         [string]$SubnetMask,
         [string]$dnsServer
     )
-
     if (-not [string]::IsNullOrWhiteSpace($SubnetCIDR)) {
-        # Extract subnet information
-        $subnetAddress, $prefixLength = $SubnetCIDR -split '/'
-        $networkId = Get-NetworkId -IPAddress $subnetAddress -SubnetMask $SubnetMask
+        $subnet, $prefixLength = $SubnetCIDR -split '/'
+        $networkId = Get-NetworkId -IPAddress $subnet -SubnetMask $SubnetMask
 
-        $reverseZoneNames = @()
-        
+        $zoneNames = @()
         if ($prefixLength -eq 24) {
-            $reverseZoneName = Construct-ReverseZoneName -NetworkId $networkId -PrefixLength $prefixLength
-            $reverseZoneNames += $reverseZoneName
-        }
-        elseif ($prefixLength -eq 22) {
-            # For /22 subnets, generate reverse zones for each /24 within it
-            $ip = [IPAddress]::Parse($networkId)
-            $ipBytes = $ip.GetAddressBytes()
-            $octet0 = [int]$ipBytes[0]
-            $octet1 = [int]$ipBytes[1]
-            $octet2 = [int]$ipBytes[2]
-
+            $zoneNames += Construct-ReverseZoneName $networkId $prefixLength
+        } elseif ($prefixLength -eq 22) {
+            $ipBytes = [IPAddress]::Parse($networkId).GetAddressBytes()
             for ($i = 0; $i -lt 4; $i++) {
-                $currentThirdOctet = $octet2 + $i
-                $reverseZoneName = "$currentThirdOctet.$octet1.$octet0.in-addr.arpa"
-                $reverseZoneNames += $reverseZoneName
+                $zoneNames += "$($ipBytes[2] + $i).$($ipBytes[1]).$($ipBytes[0]).in-addr.arpa"
             }
-        }
-        else {
-            Write-Host "Unsupported prefix length for reverse DNS zone: $prefixLength" -ForegroundColor Yellow
-            Log-Message "Unsupported prefix length for reverse DNS zone: $prefixLength" -MessageType "WARNING"
+        } else {
+            Log-Message "CIDR /$prefixLength not handled" -MessageType "WARNING"
             return
         }
 
-        foreach ($reverseZoneName in $reverseZoneNames) {
-            # Check if the reverse DNS zone already exists
-            $existingZone = Get-DnsServerZone -Name $reverseZoneName -ComputerName $dnsServer -ErrorAction SilentlyContinue
-
-            if ($existingZone) {
-                Write-Host "Reverse DNS zone $reverseZoneName already exists. Updating with NonsecureAndSecure dynamic updates."
-                Log-Message "Reverse DNS zone $reverseZoneName already exists. Updating with NonsecureAndSecure dynamic updates."
-
-                try {
-                    # Update existing zone to use Secure and Non-Secure Dynamic Updates
-                    Set-DnsServerPrimaryZone -Name $reverseZoneName -DynamicUpdate NonsecureAndSecure -ComputerName $dnsServer
-                    Write-Host "Successfully updated reverse DNS zone: $reverseZoneName with NonsecureAndSecure Dynamic Updates"
-                    Log-Message "Successfully updated reverse DNS zone: $reverseZoneName with NonsecureAndSecure Dynamic Updates"
-                } catch {
-                    Write-Host "Failed to update reverse DNS zone: $reverseZoneName - $($_.Exception.Message)" -ForegroundColor Red
-                    Log-Message "Failed to update reverse DNS zone: $reverseZoneName - $($_.Exception.Message)" -MessageType "ERROR"
+        foreach ($zone in $zoneNames) {
+            $existing = Get-DnsServerZone -Name $zone -ComputerName $dnsServer -ErrorAction SilentlyContinue
+            try {
+                if ($existing) {
+                    Set-DnsServerPrimaryZone -Name $zone -DynamicUpdate NonsecureAndSecure -ComputerName $dnsServer -ErrorAction Stop
+                    Log-Message "Updated DNS zone $zone"
+                } else {
+                    Add-DnsServerPrimaryZone -Name $zone -DynamicUpdate NonsecureAndSecure -ReplicationScope Forest -ComputerName $dnsServer -ErrorAction Stop
+                    Log-Message "Created DNS zone $zone"
                 }
-            } else {
-                try {
-                    # Create a new reverse DNS zone with the specified zone name
-                    Write-Host "Creating reverse DNS zone: $reverseZoneName"
-                    Add-DnsServerPrimaryZone -Name $reverseZoneName -DynamicUpdate NonsecureAndSecure -ReplicationScope Forest -ComputerName $dnsServer
-                    Write-Host "Successfully created reverse DNS zone: $reverseZoneName with NonsecureAndSecure Dynamic Updates"
-                    Log-Message "Successfully created reverse DNS zone: $reverseZoneName with NonsecureAndSecure Dynamic Updates"
-                } catch {
-                    if ($_.FullyQualifiedErrorId -like "*9609*") {
-                        Write-Host "Zone $reverseZoneName already exists, skipping creation." -ForegroundColor Yellow
-                        Log-Message "Zone $reverseZoneName already exists. Skipping." -MessageType "WARNING"
-                    } else {
-                        Write-Host "Failed to create reverse DNS zone: $reverseZoneName - $($_.Exception.Message)" -ForegroundColor Red
-                        Log-Message "Failed to create reverse DNS zone: $reverseZoneName - $($_.Exception.Message)" -MessageType "ERROR"
-                    }
-                }
+            } catch {
+                Log-Message "DNS zone failure ($zone): $($_.Exception.Message)" -MessageType "ERROR"
+                Show-ErrorMessage "Failed to update/create DNS zone ${zone}: $($_.Exception.Message)"
             }
         }
     } else {
-        Write-Host "Empty or invalid subnet received for reverse DNS zone creation." -ForegroundColor Yellow
-        Log-Message "Empty or invalid subnet received for reverse DNS zone creation." -MessageType "WARNING"
+        Log-Message "Empty or invalid subnet received" -MessageType "WARNING"
     }
 }
 
-# Function to update Sites and Services subnets
 function Update-SitesAndServicesSubnets {
     param (
         [string]$SubnetCIDR,
@@ -269,27 +199,20 @@ function Update-SitesAndServicesSubnets {
         [string]$SitesAndServicesTarget
     )
     try {
-        # Check if the subnet already exists in Active Directory
-        $existingSubnet = Get-ADReplicationSubnet -Filter { Name -eq $SubnetCIDR } -ErrorAction SilentlyContinue
-
-        if ($existingSubnet) {
-            # Subnet exists, update it
-            Set-ADReplicationSubnet -Identity $existingSubnet -Description $Description -Location $Location -Site $SitesAndServicesTarget
-            Write-Host "Updated subnet $SubnetCIDR in Sites and Services."
-            Log-Message "Updated subnet $SubnetCIDR in Sites and Services."
+        $subnet = Get-ADReplicationSubnet -Filter { Name -eq $SubnetCIDR } -ErrorAction SilentlyContinue
+        if ($subnet) {
+            Set-ADReplicationSubnet -Identity $subnet -Description $Description -Location $Location -Site $SitesAndServicesTarget -ErrorAction Stop
+            Log-Message "Updated subnet $SubnetCIDR"
         } else {
-            # Subnet does not exist, create it
-            New-ADReplicationSubnet -Name $SubnetCIDR -Location $Location -Description $Description -Site $SitesAndServicesTarget
-            Write-Host "Created subnet $SubnetCIDR in Sites and Services."
-            Log-Message "Created subnet $SubnetCIDR in Sites and Services."
+            New-ADReplicationSubnet -Name $SubnetCIDR -Location $Location -Description $Description -Site $SitesAndServicesTarget -ErrorAction Stop
+            Log-Message "Created subnet $SubnetCIDR"
         }
     } catch {
-        Write-Host "Failed to update Sites and Services subnet $SubnetCIDR - $($_.Exception.Message)" -ForegroundColor Red
-        Log-Message "Failed to update Sites and Services subnet $SubnetCIDR - $($_.Exception.Message)" -MessageType "ERROR"
+        Log-Message "AD subnet error ($SubnetCIDR): $($_.Exception.Message)" -MessageType "ERROR"
+        Show-ErrorMessage "Failed to update/create AD subnet ${SubnetCIDR}: $($_.Exception.Message)"
     }
 }
 
-# Function to process DHCP scopes and perform necessary updates
 function Process-DHCPScopes {
     param (
         [string]$DHCPServer,
@@ -301,170 +224,120 @@ function Process-DHCPScopes {
         [System.Windows.Forms.Button]$CancelButton,
         [ref]$CancelRequested
     )
-
-    # Get all DHCP scopes from the specified DHCP server
-    $dhcpScopes = Get-DhcpServerv4Scope -ComputerName $DHCPServer
-
-    if ($dhcpScopes.Count -eq 0) {
-        Show-ErrorMessage "No DHCP scopes found on server: $DHCPServer"
-        return
-    }
-
-    $TotalScopes = $dhcpScopes.Count
-    $CurrentCount = 0
-
-    # Iterate through each DHCP scope and perform necessary updates
-    foreach ($scope in $dhcpScopes) {
-        if ($CancelRequested.Value) {
-            Log-Message "Process canceled by user."
-            $StatusLabel.Text = "Process canceled."
-            $ProgressBar.Value = 0
+    try {
+        Log-Message "Starting DHCP scope processing for $DHCPServer"
+        $StatusLabel.Text = "Fetching DHCP scopes..."
+        $scopes = Get-DhcpServerv4Scope -ComputerName $DHCPServer -ErrorAction Stop
+        if (-not $scopes) {
+            Show-ErrorMessage "No DHCP scopes found on server: $DHCPServer"
             return
         }
 
-        $CurrentCount++
-        $subnetAddress = $scope.ScopeId.IPAddressToString
-        $subnetMask = $scope.SubnetMask
-        $prefixLength = Get-PrefixLength -SubnetMask $subnetMask
-        $scopeId = $scope.ScopeId
-        $location = $scope.Name
-        $description = $scope.Description
-        $subnetCIDR = "$subnetAddress/$prefixLength"
+        $count = 0
+        foreach ($scope in $scopes) {
+            if ($CancelRequested.Value) {
+                Log-Message "Process canceled by user"
+                $StatusLabel.Text = "Canceled."
+                return
+            }
 
-        Write-Host "Processing subnet: $subnetCIDR"
-        Log-Message "Processing subnet: $subnetCIDR"
+            $count++
+            $subnet = $scope.ScopeId.IPAddressToString
+            $mask = $scope.SubnetMask
+            $cidr = "$subnet/$(Get-PrefixLength $mask)"
+            $StatusLabel.Text = "Processing: $cidr ($count of $($scopes.Count))"
+            $ProgressBar.Value = [math]::Round(($count / $scopes.Count) * 100)
 
-        # Add or update reverse DNS zone for each subnet
-        Add-OrUpdate-ReverseDNSZone -SubnetCIDR $subnetCIDR -SubnetMask $subnetMask -dnsServer $DNSServer
+            Log-Message "Processing subnet: $cidr"
+            Add-OrUpdate-ReverseDNSZone -SubnetCIDR $cidr -SubnetMask $mask -dnsServer $DNSServer
+            Update-SitesAndServicesSubnets -SubnetCIDR $cidr -Location $scope.Name -Description $scope.Description -SitesAndServicesTarget $SitesAndServicesTarget
+        }
 
-        # Update Sites and Services subnets with location and description
-        Update-SitesAndServicesSubnets -SubnetCIDR $subnetCIDR -Location $location -Description $description -SitesAndServicesTarget $SitesAndServicesTarget
-
-        # Update progress bar and status
-        $ProgressBar.Value = [math]::Round(($CurrentCount / $TotalScopes) * 100)
-        $StatusLabel.Text = "Processing subnet: $subnetCIDR ($CurrentCount of $TotalScopes)"
+        $StatusLabel.Text = "Complete."
+        $ProgressBar.Value = 100
+        Log-Message "All scopes processed successfully"
+    } catch {
+        Log-Message "Error in Process-DHCPScopes: $($_.Exception.Message)" -MessageType "ERROR"
+        $StatusLabel.Text = "Error: $($_.Exception.Message)"
+        Show-ErrorMessage "Failed to process DHCP scopes: $($_.Exception.Message)"
+    } finally {
+        $ExecuteButton.Enabled = $true
+        $CancelButton.Enabled = $false
     }
-
-    $ProgressBar.Value = 100
-    Write-Host "Reverse DNS entries and Sites and Services subnets have been updated for all DHCP scopes."
-    Log-Message "Reverse DNS entries and Sites and Services subnets have been updated for all DHCP scopes."
-    Start-Sleep -Seconds 2
-    $ExecuteButton.Enabled = $true
-    $CancelButton.Enabled = $false
 }
 
-# Initialize form components
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Update DNS Reverse Zones and Sites and Services Subnets'
-$form.Size = New-Object System.Drawing.Size(500, 410)
+#endregion
+
+#region --- GUI and Execution
+
+# Initialize form
+$form = New-Object Windows.Forms.Form
+$form.Text = 'Update DNS & AD Sites'
+$form.Size = New-Object System.Drawing.Size(500, 400)
 $form.StartPosition = 'CenterScreen'
+$form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 
-# DHCP Server label and textbox
-$labelDHCP = New-Object System.Windows.Forms.Label
-$labelDHCP.Text = 'Enter DHCP Server FQDN:'
-$labelDHCP.Location = New-Object System.Drawing.Point(10, 20)
-$labelDHCP.Size = New-Object System.Drawing.Size(220, 20)
-$form.Controls.Add($labelDHCP)
+# Helper function to add controls
+function Add-Control {
+    param ([System.Windows.Forms.Control]$control)
+    $form.Controls.Add($control)
+}
 
-$textBoxDHCP = New-Object System.Windows.Forms.TextBox
-$textBoxDHCP.Location = New-Object System.Drawing.Point(240, 20)
-$textBoxDHCP.Size = New-Object System.Drawing.Size(240, 20)
-$textBoxDHCP.Text = Get-FQDN
-$form.Controls.Add($textBoxDHCP)
+# DHCP Server controls
+$labelDHCP = New-Object Windows.Forms.Label; $labelDHCP.Text = 'DHCP Server:'; $labelDHCP.Location = New-Object System.Drawing.Point(10, 20); $labelDHCP.Size = New-Object System.Drawing.Size(220, 20); Add-Control $labelDHCP
+$textBoxDHCP = New-Object Windows.Forms.TextBox; $textBoxDHCP.Location = New-Object System.Drawing.Point(240, 20); $textBoxDHCP.Size = New-Object System.Drawing.Size(240, 20); $textBoxDHCP.Text = Get-FQDN; Add-Control $textBoxDHCP
 
-# DNS Server label and textbox
-$labelDNS = New-Object System.Windows.Forms.Label
-$labelDNS.Text = 'Enter DNS Server FQDN:'
-$labelDNS.Location = New-Object System.Drawing.Point(10, 50)
-$labelDNS.Size = New-Object System.Drawing.Size(220, 20)
-$form.Controls.Add($labelDNS)
+# DNS Server controls
+$labelDNS = New-Object Windows.Forms.Label; $labelDNS.Text = 'DNS Server:'; $labelDNS.Location = New-Object System.Drawing.Point(10, 50); $labelDNS.Size = New-Object System.Drawing.Size(220, 20); Add-Control $labelDNS
+$textBoxDNS = New-Object Windows.Forms.TextBox; $textBoxDNS.Location = New-Object System.Drawing.Point(240, 50); $textBoxDNS.Size = New-Object System.Drawing.Size(240, 20); $textBoxDNS.Text = Get-FQDN; Add-Control $textBoxDNS
 
-$textBoxDNS = New-Object System.Windows.Forms.TextBox
-$textBoxDNS.Location = New-Object System.Drawing.Point(240, 50)
-$textBoxDNS.Size = New-Object System.Drawing.Size(240, 20)
-$textBoxDNS.Text = Get-FQDN
-$form.Controls.Add($textBoxDNS)
-
-# Sites and Services Subnet target label and textbox
-$labelSites = New-Object System.Windows.Forms.Label
-$labelSites.Text = 'Enter Sites and Services Subnet target:'
-$labelSites.Location = New-Object System.Drawing.Point(10, 80)
-$labelSites.Size = New-Object System.Drawing.Size(220, 20)
-$form.Controls.Add($labelSites)
-
-$textBoxSites = New-Object System.Windows.Forms.TextBox
-$textBoxSites.Location = New-Object System.Drawing.Point(240, 80)
-$textBoxSites.Size = New-Object System.Drawing.Size(240, 20)
-# Automatically fill with just the current Domain Name
-$textBoxSites.Text = Get-DomainName
-$form.Controls.Add($textBoxSites)
+# Sites and Services Target controls
+$labelSite = New-Object Windows.Forms.Label; $labelSite.Text = 'Sites and Services Target:'; $labelSite.Location = New-Object System.Drawing.Point(10, 80); $labelSite.Size = New-Object System.Drawing.Size(220, 20); Add-Control $labelSite
+$textBoxSites = New-Object Windows.Forms.TextBox; $textBoxSites.Location = New-Object System.Drawing.Point(240, 80); $textBoxSites.Size = New-Object System.Drawing.Size(240, 20); $textBoxSites.Text = Get-DomainName; Add-Control $textBoxSites
 
 # Progress bar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(10, 260)
-$progressBar.Size = New-Object System.Drawing.Size(470, 20)
-$form.Controls.Add($progressBar)
+$progressBar = New-Object Windows.Forms.ProgressBar; $progressBar.Location = New-Object System.Drawing.Point(10, 260); $progressBar.Size = New-Object System.Drawing.Size(470, 20); Add-Control $progressBar
 
 # Status label
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(10, 290)
-$statusLabel.Size = New-Object System.Drawing.Size(470, 20)
-$form.Controls.Add($statusLabel)
+$statusLabel = New-Object Windows.Forms.Label; $statusLabel.Location = New-Object System.Drawing.Point(10, 290); $statusLabel.Size = New-Object System.Drawing.Size(470, 20); Add-Control $statusLabel
 
-# Execute button
-$executeButton = New-Object System.Windows.Forms.Button
-$executeButton.Location = New-Object System.Drawing.Point(10, 320)
-$executeButton.Size = New-Object System.Drawing.Size(75, 23)
-$executeButton.Text = 'Execute'
+# Buttons
+$cancelButton = New-Object Windows.Forms.Button; $cancelButton.Text = 'Cancel'; $cancelButton.Location = New-Object System.Drawing.Point(100, 320); $cancelButton.Size = New-Object System.Drawing.Size(75, 23); $cancelButton.Enabled = $false; Add-Control $cancelButton
+$executeButton = New-Object Windows.Forms.Button; $executeButton.Text = 'Execute'; $executeButton.Location = New-Object System.Drawing.Point(10, 320); $executeButton.Size = New-Object System.Drawing.Size(75, 23); Add-Control $executeButton
+$closeButton = New-Object Windows.Forms.Button; $closeButton.Text = 'Close'; $closeButton.Location = New-Object System.Drawing.Point(405, 320); $closeButton.Size = New-Object System.Drawing.Size(75, 23); Add-Control $closeButton
 
+# Event handlers
 $CancelRequested = $false
-$executeButton.Add_Click({
-    $dhcpServer = $textBoxDHCP.Text
-    $dnsServer = $textBoxDNS.Text
-    $sitesAndServicesTarget = $textBoxSites.Text
 
-    if ($dhcpServer -and $dnsServer -and $sitesAndServicesTarget) {
+$executeButton.Add_Click({
+    if ($textBoxDHCP.Text -and $textBoxDNS.Text -and $textBoxSites.Text) {
         $executeButton.Enabled = $false
         $cancelButton.Enabled = $true
         $CancelRequested = $false
-        Process-DHCPScopes -DHCPServer $dhcpServer -DNSServer $dnsServer -SitesAndServicesTarget $sitesAndServicesTarget -ProgressBar $progressBar -StatusLabel $statusLabel -ExecuteButton $executeButton -CancelButton $cancelButton -CancelRequested ([ref]$CancelRequested)
+        $statusLabel.Text = "Starting process..."
+        Log-Message "Executing with DHCP: $($textBoxDHCP.Text), DNS: $($textBoxDNS.Text), Site: $($textBoxSites.Text)"
+        Process-DHCPScopes -DHCPServer $textBoxDHCP.Text -DNSServer $textBoxDNS.Text -SitesAndServicesTarget $textBoxSites.Text `
+            -ProgressBar $progressBar -StatusLabel $statusLabel -ExecuteButton $executeButton -CancelButton $cancelButton `
+            -CancelRequested ([ref]$CancelRequested)
     } else {
-        Show-ErrorMessage "Please provide all required inputs."
-        Log-Message "Input Error: Missing required inputs." -MessageType "ERROR"
+        Show-ErrorMessage "Fill in all required fields."
     }
 })
-$form.Controls.Add($executeButton)
 
-# Cancel button
-$cancelButton = New-Object System.Windows.Forms.Button
-$cancelButton.Location = New-Object System.Drawing.Point(100, 320)
-$cancelButton.Size = New-Object System.Drawing.Size(75, 23)
-$cancelButton.Text = 'Cancel'
-$cancelButton.Enabled = $false
 $cancelButton.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the update?", "Cancel Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-    if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
+    $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel the operation?", "Confirm", "YesNo", "Warning") | Out-Null
+    if ($confirm -eq 'Yes') {
         $CancelRequested = $true
-        Log-Message "User requested to cancel the update."
-        $statusLabel.Text = "Canceling update..."
+        Log-Message "User requested cancellation"
+        $statusLabel.Text = "Canceling..."
     }
 })
-$form.Controls.Add($cancelButton)
 
-# Close button
-$closeButton = New-Object System.Windows.Forms.Button
-$closeButton.Location = New-Object System.Drawing.Point(405, 320)
-$closeButton.Size = New-Object System.Drawing.Size(75, 23)
-$closeButton.Text = 'Close'
 $closeButton.Add_Click({ $form.Close() })
-$form.Controls.Add($closeButton)
 
-$form.Add_Shown({
-    $form.Activate()
-    $executeButton.Enabled = $true
-    $cancelButton.Enabled = $false
-})
-
+$form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
+
+#endregion
 
 # End of script
