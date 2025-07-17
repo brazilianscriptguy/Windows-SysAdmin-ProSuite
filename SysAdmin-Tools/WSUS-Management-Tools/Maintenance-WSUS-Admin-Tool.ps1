@@ -525,7 +525,7 @@ function Test-ConnectionClick {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "WSUS Maintenance Tool"
-$form.Size = New-Object System.Drawing.Size(670, 730)
+$form.Size = New-Object System.Drawing.Size(680, 730)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
