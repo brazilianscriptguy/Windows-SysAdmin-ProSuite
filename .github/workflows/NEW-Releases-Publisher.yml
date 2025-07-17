@@ -85,48 +85,19 @@ jobs:
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          case "$RELEASE_NAME" in
-            BlueTeam-Tools)
-              mkdir -p BlueTeam-Tools
-              rsync -av Windows-SysAdmin-ProSuite/BlueTeam-Tools/ BlueTeam-Tools/
-              cp Windows-SysAdmin-ProSuite/README.md BlueTeam-Tools/
-              cp Windows-SysAdmin-ProSuite/LICENSE BlueTeam-Tools/
-              mkdir -p artifacts
-              zip -r artifacts/BlueTeam-Tools.zip BlueTeam-Tools
-              ;;
-            Core-ScriptLibrary)
-              mkdir -p Core-ScriptLibrary
-              rsync -av Windows-SysAdmin-ProSuite/Core-ScriptLibrary/ Core-ScriptLibrary/
-              cp Windows-SysAdmin-ProSuite/README.md Core-ScriptLibrary/
-              cp Windows-SysAdmin-ProSuite/LICENSE Core-ScriptLibrary/
-              mkdir -p artifacts
-              zip -r artifacts/Core-ScriptLibrary.zip Core-ScriptLibrary
-              ;;
-            ITSM-Templates-SVR)
-              mkdir -p ITSM-Templates-SVR
-              rsync -av Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/ ITSM-Templates-SVR/
-              cp Windows-SysAdmin-ProSuite/README.md ITSM-Templates-SVR/
-              cp Windows-SysAdmin-ProSuite/LICENSE ITSM-Templates-SVR/
-              mkdir -p artifacts
-              zip -r artifacts/ITSM-Templates-SVR.zip ITSM-Templates-SVR
-              ;;
-            ITSM-Templates-WKS)
-              mkdir -p ITSM-Templates-WKS
-              rsync -av Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/ ITSM-Templates-WKS/
-              cp Windows-SysAdmin-ProSuite/README.md ITSM-Templates-WKS/
-              cp Windows-SysAdmin-ProSuite/LICENSE ITSM-Templates-WKS/
-              mkdir -p artifacts
-              zip -r artifacts/ITSM-Templates-WKS.zip ITSM-Templates-WKS
-              ;;
-            SysAdmin-Tools)
-              mkdir -p SysAdmin-Tools
-              rsync -av Windows-SysAdmin-ProSuite/SysAdmin-Tools/ SysAdmin-Tools/
-              cp Windows-SysAdmin-ProSuite/README.md SysAdmin-Tools/
-              cp Windows-SysAdmin-ProSuite/LICENSE SysAdmin-Tools/
-              mkdir -p artifacts
-              zip -r artifacts/SysAdmin-Tools.zip SysAdmin-Tools
-              ;;
-          esac
+          # Verify the source directory exists
+          if [ ! -d "Windows-SysAdmin-ProSuite/$RELEASE_NAME" ]; then
+            echo "Error: Source directory Windows-SysAdmin-ProSuite/$RELEASE_NAME does not exist."
+            exit 1
+          fi
+
+          # Create target directory
+          mkdir -p "$RELEASE_NAME"
+          rsync -av "Windows-SysAdmin-ProSuite/$RELEASE_NAME/" "$RELEASE_NAME/"
+          cp Windows-SysAdmin-ProSuite/README.md "$RELEASE_NAME/"
+          cp Windows-SysAdmin-ProSuite/LICENSE "$RELEASE_NAME/"
+          mkdir -p artifacts
+          zip -r "artifacts/$RELEASE_NAME.zip" "$RELEASE_NAME"
 
       - name: Create New Release
         id: create_release
