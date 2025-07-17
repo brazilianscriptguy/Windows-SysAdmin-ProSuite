@@ -1,9 +1,9 @@
 <div>
-  <h1>📂 NuGet Package Publisher</h1>
+  <h1>📂 NuGet Package Publisher Suite</h1>
 
   <h2>📝 Overview</h2>
   <p>
-    The <strong>NuGet Package Publisher</strong> is a specialized <strong>PowerShell script</strong> (named <code>Generate-NuGet-Package.ps1</code>) designed to automate the creation, validation, and publication of NuGet packages to GitHub Packages. This script provides a GUI-driven interface and reusable components to streamline the packaging process for Windows system administrators and developers.
+    The <strong>NuGet Package Publisher Suite</strong> is a specialized <strong>PowerShell script</strong> (named <code>Generate-NuGet-Package.ps1</code>) designed to automate the creation, validation, and publication of NuGet packages to GitHub Packages. This script provides a GUI-driven interface and reusable components to streamline the packaging process for Windows system administrators and developers.
   </p>
 
   <ul>
