@@ -1,9 +1,9 @@
 <div>
-  <h1>📂 Core-ScriptLibrary Suite</h1>
+  <h1>📂 Modular PS1 Scripts Suite</h1>
 
   <h2>📝 Overview</h2>
   <p>
-    The <strong>Core-ScriptLibrary Folder</strong> contains foundational <strong>PowerShell scripts</strong> designed for 
+    The <strong>Modular-PS1-Scripts</strong> contains foundational <strong>PowerShell scripts</strong> designed for 
     building robust, reusable script modules and GUI-driven tools. These scripts serve as templates and scaffolds 
     for automating administrative tasks, improving code consistency, and streamlining the development of operational toolkits.
   </p>
