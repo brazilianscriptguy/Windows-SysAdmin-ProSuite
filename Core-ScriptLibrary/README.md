@@ -1,7 +1,7 @@
 <div>
-  <h1>🔧 Core Script Library</h1>
+  <h1>🔧 Core Script Library Folder</h1>
   <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
-    Welcome to the <strong>Core Script Library</strong>, a cornerstone of the <strong>Windows-SysAdmin-ProSuite</strong> repository located at <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/</code>. This library introduces two essential subfolders: <strong>Modular-PS1-Scripts</strong> and <strong>Nuget-Package-Publisher</strong>. These subfolders provide a powerful set of <strong>PowerShell automation scripts</strong> designed to enhance system administration, streamline development workflows, and facilitate NuGet package distribution.
+    Welcome to the <strong>Core Script Library repository</strong>, a cornerstone of the <strong>Windows-SysAdmin-ProSuite</strong> repository located at <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/</code>. This library introduces two essential subfolders: <strong>Modular-PS1-Scripts</strong> and <strong>Nuget-Package-Publisher</strong>. These subfolders provide a powerful set of <strong>PowerShell automation scripts</strong> designed to enhance system administration, streamline development workflows, and facilitate NuGet package distribution.
   </p>
 
   <hr />
