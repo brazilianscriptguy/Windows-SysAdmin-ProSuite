@@ -60,7 +60,7 @@
         <td>Implements a universal logging method for consistency across scripts and enhanced debugging.</td>
       </tr>
       <tr>
-        <td><strong>Create-Script-MainStructure-Core.ps1</strong></td>
+        <td><strong>Create-Script-MainCodeStructure-Body.ps1</strong></td>
         <td>Creates a structured script scaffold including header, logging, parameters, and function placeholders.</td>
       </tr>
       <tr>
