@@ -10,12 +10,14 @@
 .FEATURES
     - Feature 1: Brief description of a key capability.
     - Feature 2: Description of another significant functionality.
-    - Feature 3: Additional feature to highlight benefits.
-    - Feature N: Optional additional capability.
+    - Feature 3: Progress bar for long-running operations.
+    - Feature 4: Optional console hiding for GUI-focused use.
+    - Feature N: Success/error message boxes for user feedback.
 
 .PARAMETERS
     -ParameterName <Type>: Description of the parameter's purpose and expected input.
     -AnotherParameter <Type>: Description of another parameter's role.
+    -ShowConsole <switch>: Optional. Shows the console window if set; hides it by default for GUI apps.
     [Add additional parameters as needed for the specific script.]
 
 .AUTHOR
@@ -33,7 +35,7 @@
 .EXAMPLES
     Example 1: Running with all parameters
     ```powershell
-    .\ScriptName.ps1 -ParameterName 'Value' -AnotherParameter 123
+    .\ScriptName.ps1 -ParameterName 'Value' -AnotherParameter 123 -ShowConsole
     ```
 
     Example 2: Minimal execution with defaults
