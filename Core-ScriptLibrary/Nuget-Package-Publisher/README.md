@@ -44,6 +44,18 @@
 
   <hr />
 
+  <h2>📂 Folder Structure</h2>
+  <p>The NuGet Package Publisher Suite requires a specific folder structure to function effectively. Below is the recommended layout within <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/Nuget-Package-Publisher/</code>:</p>
+  <ul style="font-size: 16px; line-height: 1.8;">
+    <li><strong><code>Generate-NuGet-Package.ps1</code>:</strong> The main PowerShell script file, containing the automation logic and GUI interface.</li>
+    <li><strong><code>config.json</code> (optional):</strong> A configuration file for storing package metadata (e.g., package ID, version, description) and PAT. Place this in the root folder for easy access.</li>
+    <li><strong><code>artifacts/</code>:</strong> A subdirectory to store generated NuGet packages (e.g., `.nupkg` files) and reports (e.g., `NuGetReport_*.txt`). Create this folder manually or let the script generate it.</li>
+    <li><strong><code>$env:LOCALAPPDATA\NuGetPublisher\Logs/</code>:</strong> The default log directory for storing execution logs (e.g., `Generate-NuGet-Package-*.log`). Ensure this path is writable.</li>
+    <li><strong><code>nuget.exe</code> (optional):</strong> Place the NuGet CLI executable in the root folder for local execution, or rely on system PATH.</li>
+  </ul>
+
+  <hr />
+
   <h2>📄 Script Description</h2>
   <table border="1" style="border-collapse: collapse; width: 100%;">
     <thead>
@@ -71,6 +83,7 @@
     </li>
     <li><strong>Navigate to:</strong> <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/Nuget-Package-Publisher/</code></li>
     <li><strong>Install NuGet CLI:</strong> Place <code>nuget.exe</code> in the folder or add to PATH.</li>
+    <li><strong>Set up folder structure:</strong> Ensure the <code>artifacts</code> folder exists and the log directory (<code>$env:LOCALAPPDATA\NuGetPublisher\Logs</code>) is accessible.</li>
     <li><strong>Run the script via PowerShell:</strong>
       <pre><code>.\Generate-NuGet-Package.ps1</code></pre>
     </li>
@@ -81,7 +94,7 @@
 
   <h2>📝 Logging and Output</h2>
   <ul>
-    <li><strong>📄 Logs:</strong> Detailed execution logs are saved to <code>$env:LOCALAPPDATA\NuGetPublisher\Logs</code>.</li>
+    <li><strong>📄 Logs:</strong> Detailed execution logs are saved to <code>$env:LOCALAPPDATA\NuGetPublisher\Logs</code> within the folder structure.</li>
     <li><strong>📊 Reports:</strong> Generates <code>NuGetReport_*.txt</code> files in the <code>artifacts</code> directory.</li>
   </ul>
 
@@ -89,9 +102,9 @@
 
   <h2>💡 Optimization Tips</h2>
   <ul>
-    <li><strong>Automate Publishing:</strong> Schedule the script with Task Scheduler for regular package updates.</li>
-    <li><strong>Customize Metadata:</strong> Adjust package ID, tags, and description in the GUI or <code>config.json</code>.</li>
-    <li><strong>Centralize Artifacts:</strong> Store artifacts in a shared network location for team access.</li>
+    <li><strong>Automate Publishing:</strong> Schedule the script with Task Scheduler for regular package updates, using the folder structure for consistency.</li>
+    <li><strong>Customize Metadata:</strong> Adjust package ID, tags, and description in the GUI or <code>config.json</code> within the root folder.</li>
+    <li><strong>Centralize Artifacts:</strong> Store the <code>artifacts</code> folder in a shared network location for team access.</li>
   </ul>
 
   <hr />
