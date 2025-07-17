@@ -52,7 +52,7 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Create-Script-DefaultHeader.ps1</strong></td>
+        <td><strong>Create-Script-HeaderModel.ps1</strong></td>
         <td>Generates a standardized PowerShell script header block with version, author, and metadata fields.</td>
       </tr>
       <tr>
