@@ -64,7 +64,7 @@
         <td>Creates a structured script scaffold including header, logging, parameters, and function placeholders.</td>
       </tr>
       <tr>
-        <td><strong>Extract-PowerSehllScripts-Headers.ps1</strong></td>
+        <td><strong> Extract-Script-TextHeaders.ps1</strong></td>
         <td>Extracts script header blocks from all <code>.ps1</code> files in a folder and documents them in <code>.txt</code> format.</td>
       </tr>
       <tr>
