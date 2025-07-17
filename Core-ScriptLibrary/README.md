@@ -1,5 +1,5 @@
 <div>
-  <h1>🔧 Core Script Library</h1>
+  <h1>🔧 Core Script Library Folder</h1>
   <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
     Welcome to the <strong>Core Script Library</strong> — a robust collection of <strong>PowerShell automation scripts</strong> designed to enhance system administration and development workflows within the Windows-SysAdmin-ProSuite. This library includes modular scripts and NuGet package publishing tools to streamline administrative tasks, improve code reusability, and facilitate package distribution.
   </p>
