@@ -68,7 +68,7 @@
       <tr>
         <td><strong>Generate-NuGet-Package.ps1</strong></td>
         <td>
-          A PowerShell script that automates the creation and publication of NuGet packages. It features a GUI for configuring package settings, validates package integrity, and publishes to GitHub Packages with logging and reporting capabilities.
+          Automates the creation and publication of NuGet packages. It features a GUI for configuring package settings, validates package integrity, and publishes to GitHub Packages with logging and reporting capabilities.
         </td>
       </tr>
     </tbody>
