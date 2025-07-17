@@ -71,6 +71,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh auth setup-git
 
+      - name: Debug Working Directory
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+
       - name: Handle Existing Release and Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,85 +90,88 @@ jobs:
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
+          # Adjust to the repository root
+          cd Windows-SysAdmin-ProSuite || { echo "Failed to change directory to Windows-SysAdmin-ProSuite"; exit 1; }
+
           # Verify the source directory exists
-          if [ ! -d "Windows-SysAdmin-ProSuite/$RELEASE_NAME" ] && [ "$RELEASE_NAME" != "GPOs-Templates" ] && [ "$RELEASE_NAME" != "READMEs-Files-Package" ] && [ "$RELEASE_NAME" != "All-Repository-Files" ]; then
-            echo "Error: Source directory Windows-SysAdmin-ProSuite/$RELEASE_NAME does not exist."
+          if [ ! -d "./$RELEASE_NAME" ] && [ "$RELEASE_NAME" != "GPOs-Templates" ] && [ "$RELEASE_NAME" != "READMEs-Files-Package" ] && [ "$RELEASE_NAME" != "All-Repository-Files" ]; then
+            echo "Error: Source directory ./$RELEASE_NAME does not exist."
             exit 1
           fi
 
           case "$RELEASE_NAME" in
             BlueTeam-Tools)
-              mkdir -p BlueTeam-Tools
-              rsync -av "Windows-SysAdmin-ProSuite/BlueTeam-Tools/" BlueTeam-Tools/
-              cp Windows-SysAdmin-ProSuite/README.md BlueTeam-Tools/
-              cp Windows-SysAdmin-ProSuite/LICENSE BlueTeam-Tools/
-              mkdir -p artifacts
-              zip -r artifacts/BlueTeam-Tools.zip BlueTeam-Tools
+              mkdir -p ../BlueTeam-Tools
+              rsync -av "./BlueTeam-Tools/" ../BlueTeam-Tools/
+              cp ./README.md ../BlueTeam-Tools/
+              cp ./LICENSE ../BlueTeam-Tools/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/BlueTeam-Tools.zip ../BlueTeam-Tools
               ;;
             Core-ScriptLibrary)
-              mkdir -p Core-ScriptLibrary
-              rsync -av "Windows-SysAdmin-ProSuite/Core-ScriptLibrary/" Core-ScriptLibrary/
-              cp Windows-SysAdmin-ProSuite/README.md Core-ScriptLibrary/
-              cp Windows-SysAdmin-ProSuite/LICENSE Core-ScriptLibrary/
-              mkdir -p artifacts
-              zip -r artifacts/Core-ScriptLibrary.zip Core-ScriptLibrary
+              mkdir -p ../Core-ScriptLibrary
+              rsync -av "./Core-ScriptLibrary/" ../Core-ScriptLibrary/
+              cp ./README.md ../Core-ScriptLibrary/
+              cp ./LICENSE ../Core-ScriptLibrary/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/Core-ScriptLibrary.zip ../Core-ScriptLibrary
               ;;
             ITSM-Templates-SVR)
-              mkdir -p ITSM-Templates-SVR
-              rsync -av "Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/" ITSM-Templates-SVR/
-              cp Windows-SysAdmin-ProSuite/README.md ITSM-Templates-SVR/
-              cp Windows-SysAdmin-ProSuite/LICENSE ITSM-Templates-SVR/
-              mkdir -p artifacts
-              zip -r artifacts/ITSM-Templates-SVR.zip ITSM-Templates-SVR
+              mkdir -p ../ITSM-Templates-SVR
+              rsync -av "./ITSM-Templates-SVR/" ../ITSM-Templates-SVR/
+              cp ./README.md ../ITSM-Templates-SVR/
+              cp ./LICENSE ../ITSM-Templates-SVR/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/ITSM-Templates-SVR.zip ../ITSM-Templates-SVR
               ;;
             ITSM-Templates-WKS)
-              mkdir -p ITSM-Templates-WKS
-              rsync -av "Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/" ITSM-Templates-WKS/
-              cp Windows-SysAdmin-ProSuite/README.md ITSM-Templates-WKS/
-              cp Windows-SysAdmin-ProSuite/LICENSE ITSM-Templates-WKS/
-              mkdir -p artifacts
-              zip -r artifacts/ITSM-Templates-WKS.zip ITSM-Templates-WKS
+              mkdir -p ../ITSM-Templates-WKS
+              rsync -av "./ITSM-Templates-WKS/" ../ITSM-Templates-WKS/
+              cp ./README.md ../ITSM-Templates-WKS/
+              cp ./LICENSE ../ITSM-Templates-WKS/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/ITSM-Templates-WKS.zip ../ITSM-Templates-WKS
               ;;
             SysAdmin-Tools)
-              mkdir -p SysAdmin-Tools
-              rsync -av "Windows-SysAdmin-ProSuite/SysAdmin-Tools/" SysAdmin-Tools/
-              cp Windows-SysAdmin-ProSuite/README.md SysAdmin-Tools/
-              cp Windows-SysAdmin-ProSuite/LICENSE SysAdmin-Tools/
-              mkdir -p artifacts
-              zip -r artifacts/SysAdmin-Tools.zip SysAdmin-Tools
+              mkdir -p ../SysAdmin-Tools
+              rsync -av "./SysAdmin-Tools/" ../SysAdmin-Tools/
+              cp ./README.md ../SysAdmin-Tools/
+              cp ./LICENSE ../SysAdmin-Tools/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/SysAdmin-Tools.zip ../SysAdmin-Tools
               ;;
             GPOs-Templates)
-              mkdir -p GPOs-Templates
-              cp -r "Windows-SysAdmin-ProSuite/SysAdmin-Tools/GroupPolicyObjects-Templates/"* GPOs-Templates/
-              cp "Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1" GPOs-Templates/
-              cp Windows-SysAdmin-ProSuite/README.md GPOs-Templates/
-              cp Windows-SysAdmin-ProSuite/LICENSE GPOs-Templates/
-              mkdir -p artifacts
-              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              mkdir -p ../GPOs-Templates
+              cp -r "./SysAdmin-Tools/GroupPolicyObjects-Templates/"* ../GPOs-Templates/
+              cp "./SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1" ../GPOs-Templates/
+              cp ./README.md ../GPOs-Templates/
+              cp ./LICENSE ../GPOs-Templates/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/GPOs-Templates.zip ../GPOs-Templates
               ;;
             READMEs-Files-Package)
-              mkdir -p READMEs-Files-Package
-              cp Windows-SysAdmin-ProSuite/README.md READMEs-Files-Package/main-README.md
-              find "Windows-SysAdmin-ProSuite" -type f -iname "README.md" ! -path "Windows-SysAdmin-ProSuite/README.md" | while read -r file; do
+              mkdir -p ../READMEs-Files-Package
+              cp ./README.md ../READMEs-Files-Package/main-README.md
+              find "." -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
                 repo_dir=$(dirname "$file")
                 repo_name=$(basename "$repo_dir")
                 new_filename="${repo_name}-README.md"
-                cp "$file" "READMEs-Files-Package/$new_filename"
+                cp "$file" "../READMEs-Files-Package/$new_filename"
               done
-              mkdir -p artifacts
-              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              mkdir -p ../artifacts
+              zip -r ../artifacts/READMEs-Files-Package.zip ../READMEs-Files-Package
               ;;
             All-Repository-Files)
-              mkdir -p All-Repository-Files
-              rsync -av "Windows-SysAdmin-ProSuite/BlueTeam-Tools/" All-Repository-Files/BlueTeam-Tools/
-              rsync -av "Windows-SysAdmin-ProSuite/Core-ScriptLibrary/" All-Repository-Files/Core-ScriptLibrary/
-              rsync -av "Windows-SysAdmin-ProSuite/ITSM-Templates-SVR/" All-Repository-Files/ITSM-Templates-SVR/
-              rsync -av "Windows-SysAdmin-ProSuite/ITSM-Templates-WKS/" All-Repository-Files/ITSM-Templates-WKS/
-              rsync -av "Windows-SysAdmin-ProSuite/SysAdmin-Tools/" All-Repository-Files/SysAdmin-Tools/
-              cp Windows-SysAdmin-ProSuite/README.md All-Repository-Files/
-              cp Windows-SysAdmin-ProSuite/LICENSE All-Repository-Files/
-              mkdir -p artifacts
-              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              mkdir -p ../All-Repository-Files
+              rsync -av "./BlueTeam-Tools/" ../All-Repository-Files/BlueTeam-Tools/
+              rsync -av "./Core-ScriptLibrary/" ../All-Repository-Files/Core-ScriptLibrary/
+              rsync -av "./ITSM-Templates-SVR/" ../All-Repository-Files/ITSM-Templates-SVR/
+              rsync -av "./ITSM-Templates-WKS/" ../All-Repository-Files/ITSM-Templates-WKS/
+              rsync -av "./SysAdmin-Tools/" ../All-Repository-Files/SysAdmin-Tools/
+              cp ./README.md ../All-Repository-Files/
+              cp ./LICENSE ../All-Repository-Files/
+              mkdir -p ../artifacts
+              zip -r ../artifacts/All-Repository-Files.zip ../All-Repository-Files
               ;;
           esac
 
@@ -183,7 +191,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ matrix.release_name }}.zip
+          asset_path: ../artifacts/${{ matrix.release_name }}.zip
           asset_name: ${{ matrix.release_name }}.zip
           asset_content_type: application/zip
         env:
