@@ -3,15 +3,31 @@
     PowerShell Script for Updating AD User Display Names Based on Email Address.
 
 .DESCRIPTION
-    This script updates user display names in Active Directory based on their email address,
-    standardizing naming conventions across the organization and ensuring consistency. It includes a preview
-    feature to verify changes before applying, an undo option, enhanced logging, and export functionality.
+    Updates AD user display names using a standardized format (e.g., JOHN DOE) derived from email addresses.
+    Supports multi-domain forests with preview, apply, undo, and CSV export features.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 24, 2024
+    Last Updated: July 17, 2025
+    Version: 1.2 (Fixed Preview button issue)
+#>
+
+<#
+.SYNOPSIS
+    PowerShell Script for Cleaning Up Inactive AD Computer Accounts.
+
+.DESCRIPTION
+    This script identifies and removes inactive workstation accounts in Active Directory, 
+    enhancing security by ensuring that outdated or unused accounts are properly managed and removed.
+
+.AUTHOR
+    Luiz Hamilton Silva - @brazilianscriptguy
+
+.VERSION
+    Last Updated: July 17, 2025
+    Version: 2.1 (Improved forest domain gathering)
 #>
 
 # Hide the PowerShell console window
@@ -34,411 +50,318 @@ public class Window {
     }
 }
 "@
+
 [Window]::Hide()
 
-# Import necessary modules
-try {
-    Import-Module ActiveDirectory -ErrorAction Stop
-} catch {
-    [System.Windows.Forms.MessageBox]::Show("Failed to import ActiveDirectory module. Please ensure it is installed.", "Module Import Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    exit
-}
+#region Initialization
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Determine script name and set up logging paths
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir = 'C:\Logs-TEMP'
 $csvDir = [System.Environment]::GetFolderPath('MyDocuments')
-$logFileName = "${scriptName}.log"
-$csvFileName = "${scriptName}.csv"
-$logPath = Join-Path $logDir $logFileName
-$csvPath = Join-Path $csvDir $csvFileName
+$logPath = Join-Path $logDir "$scriptName-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$csvPath = Join-Path $csvDir "$scriptName.csv"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Failed to create log directory at $logDir. Logging will not be possible.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        exit
-    }
-}
-
-# Initialize variables
 $script:undoStack = New-Object System.Collections.Stack
 $script:previewResults = @()
 
-# Enhanced logging function
+if (-not (Test-Path $logDir)) {
+    try { New-Item -Path $logDir -ItemType Directory -Force | Out-Null } catch { Write-Warning "Failed to create log directory: $_" }
+}
+
+#endregion
+
+#region Logging and Message Functions
+
 function Log-Message {
     param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter(Mandatory = $false)][ValidateSet("INFO","WARN","ERROR")][string]$MessageType = "INFO"
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR")] [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Failed to write to log: $_", "Logging Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
+    $entry = "[$timestamp] [$MessageType] $Message"
+    Add-Content -Path $logPath -Value $entry -ErrorAction SilentlyContinue
 }
 
-# Function to display informational messages
 function Show-InfoMessage {
     param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Log-Message $Message -MessageType "INFO"
+    [System.Windows.Forms.MessageBox]::Show($Message, 'Info', 'OK', 'Information') | Out-Null
+    Log-Message $Message "INFO"
 }
 
-# Function to display error messages
 function Show-ErrorMessage {
     param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message $Message -MessageType "ERROR"
+    [System.Windows.Forms.MessageBox]::Show($Message, 'Error', 'OK', 'Error') | Out-Null
+    Log-Message $Message "ERROR"
 }
 
-# Function to retrieve all domains in the current forest
+#endregion
+
+#region Dependency Validation
+
+try {
+    if (-not (Get-Module -Name ActiveDirectory -ListAvailable)) {
+        throw "ActiveDirectory module not found."
+    }
+    Import-Module ActiveDirectory -ErrorAction Stop
+} catch {
+    Show-ErrorMessage "Active Directory module is missing. Please install RSAT tools."
+    exit 1
+}
+
+#endregion
+
+#region Core Functions
+
 function Get-AllDomains {
     try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.Domains | ForEach-Object { $_.Name }
+        return [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().Domains | ForEach-Object { $_.Name }
     } catch {
-        Log-Message "Failed to retrieve domains: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to retrieve domains. Please check the log for details."
+        Show-ErrorMessage "Unable to retrieve domain list: $_"
         return @()
     }
 }
 
-# Function to preview display name changes
+function Get-DomainController {
+    param ([string]$Domain)
+    try {
+        return (Get-ADDomainController -DomainName $Domain -Discover).HostName
+    } catch {
+        Show-ErrorMessage "Could not resolve a domain controller for '$Domain'."
+        return $null
+    }
+}
+
 function Preview-Changes {
     param (
-        [Parameter(Mandatory = $true)][string]$TargetDomainOrDC,
-        [Parameter(Mandatory = $true)][string]$EmailFilter
+        [string]$TargetDomain,
+        [string]$EmailFilter
     )
 
     $previewResults = @()
+
+    if (-not $EmailFilter.StartsWith("*")) { $EmailFilter = "*$EmailFilter" }
+    if (-not $EmailFilter.EndsWith("*")) { $EmailFilter = "$EmailFilter*" }
+
+    $dc = Get-DomainController -Domain $TargetDomain
+    if (-not $dc) { return @() }
+
+    $filter = "mail -like '$EmailFilter'"
+    Log-Message "Using DC '$dc' with filter: $filter"
+
     try {
-        # Ensure the EmailFilter includes wildcards
-        if (-not $EmailFilter.StartsWith("*")) { $EmailFilter = "*" + $EmailFilter }
-        if (-not $EmailFilter.EndsWith("*")) { $EmailFilter = $EmailFilter + "*" }
-
-        # Construct the filter string
-        $filter = "mail -like '$EmailFilter'"
-        Log-Message "Using Domain Controller: $TargetDomainOrDC with Filter: $filter" -MessageType "INFO"
-
-        # Execute the Get-ADUser command
-        $users = Get-ADUser -Server $TargetDomainOrDC -Filter $filter -Properties mail, DisplayName
-
-        Log-Message "Get-ADUser returned $($users.Count) users." -MessageType "INFO"
-
-        if ($users.Count -eq 0) {
-            Show-InfoMessage "No users found matching the filter '$EmailFilter'."
-            Log-Message "No users found with filter '$EmailFilter' on server '$TargetDomainOrDC'." -MessageType "INFO"
-            return $previewResults
-        }
-
+        $users = Get-ADUser -Server $dc -Filter $filter -Properties mail, DisplayName
         foreach ($user in $users) {
             if ($user.mail) {
-                $nameParts = $user.mail.Split('@')[0].Split('.')
-                if ($nameParts.Count -eq 2) {
-                    $newDisplayName = ($nameParts[0] + " " + $nameParts[1]).ToUpper()
+                $parts = $user.mail.Split('@')[0].Split('.')
+                if ($parts.Count -eq 2) {
                     $previewResults += [PSCustomObject]@{
                         SamAccountName = $user.SamAccountName
                         OldDisplayName = $user.DisplayName
-                        NewDisplayName = $newDisplayName
+                        NewDisplayName = ($parts[0] + " " + $parts[1]).ToUpper()
+                        Domain         = $TargetDomain
                     }
-                } else {
-                    Log-Message "Email format unexpected for user $($user.SamAccountName): $($user.mail)" -MessageType "WARN"
                 }
-            } else {
-                Log-Message "User $($user.SamAccountName) does not have a mail attribute." -MessageType "WARN"
             }
         }
-
-        # Sort the preview results by NewDisplayName
-        $previewResults = $previewResults | Sort-Object -Property NewDisplayName
-
     } catch {
-        Log-Message "Error during preview: $_" -MessageType "ERROR"
-        Show-ErrorMessage "An error occurred during the preview operation. Check the log for details."
+        Log-Message "Error during Preview-Changes: $_" -MessageType "ERROR"
+        Show-ErrorMessage "Preview failed. See log for details."
     }
-    return $previewResults
+
+    return $previewResults | Sort-Object Domain, SamAccountName
 }
 
-# Function to apply changes
 function Apply-Changes {
     param (
-        [Parameter(Mandatory = $true)][Array]$Changes,
-        [Parameter(Mandatory = $true)][string]$TargetDomainOrDC
+        [array]$Changes
     )
+
     foreach ($change in $Changes) {
         try {
-            $user = Get-ADUser -Server $TargetDomainOrDC -Identity $change.SamAccountName -Properties DisplayName
-            if ($null -ne $user) {
-                $oldDisplayName = $user.DisplayName
-                Set-ADUser -Server $TargetDomainOrDC -Identity $user.SamAccountName -DisplayName $change.NewDisplayName
+            $dc = Get-DomainController -Domain $change.Domain
+            $user = Get-ADUser -Server $dc -Identity $change.SamAccountName -Properties DisplayName
+            Set-ADUser -Server $dc -Identity $user.SamAccountName -DisplayName $change.NewDisplayName
 
-                # Log changes and add to undo stack
-                Log-Message "Updated $($change.SamAccountName): '$oldDisplayName' -> '$($change.NewDisplayName)'" -MessageType "INFO"
-                $script:undoStack.Push([PSCustomObject]@{
-                    SamAccountName = $change.SamAccountName
-                    OldDisplayName = $oldDisplayName
-                    NewDisplayName = $change.NewDisplayName
-                })
-            } else {
-                Log-Message "User $($change.SamAccountName) not found." -MessageType "WARN"
-            }
+            $script:undoStack.Push([PSCustomObject]@{
+                SamAccountName = $change.SamAccountName
+                OldDisplayName = $user.DisplayName
+                NewDisplayName = $change.NewDisplayName
+                Domain         = $change.Domain
+            })
+
+            Log-Message "Updated $($change.SamAccountName): '$($user.DisplayName)' -> '$($change.NewDisplayName)'"
         } catch {
-            Log-Message "Error applying changes for $($change.SamAccountName): $_" -MessageType "ERROR"
+            Log-Message "Failed to update $($change.SamAccountName): $_" -MessageType "ERROR"
         }
     }
-    Show-InfoMessage "Selected changes have been applied successfully."
+
+    Show-InfoMessage "Changes applied successfully."
 }
 
-# Function to export results to CSV
-function Export-Results {
-    param (
-        [Parameter(Mandatory = $true)]
-        [Array]$Results
-    )
-    if ($Results.Count -eq 0) {
-        Show-InfoMessage "No data to export."
-        return
-    }
-    try {
-        $Results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -Force
-        Show-InfoMessage "Results exported to $csvPath"
-        Log-Message "Exported results to $csvPath." -MessageType "INFO"
-    } catch {
-        Log-Message "Error exporting results to CSV: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to export results to CSV. Check the log for details."
-    }
-}
-
-# Function to undo the last change
 function Undo-LastChange {
     if ($script:undoStack.Count -eq 0) {
         Show-InfoMessage "No changes available to undo."
         return
     }
 
-    $lastChange = $script:undoStack.Pop()
+    $last = $script:undoStack.Pop()
+    $dc = Get-DomainController -Domain $last.Domain
     try {
-        Set-ADUser -Identity $lastChange.SamAccountName -DisplayName $lastChange.OldDisplayName
-        Log-Message "Undo: $($lastChange.SamAccountName) reverted to '$($lastChange.OldDisplayName)'." -MessageType "INFO"
-        Show-InfoMessage "Successfully reverted the last change for user '$($lastChange.SamAccountName)'."
+        Set-ADUser -Server $dc -Identity $last.SamAccountName -DisplayName $last.OldDisplayName
+        Log-Message "Undo: $($last.SamAccountName) -> '$($last.OldDisplayName)'"
+        Show-InfoMessage "Undo successful for '$($last.SamAccountName)'"
     } catch {
-        Log-Message "Failed to undo the last change for $($lastChange.SamAccountName): $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to undo the last change for user '$($lastChange.SamAccountName)'. Check the log for details."
+        Show-ErrorMessage "Undo failed: $_"
     }
 }
 
-# Main function to show the GUI form
-function Show-UpdateForm {
-    # Gather forest domains for dropdown
-    $forestDomains = Get-AllDomains
+function Export-Results {
+    param ([array]$Results)
+    if ($Results.Count -eq 0) {
+        Show-InfoMessage "No data to export."
+        return
+    }
+    try {
+        $Results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -Force
+        Show-InfoMessage "Exported to $csvPath"
+    } catch {
+        Show-ErrorMessage "Failed to export results."
+    }
+}
 
-    # Create the main form
+#endregion
+
+#region GUI
+
+function Show-UpdateForm {
+    $domains = Get-AllDomains
+
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'Update AD User DisplayName'
+    $form.Text = "Update AD User Display Names"
     $form.Size = New-Object System.Drawing.Size(800, 600)
     $form.StartPosition = 'CenterScreen'
+    $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 
-    # Domain Controller label and dropdown
-    $labelDomain = New-Object System.Windows.Forms.Label
-    $labelDomain.Location = New-Object System.Drawing.Point(10, 10)
-    $labelDomain.Size = New-Object System.Drawing.Size(760, 20)
-    $labelDomain.Text = 'Select FQDN of the Domain Controller:'
-    $form.Controls.Add($labelDomain)
+    $comboBox = New-Object Windows.Forms.ComboBox
+    $comboBox.Location = New-Object Drawing.Point(10, 20)
+    $comboBox.Size = New-Object Drawing.Size(760, 25)
+    $comboBox.DropDownStyle = 'DropDownList'
+    $domains | ForEach-Object { $comboBox.Items.Add($_) }
+    $comboBox.SelectedIndex = 0
+    $form.Controls.Add($comboBox)
 
-    $comboBoxDomain = New-Object System.Windows.Forms.ComboBox
-    $comboBoxDomain.Location = New-Object System.Drawing.Point(10, 35)
-    $comboBoxDomain.Size = New-Object System.Drawing.Size(760, 25)
-    $comboBoxDomain.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $forestDomains | ForEach-Object { $comboBoxDomain.Items.Add($_) }
-    if ($forestDomains.Count -gt 0) { $comboBoxDomain.SelectedIndex = 0 }
-    $form.Controls.Add($comboBoxDomain)
+    $emailBox = New-Object Windows.Forms.TextBox
+    $emailBox.Location = New-Object Drawing.Point(10, 55)
+    $emailBox.Size = New-Object Drawing.Size(760, 25)
+    $emailBox.Text = "*@maildomain.com"
+    $form.Controls.Add($emailBox)
 
-    # Email filter label and textbox
-    $emailLabel = New-Object System.Windows.Forms.Label
-    $emailLabel.Location = New-Object System.Drawing.Point(10, 70)
-    $emailLabel.Size = New-Object System.Drawing.Size(760, 20)
-    $emailLabel.Text = 'Enter Email Address Filter (e.g., *@maildomain.com):'
-    $form.Controls.Add($emailLabel)
+    $grid = New-Object Windows.Forms.DataGridView
+    $grid.Location = New-Object Drawing.Point(10, 90)
+    $grid.Size = New-Object Drawing.Size(760, 370)
+    $grid.AllowUserToAddRows = $false
+    $grid.AllowUserToDeleteRows = $false
+    $grid.AutoGenerateColumns = $false
+    $grid.SelectionMode = 'FullRowSelect'
+    $grid.MultiSelect = $true
+    $grid.ReadOnly = $false
 
-    $emailTextbox = New-Object System.Windows.Forms.TextBox
-    $emailTextbox.Location = New-Object System.Drawing.Point(10, 95)
-    $emailTextbox.Size = New-Object System.Drawing.Size(760, 25)
-    $emailTextbox.Text = "*@maildomain.com" # Default value or placeholder
-    $form.Controls.Add($emailTextbox)
+    $colSelect = New-Object Windows.Forms.DataGridViewCheckBoxColumn
+    $colSelect.Name = "Select"
+    $colSelect.HeaderText = "Select"
+    $colSelect.Width = 50
+    $grid.Columns.Add($colSelect)
 
-    # DataGridView for displaying preview results
-    $dataGrid = New-Object System.Windows.Forms.DataGridView
-    $dataGrid.Location = New-Object System.Drawing.Point(10, 130)
-    $dataGrid.Size = New-Object System.Drawing.Size(760, 350)
-    $dataGrid.AllowUserToAddRows = $false
-    $dataGrid.AllowUserToDeleteRows = $false
-    $dataGrid.AutoGenerateColumns = $false
-    $dataGrid.SelectionMode = 'FullRowSelect'
-    $dataGrid.MultiSelect = $true
-    $dataGrid.ReadOnly = $false
-    $dataGrid.ColumnHeadersHeightSizeMode = 'AutoSize'
+    foreach ($name in "SamAccountName","OldDisplayName","NewDisplayName","Domain") {
+        $col = New-Object Windows.Forms.DataGridViewTextBoxColumn
+        $col.Name = $name
+        $col.HeaderText = $name
+        $col.ReadOnly = $true
+        $col.Width = 180
+        $grid.Columns.Add($col)
+    }
 
-    # Add columns to DataGridView
-    # Select Checkbox Column
-    $checkboxColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
-    $checkboxColumn.Name = "Select"
-    $checkboxColumn.HeaderText = "Select"
-    $checkboxColumn.Width = 50
-    $checkboxColumn.ReadOnly = $false
-    $dataGrid.Columns.Add($checkboxColumn) | Out-Null
+    $form.Controls.Add($grid)
 
-    # SamAccountName Column
-    $samAccountNameColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $samAccountNameColumn.Name = "SamAccountName"
-    $samAccountNameColumn.HeaderText = "SamAccountName"
-    $samAccountNameColumn.ReadOnly = $true
-    $samAccountNameColumn.Width = 150
-    $dataGrid.Columns.Add($samAccountNameColumn) | Out-Null
+    $btnPreview = New-Object Windows.Forms.Button
+    $btnPreview.Text = "Preview"
+    $btnPreview.Location = New-Object Drawing.Point(10, 470)
+    $btnPreview.Size = New-Object Drawing.Size(150, 30)
+    $form.Controls.Add($btnPreview)
 
-    # OldDisplayName Column
-    $oldDisplayNameColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $oldDisplayNameColumn.Name = "OldDisplayName"
-    $oldDisplayNameColumn.HeaderText = "Old Display Name"
-    $oldDisplayNameColumn.ReadOnly = $true
-    $oldDisplayNameColumn.Width = 200
-    $dataGrid.Columns.Add($oldDisplayNameColumn) | Out-Null
+    $btnApply = New-Object Windows.Forms.Button
+    $btnApply.Text = "Apply Changes"
+    $btnApply.Location = New-Object Drawing.Point(170, 470)
+    $btnApply.Size = New-Object Drawing.Size(150, 30)
+    $btnApply.Enabled = $false
+    $form.Controls.Add($btnApply)
 
-    # NewDisplayName Column
-    $newDisplayNameColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $newDisplayNameColumn.Name = "NewDisplayName"
-    $newDisplayNameColumn.HeaderText = "New Display Name"
-    $newDisplayNameColumn.ReadOnly = $true
-    $newDisplayNameColumn.Width = 200
-    $dataGrid.Columns.Add($newDisplayNameColumn) | Out-Null
+    $btnUndo = New-Object Windows.Forms.Button
+    $btnUndo.Text = "Undo Last Change"
+    $btnUndo.Location = New-Object Drawing.Point(330, 470)
+    $btnUndo.Size = New-Object Drawing.Size(150, 30)
+    $form.Controls.Add($btnUndo)
 
-    $form.Controls.Add($dataGrid)
+    $btnExport = New-Object Windows.Forms.Button
+    $btnExport.Text = "Export CSV"
+    $btnExport.Location = New-Object Drawing.Point(490, 470)
+    $btnExport.Size = New-Object Drawing.Size(150, 30)
+    $btnExport.Enabled = $false
+    $form.Controls.Add($btnExport)
 
-    # Buttons
-    $previewButton = New-Object System.Windows.Forms.Button
-    $previewButton.Text = "Preview"
-    $previewButton.Location = New-Object System.Drawing.Point(10, 500)
-    $previewButton.Size = New-Object System.Drawing.Size(150, 30)
-    $form.Controls.Add($previewButton)
-
-    $applyButton = New-Object System.Windows.Forms.Button
-    $applyButton.Text = "Apply Changes"
-    $applyButton.Location = New-Object System.Drawing.Point(170, 500)
-    $applyButton.Size = New-Object System.Drawing.Size(150, 30)
-    $applyButton.Enabled = $false
-    $form.Controls.Add($applyButton)
-
-    $undoButton = New-Object System.Windows.Forms.Button
-    $undoButton.Text = "Undo Last Change"
-    $undoButton.Location = New-Object System.Drawing.Point(330, 500)
-    $undoButton.Size = New-Object System.Drawing.Size(150, 30)
-    $form.Controls.Add($undoButton)
-
-    $exportButton = New-Object System.Windows.Forms.Button
-    $exportButton.Text = "Export CSV"
-    $exportButton.Location = New-Object System.Drawing.Point(490, 500)
-    $exportButton.Size = New-Object System.Drawing.Size(150, 30)
-    $exportButton.Enabled = $false
-    $form.Controls.Add($exportButton)
-
-    # Event Handlers
-    $previewButton.Add_Click({
-        # Validate email filter input
-        if ([string]::IsNullOrWhiteSpace($emailTextbox.Text)) {
-            Show-InfoMessage "Please enter a valid email filter."
+    $btnPreview.Add_Click({
+        $grid.Rows.Clear()
+        $targetDomain = $comboBox.SelectedItem
+        $emailFilter = $emailBox.Text
+        $script:previewResults = Preview-Changes -TargetDomain $targetDomain -EmailFilter $emailFilter
+        if ($script:previewResults.Count -eq 0) {
+            Show-InfoMessage "No users found for the given filter."
             return
         }
-
-        # Clear previous results
-        $dataGrid.Rows.Clear()
-        $script:previewResults = @()
-        $applyButton.Enabled = $false
-        $exportButton.Enabled = $false
-
-        # Run Preview-Changes
-        try {
-            $script:previewResults = Preview-Changes -TargetDomainOrDC $comboBoxDomain.SelectedItem -EmailFilter $emailTextbox.Text
-
-            # Update DataGridView with results
-            if ($script:previewResults.Count -eq 0) {
-                Show-InfoMessage "No changes to display."
-            } else {
-                foreach ($result in $script:previewResults) {
-                    $rowIndex = $dataGrid.Rows.Add()
-                    $row = $dataGrid.Rows[$rowIndex]
-                    $row.Cells["Select"].Value = $false
-                    $row.Cells["SamAccountName"].Value = $result.SamAccountName
-                    $row.Cells["OldDisplayName"].Value = $result.OldDisplayName
-                    $row.Cells["NewDisplayName"].Value = $result.NewDisplayName
-                }
-                $applyButton.Enabled = $true
-                $exportButton.Enabled = $true
-            }
-        } catch {
-            Log-Message "Error during preview: $_" -MessageType "ERROR"
-            Show-ErrorMessage "An error occurred during the preview operation. Check the log for details."
+        foreach ($result in $script:previewResults) {
+            $rowIndex = $grid.Rows.Add()
+            $row = $grid.Rows[$rowIndex]
+            $row.Cells["Select"].Value = $false
+            $row.Cells["SamAccountName"].Value = $result.SamAccountName
+            $row.Cells["OldDisplayName"].Value = $result.OldDisplayName
+            $row.Cells["NewDisplayName"].Value = $result.NewDisplayName
+            $row.Cells["Domain"].Value = $result.Domain
         }
+        $btnApply.Enabled = $true
+        $btnExport.Enabled = $true
     })
 
-    $applyButton.Add_Click({
-        # Gather selected changes
+    $btnApply.Add_Click({
         $selectedChanges = @()
-        foreach ($row in $dataGrid.Rows) {
-            if ($row.Cells["Select"].Value -eq $true) {
+        foreach ($row in $grid.Rows) {
+            if ($row.Cells["Select"].Value) {
                 $selectedChanges += [PSCustomObject]@{
                     SamAccountName = $row.Cells["SamAccountName"].Value
                     OldDisplayName = $row.Cells["OldDisplayName"].Value
                     NewDisplayName = $row.Cells["NewDisplayName"].Value
+                    Domain         = $row.Cells["Domain"].Value
                 }
             }
         }
-
         if ($selectedChanges.Count -eq 0) {
-            Show-InfoMessage "No users selected to apply changes."
+            Show-InfoMessage "No rows selected."
             return
         }
-
-        # Apply changes
-        Apply-Changes -Changes $selectedChanges -TargetDomainOrDC $comboBoxDomain.SelectedItem
+        Apply-Changes -Changes $selectedChanges
     })
 
-    $undoButton.Add_Click({
-        Undo-LastChange
-    })
+    $btnUndo.Add_Click({ Undo-LastChange })
+    $btnExport.Add_Click({ Export-Results -Results $script:previewResults })
 
-    $exportButton.Add_Click({
-        # Gather selected changes
-        $selectedChanges = @()
-        foreach ($row in $dataGrid.Rows) {
-            if ($row.Cells["Select"].Value -eq $true) {
-                $selectedChanges += [PSCustomObject]@{
-                    SamAccountName = $row.Cells["SamAccountName"].Value
-                    OldDisplayName = $row.Cells["OldDisplayName"].Value
-                    NewDisplayName = $row.Cells["NewDisplayName"].Value
-                }
-            }
-        }
-
-        if ($selectedChanges.Count -eq 0) {
-            Show-InfoMessage "No users selected to export."
-            return
-        }
-
-        Export-Results -Results $selectedChanges
-    })
-
-    # Show the form
     $form.ShowDialog() | Out-Null
 }
 
-# Execute the function to show the form
+#endregion
+
 Show-UpdateForm
 
 # End of script
