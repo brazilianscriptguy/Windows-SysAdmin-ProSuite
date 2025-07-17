@@ -1,20 +1,21 @@
-# Logging function based on PS1 Script model
+# Generalized logging function for script execution tracking
 function Write-Log {
     param (
         [Parameter(Mandatory = $true)]
         [string]$Message,
         [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "WARNING", "ERROR")]
-        [string]$Level = "INFO"
+        [string]$Level = "INFO",
+        [Parameter(Mandatory = $false)]
+        [string]$LogDirectory = (Join-Path $env:LOCALAPPDATA "ScriptLogs")
     )
 
-    $LogPath = Join-Path $env:LOCALAPPDATA "NuGetPublisher\Logs"
     $ScriptName = $MyInvocation.MyCommand.Name
     $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $LogFile = Join-Path $LogPath "$ScriptName-$Timestamp.log"
+    $LogFile = Join-Path $LogDirectory "$ScriptName-$Timestamp.log"
 
-    if (-not (Test-Path $LogPath)) {
-        New-Item -Path $LogPath -ItemType Directory -Force | Out-Null
+    if (-not (Test-Path $LogDirectory)) {
+        New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null
     }
 
     $logEntry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Level] $Message"
@@ -28,6 +29,6 @@ function Write-Log {
 
 # Example usage
 $VerbosePreference = 'Continue'
-Write-Log "Script started"
+Write-Log "Script execution started" -LogDirectory (Join-Path $env:LOCALAPPDATA "CustomLogs")
 Write-Log "Processing task" -Level "INFO"
-Write-Log "Critical error occurred" -Level "ERROR"
+Write-Log "An error occurred" -Level "ERROR"
