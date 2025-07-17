@@ -1,0 +1,24 @@
+name: Show Folder Structure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  show-structure:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install tree
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tree
+
+      - name: Display Folder Structure (Level 2)
+        run: |
+          echo "📁 Folder structure (Level 2):"
+          tree -L 2
