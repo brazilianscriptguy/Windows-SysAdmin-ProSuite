@@ -81,7 +81,7 @@
     <li><strong>Clone or download the repository:</strong>
       <pre><code>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git</code></pre>
     </li>
-    <li><strong>Navigate to:</strong> <code>Windows-SysAdmin-ProSuite/Core-ScriptLibrary/</code></li>
+    <li><strong>Navigate to:</strong> <code>Windows-SysAdmin-ProSuite/Modular-PS1-Scripts/</code></li>
     <li><strong>Read the <code>README.md</code>:</strong> Each subfolder includes documentation on how to use the tool.</li>
     <li><strong>Run scripts via PowerShell:</strong>
       <pre><code>.\ScriptName.ps1</code></pre>
