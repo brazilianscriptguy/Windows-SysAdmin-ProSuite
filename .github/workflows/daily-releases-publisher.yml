@@ -53,13 +53,13 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "BlueTeam-Tools", 
-          "Core-ScriptLibrary", 
-          "ITSM-Templates-SVR", 
-          "ITSM-Templates-WKS", 
-          "SysAdmin-Tools", 
-          "GPOs-Templates", 
-          "READMEs-Files-Package", 
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
           "All-Repository-Files"
         ]
 
@@ -97,49 +97,47 @@ jobs:
           set -e
           mkdir -p artifacts
 
-          cd Windows-SysAdmin-ProSuite || { echo "❌ Folder not found"; exit 1; }
-
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" ../
-              cp README.md ../"$RELEASE_NAME"/ || true
-              cp LICENSE ../"$RELEASE_NAME"/ || true
-              cd ..
-              zip -r "artifacts/$RELEASE_NAME.zip" "$RELEASE_NAME"
+              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
+              cp README.md "./temp-$RELEASE_NAME/" || true
+              cp LICENSE "./temp-$RELEASE_NAME/" || true
+              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
+              rm -rf "temp-$RELEASE_NAME"
               ;;
 
             GPOs-Templates)
-              mkdir -p ../GPOs-Templates
-              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* ../GPOs-Templates/
-              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 ../GPOs-Templates/
-              cp README.md ../GPOs-Templates/ || true
-              cp LICENSE ../GPOs-Templates/ || true
-              cd ..
+              mkdir -p GPOs-Templates
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
+              cp README.md GPOs-Templates/ || true
+              cp LICENSE GPOs-Templates/ || true
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              rm -rf GPOs-Templates
               ;;
 
             READMEs-Files-Package)
-              mkdir -p ../READMEs-Files-Package
-              cp README.md ../READMEs-Files-Package/main-README.md || true
+              mkdir -p READMEs-Files-Package
+              cp README.md READMEs-Files-Package/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
                 repo_dir=$(dirname "$file")
                 repo_name=$(basename "$repo_dir")
                 new_filename="${repo_name}-README.md"
-                cp "$file" "../READMEs-Files-Package/$new_filename"
+                cp "$file" "READMEs-Files-Package/$new_filename"
               done
-              cd ..
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              rm -rf READMEs-Files-Package
               ;;
 
             All-Repository-Files)
-              mkdir -p ../All-Repository-Files
+              mkdir -p All-Repository-Files
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                cp -r "$dir" ../All-Repository-Files/
+                cp -r "$dir" All-Repository-Files/
               done
-              cp README.md ../All-Repository-Files/ || true
-              cp LICENSE ../All-Repository-Files/ || true
-              cd ..
+              cp README.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              rm -rf All-Repository-Files
               ;;
           esac
 
