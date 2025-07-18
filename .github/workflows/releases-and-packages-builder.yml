@@ -91,18 +91,26 @@ jobs:
             git push --delete origin "$TAG_NAME"
           fi
 
-      - name: Build and Package ${{ matrix.release_name }}
+      - name: Build, Analyze and Package ${{ matrix.release_name }}
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -e
-          mkdir -p artifacts
+          mkdir -p artifacts lint-reports
 
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
               cp README.md "./temp-$RELEASE_NAME/" || true
               cp LICENSE "./temp-$RELEASE_NAME/" || true
+
+              # PSScriptAnalyzer scan before removing
+              pwsh -Command "
+                Get-ChildItem -Recurse -Path './temp-$RELEASE_NAME' -Include *.ps1 |
+                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+                Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8
+              "
+
               zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
               rm -rf "temp-$RELEASE_NAME"
               ;;
@@ -113,7 +121,15 @@ jobs:
               cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
               cp README.md GPOs-Templates/ || true
               cp LICENSE GPOs-Templates/ || true
+
+              pwsh -Command "
+                Get-ChildItem -Recurse -Path './GPOs-Templates' -Include *.ps1 |
+                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+                Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8
+              "
+
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              rm -rf GPOs-Templates
               ;;
 
             READMEs-Files-Package)
@@ -126,6 +142,7 @@ jobs:
                 cp "$file" "READMEs-Files-Package/$new_filename"
               done
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              rm -rf READMEs-Files-Package
               ;;
 
             All-Repository-Files)
@@ -136,28 +153,14 @@ jobs:
               cp README.md All-Repository-Files/ || true
               cp LICENSE All-Repository-Files/ || true
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              rm -rf All-Repository-Files
               ;;
           esac
 
-      - name: Run PSScriptAnalyzer on ${{ matrix.release_name }}
-        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+      - name: Generate SHA256 Signature (SysAdmin-Tools only)
+        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
         run: |
-          mkdir -p lint-reports
-
-          case "${{ matrix.release_name }}" in
-            GPOs-Templates)
-              SCAN_PATH="./GPOs-Templates"
-              ;;
-            *)
-              SCAN_PATH="./${{ matrix.release_name }}"
-              ;;
-          esac
-
-          pwsh -Command "
-            Get-ChildItem -Recurse -Path '$SCAN_PATH' -Include *.ps1 |
-            Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-            Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
-          "
+          sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
@@ -165,7 +168,7 @@ jobs:
           tag="${{ matrix.release_name }}"
           notes=$(awk "/^## $tag/{flag=1;next}/^## /{flag=0}flag" CHANGELOG.md | sed '/^$/d')
           echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "$notes" >> $GITHUB_ENV
+          echo "${notes:-No changelog available.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create New Release
@@ -187,6 +190,17 @@ jobs:
           asset_path: artifacts/${{ matrix.release_name }}.zip
           asset_name: ${{ matrix.release_name }}.zip
           asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SHA256 Signature (SysAdmin-Tools only)
+        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/SysAdmin-Tools.zip.sha256
+          asset_name: SysAdmin-Tools.zip.sha256
+          asset_content_type: text/plain
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
