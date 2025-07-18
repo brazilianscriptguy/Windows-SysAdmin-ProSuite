@@ -5,7 +5,7 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
@@ -91,16 +91,6 @@ jobs:
             git push --delete origin "$TAG_NAME"
           fi
 
-      - name: Run PSScriptAnalyzer on ${{ matrix.release_name }}
-        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
-        run: |
-          mkdir -p lint-reports
-          pwsh -Command "
-            Get-ChildItem -Recurse -Path './${{ matrix.release_name }}' -Include *.ps1 |
-            Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-            Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
-          "
-
       - name: Build and Package ${{ matrix.release_name }}
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
@@ -151,6 +141,22 @@ jobs:
               rm -rf All-Repository-Files
               ;;
           esac
+
+      - name: Run PSScriptAnalyzer on ${{ matrix.release_name }}
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        run: |
+          mkdir -p lint-reports
+          if [[ "${{ matrix.release_name }}" == "GPOs-Templates" ]]; then
+            ANALYZE_PATH="./GPOs-Templates"
+          else
+            ANALYZE_PATH="./temp-${{ matrix.release_name }}"
+          fi
+
+          pwsh -Command "
+            Get-ChildItem -Recurse -Path '$ANALYZE_PATH' -Include *.ps1 |
+            Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+            Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
+          "
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
