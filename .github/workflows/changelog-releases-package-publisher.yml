@@ -115,6 +115,27 @@ jobs:
           echo "${body:-No release notes found.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
+      - name: Delete Existing Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="${{ matrix.release_name }}"
+          ASSETS_TO_REMOVE=("ProSuite-$RELEASE_TAG.zip" "ProSuite-$RELEASE_TAG.zip.sha256" "$RELEASE_TAG.zip" "$RELEASE_TAG.zip.sha256")
+
+          release_id=$(gh release view "$RELEASE_TAG" --json id -q .id || echo "")
+          if [ -z "$release_id" ]; then
+            echo "Release $RELEASE_TAG not found; skipping asset deletion."
+            exit 0
+          fi
+
+          for asset in "${ASSETS_TO_REMOVE[@]}"; do
+            asset_id=$(gh api repos/${{ github.repository }}/releases/$release_id/assets --jq ".[] | select(.name == \"$asset\") | .id")
+            if [ -n "$asset_id" ]; then
+              echo "Deleting asset: $asset"
+              gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id
+            fi
+          done
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -206,7 +227,7 @@ jobs:
           $version = "${{ github.run_number }}.0.0"
           $nupkgDir = "./nupkg"
           $nuspecPath = "$packageId.nuspec"
-          $nugetExe = Join-Path $env:GITHUB_WORKSPACE ".github/tools/nuget.exe"
+          $nugetExe = ".github/tools/nuget.exe"
 
           if (-not (Test-Path $nuspecPath)) {
             Write-Error "❌ .nuspec file missing: $nuspecPath"
