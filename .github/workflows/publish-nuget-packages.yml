@@ -5,30 +5,28 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Must be Windows to run nuget.exe
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup .NET CLI
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Create NuGet Package
+      - name: Download nuget.exe
         run: |
-          mkdir -p nupkg-out
-          dotnet nuget pack ITSM-Templates-WKS.nuspec -o nupkg-out
+          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
+      - name: Create NuGet Package from .nuspec
+        run: |
+          ./nuget.exe pack ITSM-Templates-WKS.nuspec -OutputDirectory nupkg-out
 
       - name: Publish to NuGet.org
         run: |
-          FILE=$(find nupkg-out -name '*.nupkg' | head -n 1)
-          if [ -z "$FILE" ]; then
-            echo "❌ No .nupkg file found"
+          $pkg = Get-ChildItem "nupkg-out\*.nupkg" | Select-Object -First 1
+          if (-not $pkg) {
+            Write-Error "❌ No .nupkg file found"
             exit 1
-          fi
-          dotnet nuget push "$FILE" \
-            --source "https://api.nuget.org/v3/index.json" \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
-            --skip-duplicate
+          }
+          ./nuget.exe push $pkg.FullName `
+            -Source https://api.nuget.org/v3/index.json `
+            -ApiKey "${{ secrets.NUGET_API_KEY }}" `
+            -NonInteractive
