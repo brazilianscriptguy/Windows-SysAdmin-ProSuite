@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Generates a NuSpec (.nuspec) file for NuGet packaging automation.
+    Dynamically generates a NuSpec (.nuspec) file for NuGet packaging automation.
 
 .DESCRIPTION
-    Used in CI pipelines to dynamically create .nuspec files based on a standard template.
-    Injects metadata like ID, version, author, license, and package contents.
+    Creates a NuGet specification file using standardized metadata, injecting the
+    provided version, description, license, and content files dynamically.
 
 .AUTHOR
     Luiz Hamilton - @brazilianscriptguy
@@ -25,9 +25,19 @@ param (
     [string]$ZipPath = ""
 )
 
-# Ensure output path exists
+# Validate .zip file existence
+if (-not (Test-Path $ZipPath)) {
+    Write-Error "The specified ZIP file '$ZipPath' does not exist."
+    exit 1
+}
+
+# Output path setup
 $OutputFile = Join-Path -Path $OutputPath -ChildPath "$PackageId.nuspec"
 
+# Escape paths for XML
+$escapedZipPath = $ZipPath -replace '\\', '/'
+
+# Build XML
 $packageXml = @"
 <?xml version="1.0"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
@@ -39,14 +49,17 @@ $packageXml = @"
     <licenseUrl>$LicenseUrl</licenseUrl>
     <projectUrl>$ProjectUrl</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <tags>powershell automation admin $PackageId</tags>
+    <tags>powershell automation sysadmin blueteam ad gpo itsm $PackageId</tags>
+    <!-- Optional Icon (if used later) -->
+    <!-- <iconUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/raw/main/icon.png</iconUrl> -->
   </metadata>
   <files>
-    <file src="$ZipPath" target="tools\$PackageId.zip" />
+    <file src="$escapedZipPath" target="tools/$PackageId.zip" />
   </files>
 </package>
 "@
 
-$packageXml | Out-File -Encoding UTF8 -FilePath $OutputFile -Force
+# Write file
+[System.IO.File]::WriteAllText($OutputFile, $packageXml, [System.Text.Encoding]::UTF8)
 
-Write-Host "Generated: $OutputFile"
+Write-Host "✅ NuSpec generated successfully: $OutputFile"
