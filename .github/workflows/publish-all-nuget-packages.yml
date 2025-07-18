@@ -73,13 +73,19 @@ jobs:
             echo "❌ README file not found at ${{ matrix.package }}/README.md"
             exit 1
           fi
+          # Check for .nuspec in root or package directory
+          nuspec_path=""
           if [ -f "${{ matrix.package }}.nuspec" ]; then
-            echo "✅ Found ${{ matrix.package }}.nuspec"
-            cat "${{ matrix.package }}.nuspec"  # Display contents
+            nuspec_path="${{ matrix.package }}.nuspec"
+            echo "✅ Found .nuspec file at ${{ matrix.package }}.nuspec"
+          elif [ -f "${{ matrix.package }}/${{ matrix.package }}.nuspec" ]; then
+            nuspec_path="${{ matrix.package }}/${{ matrix.package }}.nuspec"
+            echo "✅ Found .nuspec file at ${{ matrix.package }}/${{ matrix.package }}.nuspec"
           else
-            echo "❌ .nuspec file not found at ${{ matrix.package }}.nuspec"
+            echo "❌ .nuspec file not found for ${{ matrix.package }} at ${{ matrix.package }}.nuspec or ${{ matrix.package }}/${{ matrix.package }}.nuspec"
             exit 1
           fi
+          cat "$nuspec_path"  # Display contents
 
       - name: 🧪 Debug - Check for README variants
         run: |
@@ -91,7 +97,202 @@ jobs:
           # Copy package directory to temporary staging area
           cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
           # Copy .nuspec file to temporary directory
-          cp "${{ matrix.package }}.nuspec" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          cp "$nuspec_path" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          # Copy README.md to ReadmeCopies
+          cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+          echo "✅ Staged files for ${{ matrix.package }}:"
+          ls -lh "temp-${{ matrix.package }}/"
+          echo "✅ Copied README to ReadmeCopies/${{ matrix.package }}-README.md"
+
+      - name: 🧪 Debug - Verify staged files
+        run: |
+          echo "Contents of temp-${{ matrix.package }}:"
+          ls -lh "temp-${{ matrix.package }}/"
+          echo "Contents of ReadmeCopies:"
+          find ReadmeCopies -type f -exec ls -lh {} \;
+          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
+            echo "✅ README file exists at ReadmeCopies/${{ matrix.package }}-README.md"
+            cat "ReadmeCopies/${{ matrix.package }}-README.md"  # Display contents
+          else
+            echo "❌ README file not found at ReadmeCopies/${{ matrix.package }}-README.md"
+            exit 1
+          fi
+          if [ -f "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec" ]; then
+            echo "✅ .nuspec file exists at temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          else
+            echo "❌ .nuspec file not found at temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+            exit 1
+          fi
+
+      - name: 📦 Pack NuGet package
+        run: |
+          cd "temp-${{ matrix.package }}"
+          properties="SymbolPackageFormat=snupkg"
+          mono ../../.github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
+            -OutputDirectory ../../nupkg-out \
+            -Properties "$properties"
+          cd ../..
+
+      - name: 🧪 Debug - Verify NuGet package output
+        run: |
+          echo "Contents of nupkg-out:"
+          ls -lh nupkg-out/
+          if [ -n "$(find nupkg-out -name '*.nupkg')" ]; then
+            echo "✅ NuGet package created"
+          else
+            echo "❌ No NuGet package created"
+            exit 1
+          fi
+
+      - name: 🚀 Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          if [ -z "$pkg_path" ]; then
+            echo "❌ No .nupkg file found to publish."
+            exit 1
+          fi
+          echo "📦 Found package: $pkg_path"
+          mono .github/tools/nuget.exe push "$pkg_path" \
+            -Source https://api.nuget.org/v3/index.json \
+            -ApiKey "$NUGET_API_KEY" \
+            -NonInteractive
+
+      - name: 🏷️ Create Git tag for version
+        run: |
+          version=$(basename "$(find nupkg-out -name '*.nupkg' | head -n 1)" | sed -E 's/^.+\.([0-9]+\.[0-9]+\.[0-9]+)\. comics
+
+System: The error `❌ .nuspec file not found at SysAdmin-Tools.nuspec` has been resolved by confirming the contents of the `SysAdmin-Tools.nuspec` file you provided. However, it seems the workflow is still failing because it expects the `.nuspec` file to be in the repository root, while it may be located in the `SysAdmin-Tools/` directory or not committed to the repository. Below, I’ve refined the workflow to address this issue, incorporating the following improvements:
+
+### Key Improvements
+1. **Flexible `.nuspec` File Location**:
+   - The workflow now checks for the `.nuspec` file in both the repository root (`${{ matrix.package }}.nuspec`) and the package directory (`${{ matrix.package }}/${{ matrix.package }}.nuspec`).
+   - It uses a `nuspec_path` variable to track the correct path and copies it to the staging directory (`temp-${{ matrix.package }}`).
+
+2. **Robust File Validation**:
+   - Validates the existence of the package directory, `README.md`, and `.nuspec` file, failing early with clear error messages if any are missing.
+   - Displays the contents of `README.md` and `.nuspec` files to help diagnose issues.
+
+3. **Staging and Path Resolution**:
+   - Copies the entire package directory, `README.md` to `ReadmeCopies/<package>-README.md`, and the `.nuspec` file to a temporary staging directory (`temp-${{ matrix.package }}`).
+   - Runs `nuget.exe pack` from the staging directory to ensure paths like `ReadmeCopies/<package>-README.md` resolve correctly, preventing the `NU5039` error.
+
+4. **NuGet Executable Handling**:
+   - Downloads `nuget.exe` to `.github/tools/nuget.exe` and verifies its existence to prevent the `Cannot open assembly` error.
+   - Sets executable permissions (`chmod +x`) for reliability.
+
+5. **Submodule Support**:
+   - Uses `submodules: recursive` to ensure submodules (if any) are fully initialized, including their `README.md` and `.nuspec` files.
+
+6. **Debugging and Error Prevention**:
+   - Includes detailed debug steps to verify file existence, contents, and paths at every stage.
+   - Fails early if critical files (`README.md`, `.nuspec`, or `nuget.exe`) are missing, with clear error messages.
+
+### Updated Workflow
+The following workflow incorporates these improvements and addresses the `SysAdmin-Tools.nuspec` error by checking multiple locations for the `.nuspec` file. It assumes the `.nuspec` file you provided is committed to the repository (either in the root or `SysAdmin-Tools/` directory).
+
+```yaml
+name: publish-all-nuget-packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-nuget:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package:
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - SysAdmin-Tools
+
+    steps:
+      - name: 🧾 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive  # Ensure submodules are fully initialized
+
+      - name: 📦 Install mono to run nuget.exe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mono-complete
+
+      - name: 📦 Download latest nuget.exe
+        run: |
+          mkdir -p .github/tools
+          wget -O .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          chmod +x .github/tools/nuget.exe  # Ensure executable permissions
+
+      - name: 🧪 Debug - Verify nuget.exe
+        run: |
+          if [ -f ".github/tools/nuget.exe" ]; then
+            echo "✅ nuget.exe found at .github/tools/nuget.exe"
+            ls -lh .github/tools/nuget.exe
+          else
+            echo "❌ nuget.exe not found at .github/tools/nuget.exe"
+            exit 1
+          fi
+
+      - name: 📁 Create directories
+        run: |
+          mkdir -p ReadmeCopies
+          mkdir -p nupkg-out
+          mkdir -p temp-${{ matrix.package }}
+
+      - name: 🧪 Debug - Verify submodules
+        run: |
+          echo "Submodule status:"
+          git submodule status
+          git submodule update --init --recursive
+
+      - name: 🧪 Debug - Validate package directory and files
+        run: |
+          echo "Validating ${{ matrix.package }} directory:"
+          if [ -d "${{ matrix.package }}" ]; then
+            echo "✅ Directory ${{ matrix.package }} exists"
+            ls -lh "${{ matrix.package }}/"
+          else
+            echo "❌ Directory ${{ matrix.package }} not found"
+            exit 1
+          fi
+          if [ -f "${{ matrix.package }}/README.md" ]; then
+            echo "✅ Found ${{ matrix.package }}/README.md"
+            cat "${{ matrix.package }}/README.md"  # Display contents
+          else
+            echo "❌ README file not found at ${{ matrix.package }}/README.md"
+            exit 1
+          fi
+          # Check for .nuspec in root or package directory
+          nuspec_path=""
+          if [ -f "${{ matrix.package }}.nuspec" ]; then
+            nuspec_path="${{ matrix.package }}.nuspec"
+            echo "✅ Found .nuspec file at ${{ matrix.package }}.nuspec"
+          elif [ -f "${{ matrix.package }}/${{ matrix.package }}.nuspec" ]; then
+            nuspec_path="${{ matrix.package }}/${{ matrix.package }}.nuspec"
+            echo "✅ Found .nuspec file at ${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          else
+            echo "❌ .nuspec file not found for ${{ matrix.package }} at ${{ matrix.package }}.nuspec or ${{ matrix.package }}/${{ matrix.package }}.nuspec"
+            exit 1
+          fi
+          cat "$nuspec_path"  # Display contents
+
+      - name: 🧪 Debug - Check for README variants
+        run: |
+          echo "Looking for README variants in ${{ matrix.package }}:"
+          find "${{ matrix.package }}" -iname "*readme*"
+
+      - name: 📄 Stage package files
+        run: |
+          # Copy package directory to temporary staging area
+          cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
+          # Copy .nuspec file to temporary directory
+          cp "$nuspec_path" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
           # Copy README.md to ReadmeCopies
           cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
           echo "✅ Staged files for ${{ matrix.package }}:"
@@ -162,7 +363,3 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag "$tag"
           git push origin "$tag"
-
-      - name: 🧹 Clean up temporary directory
-        run: |
-          rm -rf "temp-${{ matrix.package }}"
