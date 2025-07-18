@@ -17,28 +17,28 @@ jobs:
           - SysAdmin-Tools
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 🧾 Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: true
 
-      - name: 🛠️ Install mono for nuget.exe
+      - name: 📦 Install mono to run nuget.exe
         run: sudo apt-get update && sudo apt-get install -y mono-complete
 
-      - name: 📁 Ensure folders exist
+      - name: 📁 Ensure required folders exist
         run: |
           mkdir -p ReadmeCopies
           mkdir -p nupkg-out
 
-      - name: 📄 Copy README for package metadata
+      - name: 📄 Copy README.md file for package
         run: |
-          if [ -f "${{ matrix.package }}/README.md" ]; then
-            cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
-          else
-            echo "❌ README.md not found in ${{ matrix.package }}/"
-            exit 1
-          fi
+          cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+
+      - name: 🧪 Debug - List ReadmeCopies content
+        run: |
+          echo "Contents of ReadmeCopies:"
+          ls -lh ReadmeCopies/
 
       - name: 📦 Pack NuGet package using nuget.exe
         run: |
@@ -46,13 +46,13 @@ jobs:
             -OutputDirectory nupkg-out \
             -Properties "ReadMeFile=ReadmeCopies/${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
 
-      - name: 🚀 Push .nupkg to NuGet.org
+      - name: 🚀 Push to nuget.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          pkg_path=$(find nupkg-out -name "${{ matrix.package }}*.nupkg" | head -n 1)
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
           if [ -z "$pkg_path" ]; then
-            echo "❌ No .nupkg file found to publish for ${{ matrix.package }}"
+            echo "❌ No .nupkg file found to publish."
             exit 1
           fi
           echo "📦 Found package: $pkg_path"
@@ -61,10 +61,12 @@ jobs:
             -ApiKey "$NUGET_API_KEY" \
             -NonInteractive
 
-      - name: 🏷️ Create Git Tag for published version
+      - name: 🏷️ Create Git tag for version
         run: |
-          VERSION="v1.0.0-${{ matrix.package }}"
+          version=$(basename "$(find nupkg-out -name '*.nupkg' | head -n 1)" | sed -E 's/^.+\.([0-9]+\.[0-9]+\.[0-9]+)\.nupkg$/\1/')
+          tag="${{ matrix.package }}-v$version"
+          echo "Creating tag $tag"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag "$VERSION"
-          git push origin "$VERSION"
+          git tag "$tag"
+          git push origin "$tag"
