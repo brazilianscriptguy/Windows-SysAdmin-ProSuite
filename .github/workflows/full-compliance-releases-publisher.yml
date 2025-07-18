@@ -175,12 +175,16 @@ jobs:
         run: |
           dotnet pack "${{ matrix.release_name }}" --output artifacts --configuration Release || echo "No .csproj found, skipping..."
 
-      - name: Push NuGet Package to GitHub Packages
+      - name: Push NuGet Package to GitHub Packages (if .nupkg exists)
         if: ${{ matrix.release_name == 'Core-ScriptLibrary' || matrix.release_name == 'SysAdmin-Tools' }}
         run: |
-          dotnet nuget push artifacts/*.nupkg \
-            --api-key ${{ secrets.GITHUB_TOKEN }} \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          if compgen -G "artifacts/*.nupkg" > /dev/null; then
+            dotnet nuget push artifacts/*.nupkg \
+              --api-key ${{ secrets.GH_PAT_FOR_NUGET }} \
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          else
+            echo "⚠️ No .nupkg found for ${{ matrix.release_name }}, skipping push."
+          fi
 
       - name: Create New Release with CHANGELOG Notes
         id: create_release
