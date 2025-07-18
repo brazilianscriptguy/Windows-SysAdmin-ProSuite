@@ -2,11 +2,6 @@ name: publish-nuget-package
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'ITSM-Templates-WKS.nuspec'
-      - 'ITSM-Templates-WKS/**'
 
 jobs:
   publish:
@@ -19,23 +14,24 @@ jobs:
       - name: Setup .NET CLI
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'  # Ensures latest .NET is available
+          dotnet-version: '8.0.x'
 
-      - name: List .nuspec and contents
+      - name: Confirm .nuspec and files
         run: |
+          echo "🔍 Listing .nuspec and contents:"
           ls -al
           find ITSM-Templates-WKS
 
-      - name: Create NuGet Package (.nupkg)
+      - name: Pack NuGet Package
         run: |
           mkdir -p nupkg-out
           dotnet nuget pack ITSM-Templates-WKS.nuspec -o nupkg-out
 
-      - name: Push NuGet Package to nuget.org
+      - name: Push to nuget.org
         run: |
           FILE=$(find nupkg-out -name '*.nupkg' | head -n 1)
           if [ -z "$FILE" ]; then
-            echo "❌ No .nupkg file found."
+            echo "❌ No .nupkg file found"
             exit 1
           fi
           dotnet nuget push "$FILE" \
