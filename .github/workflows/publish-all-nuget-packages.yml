@@ -1,4 +1,4 @@
-name:publish-all-nuget-packages
+name: publish-all-nuget-packages
 
 on:
   workflow_dispatch:
