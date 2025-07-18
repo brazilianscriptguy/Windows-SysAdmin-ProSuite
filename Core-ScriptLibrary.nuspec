@@ -12,7 +12,7 @@
 
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>NuGetPackageContent/ReadmeCopies/Core-ScriptLibrary-README.md</readme>
+    <readme>ReadmeCopies/Core-ScriptLibrary-README.md</readme>
     <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
     <description>Essential PowerShell scripts for automation, infrastructure maintenance, and daily server or workstation administration tasks in enterprise environments.</description>
@@ -21,8 +21,8 @@
   </metadata>
 
   <files>
-    <file src="NuGetPackageContent/Core-ScriptLibrary/**/*" target="content/Core-ScriptLibrary" />
-    <file src="NuGetPackageContent/ReadmeCopies/Core-ScriptLibrary-README.md" target="" />
-    <file src="NuGetPackageContent/LICENSE" target="" />
+    <file src="Core-ScriptLibrary/**/*" target="content/Core-ScriptLibrary" />
+    <file src="ReadmeCopies/Core-ScriptLibrary-README.md" target="" />
+    <file src="LICENSE" target="" />
   </files>
 </package>
