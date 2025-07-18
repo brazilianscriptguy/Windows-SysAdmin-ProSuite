@@ -1,24 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+<?xml version="1.0"?>
+<package>
   <metadata>
     <id>SysAdmin-Tools</id>
     <version>1.0.0</version>
+    <title>SysAdmin-Tools</title>
     <authors>BrazilianScriptGuy</authors>
     <owners>BrazilianScriptGuy</owners>
+
     <license type="expression">MIT</license>
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <readme>README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
+
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Comprehensive PowerShell toolkit for daily administrative tasks on Windows Server and domain environments.</description>
-    <releaseNotes>Initial release of SysAdmin-Tools including AD automation, DNS/DHCP configuration, and GPO tools.</releaseNotes>
-    <tags>sysadmin active-directory gpo automation administration dns dhcp powershell</tags>
-    <dependencies>
-      <group targetFramework=".NETStandard2.0" />
-    </dependencies>
+    <description>A powerful and flexible toolkit of PowerShell scripts for managing Active Directory, system roles, DNS, DHCP, and GPOs in Windows Server environments.</description>
+    <releaseNotes>Initial release of SysAdmin-Tools for managing Windows Server and infrastructure services.</releaseNotes>
+    <tags>windows-server sysadmin active-directory gpo dhcp dns automation powershell server-roles admin-tools domain-controller</tags>
   </metadata>
   <files>
     <file src="NuGetPackageContent/SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
-    <file src="NuGetPackageContent/README.md" target="content/" />
-    <file src="NuGetPackageContent/LICENSE" target="content/" />
+    <file src="NuGetPackageContent/README.md" target="" />
+    <file src="NuGetPackageContent/LICENSE" target="" />
   </files>
 </package>
