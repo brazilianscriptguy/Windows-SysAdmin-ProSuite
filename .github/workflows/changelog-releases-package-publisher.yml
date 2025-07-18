@@ -192,53 +192,53 @@ jobs:
           mkdir -p .github/tools
           curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-- name: Pack and Push NuGet Package
-  shell: pwsh
-  env:
-    GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
-    NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-  run: |
-    $ErrorActionPreference = 'Stop'
-    Set-Location $env:GITHUB_WORKSPACE
+      - name: Pack and Push NuGet Package
+        shell: pwsh
+        env:
+          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location $env:GITHUB_WORKSPACE
 
-    $repoOwner = "${{ github.repository_owner }}"
-    $packageId = "${{ matrix.release_name }}"
-    $version = "${{ github.run_number }}.0.0"
-    $nupkgDir = "./nupkg"
-    $nuspecPath = "$packageId.nuspec"
-    $nugetExe = Join-Path $env:GITHUB_WORKSPACE ".github/tools/nuget.exe"
+          $repoOwner = "${{ github.repository_owner }}"
+          $packageId = "${{ matrix.release_name }}"
+          $version = "${{ github.run_number }}.0.0"
+          $nupkgDir = "./nupkg"
+          $nuspecPath = "$packageId.nuspec"
+          $nugetExe = Join-Path $env:GITHUB_WORKSPACE ".github/tools/nuget.exe"
 
-    if (-not (Test-Path $nuspecPath)) {
-      Write-Error "❌ .nuspec file missing: $nuspecPath"
-      exit 1
-    }
+          if (-not (Test-Path $nuspecPath)) {
+            Write-Error "❌ .nuspec file missing: $nuspecPath"
+            exit 1
+          }
 
-    if (-not (Test-Path $nugetExe)) {
-      Write-Error "❌ nuget.exe not found at $nugetExe"
-      exit 1
-    }
+          if (-not (Test-Path $nugetExe)) {
+            Write-Error "❌ nuget.exe not found at $nugetExe"
+            exit 1
+          }
 
-    if (-not (Test-Path $nupkgDir)) {
-      New-Item -ItemType Directory -Path $nupkgDir | Out-Null
-    }
+          if (-not (Test-Path $nupkgDir)) {
+            New-Item -ItemType Directory -Path $nupkgDir | Out-Null
+          }
 
-    Write-Host "📦 Packing NuGet package..."
-    & $nugetExe pack $nuspecPath -OutputDirectory $nupkgDir
+          Write-Host "📦 Packing NuGet package..."
+          & $nugetExe pack $nuspecPath -OutputDirectory $nupkgDir
 
-    $nupkgFile = Get-ChildItem "$nupkgDir/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $nupkgFile) {
-      Write-Warning "⚠️ .nupkg not found. Skipping NuGet push for $packageId."
-      exit 0
-    }
+          $nupkgFile = Get-ChildItem "$nupkgDir/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $nupkgFile) {
+            Write-Warning "⚠️ .nupkg not found. Skipping NuGet push for $packageId."
+            exit 0
+          }
 
-    Write-Host "📦 Pushing to GitHub Packages..."
-    & $nugetExe push $nupkgFile.FullName `
-      -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
-      -ApiKey $env:GH_PAT_FOR_NUGET
+          Write-Host "📦 Pushing to GitHub Packages..."
+          & $nugetExe push $nupkgFile.FullName `
+            -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
+            -ApiKey $env:GH_PAT_FOR_NUGET
 
-    if ($env:NUGET_API_KEY -and $env:NUGET_API_KEY.Trim().Length -gt 0) {
-      Write-Host "📦 Pushing to NuGet.org..."
-      & $nugetExe push $nupkgFile.FullName `
-        -Source "https://api.nuget.org/v3/index.json" `
-        -ApiKey $env:NUGET_API_KEY
-    }
+          if ($env:NUGET_API_KEY -and $env:NUGET_API_KEY.Trim().Length -gt 0) {
+            Write-Host "📦 Pushing to NuGet.org..."
+            & $nugetExe push $nupkgFile.FullName `
+              -Source "https://api.nuget.org/v3/index.json" `
+              -ApiKey $env:NUGET_API_KEY
+          }
