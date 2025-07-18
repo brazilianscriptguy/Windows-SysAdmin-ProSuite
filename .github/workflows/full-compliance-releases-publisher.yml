@@ -1,4 +1,4 @@
-name: Build and Release Specialized Packages
+name: Build and Release Packages
 
 on:
   workflow_dispatch:
@@ -13,118 +13,110 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        release_name:
-          - BlueTeam-Tools
-          - Core-ScriptLibrary
-          - ITSM-Templates-SVR
-          - ITSM-Templates-WKS
-          - SysAdmin-Tools
-          - GPOs-Templates
-          - READMEs-Files-Package
-          - All-Repository-Files
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
+          "All-Repository-Files"
+        ]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zip jq tree
+          sudo apt-get install -y zip jq gh dotnet-sdk-6.0
 
-      - name: Show folder structure (Level 2)
-        run: tree -L 2
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
 
-      - name: Prepare artifact folder
-        run: rm -rf artifacts && mkdir artifacts
-
-      - name: Run PSScriptAnalyzer and export report
+      - name: Delete Existing Release and Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pwsh -Command 'Invoke-ScriptAnalyzer -Path . -Recurse -Severity Warning,Error -ReportSummary | Out-File artifacts/PSScriptAnalyzerReport.txt -Encoding UTF8'
+          TAG="${{ matrix.release_name }}"
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Deleting existing release $TAG..."
+            gh release delete "$TAG" -y
+            git push --delete origin "$TAG" || true
+          else
+            echo "No existing release for $TAG"
+          fi
 
-      - name: Package release - ${{ matrix.release_name }}
+      - name: Create Artifacts Folder
+        run: mkdir -p artifacts
+
+      - name: Build and Package
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           case "$RELEASE_NAME" in
-            BlueTeam-Tools)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite/BlueTeam-Tools
-              ;;
-            Core-ScriptLibrary)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite/Core-ScriptLibrary
-              ;;
-            ITSM-Templates-SVR)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite/ITSM-Templates-SVR
-              ;;
-            ITSM-Templates-WKS)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite/ITSM-Templates-WKS
-              ;;
-            SysAdmin-Tools)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite/SysAdmin-Tools
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              zip -r "artifacts/$RELEASE_NAME.zip" "Windows-SysAdmin-ProSuite/$RELEASE_NAME"
               ;;
             GPOs-Templates)
               mkdir -p GPOs-Templates
               cp -r Windows-SysAdmin-ProSuite/SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
               cp Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
-              zip -r artifacts/$RELEASE_NAME.zip GPOs-Templates
+              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               ;;
             READMEs-Files-Package)
               mkdir -p READMEs-Files-Package
-              cp README.md READMEs-Files-Package/main-README.md
-              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
+              cp Windows-SysAdmin-ProSuite/README.md READMEs-Files-Package/main-README.md
+              find Windows-SysAdmin-ProSuite -iname "README.md" ! -path "*/README.md" | while read -r file; do
                 repo_dir=$(dirname "$file")
                 repo_name=$(basename "$repo_dir")
-                new_filename="${repo_name}-README.md"
-                cp "$file" "READMEs-Files-Package/$new_filename"
+                cp "$file" "READMEs-Files-Package/${repo_name}-README.md"
               done
-              zip -r artifacts/$RELEASE_NAME.zip READMEs-Files-Package
+              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               ;;
             All-Repository-Files)
-              zip -r artifacts/$RELEASE_NAME.zip Windows-SysAdmin-ProSuite
+              mkdir -p All-Repository-Files
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                cp -r "Windows-SysAdmin-ProSuite/$dir" All-Repository-Files/
+              done
+              cp Windows-SysAdmin-ProSuite/LICENSE All-Repository-Files/
+              cp Windows-SysAdmin-ProSuite/README.md All-Repository-Files/
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               ;;
           esac
 
-      - name: Parse changelog for release notes
-        id: changelog
-        run: |
-          notes=$(awk '/^## /{f=!f; next} f' CHANGELOG.md | sed '/^$/d' | head -n 30)
-          echo "body<<EOF" >> $GITHUB_ENV
-          echo "$notes" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Create GitHub release and upload zip
+      - name: Create GitHub Release and Upload Zip
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ matrix.release_name }}
           name: ${{ matrix.release_name }}
-          body: ${{ env.body }}
+          body: Latest automated release for ${{ matrix.release_name }}.
           draft: false
           prerelease: false
           files: artifacts/${{ matrix.release_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish .nupkg to GitHub Packages if exists
+      - name: Publish NuGet Package (if .nupkg exists)
         env:
-          NUGET_AUTH_TOKEN: ${{ secrets.GH_PAT_FOR_NUGET }}
+          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
         run: |
           if compgen -G "artifacts/*.nupkg" > /dev/null; then
+            echo "Found .nupkg, pushing to NuGet..."
             dotnet nuget push artifacts/*.nupkg \
-              --api-key $NUGET_AUTH_TOKEN \
+              --api-key "$GH_PAT_FOR_NUGET" \
               --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
               --skip-duplicate
           else
-            echo "No .nupkg found for ${{ matrix.release_name }}, skipping NuGet publish."
+            echo "No .nupkg found for ${{ matrix.release_name }}, skipping NuGet push."
           fi
-
-      - name: Upload PSScriptAnalyzer report
-        uses: actions/upload-artifact@v4
-        with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
-          path: artifacts/PSScriptAnalyzerReport.txt
