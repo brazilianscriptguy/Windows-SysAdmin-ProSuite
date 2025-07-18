@@ -16,18 +16,12 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Confirm .nuspec and files
-        run: |
-          echo "🔍 Listing .nuspec and contents:"
-          ls -al
-          find ITSM-Templates-WKS
-
-      - name: Pack NuGet Package
+      - name: Create NuGet Package
         run: |
           mkdir -p nupkg-out
           dotnet nuget pack ITSM-Templates-WKS.nuspec -o nupkg-out
 
-      - name: Push to nuget.org
+      - name: Publish to NuGet.org
         run: |
           FILE=$(find nupkg-out -name '*.nupkg' | head -n 1)
           if [ -z "$FILE" ]; then
