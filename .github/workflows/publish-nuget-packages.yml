@@ -4,29 +4,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
-    runs-on: windows-latest # Must be Windows to run nuget.exe
+  publish-itsm-templates-wks:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
 
-      - name: Download nuget.exe
-        run: |
-          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+      - name: Install mono to run nuget.exe
+        run: sudo apt-get update && sudo apt-get install -y mono-complete
 
-      - name: Create NuGet Package from .nuspec
+      - name: Pack NuGet package using nuget.exe
         run: |
-          ./nuget.exe pack ITSM-Templates-WKS.nuspec -OutputDirectory nupkg-out
+          mkdir -p nupkg-out
+          mono .github/tools/nuget.exe pack ITSM-Templates-WKS.nuspec -OutputDirectory nupkg-out
 
-      - name: Publish to NuGet.org
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          $pkg = Get-ChildItem "nupkg-out\*.nupkg" | Select-Object -First 1
-          if (-not $pkg) {
-            Write-Error "❌ No .nupkg file found"
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          if [ -z "$pkg_path" ]; then
+            echo "❌ No .nupkg file found to publish."
             exit 1
-          }
-          ./nuget.exe push $pkg.FullName `
-            -Source https://api.nuget.org/v3/index.json `
-            -ApiKey "${{ secrets.NUGET_API_KEY }}" `
+          fi
+          mono .github/tools/nuget.exe push "$pkg_path" \
+            -Source https://api.nuget.org/v3/index.json \
+            -ApiKey "$NUGET_API_KEY" \
             -NonInteractive
