@@ -4,44 +4,56 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "ITSM-Templates-WKS-v*"
+      - 'nuget-*'  # Tags like nuget-ITSM.1.0.0
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  pack-and-publish:
+  publish:
     runs-on: windows-latest
+
     env:
-      PACKAGE_ID: ITSM-Templates-WKS
       NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      NUGET_SOURCE: https://api.nuget.org/v3/index.json
 
     steps:
-      - name: ✅ Checkout Repository
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: 🧰 Ensure nuget.exe is available
-        run: |
-          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+      - name: 🧰 Install NuGet CLI
+        uses: nuget/setup-nuget@v1
+        with:
+          nuget-version: latest
 
-      - name: 📂 List Package Files
+      - name: 🧼 Clean Previous Artifacts
         run: |
-          Write-Host "Listing files to be included in the package:"
-          Get-ChildItem -Recurse -Path ./ITSM-Templates-WKS
-
-      - name: 📦 Pack NuGet Package
-        run: |
-          $ErrorActionPreference = "Stop"
-          if (-Not (Test-Path "./${{ env.PACKAGE_ID }}.nuspec")) {
-            Write-Error "❌ .nuspec file not found at ./${{ env.PACKAGE_ID }}.nuspec"
+          if (Test-Path -Path "nuget-packages") {
+            Remove-Item -Recurse -Force "nuget-packages"
           }
-          ./nuget.exe pack "./${{ env.PACKAGE_ID }}.nuspec" -OutputDirectory .
+          New-Item -ItemType Directory -Path "nuget-packages" | Out-Null
+        shell: pwsh
 
-      - name: 🚀 Push NuGet Package to nuget.org
+      - name: 🔍 Locate and Pack .nuspec Files
         run: |
-          $packagePath = Get-ChildItem *.nupkg | Where-Object { $_.Name -like "${{ env.PACKAGE_ID }}*" }
-          if (-Not $packagePath) {
-            Write-Error "❌ NuGet package not found after packing."
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -Path . -Recurse -Filter *.nuspec | ForEach-Object {
+            Write-Host "📦 Packing: $($_.FullName)"
+            & nuget pack $_.FullName -OutputDirectory "nuget-packages" -NoDefaultExcludes
           }
-          ./nuget.exe push $packagePath -ApiKey "${{ env.NUGET_API_KEY }}" -Source "https://api.nuget.org/v3/index.json" -SkipDuplicate -Verbosity detailed
+        shell: pwsh
+
+      - name: 📤 Push NuGet Packages
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -Path "nuget-packages" -Filter *.nupkg | ForEach-Object {
+            Write-Host "🚀 Pushing package: $($_.Name)"
+            & nuget push $_.FullName `
+              -ApiKey "$env:NUGET_API_KEY" `
+              -Source "$env:NUGET_SOURCE" `
+              -NonInteractive
+          }
+        shell: pwsh
