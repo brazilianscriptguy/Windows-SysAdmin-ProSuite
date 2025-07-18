@@ -12,7 +12,7 @@
 
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>NuGetPackageContent/ReadmeCopies/BlueTeam-Tools-README.md</readme>
+    <readme>ReadmeCopies/BlueTeam-Tools-README.md</readme>
     <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
     <description>Forensics, EVTX analysis, and Blue Team automation scripts for Windows servers and workstations. Includes incident response, eventlog parsing, and investigative tooling for defenders.</description>
@@ -21,8 +21,8 @@
   </metadata>
 
   <files>
-    <file src="NuGetPackageContent/BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
-    <file src="NuGetPackageContent/ReadmeCopies/BlueTeam-Tools-README.md" target="" />
-    <file src="NuGetPackageContent/LICENSE" target="" />
+    <file src="BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
+    <file src="ReadmeCopies/BlueTeam-Tools-README.md" target="" />
+    <file src="LICENSE" target="" />
   </files>
 </package>
