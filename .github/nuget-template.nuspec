@@ -3,7 +3,7 @@
   <metadata>
     <!-- Package Identification -->
     <id>Windows-SysAdmin-ProSuite</id>
-    <version>1.0.1</version>
+    <version>$VERSION$</version>
     <authors>Luiz Hamilton</authors>
     <owners>BrazilianScriptGuy</owners>
 
@@ -12,7 +12,7 @@
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
     <description>A modular suite of PowerShell and VBScript tools for Windows Server and Workstation administration. Includes tools for identity management, auditing, GPO automation, forensic collection, and SSO integrations.</description>
-    <releaseNotes>Initial structured release including full support for Active Directory, Blue Team tools, GPO templates, ITSM for servers and workstations, and SSO/LDAP integration examples.</releaseNotes>
+    <releaseNotes>$RELEASE_NOTES$</releaseNotes>
     <summary>Complete Windows SysAdmin Toolkit for Enterprise Environments</summary>
     <tags>powershell sysadmin windows-server activedirectory itsm blueteam evtx gpo automation nuget-script toolkit forensics ldap sso workstation infrastructure</tags>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
