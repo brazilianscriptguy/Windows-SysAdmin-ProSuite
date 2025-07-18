@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Dynamically creates a .nuspec file with metadata and ZIP mapping, supporting
-    release notes injection and semantic version stripping.
+    release notes injection and semantic versioning.
 
 .AUTHOR
     Luiz Hamilton - @brazilianscriptguy
@@ -27,24 +27,23 @@ param (
     [string]$OutputPath
 )
 
-# Validate inputs
+# --- Input Validation ---
 if (-not (Test-Path $ZipPath)) {
-    Write-Error "ZipPath '$ZipPath' not found."
+    Write-Error "❌ ZipPath '$ZipPath' not found."
     exit 1
 }
 if (-not (Test-Path $ReleaseNotesPath)) {
-    Write-Error "ReleaseNotes file '$ReleaseNotesPath' not found."
+    Write-Error "❌ Release notes file '$ReleaseNotesPath' not found."
     exit 1
 }
 
-# Prepare .nuspec name
+# --- Prepare Values ---
 $nuspecFile = Join-Path $OutputPath "$PackageId.nuspec"
-
-# Load release notes content
 $releaseNotes = Get-Content -Raw -Path $ReleaseNotesPath -Encoding UTF8
 $releaseNotesEscaped = [System.Security.SecurityElement]::Escape($releaseNotes)
+$cleanZipName = [System.IO.Path]::GetFileName($ZipPath)
 
-# Define nuspec template
+# --- Compose .nuspec Content ---
 $nuspecContent = @"
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
@@ -65,12 +64,12 @@ $nuspecContent = @"
   </metadata>
 
   <files>
-    <file src="$ZipPath" target="content/${PackageId}.zip" />
+    <file src="$ZipPath" target="content/$cleanZipName" />
   </files>
 </package>
 "@
 
-# Write .nuspec
+# --- Write .nuspec File ---
 $nuspecContent | Set-Content -Path $nuspecFile -Encoding UTF8
 
-Write-Host "✔ Generated .nuspec file: $nuspecFile"
+Write-Host "✔ .nuspec file generated at: $nuspecFile"
