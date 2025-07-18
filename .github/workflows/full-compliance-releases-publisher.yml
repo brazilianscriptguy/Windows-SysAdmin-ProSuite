@@ -114,7 +114,6 @@ jobs:
               cp README.md GPOs-Templates/ || true
               cp LICENSE GPOs-Templates/ || true
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
-              rm -rf GPOs-Templates
               ;;
 
             READMEs-Files-Package)
@@ -127,7 +126,6 @@ jobs:
                 cp "$file" "READMEs-Files-Package/$new_filename"
               done
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
-              rm -rf READMEs-Files-Package
               ;;
 
             All-Repository-Files)
@@ -138,7 +136,6 @@ jobs:
               cp README.md All-Repository-Files/ || true
               cp LICENSE All-Repository-Files/ || true
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
-              rm -rf All-Repository-Files
               ;;
           esac
 
@@ -146,14 +143,18 @@ jobs:
         if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
         run: |
           mkdir -p lint-reports
-          if [[ "${{ matrix.release_name }}" == "GPOs-Templates" ]]; then
-            ANALYZE_PATH="./GPOs-Templates"
-          else
-            ANALYZE_PATH="./temp-${{ matrix.release_name }}"
-          fi
+
+          case "${{ matrix.release_name }}" in
+            GPOs-Templates)
+              SCAN_PATH="./GPOs-Templates"
+              ;;
+            *)
+              SCAN_PATH="./${{ matrix.release_name }}"
+              ;;
+          esac
 
           pwsh -Command "
-            Get-ChildItem -Recurse -Path '$ANALYZE_PATH' -Include *.ps1 |
+            Get-ChildItem -Recurse -Path '$SCAN_PATH' -Include *.ps1 |
             Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
             Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
           "
