@@ -165,33 +165,15 @@ jobs:
         id: extract_notes
         run: |
           tag="${{ matrix.release_name }}"
-          echo "Looking for changelog section: ## $tag"
-
-          if [ ! -f "CHANGELOG.md" ]; then
-            echo "CHANGELOG.md not found."
-            echo "release_body<<EOF" >> $GITHUB_ENV
-            echo "CHANGELOG.md is missing." >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-            exit 0
-          fi
-
-          echo "Preview of CHANGELOG.md (first 20 lines):"
-          head -n 20 CHANGELOG.md || true
-
-          notes=$(awk "/^## $tag[[:space:]]*\$/ {flag=1;next} /^## /{flag=0}flag" CHANGELOG.md | sed '/^$/d')
-          echo "Parsed Notes:"
-          echo "$notes"
-
-          if [ -z "$notes" ]; then
-            echo "No changelog section found for tag: $tag"
-            echo "release_body<<EOF" >> $GITHUB_ENV
-            echo "No changelog available for tag: $tag. Please update CHANGELOG.md." >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          else
-            echo "release_body<<EOF" >> $GITHUB_ENV
-            echo "$notes" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          fi
+          body=$(awk -v tag="## $tag" '
+            $0 == tag {found=1; next}
+            /^## / && found {exit}
+            found {print}
+          ' CHANGELOG.md)
+          body="${body:-No changelog available for tag: $tag. Please update CHANGELOG.md.}"
+          echo "release_body<<EOF" >> $GITHUB_ENV
+          echo "$body" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create New Release
         id: create_release
