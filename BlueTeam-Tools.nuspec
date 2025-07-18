@@ -8,19 +8,21 @@
     <owners>BrazilianScriptGuy</owners>
 
     <license type="expression">MIT</license>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
-    
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>PowerShell tools for Blue Team operations, digital forensics, SIEM, and incident response.</description>
-    <releaseNotes>Initial release of BlueTeam-Tools for forensics, log analysis, and threat response.</releaseNotes>
+    <readme>NuGetPackageContent/ReadmeCopies/BlueTeam-Tools-README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
+
+    <description>Forensics, EVTX analysis, and Blue Team automation scripts for Windows servers and workstations. Includes incident response, eventlog parsing, and investigative tooling for defenders.</description>
+    <releaseNotes>Initial release with log analyzers, event investigation scripts, and digital forensics tools.</releaseNotes>
     <tags>blueteam forensic forensics incident-response evtx-analysis powershell siem sysadmin-tools threat-hunting</tags>
   </metadata>
+
   <files>
     <file src="NuGetPackageContent/BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
-    <file src="NuGetPackageContent/README.md" target="" />
+    <file src="NuGetPackageContent/ReadmeCopies/BlueTeam-Tools-README.md" target="" />
     <file src="NuGetPackageContent/LICENSE" target="" />
   </files>
 </package>
