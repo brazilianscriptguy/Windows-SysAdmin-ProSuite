@@ -1,4 +1,4 @@
-name: changelog-releases-and-nuget-publisher
+name: update-github-releases
 
 on:
   workflow_dispatch:
