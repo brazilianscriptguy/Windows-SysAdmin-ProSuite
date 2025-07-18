@@ -15,30 +15,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Setup .NET CLI
+        uses: actions/setup-dotnet@v3
         with:
-          fetch-depth: 0
+          dotnet-version: '8.0.x'  # Ensures latest .NET is available
 
-      - name: Install NuGet CLI
+      - name: List .nuspec and contents
         run: |
-          sudo apt-get update
-          sudo apt-get install -y nuget
+          ls -al
+          find ITSM-Templates-WKS
 
-      - name: List Files (diagnostic)
-        run: ls -R
-
-      - name: Pack NuGet Package
+      - name: Create NuGet Package (.nupkg)
         run: |
           mkdir -p nupkg-out
-          nuget pack ITSM-Templates-WKS.nuspec -OutputDirectory nupkg-out
+          dotnet nuget pack ITSM-Templates-WKS.nuspec -o nupkg-out
 
-      - name: Push Package to nuget.org
+      - name: Push NuGet Package to nuget.org
         run: |
-          PACKAGE=$(find nupkg-out -name "*.nupkg" | head -n1)
-          if [ -z "$PACKAGE" ]; then
+          FILE=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          if [ -z "$FILE" ]; then
             echo "❌ No .nupkg file found."
             exit 1
           fi
-          nuget push "$PACKAGE" \
-            -Source https://api.nuget.org/v3/index.json \
-            -ApiKey "${{ secrets.NUGET_API_KEY }}" \
-            -SkipDuplicate
+          dotnet nuget push "$FILE" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --skip-duplicate
