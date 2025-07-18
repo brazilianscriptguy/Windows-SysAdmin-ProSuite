@@ -1,64 +1,71 @@
-<div id="changelog" style="font-family:Segoe UI, sans-serif; line-height:1.6; max-width:800px; margin:auto; padding:2em;">
-  <h1 style="border-bottom: 2px solid #333;">📦 Changelog</h1>
+# 📦 CHANGELOG
 
-  <section>
-    <h2 style="color:#1a73e8;">BlueTeam-Tools</h2>
-    <ul>
-      <li>✅ Added firewall auditing rules</li>
-      <li>🧠 Improved script input validation</li>
-      <li>🐞 Fixed bug in network log parser</li>
-    </ul>
-  </section>
+---
 
-  <section>
-    <h2 style="color:#1a73e8;">Core-ScriptLibrary</h2>
-    <ul>
-      <li>♻️ Refactored JSON handler functions</li>
-      <li>📄 Updated README formatting</li>
-    </ul>
-  </section>
+## BlueTeam-Tools
+### 2025-07-18
+- ✅ Initial release of BlueTeam forensic and incident response tools
+- 📄 Added README and LICENSE
+- 🧪 Linting enabled via PSScriptAnalyzer
+- 📦 Published ZIP and NuGet package
 
-  <section>
-    <h2 style="color:#1a73e8;">ITSM-Templates-SVR</h2>
-    <ul>
-      <li>🛠️ Added AD-Join Precheck Tool</li>
-      <li>📤 Exported default GPOs</li>
-    </ul>
-  </section>
+---
 
-  <section>
-    <h2 style="color:#1a73e8;">SysAdmin-Tools</h2>
-    <ul>
-      <li>🔐 SHA256 signature added for release package</li>
-      <li>🧪 PSScriptAnalyzer integrated</li>
-      <li>📦 NuGet publishing logic added</li>
-    </ul>
-  </section>
+## Core-ScriptLibrary
+### 2025-07-18
+- ✅ Updated core utility functions and shared modules
+- 🧪 PSScriptAnalyzer linting report generated
+- 📦 NuGet package creation via dynamic .nuspec
+- 🚀 Release ZIP built and uploaded
 
-  <section>
-    <h2 style="color:#1a73e8;">GPOs-Templates</h2>
-    <ul>
-      <li>🧰 Added GPO Export-n-Import tool</li>
-      <li>📚 Included policy template samples</li>
-    </ul>
-  </section>
+---
 
-  <section>
-    <h2 style="color:#1a73e8;">READMEs-Files-Package</h2>
-    <ul>
-      <li>📝 Collected README.md from all tools</li>
-      <li>📁 Consolidated in a zipped bundle</li>
-    </ul>
-  </section>
+## ITSM-Templates-SVR
+### 2025-07-18
+- 🏷️ Server-side PowerShell templates refactored
+- 📄 LICENSE and README included in release
+- 📦 NuGet packaging integrated
+- 🧪 Analyzer report generated for quality assurance
 
-  <section>
-    <h2 style="color:#1a73e8;">All-Repository-Files</h2>
-    <ul>
-      <li>📂 Full snapshot of all current toolsets</li>
-      <li>🔖 License and README included</li>
-    </ul>
-  </section>
+---
 
-  <hr />
-  <p style="font-size:0.9em;color:#777;">Last updated: July 18, 2025</p>
-</div>
+## ITSM-Templates-WKS
+### 2025-07-18
+- 🖥️ Workstation automation templates organized by use-case
+- ✅ Dynamic changelog injection enabled
+- 📦 NuGet packaging pipeline tested
+- 🧪 Analyzer report uploaded
+
+---
+
+## SysAdmin-Tools
+### 2025-07-18
+- 🚀 Smart ZIP and SHA256 signature created
+- ✅ PSScriptAnalyzer compliance reports published
+- 📦 Published to GitHub Packages (NuGet)
+- 🔐 Integrity validation with .sha256
+
+---
+
+## GPOs-Templates
+### 2025-07-18
+- 🛡️ GPO templates extracted from SysAdmin-Tools
+- 📥 Added `Export-n-Import-GPOsTool.ps1`
+- 🧪 Analyzer scan applied
+- 📦 Packaged and published as standalone ZIP
+
+---
+
+## READMEs-Files-Package
+### 2025-07-18
+- 📘 Consolidated all `README.md` files from subfolders
+- 🗂️ Renamed with folder prefix for clarity
+- 📦 Packaged into one distributable ZIP
+
+---
+
+## All-Repository-Files
+### 2025-07-18
+- 📦 Full repository snapshot bundled
+- 📝 Includes README and LICENSE
+- 🔄 All modules and tools in one download
