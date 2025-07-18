@@ -14,7 +14,8 @@ jobs:
   cleanup-old-releases:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -50,16 +51,23 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS", "SysAdmin-Tools", "GPOs-Templates",
-          "READMEs-Files-Package", "All-Repository-Files", "AD-SSO-APIs-Integration"
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
+          "All-Repository-Files",
+          "AD-SSO-APIs-Integration"
         ]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y zip jq gh
@@ -70,19 +78,28 @@ jobs:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           mkdir -p artifacts lint-reports temp
+
           case "$RELEASE_NAME" in
-            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" temp/
-              cp README.md LICENSE temp/ || true
+            BlueTeam-Tools)
+              cp -r BlueTeam-Tools/* temp/
+              ;;
+            Core-ScriptLibrary)
+              cp -r Core-ScriptLibrary/* temp/
+              ;;
+            ITSM-Templates-WKS)
+              cp -r ITSM-Templates-WKS/* temp/
+              ;;
+            ITSM-Templates-SVR)
+              cp -r ITSM-Templates-SVR/* temp/
+              ;;
+            SysAdmin-Tools)
+              cp -r SysAdmin-Tools/* temp/
               ;;
             GPOs-Templates)
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
-              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/
-              cp README.md LICENSE temp/ || true
               ;;
             AD-SSO-APIs-Integration)
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
-              cp README.md LICENSE temp/ || true
               ;;
             READMEs-Files-Package)
               cp README.md temp/main-README.md || true
@@ -91,13 +108,23 @@ jobs:
               done
               ;;
             All-Repository-Files)
-              for d in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do cp -r "$d" temp/; done
-              cp README.md LICENSE temp/ || true
+              cp -r BlueTeam-Tools/* temp/
+              cp -r Core-ScriptLibrary/* temp/
+              cp -r ITSM-Templates-SVR/* temp/
+              cp -r ITSM-Templates-WKS/* temp/
+              cp -r SysAdmin-Tools/* temp/
+              cp README.md temp/ || true
               ;;
           esac
+
           pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8"
-          zip -r "artifacts/$RELEASE_NAME.zip" temp
-          sha256sum "artifacts/$RELEASE_NAME.zip" > "artifacts/$RELEASE_NAME.zip.sha256"
+
+          ZIP_NAME="Suite-$RELEASE_NAME.zip"
+          pushd temp > /dev/null
+          zip -r "../artifacts/$ZIP_NAME" .
+          popd > /dev/null
+
+          sha256sum "artifacts/$ZIP_NAME" > "artifacts/$ZIP_NAME.sha256"
           rm -rf temp
 
       - name: Extract Release Notes
@@ -116,18 +143,18 @@ jobs:
           name: ${{ matrix.release_name }}
           body: ${{ env.release_body }}
           files: |
-            artifacts/${{ matrix.release_name }}.zip
-            artifacts/${{ matrix.release_name }}.zip.sha256
+            artifacts/ProSuite-${{ matrix.release_name }}.zip
+            artifacts/ProSuite-${{ matrix.release_name }}.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifacts for NuGet Publishing
+      - name: Upload Artifact Zip and SHA256 for NuGet Job
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
           path: |
-            artifacts/${{ matrix.release_name }}.zip
-            artifacts/${{ matrix.release_name }}.zip.sha256
+            artifacts/ProSuite-${{ matrix.release_name }}.zip
+            artifacts/ProSuite-${{ matrix.release_name }}.zip.sha256
 
       - name: Upload Lint Report
         uses: actions/upload-artifact@v4
@@ -141,30 +168,35 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS", "SysAdmin-Tools"
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools"
         ]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install PowerShell
-        run: sudo apt-get install -y powershell
+      - name: Install PowerShell and .NET
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y powershell
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+        shell: bash
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
           path: ./artifacts
-
-      - name: Download nuget.exe
-        shell: pwsh
-        run: |
-          $nugetPath = "./nuget.exe"
-          if (-not (Test-Path $nugetPath)) {
-            Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nugetPath
-          }
 
       - name: Generate .nuspec
         shell: pwsh
@@ -174,19 +206,15 @@ jobs:
           ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
             -PackageId "${{ matrix.release_name }}" `
             -Version $version `
-            -ZipPath "./artifacts/${{ matrix.release_name }}.zip" `
+            -ZipPath "./artifacts/ProSuite-${{ matrix.release_name }}.zip" `
             -ReleaseNotesPath $releaseNotesPath `
             -OutputPath "."
 
       - name: Pack NuGet Package
-        shell: pwsh
         run: |
-          & ./nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory "./nupkg"
+          dotnet nuget pack "${{ matrix.release_name }}.nuspec" --output ./nupkg
 
-      - name: Push NuGet Package
-        shell: pwsh
+      - name: Push to GitHub Packages
         run: |
-          & ./nuget.exe push "./nupkg/${{ matrix.release_name }}.*.nupkg" `
-            -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
-            -ApiKey "${{ secrets.GITHUB_TOKEN }}" `
-            -NonInteractive
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
+          dotnet nuget push "nupkg/${{ matrix.release_name }}.*.nupkg" --source github --api-key ${{ secrets.GITHUB_TOKEN }}
