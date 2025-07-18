@@ -31,9 +31,19 @@ jobs:
           mkdir -p ReadmeCopies
           mkdir -p nupkg-out
 
+      - name: 🧪 Debug - List package directory content
+        run: |
+          echo "Contents of ${{ matrix.package }}:"
+          ls -lh ${{ matrix.package }}/
+
       - name: 📄 Copy README.md file for package
         run: |
-          cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+          if [ -f "${{ matrix.package }}/README.md" ]; then
+            cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+          else
+            echo "❌ README file not found at ${{ matrix.package }}/README.md"
+            exit 1
+          fi
 
       - name: 🧪 Debug - List ReadmeCopies content
         run: |
