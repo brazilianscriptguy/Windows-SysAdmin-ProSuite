@@ -1,0 +1,116 @@
+name: publish-nuget-packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'BlueTeam-Tools'
+      - 'Core-ScriptLibrary'
+      - 'ITSM-Templates-SVR'
+      - 'ITSM-Templates-WKS'
+      - 'SysAdmin-Tools'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish-nuget:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools"
+        ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install PowerShell and .NET
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y powershell unzip curl
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Artifact for NuGet
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts-${{ matrix.release_name }}
+          path: ./artifacts
+
+      - name: Generate .nuspec
+        shell: pwsh
+        run: |
+          $version = "${{ github.run_number }}.0.0"
+          ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
+            -PackageId "${{ matrix.release_name }}" `
+            -Version $version `
+            -ZipPath "./artifacts/${{ matrix.release_name }}.zip" `
+            -ReleaseNotesPath "CHANGELOG.md" `
+            -OutputPath "."
+
+      - name: Download nuget.exe
+        run: |
+          mkdir -p .github/tools
+          curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
+      - name: Pack and Push NuGet Package
+        shell: pwsh
+        env:
+          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repoOwner = "${{ github.repository_owner }}"
+          $packageId = "${{ matrix.release_name }}"
+          $version = "${{ github.run_number }}.0.0"
+          $nupkgDir = "./nupkg"
+          $nuspecPath = "$packageId.nuspec"
+          $nugetExe = ".github/tools/nuget.exe"
+
+          if (-not (Test-Path $nuspecPath)) {
+            Write-Error "❌ .nuspec file missing: $nuspecPath"
+            exit 1
+          }
+
+          if (-not (Test-Path $nugetExe)) {
+            Write-Error "❌ nuget.exe not found at $nugetExe"
+            exit 1
+          }
+
+          if (-not (Test-Path $nupkgDir)) {
+            New-Item -ItemType Directory -Path $nupkgDir | Out-Null
+          }
+
+          Write-Host "📦 Packing NuGet package..."
+          & $nugetExe pack $nuspecPath -OutputDirectory $nupkgDir
+
+          $nupkgFile = Get-ChildItem "$nupkgDir/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $nupkgFile) {
+            Write-Warning "⚠️ .nupkg not found. Skipping NuGet push for $packageId."
+            exit 0
+          }
+
+          Write-Host "📦 Pushing to GitHub Packages..."
+          & $nugetExe push $nupkgFile.FullName `
+            -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
+            -ApiKey $env:GH_PAT_FOR_NUGET
+
+          if ($env:NUGET_API_KEY -and $env:NUGET_API_KEY.Trim().Length -gt 0) {
+            Write-Host "📦 Pushing to NuGet.org..."
+            & $nugetExe push $nupkgFile.FullName `
+              -Source "https://api.nuget.org/v3/index.json" `
+              -ApiKey $env:NUGET_API_KEY
+          }
