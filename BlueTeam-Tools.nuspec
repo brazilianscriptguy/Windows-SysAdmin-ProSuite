@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>BlueTeam-Tools</id>
+    <version>1.0.0</version>
+    <authors>BrazilianScriptGuy</authors>
+    <owners>BrazilianScriptGuy</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Collection of forensic and incident response tools designed for Blue Team operations in enterprise environments.</description>
+    <releaseNotes>Initial release of BlueTeam-Tools module with PowerShell forensic and threat hunting scripts.</releaseNotes>
+    <tags>blueteam forensics incident-response evtx analysis malware windows-security</tags>
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="NuGetPackageContent/BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
+    <file src="NuGetPackageContent/README.md" target="content/" />
+    <file src="NuGetPackageContent/LICENSE" target="content/" />
+  </files>
+</package>
