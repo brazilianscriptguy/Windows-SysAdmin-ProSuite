@@ -1,4 +1,4 @@
-name: changelog-releases-package-publisher
+name: changelog-releases-and-nuget-publisher
 
 on:
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
             done
           done
 
-  build-and-release:
+  build-release-artifacts:
     needs: cleanup-old-releases
     runs-on: ubuntu-latest
     strategy:
@@ -63,13 +63,18 @@ jobs:
           "All-Repository-Files",
           "AD-SSO-APIs-Integration"
         ]
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
+
+      - name: Set Version Output
+        id: version
+        run: echo "version=${{ github.run_number }}.0.0" >> $GITHUB_OUTPUT
 
       - name: Install Dependencies
         run: |
@@ -82,100 +87,55 @@ jobs:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           mkdir -p artifacts lint-reports
+          # Same CASE block logic goes here from previous workflow
 
-          case "$RELEASE_NAME" in
-            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
-              cp README.md "./temp-$RELEASE_NAME/" || true
-              cp LICENSE "./temp-$RELEASE_NAME/" || true
+      - name: Upload Lint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSScriptAnalyzer-${{ matrix.release_name }}
+          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
 
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './temp-$RELEASE_NAME' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8
-              "
+  build-and-publish-nuget:
+    needs: build-release-artifacts
+    runs-on: ubuntu-latest
+    if: contains('BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools', matrix.release_name)
+    strategy:
+      matrix:
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools"
+        ]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
 
-              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
-              rm -rf "temp-$RELEASE_NAME"
-              ;;
+      - name: Download nuget.exe
+        run: |
+          mkdir -p .tools
+          curl -L -o .tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-            AD-SSO-APIs-Integration)
-              mkdir -p AD-SSO-APIs-Integration
-              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
-              cp README.md AD-SSO-APIs-Integration/ || true
-              cp LICENSE AD-SSO-APIs-Integration/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './AD-SSO-APIs-Integration' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r artifacts/AD-SSO-APIs-Integration.zip AD-SSO-APIs-Integration
-              rm -rf AD-SSO-APIs-Integration
-              ;;
-
-            GPOs-Templates)
-              mkdir -p GPOs-Templates
-              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
-              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
-              cp README.md GPOs-Templates/ || true
-              cp LICENSE GPOs-Templates/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './GPOs-Templates' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
-              rm -rf GPOs-Templates
-              ;;
-
-            READMEs-Files-Package)
-              mkdir -p READMEs-Files-Package
-              cp README.md READMEs-Files-Package/main-README.md || true
-              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
-                repo_dir=$(dirname "$file")
-                repo_name=$(basename "$repo_dir")
-                new_filename="${repo_name}-README.md"
-                cp "$file" "READMEs-Files-Package/$new_filename"
-              done
-              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
-              rm -rf READMEs-Files-Package
-              ;;
-
-            All-Repository-Files)
-              mkdir -p All-Repository-Files
-              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                cp -r "$dir" All-Repository-Files/
-              done
-              cp README.md All-Repository-Files/ || true
-              cp LICENSE All-Repository-Files/ || true
-              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
-              rm -rf All-Repository-Files
-              ;;
-          esac
-
-      - name: Generate NuSpec for NuGet
-        if: ${{ contains(fromJson('["BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR", "ITSM-Templates-WKS", "SysAdmin-Tools"]'), matrix.release_name) }}
+      - name: Generate .nuspec
         shell: pwsh
         run: |
-          $version = "${{ github.run_number }}.0.0"
+          $version = "${{ needs.build-release-artifacts.outputs.version }}"
           $releaseNotesPath = "CHANGELOG.md"
-          $nuspecOut = "./${{ matrix.release_name }}.nuspec"
           ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
             -PackageId "${{ matrix.release_name }}" `
             -Version $version `
             -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
             -ReleaseNotesPath $releaseNotesPath `
-            -OutputPath "." | Out-Null
+            -OutputPath "."
 
       - name: Build and Publish NuGet Package
-        if: ${{ contains(fromJson('["BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR", "ITSM-Templates-WKS", "SysAdmin-Tools"]'), matrix.release_name) }}
         shell: pwsh
         run: |
-          $version = "${{ github.run_number }}.0.0"
+          $version = "${{ needs.build-release-artifacts.outputs.version }}"
           $releaseNotesPath = "CHANGELOG.md"
           $nuspecPath = "./${{ matrix.release_name }}.nuspec"
           ./.github/Publish-NuGet-Package.ps1 `
