@@ -81,7 +81,6 @@ jobs:
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          set -e
           mkdir -p artifacts lint-reports
 
           case "$RELEASE_NAME" in
@@ -158,32 +157,35 @@ jobs:
               ;;
           esac
 
-      - name: Generate NuSpec for NuGet (if applicable)
-        if: ${{ matrix.release_name == 'BlueTeam-Tools' || matrix.release_name == 'Core-ScriptLibrary' || matrix.release_name == 'ITSM-Templates-SVR' || matrix.release_name == 'ITSM-Templates-WKS' || matrix.release_name == 'SysAdmin-Tools' }}
+      - name: Generate NuSpec for NuGet
+        if: ${{ contains(fromJson('["BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR", "ITSM-Templates-WKS", "SysAdmin-Tools"]'), matrix.release_name) }}
         shell: pwsh
         run: |
           $version = "${{ github.run_number }}.0.0"
           $releaseNotesPath = "CHANGELOG.md"
-          .\Core-ScriptLibrary\Nuget-Package-Publisher\nuspec-generator.ps1 `
+          $nuspecOut = "./${{ matrix.release_name }}.nuspec"
+          ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
             -PackageId "${{ matrix.release_name }}" `
             -Version $version `
             -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
             -ReleaseNotesPath $releaseNotesPath `
-            -OutputPath "."
+            -OutputPath "." | Out-Null
 
-      - name: Build and Publish NuGet Package (if applicable)
-        if: ${{ matrix.release_name == 'BlueTeam-Tools' || matrix.release_name == 'Core-ScriptLibrary' || matrix.release_name == 'ITSM-Templates-SVR' || matrix.release_name == 'ITSM-Templates-WKS' || matrix.release_name == 'SysAdmin-Tools' }}
+      - name: Build and Publish NuGet Package
+        if: ${{ contains(fromJson('["BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR", "ITSM-Templates-WKS", "SysAdmin-Tools"]'), matrix.release_name) }}
         shell: pwsh
         run: |
           $version = "${{ github.run_number }}.0.0"
           $releaseNotesPath = "CHANGELOG.md"
+          $nuspecPath = "./${{ matrix.release_name }}.nuspec"
           ./.github/Publish-NuGet-Package.ps1 `
+            -NuspecPath $nuspecPath `
             -PackageId "${{ matrix.release_name }}" `
             -Version $version `
             -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
             -ReleaseNotesPath $releaseNotesPath `
             -OutputPath "." `
-            -Publish $true `
+            -Publish:$true `
             -ApiKey "${{ secrets.NUGET_API_KEY }}"
 
       - name: Upload Lint Report
