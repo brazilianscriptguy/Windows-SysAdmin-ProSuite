@@ -12,7 +12,7 @@
 
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>NuGetPackageContent/ReadmeCopies/ITSM-Templates-SVR-README.md</readme>
+    <readme>ReadmeCopies/ITSM-Templates-SVR-README.md</readme>
     <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
     <description>Templates and configuration files for ITSM procedures applied to Windows Server environments, including patching, compliance, and access control.</description>
@@ -21,8 +21,8 @@
   </metadata>
 
   <files>
-    <file src="NuGetPackageContent/ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
-    <file src="NuGetPackageContent/ReadmeCopies/ITSM-Templates-SVR-README.md" target="" />
-    <file src="NuGetPackageContent/LICENSE" target="" />
+    <file src="ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
+    <file src="ReadmeCopies/ITSM-Templates-SVR-README.md" target="" />
+    <file src="LICENSE" target="" />
   </files>
 </package>
