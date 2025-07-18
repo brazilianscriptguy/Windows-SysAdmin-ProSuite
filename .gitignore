@@ -11,6 +11,10 @@
 *.lock
 *.directory
 
+# Ignore log directories
+Logs/
+Logs-TEMP/
+
 # =====================================
 # Cache and Backup Files
 # =====================================
@@ -24,15 +28,24 @@ tmp/
 bin/
 obj/
 artifacts/
-NuGetPackageContent/lib/net7.0/*.dll
+out/
+*.dll
+*.exe
+*.app
+*.so
+*.a
+*.lib
 
 # =====================================
 # NuGet Packages and Related Files
 # =====================================
 .nuget/
-.nuget.targets
 NuGet/
 *.nupkg
+*.nuspec
+*.snupkg
+NuGetPackageContent/
+NuGetPackageContent/lib/net*/**/*.dll
 
 # =====================================
 # Sensitive Information
@@ -42,6 +55,7 @@ NuGet/
 *.key
 *.env
 *.env.*
+secrets.*
 
 # =====================================
 # IDE Configuration and Workspace Files
@@ -53,15 +67,17 @@ NuGet/
 *.suo
 *.sdf
 *.sln.docstates
+*.vs/
+.vs/
 
 # =====================================
-# PowerShell Scripts and Logs
+# PowerShell Modules and Logs
 # =====================================
 *.ps1.xml
 *.psd1
 *.psm1
-Logs/
-Logs-TEMP/
+*.ps1~    # backup files
+*.log.txt
 
 # =====================================
 # Java / SpringBoot-API
@@ -83,21 +99,23 @@ DotNet-API/obj/
 # =====================================
 NodeJS-API/node_modules/
 NodeJS-API/package-lock.json
+NodeJS-API/npm-debug.log*
 
 # =====================================
 # Python / Flask-API
 # =====================================
 Flask-API/__pycache__/
-Flask-API/*.pyc
-Flask-API/*.pyo
-Flask-API/*.pyd
+Flask-API/*.py[cod]
 Flask-API/env/
 Flask-API/.venv/
+Flask-API/.mypy_cache/
+Flask-API/.pytest_cache/
 
 # =====================================
 # PHP / PHP-API
 # =====================================
 PHP-API/vendor/
+PHP-API/composer.lock
 
 # =====================================
 # Placeholder and Special Project Folders
@@ -113,9 +131,10 @@ config/.gitattributes
 config/nuget.config
 
 # =====================================
-# Documentation Files
+# Documentation Backup Files
 # =====================================
 *.md.bak
+*.bak.md
 
 # =====================================
 # Operating System Files
@@ -123,10 +142,15 @@ config/nuget.config
 Thumbs.db
 .DS_Store
 desktop.ini
+ehthumbs.db
+Icon?
 
 # =====================================
 # Development Tool Exclusions
 # =====================================
 *.ncrunch*
 _ReSharper*/
-*.vs/
+*.resharper
+*.dotCover
+*.coverage
+*.vsconfig
