@@ -91,7 +91,7 @@ jobs:
             READMEs-Files-Package)
               cp README.md temp/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r f; do
-                cp "$f" "temp/$(basename "$(dirname "$f")")-README.md"
+                cp "$f" "temp/$(basename \"$(dirname \"$f\")\")-README.md"
               done
               ;;
             All-Repository-Files)
@@ -162,7 +162,7 @@ jobs:
       - name: Install PowerShell and .NET
         run: |
           sudo apt-get update
-          sudo apt-get install -y powershell
+          sudo apt-get install -y powershell unzip curl
           pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
       - name: Setup .NET SDK
@@ -176,7 +176,12 @@ jobs:
           name: artifacts-${{ matrix.release_name }}
           path: ./artifacts
 
-      - name: Generate .nuspec
+      - name: Download nuget.exe
+        run: |
+          mkdir -p .github/tools
+          curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
+      - name: Generate .nuspec File
         shell: pwsh
         run: |
           $version = "${{ github.run_number }}.0.0"
@@ -188,16 +193,31 @@ jobs:
             -OutputPath "."
 
       - name: Pack NuGet Package
+        shell: pwsh
         run: |
-          nuget pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
+          ./.github/tools/nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
 
       - name: Push to GitHub Packages
-        run: |
-          nuget sources add -name "github" -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" -Username "${{ github.actor }}" -Password "${{ secrets.GITHUB_TOKEN }}" -ConfigFile ./nuget.config
-          nuget push ./nupkg/${{ matrix.release_name }}.*.nupkg -Source "github" -ApiKey "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Push to NuGet.org
+        shell: pwsh
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_ORG_API_KEY }}
+          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
         run: |
-          nuget push ./nupkg/${{ matrix.release_name }}.*.nupkg -Source "https://api.nuget.org/v3/index.json" -ApiKey "${{ env.NUGET_API_KEY }}"
+          $repoOwner = "${{ github.repository_owner }}"
+          $nupkgFile = Get-ChildItem "./nupkg/${{ matrix.release_name }}.*.nupkg" | Select-Object -First 1
+          Write-Host "📦 Pushing to GitHub Packages..."
+          ./.github/tools/nuget.exe push $nupkgFile.FullName `
+            -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
+            -ApiKey $env:GH_PAT_FOR_NUGET
+
+      - name: Push to NuGet.org (if key exists)
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if ($env:NUGET_API_KEY) {
+            $nupkgFile = Get-ChildItem "./nupkg/${{ matrix.release_name }}.*.nupkg" | Select-Object -First 1
+            Write-Host "📦 Pushing to NuGet.org..."
+            ./.github/tools/nuget.exe push $nupkgFile.FullName `
+              -Source "https://api.nuget.org/v3/index.json" `
+              -ApiKey $env:NUGET_API_KEY
+          }
