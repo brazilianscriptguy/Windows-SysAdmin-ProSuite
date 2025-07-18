@@ -1,4 +1,4 @@
-name: Build and Release Specialized Packages
+name: changelog-releases-and-nuget-publisher
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   cleanup-old-releases:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -49,7 +49,7 @@ jobs:
 
   build-and-release:
     needs: cleanup-old-releases
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         release_name: [
@@ -137,8 +137,7 @@ jobs:
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
                 repo_dir=$(dirname "$file")
                 repo_name=$(basename "$repo_dir")
-                new_filename="${repo_name}-README.md"
-                cp "$file" "READMEs-Files-Package/$new_filename"
+                cp "$file" "READMEs-Files-Package/${repo_name}-README.md"
               done
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               rm -rf READMEs-Files-Package
@@ -158,8 +157,7 @@ jobs:
 
       - name: Generate SHA256 Signature (SysAdmin-Tools only)
         if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        run: |
-          sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
+        run: sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
@@ -170,12 +168,11 @@ jobs:
             /^## / && found {exit}
             found {print}
           ' CHANGELOG.md)
-          body="${body:-No changelog available for tag: $tag. Please update CHANGELOG.md.}"
           echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "$body" >> $GITHUB_ENV
+          echo "${body:-No changelog available.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: Create New Release
+      - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1.1.0
         with:
@@ -208,9 +205,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload PSScriptAnalyzer Report
+      - name: Upload Lint Report
         if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
         uses: actions/upload-artifact@v4
         with:
           name: PSScriptAnalyzer-${{ matrix.release_name }}
           path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
+
+      - name: Upload Artifact Zip (Unique per release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.release_name }}
+          path: artifacts/${{ matrix.release_name }}.zip
+
+      - name: Upload SHA256 Artifact (SysAdmin-Tools only)
+        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SysAdmin-Tools-sha256
+          path: artifacts/SysAdmin-Tools.zip.sha256
