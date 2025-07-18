@@ -172,6 +172,47 @@ jobs:
               rm -rf All-Repository-Files
               ;;
           esac
+  publish-nuget:
+    needs: build-and-release
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools"
+        ]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Download nuget.exe
+        run: |
+          curl -L https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -o nuget.exe
+
+      - name: Install PowerShell Module (if needed)
+        shell: pwsh
+        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Generate .nuspec File
+        shell: pwsh
+        run: |
+          $version = "${{ github.run_number }}.0.0"
+          .\Core-ScriptLibrary\Nuget-Package-Publisher\nuspec-generator.ps1 `
+              -PackageId "${{ matrix.release_name }}" `
+              -Version $version `
+              -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
+              -OutputPath "."
+
+      - name: Pack NuGet Package
+        run: ./nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
+
+      - name: Publish to GitHub Packages
+        run: ./nuget.exe push "nupkg\${{ matrix.release_name }}.*.nupkg" `
+              -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+              -ApiKey ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate SHA256 Signature (SysAdmin-Tools only)
         if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
