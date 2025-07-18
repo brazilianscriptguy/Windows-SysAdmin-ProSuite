@@ -1,17 +1,38 @@
 <?xml version="1.0"?>
 <package>
   <metadata>
-    <id>{PACKAGE_ID}</id>
-    <version>{PACKAGE_VERSION}</version>
+    <!-- Package Identification -->
+    <id>Windows-SysAdmin-ProSuite</id>
+    <version>1.0.1</version>
     <authors>Luiz Hamilton</authors>
-    <owners>Luiz Hamilton</owners>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>{PACKAGE_DESCRIPTION}</description>
-    <tags>PowerShell Windows Admin Automation</tags>
+    <owners>BrazilianScriptGuy</owners>
+
+    <!-- Package Metadata -->
     <license type="expression">MIT</license>
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <description>A modular suite of PowerShell and VBScript tools for Windows Server and Workstation administration. Includes tools for identity management, auditing, GPO automation, forensic collection, and SSO integrations.</description>
+    <releaseNotes>Initial structured release including full support for Active Directory, Blue Team tools, GPO templates, ITSM for servers and workstations, and SSO/LDAP integration examples.</releaseNotes>
+    <summary>Complete Windows SysAdmin Toolkit for Enterprise Environments</summary>
+    <tags>powershell sysadmin windows-server activedirectory itsm blueteam evtx gpo automation nuget-script toolkit forensics ldap sso workstation infrastructure</tags>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
   </metadata>
+
   <files>
-    <file src="NuGetPackageContent/{RELEASE_NAME}/*.*" target="tools" />
+    <!-- Project Content -->
+    <file src="NuGetPackageContent/GPOs-Templates/**/*" target="content/GPOs-Templates" />
+    <file src="NuGetPackageContent/ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
+    <file src="NuGetPackageContent/ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
+    <file src="NuGetPackageContent/SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
+    <file src="NuGetPackageContent/BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
+    <file src="NuGetPackageContent/Core-ScriptLibrary/**/*" target="content/Core-ScriptLibrary" />
+    <file src="NuGetPackageContent/AD-SSO-APIs-Integration/**/*" target="content/AD-SSO-APIs-Integration" />
+
+    <!-- Documentation -->
+    <file src="NuGetPackageContent/LICENSE" target="content" />
+    <file src="NuGetPackageContent/README.md" target="content" />
+
+    <!-- Optional DLL -->
+    <file src="NuGetPackageContent/lib/net7.0/PlaceholderDll.dll" target="lib/net7.0" />
   </files>
 </package>
