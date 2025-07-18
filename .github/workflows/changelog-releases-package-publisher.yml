@@ -115,28 +115,6 @@ jobs:
           echo "${body:-No release notes found.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: Remove Old Assets from GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_TAG="${{ matrix.release_name }}"
-          ASSETS_TO_REMOVE=("ProSuite-$RELEASE_TAG.zip" "ProSuite-$RELEASE_TAG.zip.sha256" "$RELEASE_TAG.zip" "$RELEASE_TAG.zip.sha256")
-
-          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            echo "⚠️ Release $RELEASE_TAG not found; skipping asset deletion."
-            exit 0
-          fi
-
-          release_id=$(gh release view "$RELEASE_TAG" --json id -q .id)
-
-          for asset in "${ASSETS_TO_REMOVE[@]}"; do
-            asset_id=$(gh api repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/$release_id/assets --jq ".[] | select(.name == \"$asset\") | .id")
-            if [ -n "$asset_id" ]; then
-              echo "🗑️ Deleting asset: $asset"
-              gh api -X DELETE repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/assets/$asset_id
-            fi
-          done
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -178,14 +156,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Install PowerShell and .NET
         run: |
           sudo apt-get update
           sudo apt-get install -y powershell unzip curl
-          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
@@ -211,8 +186,8 @@ jobs:
 
       - name: Download nuget.exe
         run: |
-          mkdir -p .github/tools
-          curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          mkdir -p tools
+          curl -L -o tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
       - name: Pack and Push NuGet Package
         shell: pwsh
@@ -221,14 +196,12 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
-          Set-Location $env:GITHUB_WORKSPACE
-
           $repoOwner = "${{ github.repository_owner }}"
           $packageId = "${{ matrix.release_name }}"
           $version = "${{ github.run_number }}.0.0"
           $nupkgDir = "./nupkg"
           $nuspecPath = "$packageId.nuspec"
-          $nugetExe = Join-Path $env:GITHUB_WORKSPACE ".github/tools/nuget.exe"
+          $nugetExe = Join-Path $PWD "tools/nuget.exe"
 
           if (-not (Test-Path $nuspecPath)) {
             Write-Error "❌ .nuspec file missing: $nuspecPath"
