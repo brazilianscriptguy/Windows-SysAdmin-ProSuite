@@ -35,7 +35,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          MANAGED_TAGS=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files")
+          MANAGED_TAGS=("AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary" "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools")
           for tag in "${MANAGED_TAGS[@]}"; do
             releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
             if [ -z "$releases" ]; then continue; fi
@@ -53,14 +53,15 @@ jobs:
     strategy:
       matrix:
         release_name: [
+          "AD-SSO-APIs-Integration",
+          "All-Repository-Files",
           "BlueTeam-Tools",
           "Core-ScriptLibrary",
+          "GPOs-Templates",
           "ITSM-Templates-SVR",
           "ITSM-Templates-WKS",
-          "SysAdmin-Tools",
-          "GPOs-Templates",
           "READMEs-Files-Package",
-          "All-Repository-Files"
+          "SysAdmin-Tools"
         ]
 
     steps:
@@ -99,6 +100,22 @@ jobs:
           mkdir -p artifacts lint-reports
 
           case "$RELEASE_NAME" in
+            AD-SSO-APIs-Integration)
+              mkdir -p AD-SSO-APIs-Integration
+              cp -r AD-SSO-APIs-Integration/* AD-SSO-APIs-Integration/
+              cp README.md AD-SSO-APIs-Integration/ || true
+              cp LICENSE AD-SSO-APIs-Integration/ || true
+
+              pwsh -Command "
+                Get-ChildItem -Recurse -Path './AD-SSO-APIs-Integration' -Include *.ps1 |
+                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+                Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8
+              "
+
+              zip -r artifacts/AD-SSO-APIs-Integration.zip AD-SSO-APIs-Integration
+              rm -rf AD-SSO-APIs-Integration
+              ;;
+
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
               cp README.md "./temp-$RELEASE_NAME/" || true
