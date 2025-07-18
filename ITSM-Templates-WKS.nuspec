@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<package >
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>ITSM-Templates-WKS</id>
     <version>1.0.0</version>
     <authors>BrazilianScriptGuy</authors>
-    <owners>TJAP</owners>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <owners>BrazilianScriptGuy</owners>
     <license type="expression">MIT</license>
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <description>PowerShell ITSM automation templates for managing Windows 10/11 Workstations.</description>
-    <tags>powershell itsm windows workstation scripts</tags>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Templates and scripts for workstation preparation, standardization, and automation using ITSM practices.</description>
+    <releaseNotes>Initial release of workstation-focused scripts and ITSM templates for Windows environments.</releaseNotes>
+    <tags>itsm windows workstation provisioning standardization automation powershell</tags>
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
   </metadata>
   <files>
-    <file src="ITSM-Templates-WKS\**\*" target="content" />
+    <file src="NuGetPackageContent/ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
+    <file src="NuGetPackageContent/README.md" target="content/" />
+    <file src="NuGetPackageContent/LICENSE" target="content/" />
   </files>
 </package>
