@@ -1,0 +1,198 @@
+name: Build and Release Specialized Packages
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-old-releases:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gh
+
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Delete Older Releases for Managed Tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          MANAGED_TAGS=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files")
+          for tag in "${MANAGED_TAGS[@]}"; do
+            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
+            if [ -z "$releases" ]; then continue; fi
+            sorted_releases=$(echo "$releases" | sort)
+            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
+            for old_tag in $releases_to_delete; do
+              gh release delete "$old_tag" -y
+              git push --delete origin "$old_tag"
+            done
+          done
+
+  build-and-release:
+    needs: cleanup-old-releases
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
+          "All-Repository-Files"
+        ]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip jq gh
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Handle Existing Release and Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ matrix.release_name }}"
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            gh release delete "$TAG_NAME" -y
+            git push --delete origin "$TAG_NAME"
+          fi
+
+      - name: Build and Package ${{ matrix.release_name }}
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
+        run: |
+          set -e
+          mkdir -p artifacts
+
+          case "$RELEASE_NAME" in
+            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
+              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
+              cp README.md "./temp-$RELEASE_NAME/" || true
+              cp LICENSE "./temp-$RELEASE_NAME/" || true
+              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
+              rm -rf "temp-$RELEASE_NAME"
+              ;;
+
+            GPOs-Templates)
+              mkdir -p GPOs-Templates
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
+              cp README.md GPOs-Templates/ || true
+              cp LICENSE GPOs-Templates/ || true
+              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              ;;
+
+            READMEs-Files-Package)
+              mkdir -p READMEs-Files-Package
+              cp README.md READMEs-Files-Package/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
+                repo_dir=$(dirname "$file")
+                repo_name=$(basename "$repo_dir")
+                new_filename="${repo_name}-README.md"
+                cp "$file" "READMEs-Files-Package/$new_filename"
+              done
+              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              ;;
+
+            All-Repository-Files)
+              mkdir -p All-Repository-Files
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                cp -r "$dir" All-Repository-Files/
+              done
+              cp README.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              ;;
+          esac
+
+      - name: Run PSScriptAnalyzer on ${{ matrix.release_name }}
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        run: |
+          mkdir -p lint-reports
+
+          case "${{ matrix.release_name }}" in
+            GPOs-Templates)
+              SCAN_PATH="./GPOs-Templates"
+              ;;
+            *)
+              SCAN_PATH="./${{ matrix.release_name }}"
+              ;;
+          esac
+
+          pwsh -Command "
+            Get-ChildItem -Recurse -Path '$SCAN_PATH' -Include *.ps1 |
+            Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+            Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
+          "
+
+      - name: Extract Release Notes from CHANGELOG.md
+        id: extract_notes
+        run: |
+          tag="${{ matrix.release_name }}"
+          notes=$(awk "/^## $tag/{flag=1;next}/^## /{flag=0}flag" CHANGELOG.md | sed '/^$/d')
+          echo "release_body<<EOF" >> $GITHUB_ENV
+          echo "$notes" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create New Release
+        id: create_release
+        uses: actions/create-release@v1.1.0
+        with:
+          tag_name: ${{ matrix.release_name }}
+          release_name: ${{ matrix.release_name }}
+          body: ${{ env.release_body }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip
+          asset_name: ${{ matrix.release_name }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload PSScriptAnalyzer Report
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSScriptAnalyzer-${{ matrix.release_name }}
+          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
