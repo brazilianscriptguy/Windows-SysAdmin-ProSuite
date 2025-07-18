@@ -11,63 +11,66 @@
 #>
 
 param (
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory)]
     [string]$PackageId,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory)]
     [string]$Version,
 
-    [string]$Authors = 'Luiz Hamilton',
-    [string]$Description = "PowerShell ToolSet Package for $PackageId.",
-    [string]$LicenseUrl = "https://opensource.org/licenses/MIT",
-    [string]$ProjectUrl = "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite",
-    [string]$OutputPath = ".",
-    [string]$ZipPath = "",
-    [string]$ReleaseNotesPath = ""
+    [Parameter(Mandatory)]
+    [string]$ZipPath,
+
+    [Parameter(Mandatory)]
+    [string]$ReleaseNotesPath,
+
+    [Parameter(Mandatory)]
+    [string]$OutputPath
 )
 
-# Strip leading "v" from semantic version (e.g. v1.2.3 -> 1.2.3)
-$SanitizedVersion = $Version -replace '^v', ''
-
-# Ensure ZIP exists
+# Validate inputs
 if (-not (Test-Path $ZipPath)) {
-    Write-Error "❌ The specified ZIP file '$ZipPath' does not exist."
+    Write-Error "ZipPath '$ZipPath' not found."
+    exit 1
+}
+if (-not (Test-Path $ReleaseNotesPath)) {
+    Write-Error "ReleaseNotes file '$ReleaseNotesPath' not found."
     exit 1
 }
 
-# Read release notes (optional)
-$ReleaseNotes = ""
-if ($ReleaseNotesPath -and (Test-Path $ReleaseNotesPath)) {
-    $ReleaseNotes = Get-Content -Raw -Path $ReleaseNotesPath
-    $ReleaseNotes = $ReleaseNotes -replace '\r?\n', '&#x0A;'  # Preserve newlines in XML
-}
+# Prepare .nuspec name
+$nuspecFile = Join-Path $OutputPath "$PackageId.nuspec"
 
-# Escape for XML
-$escapedZipPath = $ZipPath -replace '\\', '/'
-$OutputFile = Join-Path -Path $OutputPath -ChildPath "$PackageId.nuspec"
+# Load release notes content
+$releaseNotes = Get-Content -Raw -Path $ReleaseNotesPath -Encoding UTF8
+$releaseNotesEscaped = [System.Security.SecurityElement]::Escape($releaseNotes)
 
-# Build .nuspec XML
-$packageXml = @"
-<?xml version="1.0"?>
-<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+# Define nuspec template
+$nuspecContent = @"
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>$PackageId</id>
-    <version>$SanitizedVersion</version>
-    <authors>$Authors</authors>
-    <description>$Description</description>
-    <licenseUrl>$LicenseUrl</licenseUrl>
-    <projectUrl>$ProjectUrl</projectUrl>
+    <version>$Version</version>
+    <authors>Luiz Hamilton</authors>
+    <owners>BrazilianScriptGuy</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <description>A specialized toolkit for Windows Server and Workstation administration with PowerShell & VBScript automation.</description>
+    <summary>Complete Windows SysAdmin Toolkit for Enterprise Environments</summary>
+    <releaseNotes>$releaseNotesEscaped</releaseNotes>
+    <tags>powershell windows-server activedirectory itsm blueteam evtx gpo automation toolkit forensics ldap sso workstation</tags>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <tags>powershell automation sysadmin blueteam ad gpo itsm $PackageId</tags>
-    $(if ($ReleaseNotes) { "<releaseNotes>$ReleaseNotes</releaseNotes>" })
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
   </metadata>
+
   <files>
-    <file src="$escapedZipPath" target="tools/$PackageId.zip" />
+    <file src="$ZipPath" target="content/${PackageId}.zip" />
   </files>
 </package>
 "@
 
-# Write to file with UTF-8 encoding
-[System.IO.File]::WriteAllText($OutputFile, $packageXml, [System.Text.Encoding]::UTF8)
+# Write .nuspec
+$nuspecContent | Set-Content -Path $nuspecFile -Encoding UTF8
 
-Write-Host "✅ NuSpec generated: $OutputFile"
+Write-Host "✔ Generated .nuspec file: $nuspecFile"
