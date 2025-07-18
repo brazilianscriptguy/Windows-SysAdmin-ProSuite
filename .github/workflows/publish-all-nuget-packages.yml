@@ -24,12 +24,25 @@ jobs:
           submodules: recursive  # Ensure submodules are fully initialized
 
       - name: 📦 Install mono to run nuget.exe
-        run: sudo apt-get update && sudo apt-get install -y mono-complete
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mono-complete
 
       - name: 📦 Download latest nuget.exe
         run: |
           mkdir -p .github/tools
           wget -O .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          chmod +x .github/tools/nuget.exe  # Ensure executable permissions
+
+      - name: 🧪 Debug - Verify nuget.exe
+        run: |
+          if [ -f ".github/tools/nuget.exe" ]; then
+            echo "✅ nuget.exe found at .github/tools/nuget.exe"
+            ls -lh .github/tools/nuget.exe
+          else
+            echo "❌ nuget.exe not found at .github/tools/nuget.exe"
+            exit 1
+          fi
 
       - name: 📁 Create directories
         run: |
