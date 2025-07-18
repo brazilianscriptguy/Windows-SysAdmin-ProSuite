@@ -5,7 +5,7 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
 permissions:
   contents: write
@@ -74,6 +74,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zip jq gh
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
       - name: Configure GitHub CLI
         env:
@@ -89,6 +90,16 @@ jobs:
             gh release delete "$TAG_NAME" -y
             git push --delete origin "$TAG_NAME"
           fi
+
+      - name: Run PSScriptAnalyzer on ${{ matrix.release_name }}
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        run: |
+          mkdir -p lint-reports
+          pwsh -Command "
+            Get-ChildItem -Recurse -Path './${{ matrix.release_name }}' -Include *.ps1 |
+            Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
+            Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8
+          "
 
       - name: Build and Package ${{ matrix.release_name }}
         env:
@@ -171,3 +182,10 @@ jobs:
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload PSScriptAnalyzer Report
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSScriptAnalyzer-${{ matrix.release_name }}
+          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
