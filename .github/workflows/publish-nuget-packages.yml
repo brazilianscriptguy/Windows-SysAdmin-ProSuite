@@ -9,43 +9,36 @@ on:
       - 'ITSM-Templates-WKS/**'
 
 jobs:
-  build-and-publish:
-    runs-on: windows-latest
-    env:
-      NUGET_SOURCE: https://api.nuget.org/v3/index.json
-      PACKAGE_FOLDER: ITSM-Templates-WKS
-      NUSPEC_FILE: ITSM-Templates-WKS.nuspec
+  publish:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Setup NuGet CLI
-        uses: NuGet/setup-nuget@v1
         with:
-          nuget-version: latest
+          fetch-depth: 0
 
-      - name: Display Files in Package Directory
+      - name: Install NuGet CLI
         run: |
-          Get-ChildItem -Recurse $env:PACKAGE_FOLDER
-          Get-Content $env:NUSPEC_FILE
+          sudo apt-get update
+          sudo apt-get install -y nuget
 
-      - name: Restore NuGet packages (if needed)
-        run: nuget restore $env:NUSPEC_FILE
-        continue-on-error: true
+      - name: List Files (diagnostic)
+        run: ls -R
 
       - name: Pack NuGet Package
         run: |
-          nuget pack $env:NUSPEC_FILE -OutputDirectory nupkg-out -Properties Configuration=Release
+          mkdir -p nupkg-out
+          nuget pack ITSM-Templates-WKS.nuspec -OutputDirectory nupkg-out
 
-      - name: Push NuGet Package to nuget.org
+      - name: Push Package to nuget.org
         run: |
-          $nupkg = Get-ChildItem -Path "nupkg-out" -Filter "*.nupkg" | Select-Object -First 1
-          if (-not $nupkg) {
-            Write-Error "❌ .nupkg not found."
+          PACKAGE=$(find nupkg-out -name "*.nupkg" | head -n1)
+          if [ -z "$PACKAGE" ]; then
+            echo "❌ No .nupkg file found."
             exit 1
-          }
-          nuget push $nupkg.FullName `
-            -ApiKey "${{ secrets.NUGET_API_KEY }}" `
-            -Source "$env:NUGET_SOURCE" `
+          fi
+          nuget push "$PACKAGE" \
+            -Source https://api.nuget.org/v3/index.json \
+            -ApiKey "${{ secrets.NUGET_API_KEY }}" \
             -SkipDuplicate
