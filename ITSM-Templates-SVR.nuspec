@@ -8,19 +8,21 @@
     <owners>BrazilianScriptGuy</owners>
 
     <license type="expression">MIT</license>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
-    
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>A set of ITSM script templates for managing Windows Server infrastructure, ensuring standardization, security compliance, and support readiness.</description>
-    <releaseNotes>Initial release of ITSM-Templates-SVR for IT Service Management on Windows Servers.</releaseNotes>
-    <tags>itsm windows-server automation templates infrastructure support sysadmin compliance configuration</tags>
+    <readme>NuGetPackageContent/ReadmeCopies/ITSM-Templates-SVR-README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
+
+    <description>Templates and configuration files for ITSM procedures applied to Windows Server environments, including patching, compliance, and access control.</description>
+    <releaseNotes>Initial release of ITSM templates tailored for server-side system management and auditing.</releaseNotes>
+    <tags>itsm windows-server configuration-templates compliance auditing scripts</tags>
   </metadata>
+
   <files>
     <file src="NuGetPackageContent/ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
-    <file src="NuGetPackageContent/README.md" target="" />
+    <file src="NuGetPackageContent/ReadmeCopies/ITSM-Templates-SVR-README.md" target="" />
     <file src="NuGetPackageContent/LICENSE" target="" />
   </files>
 </package>
