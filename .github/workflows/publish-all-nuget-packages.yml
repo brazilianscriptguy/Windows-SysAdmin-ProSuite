@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: 🧾 Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Upgraded to v4 for better compatibility
         with:
           fetch-depth: 0
           submodules: true
