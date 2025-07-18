@@ -12,7 +12,7 @@
 
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>NuGetPackageContent/ReadmeCopies/ITSM-Templates-WKS-README.md</readme>
+    <readme>ReadmeCopies/ITSM-Templates-WKS-README.md</readme>
     <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
     <description>Templates, scripts, and configuration assets for standardizing Windows 10/11 workstation setups in ITSM environments, including time sync, hostname enforcement, and disk labeling.</description>
@@ -21,8 +21,8 @@
   </metadata>
 
   <files>
-    <file src="NuGetPackageContent/ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
-    <file src="NuGetPackageContent/ReadmeCopies/ITSM-Templates-WKS-README.md" target="" />
-    <file src="NuGetPackageContent/LICENSE" target="" />
+    <file src="ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
+    <file src="ReadmeCopies/ITSM-Templates-WKS-README.md" target="" />
+    <file src="LICENSE" target="" />
   </files>
 </package>
