@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: 🧾 Checkout repository
-        uses: actions/checkout@v4  # Upgraded to v4 for better compatibility
+        uses: actions/checkout@v4  # Upgraded to v4
         with:
           fetch-depth: 0
           submodules: true
@@ -31,10 +31,21 @@ jobs:
           mkdir -p ReadmeCopies
           mkdir -p nupkg-out
 
+      - name: 🧪 Debug - Verify submodules
+        run: |
+          echo "Submodule status:"
+          git submodule status
+          git submodule update --init --recursive
+
       - name: 🧪 Debug - List package directory content
         run: |
           echo "Contents of ${{ matrix.package }}:"
           ls -lh ${{ matrix.package }}/
+
+      - name: 🧪 Debug - List README variants
+        run: |
+          echo "Looking for README variants in ${{ matrix.package }}:"
+          find ${{ matrix.package }} -iname "*readme*"
 
       - name: 📄 Copy README.md file for package
         run: |
@@ -52,9 +63,13 @@ jobs:
 
       - name: 📦 Pack NuGet package using nuget.exe
         run: |
+          properties="SymbolPackageFormat=snupkg"
+          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
+            properties="ReadMeFile=ReadmeCopies/${{ module.package }}-README.md;SymbolPackageFormat=snupkg"
+          fi
           mono .github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
             -OutputDirectory nupkg-out \
-            -Properties "ReadMeFile=ReadmeCopies/${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
+            -Properties "$properties"
 
       - name: 🚀 Push to nuget.org
         env:
