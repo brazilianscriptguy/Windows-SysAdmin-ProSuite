@@ -87,7 +87,52 @@ jobs:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           mkdir -p artifacts lint-reports
-          # Same CASE block logic goes here from previous workflow
+          case "${{ matrix.release_name }}" in
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              cp -r "${{ matrix.release_name }}" temp
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8"
+              zip -r "artifacts/${{ matrix.release_name }}.zip" temp
+              rm -rf temp
+              ;;
+            AD-SSO-APIs-Integration)
+              mkdir -p temp
+              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8"
+              zip -r artifacts/AD-SSO-APIs-Integration.zip temp
+              rm -rf temp
+              ;;
+            GPOs-Templates)
+              mkdir -p temp
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8"
+              zip -r artifacts/GPOs-Templates.zip temp
+              rm -rf temp
+              ;;
+            READMEs-Files-Package)
+              mkdir -p temp
+              cp README.md temp/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r f; do cp "$f" "temp/$(basename "$(dirname "$f")")-README.md"; done
+              zip -r artifacts/READMEs-Files-Package.zip temp
+              rm -rf temp
+              ;;
+            All-Repository-Files)
+              mkdir -p temp
+              for d in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do cp -r "$d" temp/; done
+              cp README.md LICENSE temp/ || true
+              zip -r artifacts/All-Repository-Files.zip temp
+              rm -rf temp
+              ;;
+          esac
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: artifacts/
 
       - name: Upload Lint Report
         uses: actions/upload-artifact@v4
@@ -98,7 +143,6 @@ jobs:
   build-and-publish-nuget:
     needs: build-release-artifacts
     runs-on: ubuntu-latest
-    if: contains('BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools', matrix.release_name)
     strategy:
       matrix:
         release_name: [
@@ -115,10 +159,22 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Download nuget.exe
+      - name: Install Tools
         run: |
-          mkdir -p .tools
-          curl -L -o .tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          sudo apt-get update
+          sudo apt-get install -y powershell curl unzip
+          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: artifacts
 
       - name: Generate .nuspec
         shell: pwsh
@@ -132,24 +188,39 @@ jobs:
             -ReleaseNotesPath $releaseNotesPath `
             -OutputPath "."
 
-      - name: Build and Publish NuGet Package
-        shell: pwsh
+      - name: Download nuget.exe
         run: |
-          $version = "${{ needs.build-release-artifacts.outputs.version }}"
-          $releaseNotesPath = "CHANGELOG.md"
-          $nuspecPath = "./${{ matrix.release_name }}.nuspec"
-          ./.github/Publish-NuGet-Package.ps1 `
-            -NuspecPath $nuspecPath `
-            -PackageId "${{ matrix.release_name }}" `
-            -Version $version `
-            -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
-            -ReleaseNotesPath $releaseNotesPath `
-            -OutputPath "." `
-            -Publish:$true `
-            -ApiKey "${{ secrets.NUGET_API_KEY }}"
+          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          chmod +x nuget.exe
 
-      - name: Upload Lint Report
-        uses: actions/upload-artifact@v4
+      - name: Pack NuGet Package
+        run: mono ./nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
+
+      - name: Push to GitHub Packages
+        run: |
+          mono ./nuget.exe setApiKey ${{ secrets.GITHUB_TOKEN }} -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          mono ./nuget.exe push ./nupkg/*.nupkg -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+      - name: Generate SHA256 (SysAdmin-Tools only)
+        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
+        run: sha256sum artifacts/SysAdmin-Tools.zip > artifacts/SysAdmin-Tools.zip.sha256
+
+      - name: Extract Release Notes
+        id: extract_notes
+        run: |
+          body=$(awk -v tag="## ${{ matrix.release_name }}" '$0==tag {f=1;next} /^## / && f{exit} f' CHANGELOG.md)
+          echo "release_body<<EOF" >> $GITHUB_ENV
+          echo "${body:-No release notes found.}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
-          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
+          tag_name: ${{ matrix.release_name }}
+          name: ${{ matrix.release_name }}
+          body: ${{ env.release_body }}
+          files: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
