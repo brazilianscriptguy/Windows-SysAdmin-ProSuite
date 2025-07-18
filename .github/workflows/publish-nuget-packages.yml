@@ -2,86 +2,46 @@ name: publish-nuget-package
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "ITSM-Templates-WKS-v*"
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  publish-nuget:
-    runs-on: ubuntu-latest
+  pack-and-publish:
+    runs-on: windows-latest
+    env:
+      PACKAGE_ID: ITSM-Templates-WKS
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
     steps:
-      - name: Checkout Repository
+      - name: ✅ Checkout Repository
         uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
 
-      - name: Install Required Tools
+      - name: 🧰 Ensure nuget.exe is available
         run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip
-          mkdir -p .github/tools
-          curl -L https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -o .github/tools/nuget.exe
+          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-      - name: Restore & Build (Optional)
-        run: echo "Skipping dotnet build step – not needed for .ps1 package structure"
+      - name: 📂 List Package Files
+        run: |
+          Write-Host "Listing files to be included in the package:"
+          Get-ChildItem -Recurse -Path ./ITSM-Templates-WKS
 
-      - name: Pack NuGet Package
-        shell: pwsh
+      - name: 📦 Pack NuGet Package
         run: |
           $ErrorActionPreference = "Stop"
-          $version = "23.0.0"
-          $repoName = "Windows-SysAdmin-ProSuite"
-          $releaseName = "ITSM-Templates-WKS"
-          $nuspecPath = "./$releaseName.nuspec"
-          $outputDir = "./nupkg"
-
-          if (-not (Test-Path $nuspecPath)) {
-              Write-Error "❌ .nuspec file not found at $nuspecPath"
-              exit 1
+          if (-Not (Test-Path "./${{ env.PACKAGE_ID }}.nuspec")) {
+            Write-Error "❌ .nuspec file not found at ./${{ env.PACKAGE_ID }}.nuspec"
           }
+          ./nuget.exe pack "./${{ env.PACKAGE_ID }}.nuspec" -OutputDirectory .
 
-          New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
-          Write-Host "📦 Packing NuGet package..."
-          .github/tools/nuget.exe pack $nuspecPath -Version $version -OutputDirectory $outputDir -NonInteractive -Verbosity detailed
-
-          if (-not (Test-Path "$outputDir/*.nupkg")) {
-              Write-Warning "⚠️ .nupkg not found. Skipping NuGet push."
-              exit 0
-          }
-
-      - name: Push to GitHub Packages
-        shell: pwsh
-        env:
-          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
+      - name: 🚀 Push NuGet Package to nuget.org
         run: |
-          $repoOwner = "brazilianscriptguy"
-          $nupkgFile = Get-ChildItem "./nupkg/ITSM-Templates-WKS.*.nupkg" | Select-Object -First 1
-          if (-not $nupkgFile) {
-              Write-Error "❌ .nupkg file not found for GitHub push."
-              exit 1
+          $packagePath = Get-ChildItem *.nupkg | Where-Object { $_.Name -like "${{ env.PACKAGE_ID }}*" }
+          if (-Not $packagePath) {
+            Write-Error "❌ NuGet package not found after packing."
           }
-          Write-Host "🚀 Pushing to GitHub Packages..."
-          .github/tools/nuget.exe push $nupkgFile.FullName `
-            -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
-            -ApiKey $env:GH_PAT_FOR_NUGET -Verbosity detailed
-
-      - name: Push to NuGet.org
-        shell: pwsh
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: |
-          $nupkgFile = Get-ChildItem "./nupkg/ITSM-Templates-WKS.*.nupkg" | Select-Object -First 1
-          if (-not $nupkgFile) {
-              Write-Error "❌ .nupkg file not found for NuGet.org push."
-              exit 1
-          }
-
-          if ($env:NUGET_API_KEY -and $env:NUGET_API_KEY.Trim().Length -gt 0) {
-              Write-Host "🌐 Pushing to nuget.org..."
-              .github/tools/nuget.exe push $nupkgFile.FullName `
-                -Source "https://api.nuget.org/v3/index.json" `
-                -ApiKey $env:NUGET_API_KEY -Verbosity detailed
-          }
+          ./nuget.exe push $packagePath -ApiKey "${{ env.NUGET_API_KEY }}" -Source "https://api.nuget.org/v3/index.json" -SkipDuplicate -Verbosity detailed
