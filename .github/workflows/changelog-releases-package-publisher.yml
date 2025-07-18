@@ -73,33 +73,20 @@ jobs:
           sudo apt-get install -y zip jq gh
           pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
-      - name: Build, Analyze, and Package
+      - name: Build and Package
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           mkdir -p artifacts lint-reports temp
-
           case "$RELEASE_NAME" in
-            BlueTeam-Tools)
-              cp -r BlueTeam-Tools/* temp/
-              ;;
-            Core-ScriptLibrary)
-              cp -r Core-ScriptLibrary/* temp/
-              ;;
-            ITSM-Templates-WKS)
-              cp -r ITSM-Templates-WKS/* temp/
-              ;;
-            ITSM-Templates-SVR)
-              cp -r ITSM-Templates-SVR/* temp/
-              ;;
-            SysAdmin-Tools)
-              cp -r SysAdmin-Tools/* temp/
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              cp -r "$RELEASE_NAME"/. temp/
               ;;
             GPOs-Templates)
-              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/. temp/
               ;;
             AD-SSO-APIs-Integration)
-              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
+              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/. temp/
               ;;
             READMEs-Files-Package)
               cp README.md temp/main-README.md || true
@@ -108,23 +95,15 @@ jobs:
               done
               ;;
             All-Repository-Files)
-              cp -r BlueTeam-Tools/* temp/
-              cp -r Core-ScriptLibrary/* temp/
-              cp -r ITSM-Templates-SVR/* temp/
-              cp -r ITSM-Templates-WKS/* temp/
-              cp -r SysAdmin-Tools/* temp/
-              cp README.md temp/ || true
+              for d in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                cp -r "$d"/. temp/
+              done
+              cp README.md LICENSE temp/ || true
               ;;
           esac
-
           pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8"
-
-          ZIP_NAME="Suite-$RELEASE_NAME.zip"
-          pushd temp > /dev/null
-          zip -r "../artifacts/$ZIP_NAME" .
-          popd > /dev/null
-
-          sha256sum "artifacts/$ZIP_NAME" > "artifacts/$ZIP_NAME.sha256"
+          zip -r "artifacts/ProSuite-$RELEASE_NAME.zip" temp
+          sha256sum "artifacts/ProSuite-$RELEASE_NAME.zip" > "artifacts/ProSuite-$RELEASE_NAME.zip.sha256"
           rm -rf temp
 
       - name: Extract Release Notes
@@ -148,7 +127,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact Zip and SHA256 for NuGet Job
+      - name: Upload Artifacts for NuGet Job
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
@@ -185,9 +164,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y powershell
           pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
-        shell: bash
 
-      - name: Install .NET SDK
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -202,19 +180,24 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.run_number }}.0.0"
-          $releaseNotesPath = "CHANGELOG.md"
           ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
             -PackageId "${{ matrix.release_name }}" `
             -Version $version `
             -ZipPath "./artifacts/ProSuite-${{ matrix.release_name }}.zip" `
-            -ReleaseNotesPath $releaseNotesPath `
+            -ReleaseNotesPath "CHANGELOG.md" `
             -OutputPath "."
 
       - name: Pack NuGet Package
         run: |
-          dotnet nuget pack "${{ matrix.release_name }}.nuspec" --output ./nupkg
+          nuget pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
 
       - name: Push to GitHub Packages
         run: |
-          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
-          dotnet nuget push "nupkg/${{ matrix.release_name }}.*.nupkg" --source github --api-key ${{ secrets.GITHUB_TOKEN }}
+          nuget sources add -name "github" -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" -Username "${{ github.actor }}" -Password "${{ secrets.GITHUB_TOKEN }}" -ConfigFile ./nuget.config
+          nuget push ./nupkg/${{ matrix.release_name }}.*.nupkg -Source "github" -ApiKey "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Push to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_ORG_API_KEY }}
+        run: |
+          nuget push ./nupkg/${{ matrix.release_name }}.*.nupkg -Source "https://api.nuget.org/v3/index.json" -ApiKey "${{ env.NUGET_API_KEY }}"
