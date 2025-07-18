@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package >
+  <metadata>
+    <id>ITSM-Templates-WKS</id>
+    <version>1.0.0</version>
+    <authors>BrazilianScriptGuy</authors>
+    <owners>TJAP</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <description>PowerShell ITSM automation templates for managing Windows 10/11 Workstations.</description>
+    <tags>powershell itsm windows workstation scripts</tags>
+  </metadata>
+  <files>
+    <file src="ITSM-Templates-WKS\**\*" target="content" />
+  </files>
+</package>
