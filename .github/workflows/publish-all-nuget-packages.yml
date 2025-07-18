@@ -36,7 +36,7 @@ jobs:
           mkdir -p nupkg-out
           mono .github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
             -OutputDirectory nupkg-out \
-            -Properties "ReadMeFile=${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
+            -Properties "ReadMeFile=ReadmeCopies/${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
 
       - name: Push to nuget.org
         env:
