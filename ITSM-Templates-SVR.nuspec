@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>ITSM-Templates-SVR</id>
+    <version>1.0.0</version>
+    <authors>BrazilianScriptGuy</authors>
+    <owners>BrazilianScriptGuy</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Templates and scripts for provisioning and managing server environments with ITSM best practices.</description>
+    <releaseNotes>Initial release of ITSM templates and server management automation modules.</releaseNotes>
+    <tags>itsm server-templates sysadmin configuration provisioning powershell</tags>
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="NuGetPackageContent/ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
+    <file src="NuGetPackageContent/README.md" target="content/" />
+    <file src="NuGetPackageContent/LICENSE" target="content/" />
+  </files>
+</package>
