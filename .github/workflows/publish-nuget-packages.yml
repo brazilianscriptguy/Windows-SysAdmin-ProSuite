@@ -1,17 +1,18 @@
-name: publish-nuget-package
+name: publish-itsm-nuget
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'nuget-*'  # Tags like nuget-ITSM.1.0.0
+      - 'nuget-itsm-*'  # Example: nuget-itsm-1.0.0
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  publish:
+  publish-itsm-templates-wks:
+    name: 📦 Publish ITSM-Templates-WKS to NuGet
     runs-on: windows-latest
 
     env:
@@ -24,36 +25,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🧰 Install NuGet CLI
+      - name: 🧰 Setup NuGet CLI
         uses: nuget/setup-nuget@v1
         with:
           nuget-version: latest
 
-      - name: 🧼 Clean Previous Artifacts
+      - name: 📦 Pack .nuspec
         run: |
-          if (Test-Path -Path "nuget-packages") {
-            Remove-Item -Recurse -Force "nuget-packages"
-          }
-          New-Item -ItemType Directory -Path "nuget-packages" | Out-Null
+          nuget pack ITSM-Templates-WKS.nuspec -OutputDirectory nuget-packages -NoDefaultExcludes
         shell: pwsh
 
-      - name: 🔍 Locate and Pack .nuspec Files
+      - name: 🚀 Push Package to NuGet.org
         run: |
-          $ErrorActionPreference = 'Stop'
-          Get-ChildItem -Path . -Recurse -Filter *.nuspec | ForEach-Object {
-            Write-Host "📦 Packing: $($_.FullName)"
-            & nuget pack $_.FullName -OutputDirectory "nuget-packages" -NoDefaultExcludes
-          }
-        shell: pwsh
-
-      - name: 📤 Push NuGet Packages
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Get-ChildItem -Path "nuget-packages" -Filter *.nupkg | ForEach-Object {
-            Write-Host "🚀 Pushing package: $($_.Name)"
-            & nuget push $_.FullName `
-              -ApiKey "$env:NUGET_API_KEY" `
-              -Source "$env:NUGET_SOURCE" `
-              -NonInteractive
+          $pkg = Get-ChildItem -Path nuget-packages -Filter *.nupkg | Select-Object -First 1
+          if ($pkg) {
+            Write-Host "Pushing $($pkg.Name)"
+            nuget push $pkg.FullName -ApiKey "$env:NUGET_API_KEY" -Source "$env:NUGET_SOURCE" -NonInteractive
+          } else {
+            Write-Error "❌ No NuGet package found to publish."
           }
         shell: pwsh
