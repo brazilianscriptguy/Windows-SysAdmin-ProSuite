@@ -12,7 +12,7 @@
 
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>NuGetPackageContent/ReadmeCopies/SysAdmin-Tools-README.md</readme>
+    <readme>ReadmeCopies/SysAdmin-Tools-README.md</readme>
     <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
     <description>Modular tools and scripts for Active Directory, GPO, user management, and administrative automation in Windows Server and domain environments.</description>
@@ -21,8 +21,8 @@
   </metadata>
 
   <files>
-    <file src="NuGetPackageContent/SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
-    <file src="NuGetPackageContent/ReadmeCopies/SysAdmin-Tools-README.md" target="" />
-    <file src="NuGetPackageContent/LICENSE" target="" />
+    <file src="SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
+    <file src="ReadmeCopies/SysAdmin-Tools-README.md" target="" />
+    <file src="LICENSE" target="" />
   </files>
 </package>
