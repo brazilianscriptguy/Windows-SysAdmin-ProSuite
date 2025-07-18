@@ -1,47 +1,51 @@
-name: publish-itsm-nuget
+name: publish-nuget-package
 
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'nuget-itsm-*'  # Example: nuget-itsm-1.0.0
-
-permissions:
-  contents: read
-  packages: write
+    branches: [main]
+    paths:
+      - 'ITSM-Templates-WKS.nuspec'
+      - 'ITSM-Templates-WKS/**'
 
 jobs:
-  publish-itsm-templates-wks:
-    name: 📦 Publish ITSM-Templates-WKS to NuGet
+  build-and-publish:
     runs-on: windows-latest
-
     env:
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       NUGET_SOURCE: https://api.nuget.org/v3/index.json
+      PACKAGE_FOLDER: ITSM-Templates-WKS
+      NUSPEC_FILE: ITSM-Templates-WKS.nuspec
 
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
-      - name: 🧰 Setup NuGet CLI
-        uses: nuget/setup-nuget@v1
+      - name: Setup NuGet CLI
+        uses: NuGet/setup-nuget@v1
         with:
           nuget-version: latest
 
-      - name: 📦 Pack .nuspec
+      - name: Display Files in Package Directory
         run: |
-          nuget pack ITSM-Templates-WKS.nuspec -OutputDirectory nuget-packages -NoDefaultExcludes
-        shell: pwsh
+          Get-ChildItem -Recurse $env:PACKAGE_FOLDER
+          Get-Content $env:NUSPEC_FILE
 
-      - name: 🚀 Push Package to NuGet.org
+      - name: Restore NuGet packages (if needed)
+        run: nuget restore $env:NUSPEC_FILE
+        continue-on-error: true
+
+      - name: Pack NuGet Package
         run: |
-          $pkg = Get-ChildItem -Path nuget-packages -Filter *.nupkg | Select-Object -First 1
-          if ($pkg) {
-            Write-Host "Pushing $($pkg.Name)"
-            nuget push $pkg.FullName -ApiKey "$env:NUGET_API_KEY" -Source "$env:NUGET_SOURCE" -NonInteractive
-          } else {
-            Write-Error "❌ No NuGet package found to publish."
+          nuget pack $env:NUSPEC_FILE -OutputDirectory nupkg-out -Properties Configuration=Release
+
+      - name: Push NuGet Package to nuget.org
+        run: |
+          $nupkg = Get-ChildItem -Path "nupkg-out" -Filter "*.nupkg" | Select-Object -First 1
+          if (-not $nupkg) {
+            Write-Error "❌ .nupkg not found."
+            exit 1
           }
-        shell: pwsh
+          nuget push $nupkg.FullName `
+            -ApiKey "${{ secrets.NUGET_API_KEY }}" `
+            -Source "$env:NUGET_SOURCE" `
+            -SkipDuplicate
