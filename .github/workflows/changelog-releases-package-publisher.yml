@@ -30,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh auth setup-git
 
-      - name: Delete Older Releases for Managed Tags
+      - name: Delete Older Releases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -63,10 +63,8 @@ jobs:
           "All-Repository-Files",
           "AD-SSO-APIs-Integration"
         ]
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -77,101 +75,51 @@ jobs:
           sudo apt-get install -y zip jq gh
           pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
-      - name: Configure GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      - name: Handle Existing Release and Tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package Build and Analyzer
         run: |
-          TAG_NAME="${{ matrix.release_name }}"
-          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
-            gh release delete "$TAG_NAME" -y
-            git push --delete origin "$TAG_NAME"
-          fi
-
-      - name: Build, Analyze and Package ${{ matrix.release_name }}
-        env:
-          RELEASE_NAME: ${{ matrix.release_name }}
-        run: |
-          set -e
           mkdir -p artifacts lint-reports
 
-          case "$RELEASE_NAME" in
-            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
-              cp README.md "./temp-$RELEASE_NAME/" || true
-              cp LICENSE "./temp-$RELEASE_NAME/" || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './temp-$RELEASE_NAME' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
-              rm -rf "temp-$RELEASE_NAME"
+          case "${{ matrix.release_name }}" in
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              cp -r "${{ matrix.release_name }}" "temp"
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt' -Encoding utf8"
+              zip -r "artifacts/${{ matrix.release_name }}.zip" temp
+              rm -rf temp
               ;;
-
             AD-SSO-APIs-Integration)
-              mkdir -p AD-SSO-APIs-Integration
-              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
-              cp README.md AD-SSO-APIs-Integration/ || true
-              cp LICENSE AD-SSO-APIs-Integration/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './AD-SSO-APIs-Integration' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r artifacts/AD-SSO-APIs-Integration.zip AD-SSO-APIs-Integration
-              rm -rf AD-SSO-APIs-Integration
+              mkdir -p temp
+              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8"
+              zip -r artifacts/AD-SSO-APIs-Integration.zip temp
+              rm -rf temp
               ;;
-
             GPOs-Templates)
-              mkdir -p GPOs-Templates
-              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
-              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
-              cp README.md GPOs-Templates/ || true
-              cp LICENSE GPOs-Templates/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './GPOs-Templates' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
-              rm -rf GPOs-Templates
+              mkdir -p temp
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/
+              cp README.md LICENSE temp/ || true
+              pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8"
+              zip -r artifacts/GPOs-Templates.zip temp
+              rm -rf temp
               ;;
-
             READMEs-Files-Package)
-              mkdir -p READMEs-Files-Package
-              cp README.md READMEs-Files-Package/main-README.md || true
-              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
-                repo_dir=$(dirname "$file")
-                repo_name=$(basename "$repo_dir")
-                new_filename="${repo_name}-README.md"
-                cp "$file" "READMEs-Files-Package/$new_filename"
-              done
-              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
-              rm -rf READMEs-Files-Package
+              mkdir -p temp
+              cp README.md temp/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r f; do cp "$f" "temp/$(basename "$(dirname "$f")")-README.md"; done
+              zip -r artifacts/READMEs-Files-Package.zip temp
+              rm -rf temp
               ;;
-
             All-Repository-Files)
-              mkdir -p All-Repository-Files
-              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                cp -r "$dir" All-Repository-Files/
-              done
-              cp README.md All-Repository-Files/ || true
-              cp LICENSE All-Repository-Files/ || true
-              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
-              rm -rf All-Repository-Files
+              mkdir -p temp
+              for d in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do cp -r "$d" temp/; done
+              cp README.md LICENSE temp/ || true
+              zip -r artifacts/All-Repository-Files.zip temp
+              rm -rf temp
               ;;
           esac
+
   publish-nuget:
     needs: build-and-release
     runs-on: windows-latest
@@ -185,90 +133,64 @@ jobs:
           "SysAdmin-Tools"
         ]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Download nuget.exe
-        run: |
-          curl -L https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -o nuget.exe
+        run: curl -L https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -o nuget.exe
 
-      - name: Install PowerShell Module (if needed)
+      - name: Install PSScriptAnalyzer (Optional)
         shell: pwsh
         run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
 
-      - name: Generate .nuspec File
+      - name: Extract Version and Generate Nuspec
         shell: pwsh
         run: |
-          $version = "${{ github.run_number }}.0.0"
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $notesPath = "CHANGELOG.md"
           .\Core-ScriptLibrary\Nuget-Package-Publisher\nuspec-generator.ps1 `
               -PackageId "${{ matrix.release_name }}" `
               -Version $version `
               -ZipPath "artifacts/${{ matrix.release_name }}.zip" `
+              -ReleaseNotesPath $notesPath `
               -OutputPath "."
 
-      - name: Pack NuGet Package
+      - name: Pack NuGet
         run: ./nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory ./nupkg
 
-      - name: Publish to GitHub Packages
-        run: ./nuget.exe push "nupkg\${{ matrix.release_name }}.*.nupkg" `
+      - name: Push to GitHub Packages
+        run: ./nuget.exe push "nupkg\\${{ matrix.release_name }}.*.nupkg" `
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
               -ApiKey ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate SHA256 Signature (SysAdmin-Tools only)
+      - name: Generate SHA256 (SysAdmin-Tools only)
         if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
         run: |
-          sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
+          certutil -hashfile artifacts\SysAdmin-Tools.zip SHA256 > artifacts\SysAdmin-Tools.zip.sha256
 
-      - name: Extract Release Notes from CHANGELOG.md
+      - name: Extract Release Notes
         id: extract_notes
+        shell: bash
         run: |
-          tag="${{ matrix.release_name }}"
-          body=$(awk -v tag="## $tag" '
-            $0 == tag {found=1; next}
-            /^## / && found {exit}
-            found {print}
-          ' CHANGELOG.md)
-          body="${body:-No changelog available for tag: $tag. Please update CHANGELOG.md.}"
+          body=$(awk -v tag="## ${{ matrix.release_name }}" '$0==tag {f=1;next} /^## / && f{exit} f' CHANGELOG.md)
           echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "$body" >> $GITHUB_ENV
+          echo "${body:-No release notes found.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: Create New Release
-        id: create_release
-        uses: actions/create-release@v1.1.0
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ matrix.release_name }}
-          release_name: ${{ matrix.release_name }}
+          name: ${{ matrix.release_name }}
           body: ${{ env.release_body }}
-          draft: false
-          prerelease: false
+          files: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ matrix.release_name }}.zip
-          asset_name: ${{ matrix.release_name }}.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload SHA256 Signature (SysAdmin-Tools only)
-        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/SysAdmin-Tools.zip.sha256
-          asset_name: SysAdmin-Tools.zip.sha256
-          asset_content_type: text/plain
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload PSScriptAnalyzer Report
+      - name: Upload Analyzer Report
         if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
         uses: actions/upload-artifact@v4
         with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
+          name: Analyzer-${{ matrix.release_name }}
           path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
