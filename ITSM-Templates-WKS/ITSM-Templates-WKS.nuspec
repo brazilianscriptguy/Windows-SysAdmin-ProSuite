@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>ITSM-Templates-WKS</id>
+    <version>1.0.0</version>
+    <authors>BrazilianScriptGuy</authors>
+    <owners>BrazilianScriptGuy</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/.github/logo-itsm.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Templates, scripts and tools to standardize, secure and automate workstation configurations in enterprise environments. Part of the Windows SysAdmin ProSuite.</description>
+    <summary>ITSM automation templates and scripts for Windows 10/11 Workstations.</summary>
+    <tags>PowerShell Templates Windows10 Windows11 ITSM SysAdmin Automation</tags>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
+  </metadata>
+  <files>
+    <file src="ITSM-Templates-WKS\**\*" target="tools\ITSM-Templates-WKS" />
+  </files>
+</package>
