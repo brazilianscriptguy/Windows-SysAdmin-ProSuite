@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>{PACKAGE_ID}</id>
+    <version>{PACKAGE_VERSION}</version>
+    <authors>Luiz Hamilton</authors>
+    <owners>Luiz Hamilton</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>{PACKAGE_DESCRIPTION}</description>
+    <tags>PowerShell Windows Admin Automation</tags>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+  </metadata>
+  <files>
+    <file src="NuGetPackageContent/{RELEASE_NAME}/*.*" target="tools" />
+  </files>
+</package>
