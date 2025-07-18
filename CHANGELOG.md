@@ -1,71 +1,98 @@
 # 📦 CHANGELOG
 
----
-
-## BlueTeam-Tools
-### 2025-07-18
-- ✅ Initial release of BlueTeam forensic and incident response tools
-- 📄 Added README and LICENSE
-- 🧪 Linting enabled via PSScriptAnalyzer
-- 📦 Published ZIP and NuGet package
-
----
-
-## Core-ScriptLibrary
-### 2025-07-18
-- ✅ Updated core utility functions and shared modules
-- 🧪 PSScriptAnalyzer linting report generated
-- 📦 NuGet package creation via dynamic .nuspec
-- 🚀 Release ZIP built and uploaded
+Navigate to:
+[BlueTeam-Tools](#blueteam-tools) •
+[Core-ScriptLibrary](#core-scriptlibrary) •
+[ITSM-Templates-SVR](#itsm-templates-svr) •
+[ITSM-Templates-WKS](#itsm-templates-wks) •
+[SysAdmin-Tools](#sysadmin-tools) •
+[GPOs-Templates](#gpos-templates) •
+[READMEs-Files-Package](#readmes-files-package) •
+[All-Repository-Files](#all-repository-files)
 
 ---
 
-## ITSM-Templates-SVR
-### 2025-07-18
-- 🏷️ Server-side PowerShell templates refactored
-- 📄 LICENSE and README included in release
-- 📦 NuGet packaging integrated
-- 🧪 Analyzer report generated for quality assurance
+## 🧰 BlueTeam-Tools
+![Status](https://img.shields.io/badge/status-active-success?style=flat-square)
+![Linting](https://img.shields.io/badge/lint-passed-blue?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- ✅ Initial release of BlueTeam forensic and incident response tools  
+- 📄 Added `README.md` and `LICENSE`  
+- 🧪 Enabled PSScriptAnalyzer  
+- 📦 Released as `.zip` and `.nupkg` package  
 
 ---
 
-## ITSM-Templates-WKS
-### 2025-07-18
-- 🖥️ Workstation automation templates organized by use-case
-- ✅ Dynamic changelog injection enabled
-- 📦 NuGet packaging pipeline tested
-- 🧪 Analyzer report uploaded
+## 🧩 Core-ScriptLibrary
+![Status](https://img.shields.io/badge/version-2025.07-blue?style=flat-square)
+![NuGet](https://img.shields.io/badge/nuget-enabled-purple?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- ✅ Utility functions and core modules updated  
+- 🧪 Linting report uploaded  
+- 📦 NuGet package published  
+- 📄 Documentation included  
 
 ---
 
-## SysAdmin-Tools
-### 2025-07-18
-- 🚀 Smart ZIP and SHA256 signature created
-- ✅ PSScriptAnalyzer compliance reports published
-- 📦 Published to GitHub Packages (NuGet)
-- 🔐 Integrity validation with .sha256
+## 🖥️ ITSM-Templates-SVR
+![Platform](https://img.shields.io/badge/target-Windows%20Server-blue?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 🏷️ Server-side PowerShell templates restructured  
+- 🧪 Linting and quality validation applied  
+- 📦 ZIP + NuGet packages available  
 
 ---
 
-## GPOs-Templates
-### 2025-07-18
-- 🛡️ GPO templates extracted from SysAdmin-Tools
-- 📥 Added `Export-n-Import-GPOsTool.ps1`
-- 🧪 Analyzer scan applied
-- 📦 Packaged and published as standalone ZIP
+## 🖥️ ITSM-Templates-WKS
+![Platform](https://img.shields.io/badge/target-Windows%2010%2F11-green?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 🖥️ Client-side scripts organized by use-case  
+- ✅ CHANGELOG integration verified  
+- 🧪 Analyzer report generated  
+- 📦 Available as ZIP and NuGet  
 
 ---
 
-## READMEs-Files-Package
-### 2025-07-18
-- 📘 Consolidated all `README.md` files from subfolders
-- 🗂️ Renamed with folder prefix for clarity
-- 📦 Packaged into one distributable ZIP
+## 🛡️ SysAdmin-Tools
+![Security](https://img.shields.io/badge/sha256-verified-success?style=flat-square)
+![NuGet](https://img.shields.io/badge/nuget-published-purple?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 🔧 Unified admin scripts with GUI support  
+- 📦 Packaged ZIP + NuGet + SHA256  
+- 🧪 Analyzer report attached  
+- 🔐 Checksum integrity file uploaded  
 
 ---
 
-## All-Repository-Files
-### 2025-07-18
-- 📦 Full repository snapshot bundled
-- 📝 Includes README and LICENSE
-- 🔄 All modules and tools in one download
+## 🏛️ GPOs-Templates
+![GPO](https://img.shields.io/badge/GPO-extracted-orange?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 🛡️ Includes `Export-n-Import-GPOsTool.ps1`  
+- 🧪 PSScriptAnalyzer applied  
+- 📦 Available as standalone ZIP package  
+
+---
+
+## 📘 READMEs-Files-Package
+![Docs](https://img.shields.io/badge/docs-aggregated-lightgrey?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 📘 Merged all `README.md` files from subdirectories  
+- 📂 Renamed and categorized  
+- 📦 Single downloadable ZIP file  
+
+---
+
+## 📦 All-Repository-Files
+![Full Export](https://img.shields.io/badge/package-complete-blueviolet?style=flat-square)
+
+**Release Date:** 2025-07-18  
+- 📦 Snapshot of full repository  
+- 📝 Includes LICENSE + README  
+- 🧰 Contains all tools in one download
