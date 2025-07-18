@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: true
+          submodules: recursive  # Ensure submodules are fully initialized
 
       - name: 📦 Install mono to run nuget.exe
         run: sudo apt-get update && sudo apt-get install -y mono-complete
@@ -31,10 +31,11 @@ jobs:
           mkdir -p .github/tools
           wget -O .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-      - name: 📁 Ensure required folders exist
+      - name: 📁 Create directories
         run: |
           mkdir -p ReadmeCopies
           mkdir -p nupkg-out
+          mkdir -p temp-${{ matrix.package }}
 
       - name: 🧪 Debug - Verify submodules
         run: |
@@ -42,50 +43,87 @@ jobs:
           git submodule status
           git submodule update --init --recursive
 
-      - name: 🧪 Debug - List package directory content
+      - name: 🧪 Debug - Validate package directory and files
         run: |
-          echo "Contents of ${{ matrix.package }}:"
-          ls -lh ${{ matrix.package }}/
-
-      - name: 🧪 Debug - List README variants
-        run: |
-          echo "Looking for README variants in ${{ matrix.package }}:"
-          find ${{ matrix.package }} -iname "*readme*"
-
-      - name: 📄 Copy README.md file for package
-        run: |
+          echo "Validating ${{ matrix.package }} directory:"
+          if [ -d "${{ matrix.package }}" ]; then
+            echo "✅ Directory ${{ matrix.package }} exists"
+            ls -lh "${{ matrix.package }}/"
+          else
+            echo "❌ Directory ${{ matrix.package }} not found"
+            exit 1
+          fi
           if [ -f "${{ matrix.package }}/README.md" ]; then
-            cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
-            echo "✅ Copied README for ${{ matrix.package }}"
+            echo "✅ Found ${{ matrix.package }}/README.md"
+            cat "${{ matrix.package }}/README.md"  # Display contents
           else
             echo "❌ README file not found at ${{ matrix.package }}/README.md"
             exit 1
           fi
-
-      - name: 🧪 Debug - Check exact README file name
-        run: |
-          echo "Exact contents of ReadmeCopies:"
-          find ReadmeCopies -type f -exec ls -lh {} \;
-
-      - name: 🧪 Debug - Check working directory and .nuspec
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing .nuspec file:"
-          ls -lh ${{ matrix.package }}.nuspec
-          echo "Listing ReadmeCopies directory:"
-          ls -lh ReadmeCopies/
-          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
-            echo "✅ README file exists at ReadmeCopies/${{ matrix.package }}-README.md"
+          if [ -f "${{ matrix.package }}.nuspec" ]; then
+            echo "✅ Found ${{ matrix.package }}.nuspec"
+            cat "${{ matrix.package }}.nuspec"  # Display contents
           else
-            echo "❌ README file not found at ReadmeCopies/${{ matrix.package }}-README.md"
+            echo "❌ .nuspec file not found at ${{ matrix.package }}.nuspec"
+            exit 1
           fi
 
-      - name: 📦 Pack NuGet package using nuget.exe
+      - name: 🧪 Debug - Check for README variants
         run: |
+          echo "Looking for README variants in ${{ matrix.package }}:"
+          find "${{ matrix.package }}" -iname "*readme*"
+
+      - name: 📄 Stage package files
+        run: |
+          # Copy package directory to temporary staging area
+          cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
+          # Copy .nuspec file to temporary directory
+          cp "${{ matrix.package }}.nuspec" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          # Copy README.md to ReadmeCopies
+          cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+          echo "✅ Staged files for ${{ matrix.package }}:"
+          ls -lh "temp-${{ matrix.package }}/"
+          echo "✅ Copied README to ReadmeCopies/${{ matrix.package }}-README.md"
+
+      - name: 🧪 Debug - Verify staged files
+        run: |
+          echo "Contents of temp-${{ matrix.package }}:"
+          ls -lh "temp-${{ matrix.package }}/"
+          echo "Contents of ReadmeCopies:"
+          find ReadmeCopies -type f -exec ls -lh {} \;
+          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
+            echo "✅ README file exists at ReadmeCopies/${{ matrix.package }}-README.md"
+            cat "ReadmeCopies/${{ matrix.package }}-README.md"  # Display contents
+          else
+            echo "❌ README file not found at ReadmeCopies/${{ matrix.package }}-README.md"
+            exit 1
+          fi
+          if [ -f "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec" ]; then
+            echo "✅ .nuspec file exists at temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          else
+            echo "❌ .nuspec file not found at temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+            exit 1
+          fi
+
+      - name: 📦 Pack NuGet package
+        run: |
+          cd "temp-${{ matrix.package }}"
           properties="SymbolPackageFormat=snupkg"
-          mono .github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
-            -OutputDirectory nupkg-out \
+          mono ../../.github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
+            -OutputDirectory ../../nupkg-out \
             -Properties "$properties"
+          cd ../..
+
+      - name: 🧪 Debug - Verify NuGet package output
+        run: |
+          echo "Contents of nupkg-out:"
+          ls -lh nupkg-out/
+          if [ -n "$(find nupkg-out -name '*.nupkg')" ]; then
+            echo "✅ NuGet package created"
+          else
+            echo "❌ No NuGet package created"
+            exit 1
+          fi
 
       - name: 🚀 Push to nuget.org
         env:
@@ -111,4 +149,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag "$tag"
           git push origin "$tag"
-          
+
+      - name: 🧹 Clean up temporary directory
+        run: |
+          rm -rf "temp-${{ matrix.package }}"
