@@ -14,8 +14,7 @@ jobs:
   cleanup-old-releases:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -51,23 +50,16 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "BlueTeam-Tools",
-          "Core-ScriptLibrary",
-          "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS",
-          "SysAdmin-Tools",
-          "GPOs-Templates",
-          "READMEs-Files-Package",
-          "All-Repository-Files",
-          "AD-SSO-APIs-Integration"
+          "BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS", "SysAdmin-Tools", "GPOs-Templates",
+          "READMEs-Files-Package", "All-Repository-Files", "AD-SSO-APIs-Integration"
         ]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install Dependencies
+      - name: Install Tools
         run: |
           sudo apt-get update
           sudo apt-get install -y zip jq gh
@@ -129,7 +121,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact Zip and SHA256 for NuGet Job
+      - name: Upload Artifacts for NuGet Publishing
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
@@ -149,35 +141,30 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "BlueTeam-Tools",
-          "Core-ScriptLibrary",
-          "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS",
-          "SysAdmin-Tools"
+          "BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS", "SysAdmin-Tools"
         ]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install PowerShell and .NET
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y powershell
-          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
-        shell: bash
-
-      - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+      - name: Install PowerShell
+        run: sudo apt-get install -y powershell
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
           path: ./artifacts
+
+      - name: Download nuget.exe
+        shell: pwsh
+        run: |
+          $nugetPath = "./nuget.exe"
+          if (-not (Test-Path $nugetPath)) {
+            Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nugetPath
+          }
 
       - name: Generate .nuspec
         shell: pwsh
@@ -192,10 +179,14 @@ jobs:
             -OutputPath "."
 
       - name: Pack NuGet Package
+        shell: pwsh
         run: |
-          dotnet nuget pack "${{ matrix.release_name }}.nuspec" --output ./nupkg
+          & ./nuget.exe pack "${{ matrix.release_name }}.nuspec" -OutputDirectory "./nupkg"
 
-      - name: Push to GitHub Packages
+      - name: Push NuGet Package
+        shell: pwsh
         run: |
-          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --name github --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
-          dotnet nuget push "nupkg/${{ matrix.release_name }}.*.nupkg" --source github --api-key ${{ secrets.GITHUB_TOKEN }}
+          & ./nuget.exe push "./nupkg/${{ matrix.release_name }}.*.nupkg" `
+            -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+            -ApiKey "${{ secrets.GITHUB_TOKEN }}" `
+            -NonInteractive
