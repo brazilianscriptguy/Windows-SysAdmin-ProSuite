@@ -1,35 +1,50 @@
 # Changelog
 
 ## All-Repository-Files
-- Added a full repository dump for offline reference.
-- Includes all toolsets: BlueTeam, ITSM, SysAdmin, etc.
+
+* Full repository dump included.
+* Consolidated all toolsets into a single downloadable ZIP.
+* Includes all READMEs, licenses, and core folders.
 
 ## SysAdmin-Tools
-- Improved startup scripts for AD forest maintenance.
-- SHA256 checksum generation added for integrity validation.
-- PSScriptAnalyzer report now published as artifact.
+
+* Added SHA256 checksum for release integrity verification.
+* Integrated PSScriptAnalyzer with full warning/error report.
+* Restructured packaging process with dynamic ZIP generation.
+* Included Group Policy automation scripts.
 
 ## BlueTeam-Tools
-- Updated incident response scripts for log preservation.
-- Enhanced forensic collection automation.
+
+* Enhanced forensic collection modules.
+* Updated log preservation utilities.
+* Optimized PowerShell hardening toolkit.
 
 ## Core-ScriptLibrary
-- Standardized function headers across modules.
-- Added support for extended error logging.
+
+* Standardized function headers for clarity.
+* Added extended logging to common scripts.
+* Refined parameter validation across modules.
 
 ## GPOs-Templates
-- Updated baseline templates for password policies.
-- Included tool for GPO import/export automation.
+
+* Packaged latest Active Directory and Windows security GPOs.
+* Included Export/Import tool for GPO automation.
+* Updated default security templates.
 
 ## ITSM-Templates-WKS
-- Workstation cleanup scripts updated for Windows 11 compatibility.
-- Added layout management and personalization tools.
+
+* Workstation cleanup and audit scripts updated.
+* Windows 11 personalization and layout scripts enhanced.
+* Template folder restructured for better GPO import.
 
 ## ITSM-Templates-SVR
-- Server compliance audit templates revised.
-- Updated startup checks for DHCP and DNS.
+
+* Added startup configuration checks for DNS, DHCP.
+* Server hardening script improvements.
+* Integrated compliance reporting module.
 
 ## READMEs-Files-Package
-- Consolidated all README.md files.
-- Cleaned up Markdown formatting.
 
+* Aggregated README.md files from each project folder.
+* Main README labeled as `main-README.md`.
+* Improved markdown formatting and headers.
