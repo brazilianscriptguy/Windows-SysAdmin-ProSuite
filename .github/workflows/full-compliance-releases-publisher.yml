@@ -5,81 +5,155 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'  # Daily at midnight UTC
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
 
 jobs:
+  cleanup-old-releases:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gh
+
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Delete Older Releases for Managed Tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          MANAGED_TAGS=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files")
+          for tag in "${MANAGED_TAGS[@]}"; do
+            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
+            if [ -z "$releases" ]; then continue; fi
+            sorted_releases=$(echo "$releases" | sort)
+            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
+            for old_tag in $releases_to_delete; do
+              gh release delete "$old_tag" -y
+              git push --delete origin "$old_tag"
+            done
+          done
+
   build-and-release:
+    needs: cleanup-old-releases
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        release_name:
-          ["BlueTeam-Tools", "Core-ScriptLibrary", "ITSM-Templates-SVR",
-           "ITSM-Templates-WKS", "SysAdmin-Tools", "GPOs-Templates",
-           "READMEs-Files-Package", "All-Repository-Files"]
+        release_name: [
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "SysAdmin-Tools",
+          "GPOs-Templates",
+          "READMEs-Files-Package",
+          "All-Repository-Files"
+        ]
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '6.x'
+          submodules: true
+          fetch-depth: 0
 
-      - name: Install Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zip jq
+          sudo apt-get install -y zip jq gh
 
-      - name: Delete Previous Release and Tag
+      - name: Configure GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: Handle Existing Release and Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ matrix.release_name }}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release delete "$tag" -y
-            git push --delete origin "$tag"
+          TAG_NAME="${{ matrix.release_name }}"
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            gh release delete "$TAG_NAME" -y
+            git push --delete origin "$TAG_NAME"
           fi
 
-      - name: Run PSScriptAnalyzer
+      - name: Build and Package ${{ matrix.release_name }}
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          mkdir -p analysis-reports
-          pwsh -c "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
-          pwsh -c "Invoke-ScriptAnalyzer -Path './${{ matrix.release_name }}' -Recurse | Out-File -FilePath 'analysis-reports/PSScriptAnalyzer.txt'"
-
-      - name: Zip Artifacts
-        run: |
+          set -e
           mkdir -p artifacts
-          if [ -d "${{ matrix.release_name }}" ]; then
-            zip -r "artifacts/${{ matrix.release_name }}.zip" "${{ matrix.release_name }}"
-          else
-            echo "Skipping zip. Folder not found: ${{ matrix.release_name }}"
-          fi
 
-      - name: Build NuGet Package (if .nuspec exists)
-        run: |
-          if compgen -G "${{ matrix.release_name }}/*.nuspec" > /dev/null; then
-            find "${{ matrix.release_name }}" -name '*.nuspec' -exec dotnet nuget pack {} -OutputDirectory artifacts \;
-          else
-            echo "No .nuspec found for ${{ matrix.release_name }}, skipping NuGet pack."
-          fi
+          case "$RELEASE_NAME" in
+            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
+              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
+              cp README.md "./temp-$RELEASE_NAME/" || true
+              cp LICENSE "./temp-$RELEASE_NAME/" || true
+              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
+              rm -rf "temp-$RELEASE_NAME"
+              ;;
 
-      - name: Create GitHub Release
+            GPOs-Templates)
+              mkdir -p GPOs-Templates
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
+              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
+              cp README.md GPOs-Templates/ || true
+              cp LICENSE GPOs-Templates/ || true
+              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
+              rm -rf GPOs-Templates
+              ;;
+
+            READMEs-Files-Package)
+              mkdir -p READMEs-Files-Package
+              cp README.md READMEs-Files-Package/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
+                repo_dir=$(dirname "$file")
+                repo_name=$(basename "$repo_dir")
+                new_filename="${repo_name}-README.md"
+                cp "$file" "READMEs-Files-Package/$new_filename"
+              done
+              zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
+              rm -rf READMEs-Files-Package
+              ;;
+
+            All-Repository-Files)
+              mkdir -p All-Repository-Files
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                cp -r "$dir" All-Repository-Files/
+              done
+              cp README.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              rm -rf All-Repository-Files
+              ;;
+          esac
+
+      - name: Create New Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: actions/create-release@v1.1.0
         with:
           tag_name: ${{ matrix.release_name }}
-          name: ${{ matrix.release_name }}
-          body_path: CHANGELOG.md
+          release_name: ${{ matrix.release_name }}
+          body: "Latest automated release for ${{ matrix.release_name }}."
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload .zip Release Asset
+      - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -88,23 +162,3 @@ jobs:
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload PSScriptAnalyzer Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
-          path: analysis-reports/PSScriptAnalyzer.txt
-
-      - name: Push .nupkg to GitHub Packages
-        if: ${{ secrets.GH_PAT_FOR_NUGET != '' }}
-        env:
-          NUGET_AUTH_TOKEN: ${{ secrets.GH_PAT_FOR_NUGET }}
-        run: |
-          if compgen -G "artifacts/*.nupkg" > /dev/null; then
-            dotnet nuget push artifacts/*.nupkg \
-              --api-key "$NUGET_AUTH_TOKEN" \
-              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              --skip-duplicate
-          else
-            echo "No .nupkg found to push for ${{ matrix.release_name }}."
-          fi
