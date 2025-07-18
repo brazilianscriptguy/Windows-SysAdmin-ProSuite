@@ -26,6 +26,11 @@ jobs:
       - name: 📦 Install mono to run nuget.exe
         run: sudo apt-get update && sudo apt-get install -y mono-complete
 
+      - name: 📦 Download latest nuget.exe
+        run: |
+          mkdir -p .github/tools
+          wget -O .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
       - name: 📁 Ensure required folders exist
         run: |
           mkdir -p ReadmeCopies
@@ -56,9 +61,17 @@ jobs:
             exit 1
           fi
 
-      - name: 🧪 Debug - List ReadmeCopies content
+      - name: 🧪 Debug - Check exact README file name
         run: |
-          echo "Contents of ReadmeCopies:"
+          echo "Exact contents of ReadmeCopies:"
+          find ReadmeCopies -type f -exec ls -lh {} \;
+
+      - name: 🧪 Debug - Check working directory
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing .nuspec file:"
+          ls -lh ${{ matrix.package }}.nuspec
+          echo "Listing ReadmeCopies directory:"
           ls -lh ReadmeCopies/
 
       - name: 📦 Pack NuGet package using nuget.exe
