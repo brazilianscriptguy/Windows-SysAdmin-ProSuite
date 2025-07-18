@@ -2,241 +2,162 @@ name: changelog-releases-and-nuget-publisher
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
-  schedule:
-    - cron: '0 0 * * *'
 
-permissions:
-  contents: write
+env:
+  DOTNET_ROOT: /usr/share/dotnet
+  GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
+  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
 jobs:
   cleanup-old-releases:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: 🧹 Delete old assets from releases
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq gh
-
-      - name: Configure GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      - name: Delete Older Releases for Managed Tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          MANAGED_TAGS=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files-Package" "All-Repository-Files" "AD-SSO-APIs-Integration")
-          for tag in "${MANAGED_TAGS[@]}"; do
-            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
-            if [ -z "$releases" ]; then continue; fi
-            sorted_releases=$(echo "$releases" | sort)
-            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
-            for old_tag in $releases_to_delete; do
-              gh release delete "$old_tag" -y
-              git push --delete origin "$old_tag"
+          tags=("BlueTeam-Tools" "Core-ScriptLibrary" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "SysAdmin-Tools" "GPOs-Templates" "READMEs-Files" "All-Repositories" "AD-SSO-API")
+          for tag in "${tags[@]}"; do
+            release_id=$(gh release view "$tag" --json id -q .id || echo "")
+            if [ -z "$release_id" ]; then
+              echo "Release $tag not found; skipping."
+              continue
+            fi
+            assets=("ProSuite-$tag.zip" "ProSuite-$tag.zip.sha256" "$tag.zip" "$tag.zip.sha256")
+            for asset in "${assets[@]}"; do
+              asset_id=$(gh api repos/${{ github.repository }}/releases/$release_id/assets --jq ".[] | select(.name == \"$asset\") | .id")
+              if [ -n "$asset_id" ]; then
+                echo "Deleting $asset from release $tag"
+                gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id
+              fi
             done
           done
-
-  build-and-release:
-    needs: cleanup-old-releases
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        release_name: [
-          "BlueTeam-Tools",
-          "Core-ScriptLibrary",
-          "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS",
-          "SysAdmin-Tools",
-          "GPOs-Templates",
-          "READMEs-Files-Package",
-          "All-Repository-Files",
-          "AD-SSO-APIs-Integration"
-        ]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y zip jq gh
-          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
-
-      - name: Build and Package
-        env:
-          RELEASE_NAME: ${{ matrix.release_name }}
-        run: |
-          mkdir -p artifacts lint-reports temp
-          case "$RELEASE_NAME" in
-            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
-              cp -r "$RELEASE_NAME"/. temp/
-              ;;
-            GPOs-Templates)
-              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/. temp/
-              ;;
-            AD-SSO-APIs-Integration)
-              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/. temp/
-              ;;
-            READMEs-Files-Package)
-              cp README.md temp/main-README.md || true
-              find . -type f -iname "README.md" ! -path "./README.md" | while read -r f; do
-                cp "$f" "temp/$(basename "$(dirname "$f")")-README.md"
-              done
-              ;;
-            All-Repository-Files)
-              for d in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                cp -r "$d"/. temp/
-              done
-              cp README.md LICENSE temp/ || true
-              ;;
-          esac
-          pwsh -Command "Get-ChildItem -Recurse -Path temp -Include *.ps1 | Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error | Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8"
-          zip -r "artifacts/ProSuite-$RELEASE_NAME.zip" temp
-          sha256sum "artifacts/ProSuite-$RELEASE_NAME.zip" > "artifacts/ProSuite-$RELEASE_NAME.zip.sha256"
-          rm -rf temp
-
-      - name: Extract Release Notes
-        id: extract_notes
-        run: |
-          tag="${{ matrix.release_name }}"
-          body=$(awk -v tag="## $tag" '$0 == tag {found=1; next} /^## / && found {exit} found {print}' CHANGELOG.md)
-          echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "${body:-No release notes found.}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ matrix.release_name }}
-          name: ${{ matrix.release_name }}
-          body: ${{ env.release_body }}
-          files: |
-            artifacts/ProSuite-${{ matrix.release_name }}.zip
-            artifacts/ProSuite-${{ matrix.release_name }}.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifacts for NuGet Job
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.release_name }}
-          path: |
-            artifacts/ProSuite-${{ matrix.release_name }}.zip
-            artifacts/ProSuite-${{ matrix.release_name }}.zip.sha256
-
-      - name: Upload Lint Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
-          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
-
-  build-and-publish-nuget:
-    needs: build-and-release
+  build-and-release:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        release_name: [
-          "BlueTeam-Tools",
-          "Core-ScriptLibrary",
-          "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS",
-          "SysAdmin-Tools"
-        ]
+        repo:
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - SysAdmin-Tools
+          - GPOs-Templates
+          - READMEs-Files
+          - All-Repositories
+          - AD-SSO-API
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install PowerShell and .NET
+      - name: Set release version
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+
+      - name: Generate ProSuite Archive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y powershell unzip curl
-          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+          mkdir -p output
+          zip -r "output/ProSuite-${{ matrix.repo }}.zip" "./${{ matrix.repo }}/"
+          sha256sum "output/ProSuite-${{ matrix.repo }}.zip" > "output/ProSuite-${{ matrix.repo }}.zip.sha256"
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: artifacts-${{ matrix.release_name }}
-          path: ./artifacts
-
-      - name: Generate .nuspec
-        shell: pwsh
+      - name: Generate Plain Archive
         run: |
-          $version = "${{ github.run_number }}.0.0"
-          ./Core-ScriptLibrary/Nuget-Package-Publisher/nuspec-generator.ps1 `
-            -PackageId "${{ matrix.release_name }}" `
-            -Version $version `
-            -ZipPath "./artifacts/ProSuite-${{ matrix.release_name }}.zip" `
-            -ReleaseNotesPath "CHANGELOG.md" `
-            -OutputPath "."
+          zip -r "output/${{ matrix.repo }}.zip" "./${{ matrix.repo }}/"
+          sha256sum "output/${{ matrix.repo }}.zip" > "output/${{ matrix.repo }}.zip.sha256"
 
-      - name: Download nuget.exe
-        run: |
-          mkdir -p tools
-          curl -L -o tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-
-      - name: Pack and Push NuGet Package
-        shell: pwsh
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ matrix.repo }}
+          tag_name: ${{ matrix.repo }}
+          files: |
+            output/ProSuite-${{ matrix.repo }}.zip
+            output/ProSuite-${{ matrix.repo }}.zip.sha256
+            output/${{ matrix.repo }}.zip
+            output/${{ matrix.repo }}.zip.sha256
         env:
-          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-publish-nuget:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo:
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - SysAdmin-Tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install NuGet CLI
+        run: |
+          mkdir -p .github/tools
+          curl -sSL https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -o .github/tools/nuget.exe
+
+      - name: Generate .nuspec file
+        run: |
+          $packageId = "${{ matrix.repo }}"
+          $version = "${{ github.ref_name }}"
+          $description = "Automated release of $packageId tools."
+          $authors = "BrazilianScriptGuy"
+          $projectUrl = "https://github.com/${{ github.repository }}"
+          $outputPath = "./${packageId}.nuspec"
+
+          $nuspec = @"
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$packageId</id>
+    <version>$version</version>
+    <authors>$authors</authors>
+    <description>$description</description>
+    <projectUrl>$projectUrl</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+  </metadata>
+  <files>
+    <file src="${packageId}\**\*" target="tools" />
+  </files>
+</package>
+"@
+          $nuspec | Out-File -Encoding utf8 -FilePath $outputPath
+        shell: pwsh
+
+      - name: 📦 Pack NuGet package
+        run: |
+          mkdir -Force ./nupkg | Out-Null
+          mono .github/tools/nuget.exe pack "${{ matrix.repo }}.nuspec" -OutputDirectory ./nupkg
+        shell: bash
+
+      - name: 📦 Publish NuGet package
         run: |
           $ErrorActionPreference = 'Stop'
-          $repoOwner = "${{ github.repository_owner }}"
-          $packageId = "${{ matrix.release_name }}"
-          $version = "${{ github.run_number }}.0.0"
-          $nupkgDir = "./nupkg"
-          $nuspecPath = "$packageId.nuspec"
-          $nugetExe = Join-Path $PWD "tools/nuget.exe"
+          $repoOwner = "brazilianscriptguy"
+          $packageId = "${{ matrix.repo }}"
+          $nupkgFile = Get-ChildItem "./nupkg/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
 
-          if (-not (Test-Path $nuspecPath)) {
-            Write-Error "❌ .nuspec file missing: $nuspecPath"
-            exit 1
-          }
-
-          if (-not (Test-Path $nugetExe)) {
-            Write-Error "❌ nuget.exe not found at $nugetExe"
-            exit 1
-          }
-
-          if (-not (Test-Path $nupkgDir)) {
-            New-Item -ItemType Directory -Path $nupkgDir | Out-Null
-          }
-
-          Write-Host "📦 Packing NuGet package..."
-          & $nugetExe pack $nuspecPath -OutputDirectory $nupkgDir
-
-          $nupkgFile = Get-ChildItem "$nupkgDir/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $nupkgFile) {
             Write-Warning "⚠️ .nupkg not found. Skipping NuGet push for $packageId."
             exit 0
           }
 
           Write-Host "📦 Pushing to GitHub Packages..."
-          & $nugetExe push $nupkgFile.FullName `
+          ./.github/tools/nuget.exe push $nupkgFile.FullName `
             -Source "https://nuget.pkg.github.com/$repoOwner/index.json" `
             -ApiKey $env:GH_PAT_FOR_NUGET
 
           if ($env:NUGET_API_KEY -and $env:NUGET_API_KEY.Trim().Length -gt 0) {
             Write-Host "📦 Pushing to NuGet.org..."
-            & $nugetExe push $nupkgFile.FullName `
+            ./.github/tools/nuget.exe push $nupkgFile.FullName `
               -Source "https://api.nuget.org/v3/index.json" `
               -ApiKey $env:NUGET_API_KEY
           }
+        shell: pwsh
+        env:
+          GH_PAT_FOR_NUGET: ${{ secrets.GH_PAT_FOR_NUGET }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
