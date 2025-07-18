@@ -1,24 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+<?xml version="1.0"?>
+<package>
   <metadata>
     <id>ITSM-Templates-WKS</id>
     <version>1.0.0</version>
+    <title>ITSM-Templates-WKS</title>
     <authors>BrazilianScriptGuy</authors>
     <owners>BrazilianScriptGuy</owners>
+
     <license type="expression">MIT</license>
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <readme>README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
+    
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Templates and scripts for workstation preparation, standardization, and automation using ITSM practices.</description>
-    <releaseNotes>Initial release of workstation-focused scripts and ITSM templates for Windows environments.</releaseNotes>
-    <tags>itsm windows workstation provisioning standardization automation powershell</tags>
-    <dependencies>
-      <group targetFramework=".NETStandard2.0" />
-    </dependencies>
+    <description>This package provides a collection of ITSM templates for Windows 10/11 workstations, including maintenance scripts, automation routines, and customization assets.</description>
+    <releaseNotes>Initial release of ITSM-Templates-WKS focused on workstation automation and IT service management templates.</releaseNotes>
+    <tags>itsm windows-10 windows-11 workstations automation support customization sysadmin configuration</tags>
   </metadata>
   <files>
     <file src="NuGetPackageContent/ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
-    <file src="NuGetPackageContent/README.md" target="content/" />
-    <file src="NuGetPackageContent/LICENSE" target="content/" />
+    <file src="NuGetPackageContent/README.md" target="" />
+    <file src="NuGetPackageContent/LICENSE" target="" />
   </files>
 </package>
