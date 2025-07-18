@@ -56,6 +56,7 @@ jobs:
         run: |
           if [ -f "${{ matrix.package }}/README.md" ]; then
             cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+            echo "✅ Copied README for ${{ matrix.package }}"
           else
             echo "❌ README file not found at ${{ matrix.package }}/README.md"
             exit 1
@@ -66,20 +67,22 @@ jobs:
           echo "Exact contents of ReadmeCopies:"
           find ReadmeCopies -type f -exec ls -lh {} \;
 
-      - name: 🧪 Debug - Check working directory
+      - name: 🧪 Debug - Check working directory and .nuspec
         run: |
           echo "Current directory: $(pwd)"
           echo "Listing .nuspec file:"
           ls -lh ${{ matrix.package }}.nuspec
           echo "Listing ReadmeCopies directory:"
           ls -lh ReadmeCopies/
+          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
+            echo "✅ README file exists at ReadmeCopies/${{ matrix.package }}-README.md"
+          else
+            echo "❌ README file not found at ReadmeCopies/${{ matrix.package }}-README.md"
+          fi
 
       - name: 📦 Pack NuGet package using nuget.exe
         run: |
           properties="SymbolPackageFormat=snupkg"
-          if [ -f "ReadmeCopies/${{ matrix.package }}-README.md" ]; then
-            properties="ReadMeFile=ReadmeCopies/${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
-          fi
           mono .github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
             -OutputDirectory nupkg-out \
             -Properties "$properties"
@@ -108,3 +111,4 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag "$tag"
           git push origin "$tag"
+          
