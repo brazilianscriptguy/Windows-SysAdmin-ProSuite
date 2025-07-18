@@ -1,4 +1,4 @@
-name: update-github-releases
+name: build-github-releases
 
 on:
   workflow_dispatch:
@@ -100,22 +100,6 @@ jobs:
           mkdir -p artifacts lint-reports
 
           case "$RELEASE_NAME" in
-            AD-SSO-APIs-Integration)
-              mkdir -p AD-SSO-APIs-Integration
-              cp -r AD-SSO-APIs-Integration/* AD-SSO-APIs-Integration/
-              cp README.md AD-SSO-APIs-Integration/ || true
-              cp LICENSE AD-SSO-APIs-Integration/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './AD-SSO-APIs-Integration' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/AD-SSO-APIs-Integration-AnalyzerReport.txt' -Encoding utf8
-              "
-
-              zip -r artifacts/AD-SSO-APIs-Integration.zip AD-SSO-APIs-Integration
-              rm -rf AD-SSO-APIs-Integration
-              ;;
-
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
               cp README.md "./temp-$RELEASE_NAME/" || true
@@ -170,11 +154,14 @@ jobs:
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               rm -rf All-Repository-Files
               ;;
-          esac
 
-      - name: Generate SHA256 Signature (SysAdmin-Tools only)
-        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        run: sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
+            AD-SSO-APIs-Integration)
+              mkdir -p AD-SSO-APIs-Integration
+              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
+              zip -r artifacts/AD-SSO-APIs-Integration.zip AD-SSO-APIs-Integration
+              rm -rf AD-SSO-APIs-Integration
+              ;;
+          esac
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
@@ -213,6 +200,10 @@ jobs:
 
       - name: Upload SHA256 Signature (SysAdmin-Tools only)
         if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
+        run: sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
+
+      - name: Upload SHA256 Artifact (SysAdmin-Tools only)
+        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -223,21 +214,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Lint Report
-        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' && matrix.release_name != 'AD-SSO-APIs-Integration' }}
         uses: actions/upload-artifact@v4
         with:
           name: PSScriptAnalyzer-${{ matrix.release_name }}
           path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
 
-      - name: Upload Artifact Zip (Unique per release)
+      - name: Upload Artifact Zip
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
           path: artifacts/${{ matrix.release_name }}.zip
-
-      - name: Upload SHA256 Artifact (SysAdmin-Tools only)
-        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: SysAdmin-Tools-sha256
-          path: artifacts/SysAdmin-Tools.zip.sha256
