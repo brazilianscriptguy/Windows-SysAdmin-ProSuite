@@ -48,3 +48,12 @@
 * Aggregated README.md files from each project folder.
 * Main README labeled as `main-README.md`.
 * Improved markdown formatting and headers.
+
+## AD-SSO-APIs-Integration
+
+* Initial release of Active Directory SSO Integration APIs toolkit.
+* Includes ready-to-deploy PowerShell scripts for integrating AD with third-party SSO solutions.
+* Modular authentication logic with template customization.
+* Enhanced Kerberos, LDAP, and Claims-based login support.
+* Documentation included for implementation and test environments.
+
