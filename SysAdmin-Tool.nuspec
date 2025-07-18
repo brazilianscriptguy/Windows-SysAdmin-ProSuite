@@ -8,19 +8,21 @@
     <owners>BrazilianScriptGuy</owners>
 
     <license type="expression">MIT</license>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
     <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" branch="main" />
+    <readme>NuGetPackageContent/ReadmeCopies/SysAdmin-Tools-README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
 
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>A powerful and flexible toolkit of PowerShell scripts for managing Active Directory, system roles, DNS, DHCP, and GPOs in Windows Server environments.</description>
-    <releaseNotes>Initial release of SysAdmin-Tools for managing Windows Server and infrastructure services.</releaseNotes>
-    <tags>windows-server sysadmin active-directory gpo dhcp dns automation powershell server-roles admin-tools domain-controller</tags>
+    <description>Modular tools and scripts for Active Directory, GPO, user management, and administrative automation in Windows Server and domain environments.</description>
+    <releaseNotes>Initial release including GPO management tools, domain cleanup scripts, and GUI-based helpers.</releaseNotes>
+    <tags>active-directory sysadmin gpo powershell automation user-management ad-tools windows-server administration</tags>
   </metadata>
+
   <files>
     <file src="NuGetPackageContent/SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
-    <file src="NuGetPackageContent/README.md" target="" />
+    <file src="NuGetPackageContent/ReadmeCopies/SysAdmin-Tools-README.md" target="" />
     <file src="NuGetPackageContent/LICENSE" target="" />
   </files>
 </package>
