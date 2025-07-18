@@ -1,0 +1,72 @@
+name: publish-all-nuget-packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [
+          BlueTeam-Tools,
+          Core-ScriptLibrary,
+          ITSM-Templates-SVR,
+          ITSM-Templates-WKS,
+          SysAdmin-Tools
+        ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Install mono to run nuget.exe
+        run: sudo apt-get update && sudo apt-get install -y mono-complete
+
+      - name: Prepare README.md for NuGet
+        run: |
+          if [ -f "./README.md" ]; then
+            cp ./README.md ./${{ matrix.package }}-README.md
+          else
+            echo "⚠️ README.md not found, creating minimal fallback..."
+            echo "# ${{ matrix.package }}" > ./${{ matrix.package }}-README.md
+            echo "No package description available." >> ./${{ matrix.package }}-README.md
+          fi
+
+      - name: Pack NuGet package using nuget.exe with metadata
+        run: |
+          mkdir -p nupkg-out
+          mono .github/tools/nuget.exe pack ${{ matrix.package }}.nuspec \
+            -OutputDirectory nupkg-out \
+            -Properties "ReadMeFile=${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
+
+      - name: Push .nupkg to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          pkg_path=$(find nupkg-out -name "${{ matrix.package }}*.nupkg" | head -n 1)
+          if [ -z "$pkg_path" ]; then
+            echo "❌ No .nupkg file found to publish for ${{ matrix.package }}."
+            exit 1
+          fi
+          mono .github/tools/nuget.exe push "$pkg_path" \
+            -Source https://api.nuget.org/v3/index.json \
+            -ApiKey "$NUGET_API_KEY" \
+            -NonInteractive
+
+      - name: Push .snupkg (if available)
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          symbol_path=$(find nupkg-out -name "${{ matrix.package }}*.snupkg" | head -n 1 || true)
+          if [ -n "$symbol_path" ]; then
+            mono .github/tools/nuget.exe push "$symbol_path" \
+              -Source https://api.nuget.org/v3/index.json \
+              -ApiKey "$NUGET_API_KEY" \
+              -NonInteractive
+          else
+            echo "ℹ️ No .snupkg file generated for ${{ matrix.package }}."
+          fi
