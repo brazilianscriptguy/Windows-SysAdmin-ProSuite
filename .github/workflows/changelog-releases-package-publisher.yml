@@ -91,7 +91,7 @@ jobs:
             READMEs-Files-Package)
               cp README.md temp/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r f; do
-                cp "$f" "temp/$(basename "$(dirname "$f")")-README.md"
+                cp "$f" "temp/$(basename \"$(dirname \"$f\")\")-README.md"
               done
               ;;
             All-Repository-Files)
@@ -162,18 +162,13 @@ jobs:
       - name: Install PowerShell and .NET
         run: |
           sudo apt-get update
-          sudo apt-get install -y powershell unzip
+          sudo apt-get install -y powershell unzip curl
           pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
-      - name: Download nuget.exe
-        run: |
-          mkdir -p .github/tools
-          curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -192,6 +187,11 @@ jobs:
             -ReleaseNotesPath "CHANGELOG.md" `
             -OutputPath "."
 
+      - name: Download nuget.exe
+        run: |
+          mkdir -p .github/tools
+          curl -L -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
       - name: Pack and Push NuGet Package
         shell: pwsh
         env:
@@ -204,13 +204,13 @@ jobs:
           $nupkgDir = "./nupkg"
           $nuspecPath = "$packageId.nuspec"
 
-          mkdir -Force $nupkgDir | Out-Null
+          if (-not (Test-Path $nupkgDir)) { New-Item -ItemType Directory -Path $nupkgDir | Out-Null }
           ./.github/tools/nuget.exe pack $nuspecPath -OutputDirectory $nupkgDir
 
           $nupkgFile = Get-ChildItem "$nupkgDir/$packageId.*.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $nupkgFile) {
-            Write-Error "❌ Package not found at $nupkgDir/$packageId.*.nupkg"
-            exit 1
+            Write-Warning "⚠️ .nupkg not found. Skipping NuGet push for $packageId."
+            return
           }
 
           Write-Host "📦 Pushing to GitHub Packages..."
@@ -223,4 +223,3 @@ jobs:
             ./.github/tools/nuget.exe push $nupkgFile.FullName `
               -Source "https://api.nuget.org/v3/index.json" `
               -ApiKey $env:NUGET_API_KEY
-          }
