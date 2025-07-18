@@ -1,11 +1,12 @@
-name: publish-all-nuget-packages
+name:publish-all-nuget-packages
 
 on:
   workflow_dispatch:
 
 jobs:
-  publish-nuget-packages:
+  publish-nuget:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         package:
@@ -27,9 +28,10 @@ jobs:
 
       - name: Prepare README.md file
         run: |
+          mkdir -p ReadmeCopies
           cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
 
-      - name: Pack NuGet package
+      - name: Pack NuGet package using nuget.exe
         run: |
           mkdir -p nupkg-out
           mono .github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
@@ -40,18 +42,13 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          pkg_path=$(find nupkg-out -name "${{ matrix.package }}*.nupkg" | head -n 1)
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
           if [ -z "$pkg_path" ]; then
             echo "❌ No .nupkg file found to publish."
             exit 1
           fi
+          echo "📦 Found package: $pkg_path"
           mono .github/tools/nuget.exe push "$pkg_path" \
             -Source https://api.nuget.org/v3/index.json \
             -ApiKey "$NUGET_API_KEY" \
             -NonInteractive
-
-      - name: Create release tag
-        run: |
-          version=$(basename "$pkg_path" | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+)\.nupkg/\1/')
-          git tag -a "v${{ matrix.package }}-$version" -m "Release $version of ${{ matrix.package }}"
-          git push origin "v${{ matrix.package }}-$version"
