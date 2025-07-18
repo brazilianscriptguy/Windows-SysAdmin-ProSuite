@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Core-ScriptLibrary</id>
+    <version>1.0.0</version>
+    <authors>BrazilianScriptGuy</authors>
+    <owners>BrazilianScriptGuy</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Core PowerShell script library for standardized administrative, auditing, and configuration tasks.</description>
+    <releaseNotes>Initial release of reusable modules and common script components for IT administrators.</releaseNotes>
+    <tags>powershell sysadmin automation audit security administration</tags>
+    <dependencies>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="NuGetPackageContent/Core-ScriptLibrary/**/*" target="content/Core-ScriptLibrary" />
+    <file src="NuGetPackageContent/README.md" target="content/" />
+    <file src="NuGetPackageContent/LICENSE" target="content/" />
+  </files>
+</package>
