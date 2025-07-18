@@ -17,7 +17,7 @@
 
     <description>Forensics, EVTX analysis, and Blue Team automation scripts for Windows servers and workstations. Includes incident response, eventlog parsing, and investigative tooling for defenders.</description>
     <releaseNotes>Initial release with log analyzers, event investigation scripts, and digital forensics tools.</releaseNotes>
-    <tags>blueteam forensic forensics incident-response evtx-analysis powershell siem sysadmin-tools threat-hunting</tags>
+    <tags>blueteam forensics incident-response evtx-analysis powershell security-analysis defender-tools</tags>
   </metadata>
 
   <files>
