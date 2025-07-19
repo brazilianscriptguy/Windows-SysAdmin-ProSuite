@@ -1,4 +1,4 @@
-name: Publish NuGet Packages
+name: Publish NuGet Package
 
 on:
   push:
@@ -13,15 +13,6 @@ permissions:
 jobs:
   publish-nuget:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        package:
-          - { id: BlueTeam-Tools, folder: BlueTeam-Tools, nuspec: BlueTeam-Tools.nuspec, tags: "powershell security eventlog incidentresponse blueteam automation enterprise" }
-          - { id: Core-ScriptLibrary, folder: Core-ScriptLibrary, nuspec: Core-ScriptLibrary.nuspec, tags: "powershell scripting nuget modular automation dotnet" }
-          - { id: ITSM-Templates-SVR, folder: ITSM-Templates-SVR, nuspec: ITSM-Templates-SVR.nuspec, tags: "itsm server configuration documentation automation enterprise" }
-          - { id: ITSM-Templates-WKS, folder: ITSM-Templates-WKS, nuspec: ITSM-Templates-WKS.nuspec, tags: "itsm workstation configuration powershell registry automation windows" }
-          - { id: SysAdmin-Tools, folder: SysAdmin-Tools, nuspec: SysAdmin-Tools.nuspec, tags: "sysadmin activedirectory gpo powershell sso network wsus security automation enterprise" }
-      fail-fast: false
 
     steps:
       - name: 🧾 Checkout repository
@@ -32,21 +23,21 @@ jobs:
 
       - name: 🛠️ Debug workflow start
         run: |
-          echo "Workflow started for package ${{ matrix.package.id }}"
+          echo "Workflow started for package ITSMAndSysAdminTools"
           echo "Event: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
           echo "Commit: ${{ github.sha }}"
           echo "Listing repository contents:"
           ls -R
-          echo "Checking for .nuspec files in root:"
-          ls -l *.nuspec || echo "No .nuspec files found in root"
+          echo "Checking for .nuspec file:"
+          ls -l ITSMAndSysAdminTools.nuspec || echo "ITSMAndSysAdminTools.nuspec not found"
           echo "Checking for LICENSE file:"
           ls -l LICENSE || echo "LICENSE not found in root"
           echo "Checking for CHANGELOG.md:"
           ls -l CHANGELOG.md || echo "CHANGELOG.md not found in root"
           echo "Checking for package directories:"
-          for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-            ls -lR "$pkg" || echo "Directory $pkg not found"
+          for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
+            ls -lR "$dir" || echo "Directory $dir not found"
           done
           echo "Checking .NET SDK version:"
           dotnet --version
@@ -71,9 +62,8 @@ jobs:
       - name: 📁 Prepare and stage files
         id: prepare
         run: |
-          pkg="${{ matrix.package.id }}"
-          folder="${{ matrix.package.folder }}"
-          nuspec="${{ matrix.package.nuspec }}"
+          pkg="ITSMAndSysAdminTools"
+          nuspec="ITSMAndSysAdminTools.nuspec"
           echo "Preparing package $pkg"
           if [ ! -f "$nuspec" ]; then
             echo "❌ Error: NuSpec file $nuspec missing in root, skipping package"
@@ -81,25 +71,27 @@ jobs:
             exit 0
           fi
           mkdir -p ReadmeCopies nupkg-out "tmp-$pkg"
-          if [ -d "$folder" ]; then
-            echo "Copying package directory $folder to tmp-$pkg"
-            cp -r "$folder/." "tmp-$pkg/"
-          else
-            echo "⚠️ Warning: Folder $folder missing, proceeding with .nuspec only"
-          fi
+          for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
+            if [ -d "$dir" ]; then
+              echo "Copying package directory $dir to tmp-$pkg/$dir"
+              cp -r "$dir/." "tmp-$pkg/$dir/"
+            else
+              echo "⚠️ Warning: Folder $dir missing"
+            fi
+          done
           cp "$nuspec" "tmp-$pkg/$nuspec"
-          if [ -f "$folder/README.md" ]; then
-            cp "$folder/README.md" "ReadmeCopies/$pkg-README.md"
+          if [ -f "README.md" ]; then
+            cp "README.md" "ReadmeCopies/$pkg-README.md"
             cp "ReadmeCopies/$pkg-README.md" "tmp-$pkg/$pkg-README.md"
             echo "Copied README.md for $pkg"
           else
-            echo "⚠️ Warning: README.md not found for $pkg"
+            echo "⚠️ Warning: README.md not found in root"
           fi
-          if [ -f "$folder/icon.png" ]; then
-            cp "$folder/icon.png" "tmp-$pkg/icon.png"
+          if [ -f "icon.png" ]; then
+            cp "icon.png" "tmp-$pkg/icon.png"
             echo "Copied icon.png for $pkg"
           else
-            echo "⚠️ Warning: icon.png not found for $pkg"
+            echo "⚠️ Warning: icon.png not found in root"
           fi
           if [ -f "LICENSE" ]; then
             cp "LICENSE" "tmp-$pkg/LICENSE"
@@ -125,19 +117,18 @@ jobs:
           invalid_paths=false
           grep '<file src="' "$nuspec" | while read -r line ; do
             src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            src_expanded=$(echo "$src" | sed "s|\${{ matrix.package.folder }}|$folder|g")
             if [[ "$src" == */*/* ]]; then
-              dir=$(echo "$src_expanded" | cut -d'/' -f1)
+              dir=$(echo "$src" | cut -d'/' -f1)
               if [ -d "tmp-$pkg/$dir" ]; then
-                echo "Path $src_expanded exists in tmp-$pkg"
+                echo "Path $src exists in tmp-$pkg"
               else
                 echo "❌ Error: Directory $dir for $src in $nuspec does not exist in tmp-$pkg"
                 invalid_paths=true
               fi
-            elif [ -f "tmp-$pkg/$src_expanded" ]; then
-              echo "Path $src_expanded exists in tmp-$pkg"
+            elif [ -f "tmp-$pkg/$src" ]; then
+              echo "Path $src exists in tmp-$pkg"
             else
-              echo "❌ Error: File $src_expanded in $nuspec does not exist in tmp-$pkg"
+              echo "❌ Error: File $src in $nuspec does not exist in tmp-$pkg"
               invalid_paths=true
             fi
           done
@@ -151,25 +142,23 @@ jobs:
       - name: 📖 Enhance .nuspec with rich metadata
         if: steps.prepare.outputs.skip != 'true'
         run: |
-          pkg="${{ matrix.package.id }}"
-          nuspec="${{ matrix.package.nuspec }}"
-          folder="${{ matrix.package.folder }}"
-          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "0.0.0")
+          pkg="ITSMAndSysAdminTools"
+          nuspec="ITSMAndSysAdminTools.nuspec"
+          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "1.0.0")
           if [ -z "$version" ]; then
             echo "⚠️ Warning: Version not found in $nuspec, using default"
-            version="0.0.0"
+            version="1.0.0"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d' || echo "No changelog found for version $version")
           changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/"/\\"/g')
           echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
-          # Update .nuspec with rich metadata
           cp "tmp-$pkg/$nuspec" "tmp-$pkg/$nuspec.bak"
           xmlstarlet ed \
             -u "//metadata/releaseNotes" -v "$changelog_sanitized" \
             -s "//metadata[not(releaseNotes)]" -t elem -n "releaseNotes" -v "$changelog_sanitized" \
-            -u "//metadata/tags" -v "${{ matrix.package.tags }}" \
-            -s "//metadata[not(tags)]" -t elem -n "tags" -v "${{ matrix.package.tags }}" \
+            -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration" \
+            -s "//metadata[not(tags)]" -t elem -n "tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration" \
             -s "//metadata[not(icon)]" -t elem -n "icon" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
             -s "//metadata/repository" -t attr -n "type" -v "git" \
@@ -181,7 +170,6 @@ jobs:
             -s "//metadata[not(requireLicenseAcceptance)]" -t elem -n "requireLicenseAcceptance" -v "false" \
             "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
           mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
-          # Add README.md and icon.png to files if present
           if [ -f "tmp-$pkg/$pkg-README.md" ]; then
             xmlstarlet ed -s "//files" -t elem -n "file" -v "" \
               -s "//files/file[last()]" -t attr -n "src" -v "$pkg-README.md" \
@@ -202,8 +190,8 @@ jobs:
       - name: 📦 Pack NuGet package
         if: steps.prepare.outputs.skip != 'true'
         run: |
-          pkg="${{ matrix.package.id }}"
-          nuspec="${{ matrix.package.nuspec }}"
+          pkg="ITSMAndSysAdminTools"
+          nuspec="ITSMAndSysAdminTools.nuspec"
           if [ ! -d "tmp-$pkg" ]; then
             echo "❌ Error: Directory tmp-$pkg missing, skipping package"
             exit 0
@@ -248,7 +236,7 @@ jobs:
       - name: 🏷️ Create Git tag
         if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
         run: |
-          tag="${{ matrix.package.id }}-v${{ steps.prepare.outputs.version }}"
+          tag="ITSMAndSysAdminTools-v${{ steps.prepare.outputs.version }}"
           if git tag --list | grep -q "^$tag$"; then
             echo "Tag $tag already exists, skipping creation"
           else
@@ -261,4 +249,4 @@ jobs:
       - name: 🧹 Clean up
         if: always()
         run: |
-          rm -rf "tmp-${{ matrix.package.id }}" ReadmeCopies nupkg-out || true
+          rm -rf "tmp-ITSMAndSysAdminTools" ReadmeCopies nupkg-out || true
