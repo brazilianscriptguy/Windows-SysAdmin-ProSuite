@@ -2,7 +2,7 @@ name: Publish NuGet Packages
 
 on:
   push:
-    branches: [main] # Temporary for testing
+    branches: [main] # For testing
   release:
     types: [published, prerelease]
 
@@ -31,11 +31,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🛠️ Debug repository structure
+      - name: 🛠️ Debug workflow start
         run: |
-          echo "Workflow triggered for package ${{ matrix.package }}"
+          echo "Workflow started for package ${{ matrix.package }}"
           echo "Event: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
+          echo "Workflow file: ${{ github.workflow }}"
           echo "Listing repository contents:"
           ls -R
           echo "Checking for .nuspec files:"
@@ -45,21 +46,21 @@ jobs:
         id: prepare
         run: |
           pkg="${{ matrix.package }}"
+          echo "Preparing package $pkg"
           if [ ! -d "$pkg" ]; then
             echo "⚠️ Warning: Folder $pkg missing, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ ! -f "$pkg.nuspec" ]; then
-            echo "⚠️ Warning: NuSpec file $pkg.nuspec missing, skipping package"
+          if [ ! -f "$pkg/$pkg.nuspec" ]; then
+            echo "⚠️ Warning: NuSpec file $pkg/$pkg.nuspec missing, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "Creating directories and copying files for $pkg"
           mkdir -p ReadmeCopies nupkg-out "temp-$pkg"
           cp -r "$pkg" "temp-$pkg/$pkg"
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
-          cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
+          cp "$pkg/$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 📖 Extract version and changelog
@@ -73,9 +74,9 @@ jobs:
             echo "version=0.0.0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version=$(grep -m1 '<version>' "$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
+          version=$(grep -m1 '<version>' "$pkg/$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
           if [ -z "$version" ]; then
-            echo "⚠️ Warning: Version not found in $pkg.nuspec, using default"
+            echo "⚠️ Warning: Version not found in $pkg/$pkg.nuspec, using default"
             version="0.0.0"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -88,7 +89,7 @@ jobs:
         run: |
           pkg="${{ matrix.package }}"
           if [ ! -d "temp-$pkg" ]; then
-            echo "❌ Error: Directory temp-$pkg missing, cannot pack package"
+            echo "❌ Error: Directory temp-$pkg missing, skipping package"
             exit 0
           fi
           pushd "temp-$pkg"
@@ -130,7 +131,7 @@ jobs:
       - name: 🧹 Clean up
         if: always()
         run: |
-          rm -rf "temp-${{ matrix.package }}" Eligibility
+          rm -rf "temp-${{ matrix.package }}" ReadmeCopies nupkg-out || true
 
   create-release-tag:
     runs-on: ubuntu-latest
@@ -144,7 +145,7 @@ jobs:
 
       - name: 🏷️ Create Git tag
         run: |
-          version=$(grep -m1 '<version>' *.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
+          version=$(grep -m1 '<version>' */*.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
           tag="v$version"
           if git tag --list | grep -q "^$tag$"; then
             echo "Tag $tag already exists, skipping creation"
