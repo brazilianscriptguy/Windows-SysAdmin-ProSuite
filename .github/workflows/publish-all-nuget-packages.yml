@@ -45,7 +45,7 @@ jobs:
           ls -l LICENSE || echo "LICENSE not found in root"
           echo "Checking for package directories:"
           for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tool; do
-            ls -ld "$pkg" || echo "Directory $pkg not found"
+            ls -lR "$pkg" || echo "Directory $pkg not found"
           done
           echo "Checking .NET SDK version:"
           dotnet --version
@@ -93,7 +93,9 @@ jobs:
             cp "LICENSE" "temp-$pkg/LICENSE"
             echo "Copied LICENSE to temp-$pkg"
           else
-            echo "⚠️ Warning: LICENSE file not found in root"
+            echo "❌ Error: LICENSE file not found in root, skipping package"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "Listing temp-$pkg contents:"
           ls -lR "temp-$pkg"
@@ -103,29 +105,20 @@ jobs:
           invalid_paths=false
           grep '<file src="' "$pkg.nuspec" | while read -r line ; do
             src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            if [[ "$src" == "$pkg/**/*" ]]; then
-              if [ -d "temp-$pkg/$pkg" ]; then
+            # Handle wildcard paths for directories
+            if [[ "$src" == */*/* ]]; then
+              dir=$(echo "$src" | cut -d'/' -f1)
+              if [ -d "temp-$pkg/$dir" ]; then
                 echo "Path $src exists in temp-$pkg"
               else
-                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+                echo "❌ Error: Directory $dir for $src in $pkg.nuspec does not exist in temp-$pkg"
                 invalid_paths=true
               fi
-            elif [[ "$src" == "$pkg-README.md" ]]; then
-              if [ -f "temp-$pkg/$pkg-README.md" ]; then
-                echo "Path $src exists in temp-$pkg"
-              else
-                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
-                invalid_paths=true
-              fi
-            elif [[ "$src" == "LICENSE" ]]; then
-              if [ -f "temp-$pkg/LICENSE" ]; then
-                echo "Path $src exists in temp-$pkg"
-              else
-                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
-                invalid_paths=true
-              fi
+            # Handle single file paths
+            elif [ -f "temp-$pkg/$src" ]; then
+              echo "Path $src exists in temp-$pkg"
             else
-              echo "⚠️ Warning: Unhandled path $src in $pkg.nuspec"
+              echo "❌ Error: File $src in $pkg.nuspec does not exist in temp-$pkg"
               invalid_paths=true
             fi
           done
