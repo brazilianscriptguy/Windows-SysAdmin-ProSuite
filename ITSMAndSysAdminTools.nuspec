@@ -1,48 +1,40 @@
-<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>ITSMAndSysAdminTools</id>
     <version>1.0.0</version>
-    <title>ITSM and System Administration Tools</title>
-    <authors>Luiz Hamilton Roberto da Silva</authors>
-    <owners>Luiz Hamilton Roberto da Silva</owners>
+    <authors>brazilianscriptguy</authors>
+    <owners>brazilianscriptguy</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>A comprehensive collection of PowerShell scripts, Group Policy Objects, and configuration files for ITSM, system administration, and security operations across workstations and servers.</description>
-    <releaseNotes>Initial release including scripts, GPOs, and configurations for Core-ScriptLibrary, BlueTeam-Tools, SysAdmin-Tools, ITSM-Templates-WKS, and ITSM-Templates-SVR.</releaseNotes>
-    <copyright>Copyright 2025 Luiz Hamilton Roberto da Silva</copyright>
-    <tags>PowerShell ITSM SysAdmin Security GPO Automation</tags>
-    <projectUrl>https://github.com/brazilianscriptguy/ITSMAndSysAdminTools</projectUrl>
-    <license type="expression">MIT</license>
+    <description>Comprehensive suite of tools for Windows Server Administration and Workstation ITSM Templates, including AD, SSO, GPOs, Logging, Incident Response, and NuGet packaging.</description>
+    <tags>SysAdmin ITSM PowerShell AD GPO SSO VBScript Windows NuGet</tags>
+    <license type="file">LICENSE.txt</license>
+    <readme>README.md</readme>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
   </metadata>
+
   <files>
-    <!-- Core-ScriptLibrary -->
-    <file src="Core-ScriptLibrary\README.md" target="docs\Core-ScriptLibrary\README.md" />
-    <file src="Core-ScriptLibrary\Nuget-Package-Publisher\**\*.*" target="tools\Core-ScriptLibrary\Nuget-Package-Publisher" />
-    <file src="Core-ScriptLibrary\Modular-PS1-Scripts\**\*.*" target="tools\Core-ScriptLibrary\Modular-PS1-Scripts" />
-
-    <!-- BlueTeam-Tools -->
-    <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
-    <file src="BlueTeam-Tools\EventLogMonitoring\**\*.*" target="tools\BlueTeam-Tools\EventLogMonitoring" />
-    <file src="BlueTeam-Tools\IncidentResponse\**\*.*" target="tools\BlueTeam-Tools\IncidentResponse" />
-
     <!-- SysAdmin-Tools -->
+    <file src="SysAdmin-Tools\**\*.*" target="tools\SysAdmin-Tools" />
     <file src="SysAdmin-Tools\README.md" target="docs\SysAdmin-Tools\README.md" />
-    <file src="SysAdmin-Tools\ActiveDirectory-Management\**\*.*" target="tools\SysAdmin-Tools\ActiveDirectory-Management" />
-    <file src="SysAdmin-Tools\Network-and-Infrastructure-Management\**\*.*" target="tools\SysAdmin-Tools\Network-and-Infrastructure-Management" />
-    <file src="SysAdmin-Tools\ActiveDirectory-SSO-Integrations\**\*.*" target="tools\SysAdmin-Tools\ActiveDirectory-SSO-Integrations" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.*" target="tools\SysAdmin-Tools\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\**\*.*" target="tools\SysAdmin-Tools\SystemConfiguration-and-Deployment" />
-    <file src="SysAdmin-Tools\WSUS-Management-Tools\**\*.*" target="tools\SysAdmin-Tools\WSUS-Management-Tools" />
-    <file src="SysAdmin-Tools\Security-and-Process-Optimization\**\*.*" target="tools\SysAdmin-Tools\Security-and-Process-Optimization" />
 
     <!-- ITSM-Templates-WKS -->
+    <file src="ITSM-Templates-WKS\**\*.*" target="tools\ITSM-Templates-WKS" />
     <file src="ITSM-Templates-WKS\README.md" target="docs\ITSM-Templates-WKS\README.md" />
-    <file src="ITSM-Templates-WKS\Assets\**\*.*" target="tools\ITSM-Templates-WKS\Assets" />
-    <file src="ITSM-Templates-WKS\BeforeJoinDomain\**\*.*" target="tools\ITSM-Templates-WKS\BeforeJoinDomain" />
-    <file src="ITSM-Templates-WKS\AfterJoinDomain\**\*.*" target="tools\ITSM-Templates-WKS\AfterJoinDomain" />
     <file src="ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf" target="docs\ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf" />
 
     <!-- ITSM-Templates-SVR -->
+    <file src="ITSM-Templates-SVR\**\*.*" target="tools\ITSM-Templates-SVR" />
     <file src="ITSM-Templates-SVR\README.md" target="docs\ITSM-Templates-SVR\README.md" />
+
+    <!-- Core-ScriptLibrary -->
+    <file src="Core-ScriptLibrary\**\*.*" target="tools\Core-ScriptLibrary" />
+    <file src="Core-ScriptLibrary\README.md" target="docs\Core-ScriptLibrary\README.md" />
+
+    <!-- BlueTeam-Tools -->
+    <file src="BlueTeam-Tools\**\*.*" target="tools\BlueTeam-Tools" />
+    <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
   </files>
 </package>
