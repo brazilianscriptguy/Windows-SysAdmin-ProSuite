@@ -21,6 +21,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: 🛠️ Debug workflow start
+        run: |
+          echo "Workflow started for package ITSMAndSysAdminTools"
+          echo "Event: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Listing repository contents:"
+          ls -R
+
       - name: 📦 Install dependencies
         run: |
           sudo apt-get update
@@ -28,7 +37,6 @@ jobs:
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
-          mono /usr/local/bin/nuget help | head -n 1
 
       - name: 📁 Prepare and stage files
         id: prepare
@@ -37,15 +45,14 @@ jobs:
           nuspec="$pkg.nuspec"
           mkdir -p ReadmeCopies nupkg-out "tmp-$pkg"
           for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            if [ -d "$dir" ]; then cp -r "$dir/." "tmp-$pkg/$dir/"; fi
+            if [ -d "$dir" ]; then
+              cp -r "$dir/." "tmp-$pkg/$dir/"
+            fi
           done
           cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
-          cp README.md "tmp-$pkg/$pkg-README.md" || true
-          cp icon.png "tmp-$pkg/icon.png" || true
-          cp LICENSE "tmp-$pkg/LICENSE" || true
-          xmlstarlet val "$nuspec"
-          xmlstarlet sel -t -m "//metadata/id" -v . "$nuspec" > /dev/null || echo "skip=true" >> "$GITHUB_OUTPUT"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+          cp README.md "tmp-$pkg/$pkg-README.md"
+          cp icon.png "tmp-$pkg/icon.png"
+          cp LICENSE "tmp-$pkg/LICENSE"
 
       - name: 🧠 Enrich Nuspec Metadata
         if: steps.prepare.outputs.skip != 'true'
@@ -70,12 +77,14 @@ jobs:
             -e 's/>/\&gt;/g' \
             -e 's/"/\&quot;/g' \
             -e "s/'/\&apos;/g")
+
           echo "$full_notes_escaped" > enriched_release_notes.txt
           echo "notes=$full_notes_escaped" >> "$GITHUB_OUTPUT"
 
+          notes=$(cat enriched_release_notes.txt)
+
           xmlstarlet ed -L \
-            --var notes "cat('enriched_release_notes.txt')" \
-            -u "//metadata/releaseNotes" -x '$notes' \
+            -u "//metadata/releaseNotes" -v "$notes" \
             -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
             -u "//metadata/iconUrl" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
@@ -86,41 +95,32 @@ jobs:
             "$nuspec"
 
       - name: 📦 Pack NuGet package
-        if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="ITSMAndSysAdminTools"
           cd "tmp-$pkg"
-          mono /usr/local/bin/nuget pack "$pkg.nuspec" \
-            -OutputDirectory ../nupkg-out \
-            -Symbols -SymbolPackageFormat snupkg \
-            -NonInteractive
+          mono /usr/local/bin/nuget pack "$pkg.nuspec" -OutputDirectory ../nupkg-out -Symbols -SymbolPackageFormat snupkg -NonInteractive
 
       - name: 🚀 Push to GitHub Packages
-        if: steps.prepare.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            mono /usr/local/bin/nuget push "$pkg_path" \
+            [ -f "$pkg_path" ] && mono /usr/local/bin/nuget push "$pkg_path" \
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              -ApiKey "$GITHUB_TOKEN" \
-              -NonInteractive -SkipDuplicate
+              -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
           done
 
       - name: 🚀 Push to NuGet.org
-        if: steps.prepare.outputs.skip != 'true'
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            mono /usr/local/bin/nuget push "$pkg_path" \
+            [ -f "$pkg_path" ] && mono /usr/local/bin/nuget push "$pkg_path" \
               -Source "https://api.nuget.org/v3/index.json" \
-              -ApiKey "$NUGET_API_KEY" \
-              -NonInteractive -SkipDuplicate
+              -ApiKey "$NUGET_API_KEY" -NonInteractive -SkipDuplicate
           done
 
       - name: 🏷️ Create Git tag
-        if: steps.prepare.outputs.skip != 'true'
         run: |
           tag="ITSMAndSysAdminTools-v${{ steps.enrich.outputs.version }}"
           git config user.name "github-actions"
