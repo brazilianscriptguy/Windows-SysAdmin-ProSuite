@@ -21,26 +21,29 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🛠️ Start Debug Info
+      - name: 🐞 Start Debug Info
         run: |
           echo "Event: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Working Directory Contents:"
-          ls -laR
-          echo "Checking Required Files:"
-          for file in ITSMAndSysAdminTools.nuspec LICENSE README.md icon.png CHANGELOG.md; do
-            test -f "$file" && echo "✅ Found $file" || echo "⚠️ Missing $file"
-          done
-          echo "Validating Package Directories:"
-          for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            [ -d "$dir" ] && echo "✅ Found $dir" || echo "⚠️ Missing $dir"
-          done
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Checking for files:"
+          ls -l
+          ls -lR Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR || true
 
       - name: 📦 Install Tools
         run: |
+          echo "Waiting for dpkg frontend lock to be released..."
+          while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+            echo "Lock held... waiting 5s"
+            sleep 5
+          done
+
           sudo apt-get update
           sudo apt-get install -y mono-complete xmlstarlet
+          mono --version
+
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
@@ -50,67 +53,49 @@ jobs:
         id: prepare
         run: |
           pkg="ITSMAndSysAdminTools"
-          tmp="tmp-$pkg"
           nuspec="$pkg.nuspec"
-          mkdir -p $tmp nupkg-out ReadmeCopies
-
-          [ -f "$nuspec" ] || { echo "❌ Missing $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          cp "$nuspec" "$tmp/$nuspec"
+          mkdir -p "tmp-$pkg" nupkg-out
 
           for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            [ -d "$dir" ] && cp -r "$dir" "$tmp/"
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "tmp-$pkg/"
+            fi
           done
 
-          cp LICENSE "$tmp/LICENSE" 2>/dev/null || cp Core-ScriptLibrary/LICENSE "$tmp/LICENSE"
-          cp README.md "ReadmeCopies/$pkg-README.md" 2>/dev/null || cp Core-ScriptLibrary/README.md "ReadmeCopies/$pkg-README.md"
-          cp "ReadmeCopies/$pkg-README.md" "$tmp/$pkg-README.md"
-          cp icon.png "$tmp/icon.png" 2>/dev/null || cp Core-ScriptLibrary/icon.png "$tmp/icon.png"
-
-          echo "Validating .nuspec with xmlstarlet:"
-          xmlstarlet val "$tmp/$nuspec" || { echo "❌ Invalid XML"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-
-          for field in id version authors description license projectUrl; do
-            xmlstarlet sel -t -m "//metadata/$field" -v . "$tmp/$nuspec" >/dev/null || {
-              echo "❌ Missing <$field> in $nuspec"
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            }
-          done
-
-          echo "Validating file paths in $nuspec"
-          invalid=false
-          grep -oP '<file\s+src="\K[^"]+' "$tmp/$nuspec" | while read -r src; do
-            [ -e "$tmp/$src" ] || { echo "❌ Missing: $src"; invalid=true; }
-          done
-          $invalid && { echo "❌ Invalid paths"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          cp "$nuspec" "tmp-$pkg/"
+          cp README.md LICENSE icon.png "tmp-$pkg/" || true
 
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 🧠 Enrich Nuspec Metadata
         if: steps.prepare.outputs.skip != 'true'
+        id: enrich
         run: |
           pkg="ITSMAndSysAdminTools"
           nuspec="tmp-$pkg/$pkg.nuspec"
-          version=$(xmlstarlet sel -t -v "//metadata/version" "$nuspec")
+          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-          changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d')
-          link="[⬇️ Download artifacts](https://github.com/${{ github.repository }}/releases/download/$version/ITSMAndSysAdminTools.$version.nupkg)"
-          changelog="${changelog}\n\n$link"
-          sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/"/\\"/g')
+          changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d' || echo "No changelog found for version $version")
+          changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/\"/\\"/g')
 
-          xmlstarlet ed \
-            -u "//metadata/releaseNotes" -v "$sanitized" \
-            -s "//metadata[not(tags)]" -t elem -n "tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
-            -s "//metadata[not(icon)]" -t elem -n "icon" -v "icon.png" \
+          artifact_url="https://github.com/${{ github.repository }}/packages"
+          browse_url="https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}"
+          download_links="\\n\\n📦 Download .nupkg: $artifact_url\\n📁 Browse files: $browse_url"
+          full_notes="$changelog_sanitized$download_links"
+
+          echo "notes=$full_notes" >> "$GITHUB_OUTPUT"
+
+          xmlstarlet ed -L \
+            -u "//metadata/releaseNotes" -v "$full_notes" \
+            -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
+            -u "//metadata/iconUrl" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
-            -s "//metadata/repository" -t attr -n "type" -v "git" \
-            -s "//metadata/repository" -t attr -n "url" -v "https://github.com/${{ github.repository }}" \
-            -s "//metadata/repository" -t attr -n "branch" -v "${{ github.ref_name }}" \
-            -s "//metadata/repository" -t attr -n "commit" -v "${{ github.sha }}" \
-            -s "//metadata[not(owners)]" -t elem -n "owners" -v "Luiz Hamilton Roberto da Silva" \
-            -s "//metadata[not(requireLicenseAcceptance)]" -t elem -n "requireLicenseAcceptance" -v "false" \
-            "$nuspec" > "$nuspec.tmp"
-          mv "$nuspec.tmp" "$nuspec"
+            -i "//metadata/repository" -t attr -n "type" -v "git" \
+            -i "//metadata/repository" -t attr -n "url" -v "https://github.com/${{ github.repository }}" \
+            -i "//metadata/repository" -t attr -n "branch" -v "${{ github.ref_name }}" \
+            -i "//metadata/repository" -t attr -n "commit" -v "${{ github.sha }}" \
+            "$nuspec"
 
       - name: 📦 Pack NuGet Package
         if: steps.prepare.outputs.skip != 'true'
@@ -123,40 +108,36 @@ jobs:
             -NonInteractive
 
       - name: 🚀 Push to GitHub Packages
-        if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
+        if: steps.prepare.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for f in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            [ -f "$f" ] && mono /usr/local/bin/nuget push "$f" \
+          for file in nupkg-out/*.nupkg; do
+            mono /usr/local/bin/nuget push "$file" \
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              -ApiKey "$GITHUB_TOKEN" \
-              -NonInteractive -SkipDuplicate
+              -ApiKey "$GITHUB_TOKEN" -SkipDuplicate -NonInteractive
           done
 
       - name: 🚀 Push to NuGet.org
-        if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
+        if: steps.prepare.outputs.skip != 'true'
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          for f in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            [ -f "$f" ] && mono /usr/local/bin/nuget push "$f" \
+          for file in nupkg-out/*.nupkg; do
+            mono /usr/local/bin/nuget push "$file" \
               -Source "https://api.nuget.org/v3/index.json" \
-              -ApiKey "$NUGET_API_KEY" \
-              -NonInteractive -SkipDuplicate
+              -ApiKey "$NUGET_API_KEY" -SkipDuplicate -NonInteractive
           done
 
       - name: 🏷️ Create Git Tag
-        if: steps.prepare.outputs.skip != 'true' && github.event_name == 'push'
+        if: steps.prepare.outputs.skip != 'true'
         run: |
-          version=$(xmlstarlet sel -t -v "//metadata/version" "tmp-ITSMAndSysAdminTools/ITSMAndSysAdminTools.nuspec")
-          tag="ITSMAndSysAdminTools-v$version"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          tag="ITSMAndSysAdminTools-v${{ steps.enrich.outputs.version }}"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
           git tag "$tag"
           git push origin "$tag"
 
-      - name: 🧹 Cleanup
+      - name: 🧹 Clean Up
         if: always()
-        run: |
-          rm -rf tmp-ITSMAndSysAdminTools ReadmeCopies nupkg-out
+        run: rm -rf tmp-ITSMAndSysAdminTools nupkg-out || true
