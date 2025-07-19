@@ -21,7 +21,7 @@ jobs:
           - Core-ScriptLibrary
           - ITSM-Templates-SVR
           - ITSM-Templates-WKS
-          - SysAdmin-Tools
+          - SysAdmin-Tool # Corrected to match SysAdmin-Tool.nuspec
       fail-fast: false # Continue with other packages if one fails
 
     steps:
@@ -39,28 +39,28 @@ jobs:
           echo "Workflow file: ${{ github.workflow }}"
           echo "Listing repository contents:"
           ls -R
-          echo "Checking for .nuspec files:"
-          find . -name "*.nuspec"
+          echo "Checking for .nuspec files in root:"
+          ls -l *.nuspec || echo "No .nuspec files found in root"
 
       - name: 📁 Prepare and stage files
         id: prepare
         run: |
           pkg="${{ matrix.package }}"
           echo "Preparing package $pkg"
-          if [ ! -d "$pkg" ]; then
-            echo "⚠️ Warning: Folder $pkg missing, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ ! -f "$pkg/$pkg.nuspec" ]; then
-            echo "⚠️ Warning: NuSpec file $pkg/$pkg.nuspec missing, skipping package"
+          if [ ! -f "$pkg.nuspec" ]; then
+            echo "⚠️ Warning: NuSpec file $pkg.nuspec missing in root, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           mkdir -p ReadmeCopies nupkg-out "temp-$pkg"
-          cp -r "$pkg" "temp-$pkg/$pkg"
-          cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
-          cp "$pkg/$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
+          if [ -d "$pkg" ]; then
+            cp -r "$pkg" "temp-$pkg/$pkg"
+            cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
+          else
+            echo "⚠️ Warning: Folder $pkg missing, proceeding without package content"
+            mkdir -p "temp-$pkg/$pkg" # Create empty directory for packaging
+          fi
+          cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 📖 Extract version and changelog
@@ -74,9 +74,9 @@ jobs:
             echo "version=0.0.0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version=$(grep -m1 '<version>' "$pkg/$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
+          version=$(grep -m1 '<version>' "$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
           if [ -z "$version" ]; then
-            echo "⚠️ Warning: Version not found in $pkg/$pkg.nuspec, using default"
+            echo "⚠️ Warning: Version not found in $pkg.nuspec, using default"
             version="0.0.0"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -145,7 +145,7 @@ jobs:
 
       - name: 🏷️ Create Git tag
         run: |
-          version=$(grep -m1 '<version>' */*.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
+          version=$(grep -m1 '<version>' *.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
           tag="v$version"
           if git tag --list | grep -q "^$tag$"; then
             echo "Tag $tag already exists, skipping creation"
