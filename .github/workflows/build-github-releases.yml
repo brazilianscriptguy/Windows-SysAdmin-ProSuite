@@ -163,6 +163,12 @@ jobs:
               ;;
           esac
 
+      - name: Generate SHA256 Signature
+        run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.zip.sha256"
+
+      - name: Append to SHA256SUMS manifest
+        run: cat artifacts/${{ matrix.release_name }}.zip.sha256 >> artifacts/SHA256SUMS.txt
+
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
         run: |
@@ -188,7 +194,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset
+      - name: Upload Release Artifact
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -198,17 +204,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload SHA256 Signature (SysAdmin-Tools only)
-        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        run: sha256sum "artifacts/SysAdmin-Tools.zip" > "artifacts/SysAdmin-Tools.zip.sha256"
+      - name: Upload SHA256 Checksum
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip.sha256
+          asset_name: ${{ matrix.release_name }}.zip.sha256
+          asset_content_type: text/plain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload SHA256 Artifact (SysAdmin-Tools only)
+      - name: Upload Central SHA256SUMS.txt
         if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/SysAdmin-Tools.zip.sha256
-          asset_name: SysAdmin-Tools.zip.sha256
+          asset_path: artifacts/SHA256SUMS.txt
+          asset_name: SHA256SUMS.txt
           asset_content_type: text/plain
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -225,4 +237,3 @@ jobs:
         with:
           name: artifacts-${{ matrix.release_name }}
           path: artifacts/${{ matrix.release_name }}.zip
-          
