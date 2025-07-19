@@ -2,224 +2,133 @@ name: Publish NuGet Packages
 
 on:
   push:
-    branches: [main] # For testing
-  release:
-    types: [published, prerelease]
-
-permissions:
-  contents: write
-  packages: write
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  publish-nuget:
-    runs-on: ubuntu-latest
-
+  build-and-publish:
+    runs-on: windows-latest
     strategy:
       matrix:
         package:
-          - BlueTeam-Tools
-          - Core-ScriptLibrary
-          - ITSM-Templates-SVR
-          - ITSM-Templates-WKS
-          - SysAdmin-Tool
-      fail-fast: false # Continue with other packages if one fails
+          - { id: BlueTeamTools, folder: BlueTeam-Tools, nuspec: BlueTeamTools.nuspec }
+          - { id: CoreScriptLibrary, folder: Core-ScriptLibrary, nuspec: CoreScriptLibrary.nuspec }
+          - { id: ITSM-Templates-SVR, folder: ITSM-Templates-SVR, nuspec: ITSM-Templates-SVR.nuspec }
+          - { id: ITSM-Templates-WKS, folder: ITSM-Templates-WKS, nuspec: ITSM-Templates-WKS.nuspec }
+          - { id: SysAdminTools, folder: SysAdmin-Tools, nuspec: SysAdminTools.nuspec }
 
     steps:
-      - name: 🧾 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          submodules: recursive
+          fetch-depth: 0 # Fetch all history for changelog and tagging
 
-      - name: 🛠️ Debug workflow start
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install NuGet CLI
+        run: choco install nuget.commandline --version 6.11.0
+        shell: powershell
+
+      - name: Validate .nuspec metadata
         run: |
-          echo "Workflow started for package ${{ matrix.package }}"
-          echo "Event: ${{ github.event_name }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Workflow file: ${{ github.workflow }}"
-          echo "Listing repository contents:"
-          ls -R
-          echo "Checking for .nuspec files in root:"
-          ls -l *.nuspec || echo "No .nuspec files found in root"
-          echo "Checking for LICENSE file:"
-          ls -l LICENSE || echo "LICENSE not found in root"
-          echo "Checking for package directories:"
-          for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tool; do
-            ls -lR "$pkg" || echo "Directory $pkg not found"
-          done
-          echo "Checking .NET SDK version:"
-          dotnet --version
-          echo "Checking for mono and nuget availability:"
-          which mono || echo "mono not found"
-          which nuget || echo "nuget not found"
+          $nuspecPath = "${{ matrix.package.nuspec }}"
+          [xml]$nuspec = Get-Content $nuspecPath
+          if (-not $nuspec.package.metadata.id) { throw "Missing id in $nuspecPath" }
+          if (-not $nuspec.package.metadata.version) { throw "Missing version in $nuspecPath" }
+          if (-not $nuspec.package.metadata.authors) { throw "Missing authors in $nuspecPath" }
+          if (-not $nuspec.package.metadata.description) { throw "Missing description in $nuspecPath" }
+          if (-not $nuspec.package.metadata.license) { throw "Missing license in $nuspecPath" }
+          if (-not $nuspec.package.metadata.projectUrl) { throw "Missing projectUrl in $nuspecPath" }
+          Write-Host "Metadata validation passed for $nuspecPath"
+        shell: powershell
 
-      - name: 📦 Install Mono and NuGet CLI
+      - name: Extract version from .nuspec
+        id: extract_version
         run: |
-          echo "Installing mono-complete"
-          sudo apt-get update
-          sudo apt-get install -y mono-complete
-          echo "Checking mono version:"
-          mono --version
-          echo "Installing nuget.exe"
-          wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-          chmod +x nuget.exe
-          echo "Moving nuget.exe to /usr/local/bin"
-          sudo mv nuget.exe /usr/local/bin/nuget
-          echo "Verifying nuget command:"
-          which nuget
-          mono /usr/local/bin/nuget help | head -n 1
+          $nuspecPath = "${{ matrix.package.nuspec }}"
+          [xml]$nuspec = Get-Content $nuspecPath
+          $version = $nuspec.package.metadata.version
+          echo "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+        shell: powershell
 
-      - name: 📁 Prepare and stage files
-        id: prepare
+      - name: Extract changelog for package
+        id: extract_changelog
         run: |
-          pkg="${{ matrix.package }}"
-          echo "Preparing package $pkg"
-          if [ ! -f "$pkg.nuspec" ]; then
-            echo "❌ Error: NuSpec file $pkg.nuspec missing in root, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          mkdir -p ReadmeCopies nupkg-out "temp-$pkg"
-          if [ -d "$pkg" ]; then
-            echo "Copying package directory $pkg to temp-$pkg"
-            cp -r "$pkg/." "temp-$pkg/"
-          else
-            echo "⚠️ Warning: Folder $pkg missing, proceeding with .nuspec only"
-          fi
-          cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
-          cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
-          cp "ReadmeCopies/$pkg-README.md" "temp-$pkg/$pkg-README.md" || echo "⚠️ Warning: Failed to copy $pkg-README.md to temp-$pkg"
-          if [ -f "LICENSE" ]; then
-            cp "LICENSE" "temp-$pkg/LICENSE"
-            echo "Copied LICENSE to temp-$pkg"
-          else
-            echo "❌ Error: LICENSE file not found in root, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Listing temp-$pkg contents:"
-          ls -lR "temp-$pkg"
-          echo "Checking .nuspec file contents:"
-          cat "$pkg.nuspec"
-          echo "Validating .nuspec file paths:"
-          invalid_paths=false
-          grep '<file src="' "$pkg.nuspec" | while read -r line ; do
-            src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            # Handle wildcard paths for directories
-            if [[ "$src" == */*/* ]]; then
-              dir=$(echo "$src" | cut -d'/' -f1)
-              if [ -d "temp-$pkg/$dir" ]; then
-                echo "Path $src exists in temp-$pkg"
-              else
-                echo "❌ Error: Directory $dir for $src in $pkg.nuspec does not exist in temp-$pkg"
-                invalid_paths=true
-              fi
-            # Handle single file paths
-            elif [ -f "temp-$pkg/$src" ]; then
-              echo "Path $src exists in temp-$pkg"
-            else
-              echo "❌ Error: File $src in $pkg.nuspec does not exist in temp-$pkg"
-              invalid_paths=true
-            fi
-          done
-          if [ "$invalid_paths" = "true" ]; then
-            echo "❌ Error: Invalid paths found in $pkg.nuspec, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+          $changelog = Get-Content CHANGELOG.md -Raw
+          $version = "${{ env.PACKAGE_VERSION }}"
+          $pattern = "(?s)## \[$version\][\s\S]*?(?=## \[|$)"
+          $extracted = [regex]::Match($changelog, $pattern).Value
+          if ($extracted) {
+            $extracted = $extracted -replace '## \[$version\]', ''
+            $extracted = $extracted.Trim()
+          } else {
+            $extracted = "No changelog entries found for version $version"
+          }
+          $extracted = $extracted -replace '"', '""'
+          echo "CHANGELOG_CONTENT=$extracted" >> $env:GITHUB_ENV
+        shell: powershell
 
-      - name: 📖 Extract version and changelog
-        id: changelog
-        if: steps.prepare.outputs.skip != 'true'
+      - name: Update .nuspec with changelog and README
         run: |
-          pkg="${{ matrix.package }}"
-          if [ ! -f "CHANGELOG.md" ]; then
-            echo "⚠️ Warning: CHANGELOG.md missing, using default notes"
-            echo "notes=No changelog available" >> "$GITHUB_OUTPUT"
-            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          version=$(grep -m1 '<version>' "$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
-          if [ -z "$version" ]; then
-            echo "⚠️ Warning: Version not found in $pkg.nuspec, using default"
-            version="0.0.0"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;$d' || echo "No changelog found for version $version")
-          changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g')
-          echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
+          $nuspecPath = "${{ matrix.package.nuspec }}"
+          [xml]$nuspec = Get-Content $nuspecPath
+          $releaseNotes = "${{ env.CHANGELOG_CONTENT }}"
+          if (-not $nuspec.package.metadata.releaseNotes) {
+            $releaseNotesElement = $nuspec.CreateElement("releaseNotes")
+            $releaseNotesElement.InnerText = $releaseNotes
+            $nuspec.package.metadata.AppendChild($releaseNotesElement)
+          } else {
+            $nuspec.package.metadata.releaseNotes = $releaseNotes
+          }
+          # Ensure README.md from package folder is included
+          $readmePath = "${{ matrix.package.folder }}/README.md"
+          if (Test-Path $readmePath) {
+            $filesNode = $nuspec.package.files
+            if (-not $filesNode) {
+              $filesNode = $nuspec.CreateElement("files")
+              $nuspec.package.AppendChild($filesNode)
+            }
+            $fileNode = $nuspec.CreateElement("file")
+            $fileNode.SetAttribute("src", $readmePath)
+            $fileNode.SetAttribute("target", "content")
+            $filesNode.AppendChild($fileNode)
+          }
+          $nuspec.Save($nuspecPath)
+        shell: powershell
 
-      - name: 📦 Pack NuGet package
-        if: steps.prepare.outputs.skip != 'true'
+      - name: Pack NuGet package
         run: |
-          pkg="${{ matrix.package }}"
-          if [ ! -d "temp-$pkg" ]; then
-            echo "❌ Error: Directory temp-$pkg missing, skipping package"
-            exit 0
-          fi
-          pushd "temp-$pkg"
-          echo "Running nuget pack for $pkg.nuspec"
-          mono /usr/local/bin/nuget pack "$pkg.nuspec" \
-            -OutputDirectory ../nupkg-out \
-            -Properties "ReadMeFile=$pkg-README.md;SymbolPackageFormat=snupkg" \
-            || { echo "❌ Error: Failed to pack $pkg.nuspec"; exit 0; }
-          popd
+          nuget pack ${{ matrix.package.nuspec }} -OutputDirectory ./nupkg -Symbols -SymbolPackageFormat snupkg -NonInteractive
+        shell: cmd
 
-      - name: 🚀 Push to GitHub Packages
-        if: steps.prepare.outputs.skip != 'true'
+      - name: Publish to nuget.org
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          nuget push ./nupkg/${{ matrix.package.id }}.${{ env.PACKAGE_VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey ${{ secrets.NUGET_API_KEY }} -SymbolSource https://api.nuget.org/v3/index.json -SymbolApiKey ${{ secrets.NUGET_API_KEY }} -NonInteractive
+          nuget push ./nupkg/${{ matrix.package.id }}.${{ env.PACKAGE_VERSION }}.snupkg -Source https://api.nuget.org/v3/index.json -ApiKey ${{ secrets.NUGET_API_KEY }} -NonInteractive
+        shell: cmd
+
+      - name: Publish to GitHub Packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            if [ -f "$pkg_path" ]; then
-              echo "Pushing $pkg_path to GitHub Packages"
-              dotnet nuget push "$pkg_path" \
-                --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-                --api-key "$GITHUB_TOKEN" \
-                --skip-duplicate
-            fi
-          done
+          nuget setApiKey ${{ secrets.GITHUB_TOKEN }} -Source https://nuget.pkg.github.com/your-org/index.json -NonInteractive
+          nuget push ./nupkg/${{ matrix.package.id }}.${{ env.PACKAGE_VERSION }}.nupkg -Source https://nuget.pkg.github.com/your-org/index.json -NonInteractive
+          nuget push ./nupkg/${{ matrix.package.id }}.${{ env.PACKAGE_VERSION }}.snupkg -Source https://nuget.pkg.github.com/your-org/index.json -NonInteractive
+        shell: cmd
 
-      - name: 🚀 Push to NuGet.org
-        if: steps.prepare.outputs.skip != 'true'
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      - name: Create Git tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            if [ -f "$pkg_path" ]; then
-              echo "Pushing $pkg_path to NuGet.org"
-              dotnet nuget push "$pkg_path" \
-                --source "https://api.nuget.org/v3/index.json" \
-                --api-key "$NUGET_API_KEY" \
-                --skip-duplicate
-            fi
-          done
-
-      - name: 🧹 Clean up
-        if: always()
-        run: |
-          rm -rf "temp-${{ matrix.package }}" ReadmeCopies nupkg-out || true
-
-  create-release-tag:
-    runs-on: ubuntu-latest
-    needs: publish-nuget
-    if: github.event_name == 'release'
-    steps:
-      - name: 🧾 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🏷️ Create Git tag
-        run: |
-          version=$(grep -m1 '<version>' *.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/' || echo "0.0.0")
-          tag="v$version"
-          if git tag --list | grep -q "^$tag$"; then
-            echo "Tag $tag already exists, skipping creation"
-          else
-            git config user.name "github-actions"
-            git config user.email "github-actions@github.com"
-            git tag "$tag"
-            git push origin "$tag"
-          fi
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag ${{ matrix.package.id }}-v${{ env.PACKAGE_VERSION }}
+          git push origin ${{ matrix.package.id }}-v${{ env.PACKAGE_VERSION }}
+        shell: bash
