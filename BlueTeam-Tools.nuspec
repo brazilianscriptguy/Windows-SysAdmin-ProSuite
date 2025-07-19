@@ -1,28 +1,22 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
-    <id>BlueTeam-Tools</id>
+    <id>BlueTeamTools</id>
     <version>1.0.0</version>
-    <title>BlueTeam-Tools</title>
-    <authors>BrazilianScriptGuy</authors>
-    <owners>BrazilianScriptGuy</owners>
-
+    <title>Blue Team Security Tools</title>
+    <authors>Luiz Hamilton Roberto da Silva</authors>
+    <description>A collection of PowerShell scripts for Blue Team operations, focusing on event log monitoring and incident response. Includes tools for tracking Active Directory user logins, object deletions, system restarts, and print auditing.</description>
+    <projectUrl>https://github.com/your-repo/BlueTeam-Tools</projectUrl>
     <license type="expression">MIT</license>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>ReadmeCopies/BlueTeam-Tools-README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-
-    <description>Forensics, EVTX analysis, and Blue Team automation scripts for Windows servers and workstations. Includes incident response, eventlog parsing, and investigative tooling for defenders.</description>
-    <releaseNotes>Initial release with log analyzers, event investigation scripts, and digital forensics tools.</releaseNotes>
-    <tags>blueteam forensics incident-response evtx-analysis powershell security-analysis defender-tools</tags>
+    <tags>security eventlog incidentresponse powershell blueteam</tags>
   </metadata>
-
   <files>
-    <file src="BlueTeam-Tools/**/*" target="content/BlueTeam-Tools" />
-    <file src="ReadmeCopies/BlueTeam-Tools-README.md" target="" />
-    <file src="LICENSE" target="" />
+    <file src="BlueTeam-Tools\EventLogMonitoring\*.ps1" target="tools\EventLogMonitoring" />
+    <file src="BlueTeam-Tools\EventLogMonitoring\*.md" target="content\EventLogMonitoring" />
+    <file src="BlueTeam-Tools\EventLogMonitoring\*.reg" target="content\EventLogMonitoring" />
+    <file src="BlueTeam-Tools\EventLogMonitoring\*.pdf" target="content\EventLogMonitoring" />
+    <file src="BlueTeam-Tools\IncidentResponse\*.ps1" target="tools\IncidentResponse" />
+    <file src="BlueTeam-Tools\IncidentResponse\*.txt" target="content\IncidentResponse" />
+    <file src="BlueTeam-Tools\README.md" target="content" />
   </files>
 </package>
