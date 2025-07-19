@@ -21,41 +21,43 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🧪 Start Debug Info
+      - name: 🛠️ Debug workflow start
         run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "SHA: ${{ github.sha }}"
+          echo "Workflow started for ITSMAndSysAdminTools"
           echo "Event: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          ls -R
+          echo "Verifying critical files:"
+          ls -l ITSMAndSysAdminTools.nuspec || echo "❌ Missing .nuspec"
+          ls -l README.md LICENSE icon.png CHANGELOG.md || echo "⚠️ One or more root files are missing"
 
-      - name: 📦 Install Tools
+      - name: 📦 Install dependencies
         run: |
-          sudo lsof /var/lib/dpkg/lock-frontend || true
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mono-complete xmlstarlet
+          sudo apt-get install -y mono-complete xmlstarlet
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
+          mono --version
+          mono /usr/local/bin/nuget help | head -n 1
 
-      - name: 📁 Prepare Package Files
+      - name: 📁 Prepare and stage files
         id: prepare
         run: |
           pkg="ITSMAndSysAdminTools"
-          nuspec="$pkg.nuspec"
-          mkdir -p "tmp-$pkg"
-          cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
-
+          nuspec="ITSMAndSysAdminTools.nuspec"
+          mkdir -p ReadmeCopies nupkg-out "tmp-$pkg"
           for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            if [ -d "$dir" ]; then
-              cp -r "$dir" "tmp-$pkg/"
-            fi
+            [ -d "$dir" ] && cp -r "$dir/." "tmp-$pkg/$dir/" || echo "⚠️ Folder $dir not found"
           done
-
-          [ -f "README.md" ] && cp "README.md" "tmp-$pkg/$pkg-README.md"
-          [ -f "icon.png" ] && cp "icon.png" "tmp-$pkg/icon.png"
-          [ -f "LICENSE" ] && cp "LICENSE" "tmp-$pkg/LICENSE"
-
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+          cp "$nuspec" "tmp-$pkg/$nuspec"
+          cp README.md "tmp-$pkg/$pkg-README.md" || cp Core-ScriptLibrary/README.md "tmp-$pkg/$pkg-README.md" || echo "⚠️ README not found"
+          cp icon.png "tmp-$pkg/icon.png" || cp Core-ScriptLibrary/icon.png "tmp-$pkg/icon.png" || echo "⚠️ icon.png not found"
+          cp LICENSE "tmp-$pkg/LICENSE" || cp Core-ScriptLibrary/LICENSE "tmp-$pkg/LICENSE" || {
+            echo "❌ LICENSE file missing"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0;
+          }
+          xmlstarlet val "$nuspec" || { echo "❌ Invalid XML in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
 
       - name: 🧠 Enrich Nuspec Metadata
         if: steps.prepare.outputs.skip != 'true'
@@ -81,10 +83,12 @@ jobs:
             -e 's/"/\&quot;/g' \
             -e "s/'/\&apos;/g")
 
+          echo "$full_notes_escaped" > enriched_release_notes.txt
           echo "notes=$full_notes_escaped" >> "$GITHUB_OUTPUT"
 
           xmlstarlet ed -L \
-            -u "//metadata/releaseNotes" -v "$full_notes_escaped" \
+            --var notes "cat('enriched_release_notes.txt')" \
+            -u "//metadata/releaseNotes" -x '$notes' \
             -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
             -u "//metadata/iconUrl" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
@@ -94,22 +98,23 @@ jobs:
             -i "//metadata/repository" -t attr -n "commit" -v "${{ github.sha }}" \
             "$nuspec"
 
-      - name: 📦 Pack NuGet Package
+      - name: 📦 Pack NuGet package
         if: steps.prepare.outputs.skip != 'true'
         run: |
-          pkg="ITSMAndSysAdminTools"
-          cd "tmp-$pkg"
-          mono /usr/local/bin/nuget pack "$pkg.nuspec" -OutputDirectory ../nupkg-out -Symbols -SymbolPackageFormat snupkg
+          cd "tmp-ITSMAndSysAdminTools"
+          mono /usr/local/bin/nuget pack ITSMAndSysAdminTools.nuspec \
+            -OutputDirectory ../nupkg-out \
+            -Symbols -SymbolPackageFormat snupkg -NonInteractive
 
       - name: 🚀 Push to GitHub Packages
         if: steps.prepare.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for pkg_file in nupkg-out/*.nupkg; do
-            mono /usr/local/bin/nuget push "$pkg_file" \
+          for pkg in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
+            mono /usr/local/bin/nuget push "$pkg" \
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              -ApiKey "$GITHUB_TOKEN" -SkipDuplicate
+              -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
           done
 
       - name: 🚀 Push to NuGet.org
@@ -117,13 +122,13 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          for pkg_file in nupkg-out/*.nupkg; do
-            mono /usr/local/bin/nuget push "$pkg_file" \
+          for pkg in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
+            mono /usr/local/bin/nuget push "$pkg" \
               -Source "https://api.nuget.org/v3/index.json" \
-              -ApiKey "$NUGET_API_KEY" -SkipDuplicate
+              -ApiKey "$NUGET_API_KEY" -NonInteractive -SkipDuplicate
           done
 
-      - name: 🏷️ Create Git Tag
+      - name: 🏷️ Create Git tag
         if: steps.prepare.outputs.skip != 'true'
         run: |
           tag="ITSMAndSysAdminTools-v${{ steps.enrich.outputs.version }}"
@@ -134,6 +139,7 @@ jobs:
             git push origin "$tag"
           fi
 
-      - name: 🧹 Clean Up
+      - name: 🧹 Clean up
         if: always()
-        run: rm -rf "tmp-ITSMAndSysAdminTools" nupkg-out
+        run: |
+          rm -rf tmp-ITSMAndSysAdminTools ReadmeCopies nupkg-out enriched_release_notes.txt || true
