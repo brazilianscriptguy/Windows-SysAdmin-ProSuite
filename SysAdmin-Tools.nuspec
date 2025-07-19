@@ -1,28 +1,33 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
-    <id>SysAdmin-Tools</id>
+    <id>SysAdminTools</id>
     <version>1.0.0</version>
-    <title>SysAdmin-Tools</title>
-    <authors>BrazilianScriptGuy</authors>
-    <owners>BrazilianScriptGuy</owners>
-
+    <title>System Administration Tools</title>
+    <authors>Luiz Hamilton Roberto da Silva</authors>
+    <description>A comprehensive set of tools for system administration, including PowerShell scripts for Active Directory management, network and infrastructure tasks, SSO integrations, and Group Policy Object templates for software deployment and security configurations.</description>
+    <projectUrl>https://github.com/your-repo/SysAdmin-Tools</projectUrl>
     <license type="expression">MIT</license>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>ReadmeCopies/SysAdmin-Tools-README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-
-    <description>Modular tools and scripts for Active Directory, GPO, user management, and administrative automation in Windows Server and domain environments.</description>
-    <releaseNotes>Initial release including GPO management tools, domain cleanup scripts, and GUI-based helpers.</releaseNotes>
-    <tags>active-directory sysadmin gpo powershell automation user-management ad-tools windows-server administration</tags>
+    <tags>sysadmin activedirectory gpo powershell sso</tags>
   </metadata>
-
   <files>
-    <file src="SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
-    <file src="SysAdmin-Tools/README.md" target="SysAdmin-Tools-README.md" />
-    <file src="LICENSE" target="" />
+    <file src="SysAdmin-Tools\ActiveDirectory-Management\*.ps1" target="tools\ActiveDirectory-Management" />
+    <file src="SysAdmin-Tools\Network-and-Infrastructure-Management\*.ps1" target="tools\Network-and-Infrastructure-Management" />
+    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.ps1" target="tools\SystemConfiguration-and-Deployment" />
+    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.hta" target="tools\SystemConfiguration-and-Deployment" />
+    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.bgi" target="tools\SystemConfiguration-and-Deployment" />
+    <file src="SysAdmin-Tools\WSUS-Management-Tools\*.ps1" target="tools\WSUS-Management-Tools" />
+    <file src="SysAdmin-Tools\WSUS-Management-Tools\Scripts\*.sql" target="content\WSUS-Management-Tools\Scripts" />
+    <file src="SysAdmin-Tools\Security-and-Process-Optimization\*.ps1" target="tools\Security-and-Process-Optimization" />
+    <file src="SysAdmin-Tools\ActiveDirectory-SSO-Integrations\**\*.*" target="content\ActiveDirectory-SSO-Integrations" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.ps1" target="tools\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.xml" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.inf" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.pol" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.ini" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.csv" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.cmtx" target="content\GroupPolicyObjects-Templates" />
+    <file src="SysAdmin-Tools\README.md" target="content" />
+    <file src="SysAdmin-Tools\**\README.md" target="content" />
   </files>
 </package>
