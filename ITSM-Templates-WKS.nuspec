@@ -1,28 +1,24 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>ITSM-Templates-WKS</id>
     <version>1.0.0</version>
-    <title>ITSM-Templates-WKS</title>
-    <authors>BrazilianScriptGuy</authors>
-    <owners>BrazilianScriptGuy</owners>
-
+    <title>ITSM Workstation Configuration Templates</title>
+    <authors>Luiz Hamilton Roberto da Silva</authors>
+    <description>Templates and scripts for configuring Windows 10/11 workstations, including custom images, registry modifications, desktop shortcuts, and support scripts for tasks like disk volume renaming and software inventory.</description>
+    <projectUrl>https://github.com/your-repo/ITSM-Templates-WKS</projectUrl>
     <license type="expression">MIT</license>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>ReadmeCopies/ITSM-Templates-WKS-README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-
-    <description>Templates, scripts, and configuration assets for standardizing Windows 10/11 workstation setups in ITSM environments, including time sync, hostname enforcement, and disk labeling.</description>
-    <releaseNotes>Initial release of ITSM-WKS automation assets for helpdesk and IT service management use.</releaseNotes>
-    <tags>itsm windows-workstation scripts automation time-sync asset-standardization workstation-tools</tags>
+    <tags>itsm workstation configuration powershell registry</tags>
   </metadata>
-
   <files>
-    <file src="ITSM-Templates-WKS/**/*" target="content/ITSM-Templates-WKS" />
-    <file src="ReadmeCopies/ITSM-Templates-WKS-README.md" target="" />
-    <file src="LICENSE" target="" />
+    <file src="ITSM-Templates-WKS\Assets\AdditionalSupportScipts\*.ps1" target="tools\AdditionalSupportScipts" />
+    <file src="ITSM-Templates-WKS\Assets\ModifyReg\**\*.*" target="content\ModifyReg" />
+    <file src="ITSM-Templates-WKS\Assets\CustomImages\**\*.*" target="content\CustomImages" />
+    <file src="ITSM-Templates-WKS\Assets\Certificates\**\*.*" target="content\Certificates" />
+    <file src="ITSM-Templates-WKS\Assets\MainDocs\**\*.*" target="content\MainDocs" />
+    <file src="ITSM-Templates-WKS\BeforeJoinDomain\*.hta" target="tools\BeforeJoinDomain" />
+    <file src="ITSM-Templates-WKS\AfterJoinDomain\*.hta" target="tools\AfterJoinDomain" />
+    <file src="ITSM-Templates-WKS\*.pdf" target="content" />
+    <file src="ITSM-Templates-WKS\README.md" target="content" />
   </files>
 </package>
