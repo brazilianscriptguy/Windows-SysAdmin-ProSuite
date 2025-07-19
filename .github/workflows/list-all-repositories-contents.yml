@@ -1,0 +1,44 @@
+name: List Package Contents
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: List files in package directories and root
+        run: |
+          echo "📂 Listing root config files:"
+          ls -l CHANGELOG.md LICENSE *.nuspec || echo "Some root config files missing"
+          
+          echo "📂 Listing files in package directories:"
+          for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS  SysAdmin-Tools; do
+            echo "Listing files under $pkg:"
+            if [ -d "$pkg" ]; then
+              find "$pkg" -type f | tee "$pkg-files.txt"
+            else
+              echo "Directory $pkg not found" | tee "$pkg-files.txt"
+            fi
+          done
+          
+          echo "📂 Listing files under Packages/ (if exists):"
+          if [ -d "Packages" ]; then
+            find Packages -type f | tee packages-files.txt
+          else
+            echo "Directory Packages not found" | tee packages-files.txt
+          fi
+
+      - name: Upload file listings as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Package-File-Lists
+          path: |
+            *-files.txt
