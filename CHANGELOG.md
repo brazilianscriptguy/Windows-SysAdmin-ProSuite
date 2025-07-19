@@ -1,63 +1,62 @@
 # Changelog
 
-## All-Repository-Files
-
-* Complete repository snapshot with all toolsets in a single ZIP.
-* Includes full documentation, licenses, and integrated subfolders.
-* Ideal for backup, auditing, and centralized deployment.
-
-## SysAdmin-Tools
-
-* Collection of enterprise-grade scripts for managing AD, GPOs, DNS, DHCP, and WSUS.
-* Includes SHA256 integrity signature for release verification.
-* Integrated PSScriptAnalyzer reporting with structured `.log` outputs.
-* Enhanced automation of Group Policy and certificate deployment tasks.
-
-## BlueTeam-Tools
-
-* Forensic-grade utilities for Cybersecurity Analysts and Incident Responders.
-* Real-time threat detection, anomaly analysis, and event log parsing.
-* Supports evidence preservation, SIEM parsing, and credential abuse detection.
-* Designed to support security policy enforcement across Windows endpoints.
-
 ## Core-ScriptLibrary
 
-* Shared logic repository with Modular-PS1-Scripts and NuGet-Package-Publisher components.
-* Enhances automation and consistency across all toolsets.
-* Supports reusable GUI shells, helper modules, and NuGet packaging logic.
-* Ideal for streamlining multi-repo DevOps and Windows Server scripting.
+- 📦 Shared logic and modules for all toolsets.
+- 🔁 Modular-PS1-Scripts and NuGet-Package-Publisher architecture.
+- 🧩 Supports GUI shells, helper modules, packaging logic.
+- 🎯 Targets DevOps pipelines and Windows Server scripting.
 
 ## ITSM-Templates-WKS
 
-* Scripts for provisioning and hardening Windows 10/11 workstations.
-* Automates pre/post domain join actions, printer mapping, and offline profile support.
-* Restructured templates improve GPO integration and compliance enforcement.
-* Enhanced Windows layout, personalization, and auditing scripts.
+- 🖥️ Templates for provisioning and securing Windows 10/11 workstations.
+- 🛡️ Automates pre/post domain join tasks and local policy configurations.
+- 🖨️ Includes printer mapping, layout personalization, and audit scripting.
+- 🔒 Hardening for compliance with ITSM and security policies.
 
 ## ITSM-Templates-SVR
 
-* PowerShell and VBScript toolkit for Windows Server ITSM automation.
-* Automates secure server provisioning and baseline hardening.
-* Provides DNS, DHCP, registry fixers, and time sync templates.
-* Generates .log files and .csv reports for compliance and auditing.
+- 🧰 Automation toolkit for Windows Server provisioning and hardening.
+- 🧾 Scripts for DNS, DHCP, registry fixes, and time sync with DCs.
+- 📄 Structured `.log` and `.csv` outputs for compliance audits.
+- ⚙️ Focused on secure baseline configuration and repeatable deployments.
+
+## SysAdmin-Tools
+
+- 🧑‍💻 Enterprise-ready tools for managing AD, GPO, DNS, DHCP, and WSUS.
+- 🧮 Includes PSScriptAnalyzer integration and SHA256 signature outputs.
+- 🔁 Automation for Group Policy management and cert distribution.
+- 🧷 Central hub for daily Windows infrastructure administration.
+
+## BlueTeam-Tools
+
+- 🛡️ Security and forensic utilities for Blue Team operations.
+- 📊 Threat detection, event log parsing, SIEM integration.
+- 🧪 Supports anomaly analysis and evidence preservation workflows.
+- 🔐 Focus on credential abuse detection and endpoint telemetry.
 
 ## GPOs-Templates
 
-* Curated set of reusable GPO templates for enterprise environments.
-* Covers user experience, performance, security, and compliance domains.
-* Includes scripts to export/import GPOs with automated logging.
-* Templates align with industry standards for password policies, firewalls, RDS, and more.
-
-## READMEs-Files-Package
-
-* Aggregates all `README.md` files from submodules into a single ZIP.
-* Includes `main-README.md` and renamed copies from each folder.
-* Ensures consistent formatting and documentation backup.
+- 🏛️ Reusable GPO templates for enterprise configurations.
+- 🔍 Covers security, UX, performance, and remote desktop policies.
+- 📦 Scripts to export/import GPOs with log automation.
+- 🔐 Aligns with CIS, NIST, and organizational standards.
 
 ## AD-SSO-APIs-Integration
 
-* Toolkit for integrating Active Directory with third-party applications via LDAP and SSO.
-* Supports cross-platform stacks: .NET, Flask, Node.js, PHP, and Spring Boot.
-* Follows modular structure for secure and isolated configurations.
-* Implements unified LDAP login using the InetOrgPerson schema.
-* Secures credentials via environment variables or external secrets.
+- 🔗 Integrates Active Directory with external apps using LDAP & SSO.
+- 🌐 Support for PHP, Node.js, Flask, Spring Boot, .NET environments.
+- 🧬 Uses modular, schema-aligned logins (`InetOrgPerson`).
+- 🛡️ Secure credential handling via secrets or environment vars.
+
+## READMEs-Files-Package
+
+- 📄 Bundles all `README.md` files from submodules into one ZIP.
+- 🧩 Includes `main-README.md` and renamed folder READMEs.
+- 🗃️ Ensures documentation consistency and backup.
+
+## All-Repository-Files
+
+- 🎒 Complete snapshot of the repository in one ZIP file.
+- 📚 Includes full documentation, licenses, and nested folder structure.
+- 🛠️ Useful for offline use, backup, and full-deployment scenarios.
