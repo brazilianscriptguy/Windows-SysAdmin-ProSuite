@@ -1,7 +1,8 @@
-name: publish-all-nuget-packages
+name: release-nuget-packages
 
 on:
-  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   publish-nuget:
@@ -23,34 +24,40 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🛠️ Install mono
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mono-complete
+      - name: 📦 Install mono
+        run: sudo apt-get update && sudo apt-get install -y mono-complete
 
-      - name: 📁 Prepare folders and stage files
+      - name: 📥 Download nuget.exe
+        run: |
+          mkdir -p .github/tools
+          curl -Ls -o .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
+      - name: 📁 Prepare and stage files
         run: |
           pkg="${{ matrix.package }}"
-          mkdir -p "ReadmeCopies"
-          mkdir -p "nupkg-out"
+          mkdir -p ReadmeCopies
+          mkdir -p nupkg-out
           mkdir -p "temp-$pkg"
 
           if [ ! -d "$pkg" ]; then
-            echo "❌ Folder $pkg not found"
+            echo "❌ Folder $pkg missing"
             exit 1
           fi
-          if [ ! -f "$pkg/README.md" ]; then
-            echo "❌ README.md missing in $pkg"
-            exit 1
-          fi
-          if [ ! -f "$pkg.nuspec" ]; then
-            echo "❌ $pkg.nuspec not found"
-            exit 1
-          fi
-
-          cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
+          cp -r "$pkg" "temp-$pkg/$pkg"
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md"
-          cp -r "$pkg/"* "temp-$pkg/"
+          cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
+
+      - name: 📖 Extract version and changelog
+        id: changelog
+        run: |
+          pkg="${{ matrix.package }}"
+          version=$(grep -m1 '<version>' "$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          notes=$(awk "/^## \[$version\]/,/^## \[/" CHANGELOG.md | sed '1d;$d' || echo "No changelog found for $version")
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$notes" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Pack NuGet package
         run: |
@@ -61,55 +68,53 @@ jobs:
             -Properties "ReadMeFile=ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg"
           cd ..
 
-      - name: 🧪 Verify NuGet output
-        run: |
-          ls -lh nupkg-out/
-          find nupkg-out -type f \( -name '*.nupkg' -o -name '*.snupkg' \)
-
-      - name: 📝 Extract version and changelog
-        id: version
-        run: |
-          nupkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
-          version=$(basename "$nupkg_path" | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+)\.nupkg/\1/')
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "📌 Detected version: $version"
-          
-          # Extract changelog entry
-          echo "🔍 Extracting changelog entry..."
-          awk -v ver="$version" '
-            $0 ~ "^## \\["ver"\\]" {flag=1; next}
-            /^## \[/ {flag=0}
-            flag {print}
-          ' CHANGELOG.md > extracted-changelog.txt
-          
-          echo "CHANGELOG ENTRY:"
-          cat extracted-changelog.txt
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          cat extracted-changelog.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: 🚀 Push to GitHub Packages (NuGet feed)
+      - name: 🚀 Push to GitHub Packages
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for file in $(find nupkg-out -type f \( -name '*.nupkg' -o -name '*.snupkg' \)); do
-            echo "📦 Publishing: $file"
-            mono .github/tools/nuget.exe push "$file" \
-              -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              -ApiKey "${{ secrets.GITHUB_TOKEN }}" \
-              -NonInteractive
-          done
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          mono .github/tools/nuget.exe push "$pkg_path" \
+            -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            -ApiKey "$GH_TOKEN" \
+            -NonInteractive
 
-      - name: 🏷️ Create Git tag and release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ matrix.package }}-v${{ steps.version.outputs.version }}
-          name: ${{ matrix.package }} v${{ steps.version.outputs.version }}
-          body: ${{ steps.version.outputs.changelog }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          files: |
-            nupkg-out/*.nupkg
-            nupkg-out/*.snupkg
+          snupkg_path=$(find nupkg-out -name '*.snupkg' | head -n 1)
+          if [ -n "$snupkg_path" ]; then
+            mono .github/tools/nuget.exe push "$snupkg_path" \
+              -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              -ApiKey "$GH_TOKEN" \
+              -NonInteractive
+          fi
+
+      - name: 🚀 Push to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          mono .github/tools/nuget.exe push "$pkg_path" \
+            -Source https://api.nuget.org/v3/index.json \
+            -ApiKey "$NUGET_API_KEY" \
+            -NonInteractive
+
+          snupkg_path=$(find nupkg-out -name '*.snupkg' | head -n 1)
+          if [ -n "$snupkg_path" ]; then
+            mono .github/tools/nuget.exe push "$snupkg_path" \
+              -Source https://api.nuget.org/v3/index.json \
+              -ApiKey "$NUGET_API_KEY" \
+              -NonInteractive
+          fi
+
+      - name: 🏷️ Create Git tag
+        run: |
+          version="${{ steps.changelog.outputs.version }}"
+          tag="${{ matrix.package }}-v$version"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "$tag"
+          git push origin "$tag"
 
       - name: 🧹 Clean up
-        run: rm -rf "temp-${{ matrix.package }}"
+        run: |
+          rm -rf "temp-${{ matrix.package }}"
+          rm -rf ReadmeCopies
+          rm -rf nupkg-out
