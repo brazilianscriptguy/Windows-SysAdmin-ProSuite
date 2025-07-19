@@ -41,6 +41,10 @@ jobs:
           ls -R
           echo "Checking for .nuspec files in root:"
           ls -l *.nuspec || echo "No .nuspec files found in root"
+          echo "Checking for package directories:"
+          for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tool; do
+            ls -ld "$pkg" || echo "Directory $pkg not found"
+          done
           echo "Checking .NET SDK version:"
           dotnet --version
           echo "Checking for mono and nuget availability:"
@@ -83,21 +87,23 @@ jobs:
           cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
           echo "Listing temp-$pkg contents:"
-          ls -l "temp-$pkg"
+          ls -lR "temp-$pkg"
           echo "Checking .nuspec file contents:"
           cat "$pkg.nuspec"
           echo "Validating .nuspec file paths:"
+          invalid_paths=false
           grep '<file src="' "$pkg.nuspec" | while read -r line ; do
             src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            resolved_src=$(echo "$src" | sed "s|SysAdmin-Tools|SysAdmin-Tool|g")
-            if [[ "$src" != "$resolved_src" ]]; then
-              echo "⚠️ Warning: Replacing SysAdmin-Tools with SysAdmin-Tool in $pkg.nuspec"
-              sed -i "s|$src|$resolved_src|g" "temp-$pkg/$pkg.nuspec"
-            fi
             if [ -n "$src" ] && ! ls "temp-$pkg/$src" 2>/dev/null; then
-              echo "⚠️ Warning: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+              echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+              invalid_paths=true
             fi
           done
+          if [ "$invalid_paths" = "true" ]; then
+            echo "⚠️ Warning: Invalid paths found in $pkg.nuspec, skipping package"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 📖 Extract version and changelog
