@@ -22,7 +22,7 @@
 
   <files>
     <file src="SysAdmin-Tools/**/*" target="content/SysAdmin-Tools" />
-    <file src="ReadmeCopies/SysAdmin-Tools-README.md" target="" />
+    <file src="SysAdmin-Tools/README.md" target="SysAdmin-Tools-README.md" />
     <file src="LICENSE" target="" />
   </files>
 </package>
