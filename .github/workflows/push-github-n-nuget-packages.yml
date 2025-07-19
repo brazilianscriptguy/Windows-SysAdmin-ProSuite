@@ -33,6 +33,10 @@ jobs:
           ls -l ITSMAndSysAdminTools.nuspec || echo "ITSMAndSysAdminTools.nuspec not found"
           echo "Checking for LICENSE file:"
           ls -l LICENSE || echo "LICENSE not found in root"
+          echo "Checking for README.md file:"
+          ls -l README.md || echo "README.md not found in root"
+          echo "Checking for icon.png file:"
+          ls -l icon.png || echo "icon.png not found in root"
           echo "Checking for CHANGELOG.md:"
           ls -l CHANGELOG.md || echo "CHANGELOG.md not found in root"
           echo "Checking for package directories:"
@@ -83,21 +87,31 @@ jobs:
           if [ -f "README.md" ]; then
             cp "README.md" "ReadmeCopies/$pkg-README.md"
             cp "ReadmeCopies/$pkg-README.md" "tmp-$pkg/$pkg-README.md"
-            echo "Copied README.md for $pkg"
+            echo "Copied README.md from root for $pkg"
+          elif [ -f "Core-ScriptLibrary/README.md" ]; then
+            cp "Core-ScriptLibrary/README.md" "ReadmeCopies/$pkg-README.md"
+            cp "ReadmeCopies/$pkg-README.md" "tmp-$pkg/$pkg-README.md"
+            echo "Copied README.md from Core-ScriptLibrary for $pkg"
           else
-            echo "⚠️ Warning: README.md not found in root"
+            echo "⚠️ Warning: README.md not found in root or Core-ScriptLibrary"
           fi
           if [ -f "icon.png" ]; then
             cp "icon.png" "tmp-$pkg/icon.png"
-            echo "Copied icon.png for $pkg"
+            echo "Copied icon.png from root for $pkg"
+          elif [ -f "Core-ScriptLibrary/icon.png" ]; then
+            cp "Core-ScriptLibrary/icon.png" "tmp-$pkg/icon.png"
+            echo "Copied icon.png from Core-ScriptLibrary for $pkg"
           else
-            echo "⚠️ Warning: icon.png not found in root"
+            echo "⚠️ Warning: icon.png not found in root or Core-ScriptLibrary"
           fi
           if [ -f "LICENSE" ]; then
             cp "LICENSE" "tmp-$pkg/LICENSE"
-            echo "Copied LICENSE to tmp-$pkg"
+            echo "Copied LICENSE from root to tmp-$pkg"
+          elif [ -f "Core-ScriptLibrary/LICENSE" ]; then
+            cp "Core-ScriptLibrary/LICENSE" "tmp-$pkg/LICENSE"
+            echo "Copied LICENSE from Core-ScriptLibrary to tmp-$pkg"
           else
-            echo "❌ Error: LICENSE file not found in root, skipping package"
+            echo "❌ Error: LICENSE file not found in root or Core-ScriptLibrary, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -144,10 +158,10 @@ jobs:
         run: |
           pkg="ITSMAndSysAdminTools"
           nuspec="ITSMAndSysAdminTools.nuspec"
-          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "1.0.0")
+          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "1.0.1")
           if [ -z "$version" ]; then
-            echo "⚠️ Warning: Version not found in $nuspec, using default"
-            version="1.0.0"
+            echo "⚠️ Warning: Version not found in $nuspec, using default 1.0.1"
+            version="1.0.1"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d' || echo "No changelog found for version $version")
@@ -157,8 +171,8 @@ jobs:
           xmlstarlet ed \
             -u "//metadata/releaseNotes" -v "$changelog_sanitized" \
             -s "//metadata[not(releaseNotes)]" -t elem -n "releaseNotes" -v "$changelog_sanitized" \
-            -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration" \
-            -s "//metadata[not(tags)]" -t elem -n "tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration" \
+            -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
+            -s "//metadata[not(tags)]" -t elem -n "tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
             -s "//metadata[not(icon)]" -t elem -n "icon" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
             -s "//metadata/repository" -t attr -n "type" -v "git" \
