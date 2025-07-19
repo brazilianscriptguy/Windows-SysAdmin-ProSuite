@@ -1,28 +1,16 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>ITSM-Templates-SVR</id>
     <version>1.0.0</version>
-    <title>ITSM-Templates-SVR</title>
-    <authors>BrazilianScriptGuy</authors>
-    <owners>BrazilianScriptGuy</owners>
-
+    <title>ITSM Server Configuration Templates</title>
+    <authors>Luiz Hamilton Roberto da Silva</authors>
+    <description>Templates for IT Service Management (ITSM) configurations on servers. Currently includes documentation for server setup and configuration.</description>
+    <projectUrl>https://github.com/your-repo/ITSM-Templates-SVR</projectUrl>
     <license type="expression">MIT</license>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>ReadmeCopies/ITSM-Templates-SVR-README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-
-    <description>Templates and configuration files for ITSM procedures applied to Windows Server environments, including patching, compliance, and access control.</description>
-    <releaseNotes>Initial release of ITSM templates tailored for server-side system management and auditing.</releaseNotes>
-    <tags>itsm windows-server configuration-templates compliance auditing scripts</tags>
+    <tags>itsm server configuration documentation</tags>
   </metadata>
-
   <files>
-    <file src="ITSM-Templates-SVR/**/*" target="content/ITSM-Templates-SVR" />
-    <file src="ReadmeCopies/ITSM-Templates-SVR-README.md" target="" />
-    <file src="LICENSE" target="" />
+    <file src="ITSM-Templates-SVR\README.md" target="content" />
   </files>
 </package>
