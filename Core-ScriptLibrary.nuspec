@@ -1,28 +1,20 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
-    <id>Core-ScriptLibrary</id>
+    <id>CoreScriptLibrary</id>
     <version>1.0.0</version>
-    <title>Core-ScriptLibrary</title>
-    <authors>BrazilianScriptGuy</authors>
-    <owners>BrazilianScriptGuy</owners>
-
+    <title>Core PowerShell Script Library</title>
+    <authors>Luiz Hamilton Roberto da Silva</authors>
+    <description>A library of modular PowerShell scripts for script development and NuGet package publishing. Includes tools for generating script headers, logging methods, and NuGet package specifications.</description>
+    <projectUrl>https://github.com/your-repo/Core-ScriptLibrary</projectUrl>
     <license type="expression">MIT</license>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
-    <readme>ReadmeCopies/Core-ScriptLibrary-README.md</readme>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-
-    <description>Essential PowerShell scripts for automation, infrastructure maintenance, and daily server or workstation administration tasks in enterprise environments.</description>
-    <releaseNotes>Initial release of core automation and scripting utilities.</releaseNotes>
-    <tags>powershell automation scripts sysadmin windows-server windows-workstation infrastructure core-tools</tags>
+    <tags>powershell scripting nuget modular</tags>
   </metadata>
-
   <files>
-    <file src="Core-ScriptLibrary/**/*" target="content/Core-ScriptLibrary" />
-    <file src="ReadmeCopies/Core-ScriptLibrary-README.md" target="" />
-    <file src="LICENSE" target="" />
+    <file src="Core-ScriptLibrary\Nuget-Package-Publisher\*.ps1" target="tools\Nuget-Package-Publisher" />
+    <file src="Core-ScriptLibrary\Modular-PS1-Scripts\*.ps1" target="tools\Modular-PS1-Scripts" />
+    <file src="Core-ScriptLibrary\Nuget-Package-Publisher\README.md" target="content\Nuget-Package-Publisher" />
+    <file src="Core-ScriptLibrary\Modular-PS1-Scripts\README.md" target="content\Modular-PS1-Scripts" />
+    <file src="Core-ScriptLibrary\README.md" target="content" />
   </files>
 </package>
