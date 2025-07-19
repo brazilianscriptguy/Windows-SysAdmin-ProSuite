@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
-    <id>CoreScriptLibrary</id>
+    <id>Core-ScriptLibrary</id>
     <version>1.0.0</version>
     <title>Core PowerShell Script Library</title>
     <authors>Luiz Hamilton Roberto da Silva</authors>
