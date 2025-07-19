@@ -21,157 +21,85 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🛠️ Debug workflow start
+      - name: 🛠️ Start Debug Info
         run: |
-          echo "Workflow started for package ITSMAndSysAdminTools"
           echo "Event: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Listing repository contents:"
-          ls -R
-          echo "Checking for .nuspec file:"
-          ls -l ITSMAndSysAdminTools.nuspec || echo "ITSMAndSysAdminTools.nuspec not found"
-          echo "Checking for LICENSE file:"
-          ls -l LICENSE || echo "LICENSE not found in root"
-          echo "Checking for README.md file:"
-          ls -l README.md || echo "README.md not found in root"
-          echo "Checking for icon.png file:"
-          ls -l icon.png || echo "icon.png not found in root"
-          echo "Checking for CHANGELOG.md:"
-          ls -l CHANGELOG.md || echo "CHANGELOG.md not found in root"
-          echo "Checking for package directories:"
-          for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            ls -lR "$dir" || echo "Directory $dir not found"
+          echo "Working Directory Contents:"
+          ls -laR
+          echo "Checking Required Files:"
+          for file in ITSMAndSysAdminTools.nuspec LICENSE README.md icon.png CHANGELOG.md; do
+            test -f "$file" && echo "✅ Found $file" || echo "⚠️ Missing $file"
           done
-          echo "Checking .NET SDK version:"
-          dotnet --version
-          echo "Checking for mono and nuget availability:"
-          which mono || echo "mono not found"
-          which nuget || echo "nuget not found"
+          echo "Validating Package Directories:"
+          for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
+            [ -d "$dir" ] && echo "✅ Found $dir" || echo "⚠️ Missing $dir"
+          done
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install Tools
         run: |
-          echo "Installing mono-complete and xmlstarlet"
           sudo apt-get update
           sudo apt-get install -y mono-complete xmlstarlet
-          echo "Checking mono version:"
-          mono --version
-          echo "Installing nuget.exe"
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
-          echo "Verifying nuget command:"
           mono /usr/local/bin/nuget help | head -n 1
 
-      - name: 📁 Prepare and stage files
+      - name: 📁 Prepare Package Files
         id: prepare
         run: |
           pkg="ITSMAndSysAdminTools"
-          nuspec="ITSMAndSysAdminTools.nuspec"
-          echo "Preparing package $pkg"
-          if [ ! -f "$nuspec" ]; then
-            echo "❌ Error: NuSpec file $nuspec missing in root, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          mkdir -p ReadmeCopies nupkg-out "tmp-$pkg"
+          tmp="tmp-$pkg"
+          nuspec="$pkg.nuspec"
+          mkdir -p $tmp nupkg-out ReadmeCopies
+
+          [ -f "$nuspec" ] || { echo "❌ Missing $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          cp "$nuspec" "$tmp/$nuspec"
+
           for dir in Core-ScriptLibrary BlueTeam-Tools SysAdmin-Tools ITSM-Templates-WKS ITSM-Templates-SVR; do
-            if [ -d "$dir" ]; then
-              echo "Copying package directory $dir to tmp-$pkg/$dir"
-              cp -r "$dir/." "tmp-$pkg/$dir/"
-            else
-              echo "⚠️ Warning: Folder $dir missing"
-            fi
+            [ -d "$dir" ] && cp -r "$dir" "$tmp/"
           done
-          cp "$nuspec" "tmp-$pkg/$nuspec"
-          if [ -f "README.md" ]; then
-            cp "README.md" "ReadmeCopies/$pkg-README.md"
-            cp "ReadmeCopies/$pkg-README.md" "tmp-$pkg/$pkg-README.md"
-            echo "Copied README.md from root for $pkg"
-          elif [ -f "Core-ScriptLibrary/README.md" ]; then
-            cp "Core-ScriptLibrary/README.md" "ReadmeCopies/$pkg-README.md"
-            cp "ReadmeCopies/$pkg-README.md" "tmp-$pkg/$pkg-README.md"
-            echo "Copied README.md from Core-ScriptLibrary for $pkg"
-          else
-            echo "⚠️ Warning: README.md not found in root or Core-ScriptLibrary"
-          fi
-          if [ -f "icon.png" ]; then
-            cp "icon.png" "tmp-$pkg/icon.png"
-            echo "Copied icon.png from root for $pkg"
-          elif [ -f "Core-ScriptLibrary/icon.png" ]; then
-            cp "Core-ScriptLibrary/icon.png" "tmp-$pkg/icon.png"
-            echo "Copied icon.png from Core-ScriptLibrary for $pkg"
-          else
-            echo "⚠️ Warning: icon.png not found in root or Core-ScriptLibrary"
-          fi
-          if [ -f "LICENSE" ]; then
-            cp "LICENSE" "tmp-$pkg/LICENSE"
-            echo "Copied LICENSE from root to tmp-$pkg"
-          elif [ -f "Core-ScriptLibrary/LICENSE" ]; then
-            cp "Core-ScriptLibrary/LICENSE" "tmp-$pkg/LICENSE"
-            echo "Copied LICENSE from Core-ScriptLibrary to tmp-$pkg"
-          else
-            echo "❌ Error: LICENSE file not found in root or Core-ScriptLibrary, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Listing tmp-$pkg contents:"
-          ls -lR "tmp-$pkg"
-          echo "Checking .nuspec file contents:"
-          cat "$nuspec"
-          echo "Validating .nuspec metadata:"
-          xmlstarlet val "$nuspec" || { echo "❌ Error: Invalid XML in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/id" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing id in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing version in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/authors" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing authors in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/description" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing description in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/license" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing license in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          xmlstarlet sel -t -m "//metadata/projectUrl" -v . "$nuspec" > /dev/null || { echo "❌ Error: Missing projectUrl in $nuspec"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
-          echo "Validating .nuspec file paths:"
-          invalid_paths=false
-          grep '<file src="' "$nuspec" | while read -r line ; do
-            src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            if [[ "$src" == */*/* ]]; then
-              dir=$(echo "$src" | cut -d'/' -f1)
-              if [ -d "tmp-$pkg/$dir" ]; then
-                echo "Path $src exists in tmp-$pkg"
-              else
-                echo "❌ Error: Directory $dir for $src in $nuspec does not exist in tmp-$pkg"
-                invalid_paths=true
-              fi
-            elif [ -f "tmp-$pkg/$src" ]; then
-              echo "Path $src exists in tmp-$pkg"
-            else
-              echo "❌ Error: File $src in $nuspec does not exist in tmp-$pkg"
-              invalid_paths=true
-            fi
+
+          cp LICENSE "$tmp/LICENSE" 2>/dev/null || cp Core-ScriptLibrary/LICENSE "$tmp/LICENSE"
+          cp README.md "ReadmeCopies/$pkg-README.md" 2>/dev/null || cp Core-ScriptLibrary/README.md "ReadmeCopies/$pkg-README.md"
+          cp "ReadmeCopies/$pkg-README.md" "$tmp/$pkg-README.md"
+          cp icon.png "$tmp/icon.png" 2>/dev/null || cp Core-ScriptLibrary/icon.png "$tmp/icon.png"
+
+          echo "Validating .nuspec with xmlstarlet:"
+          xmlstarlet val "$tmp/$nuspec" || { echo "❌ Invalid XML"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          for field in id version authors description license projectUrl; do
+            xmlstarlet sel -t -m "//metadata/$field" -v . "$tmp/$nuspec" >/dev/null || {
+              echo "❌ Missing <$field> in $nuspec"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            }
           done
-          if [ "$invalid_paths" = "true" ]; then
-            echo "❌ Error: Invalid paths found in $nuspec, skipping package"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+
+          echo "Validating file paths in $nuspec"
+          invalid=false
+          grep -oP '<file\s+src="\K[^"]+' "$tmp/$nuspec" | while read -r src; do
+            [ -e "$tmp/$src" ] || { echo "❌ Missing: $src"; invalid=true; }
+          done
+          $invalid && { echo "❌ Invalid paths"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: 📖 Enhance .nuspec with rich metadata
+      - name: 🧠 Enrich Nuspec Metadata
         if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="ITSMAndSysAdminTools"
-          nuspec="ITSMAndSysAdminTools.nuspec"
-          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "1.0.1")
-          if [ -z "$version" ]; then
-            echo "⚠️ Warning: Version not found in $nuspec, using default 1.0.1"
-            version="1.0.1"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d' || echo "No changelog found for version $version")
-          changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/"/\\"/g')
-          echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
-          cp "tmp-$pkg/$nuspec" "tmp-$pkg/$nuspec.bak"
+          nuspec="tmp-$pkg/$pkg.nuspec"
+          version=$(xmlstarlet sel -t -v "//metadata/version" "$nuspec")
+
+          changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d')
+          link="[⬇️ Download artifacts](https://github.com/${{ github.repository }}/releases/download/$version/ITSMAndSysAdminTools.$version.nupkg)"
+          changelog="${changelog}\n\n$link"
+          sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/"/\\"/g')
+
           xmlstarlet ed \
-            -u "//metadata/releaseNotes" -v "$changelog_sanitized" \
-            -s "//metadata[not(releaseNotes)]" -t elem -n "releaseNotes" -v "$changelog_sanitized" \
-            -u "//metadata/tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
+            -u "//metadata/releaseNotes" -v "$sanitized" \
             -s "//metadata[not(tags)]" -t elem -n "tags" -v "powershell itsm sysadmin security gpo automation enterprise activedirectory network wsus configuration sso ldap" \
             -s "//metadata[not(icon)]" -t elem -n "icon" -v "icon.png" \
             -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
@@ -179,57 +107,31 @@ jobs:
             -s "//metadata/repository" -t attr -n "url" -v "https://github.com/${{ github.repository }}" \
             -s "//metadata/repository" -t attr -n "branch" -v "${{ github.ref_name }}" \
             -s "//metadata/repository" -t attr -n "commit" -v "${{ github.sha }}" \
-            -s "//metadata[not(copyright)]" -t elem -n "copyright" -v "Copyright (c) 2025 Luiz Hamilton Roberto da Silva" \
             -s "//metadata[not(owners)]" -t elem -n "owners" -v "Luiz Hamilton Roberto da Silva" \
             -s "//metadata[not(requireLicenseAcceptance)]" -t elem -n "requireLicenseAcceptance" -v "false" \
-            "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
-          mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
-          if [ -f "tmp-$pkg/$pkg-README.md" ]; then
-            xmlstarlet ed -s "//files" -t elem -n "file" -v "" \
-              -s "//files/file[last()]" -t attr -n "src" -v "$pkg-README.md" \
-              -s "//files/file[last()]" -t attr -n "target" -v "content" \
-              "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
-            mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
-          fi
-          if [ -f "tmp-$pkg/icon.png" ]; then
-            xmlstarlet ed -s "//files" -t elem -n "file" -v "" \
-              -s "//files/file[last()]" -t attr -n "src" -v "icon.png" \
-              -s "//files/file[last()]" -t attr -n "target" -v "images" \
-              "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
-            mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
-          fi
-          echo "Updated .nuspec with rich metadata:"
-          cat "tmp-$pkg/$nuspec"
+            "$nuspec" > "$nuspec.tmp"
+          mv "$nuspec.tmp" "$nuspec"
 
-      - name: 📦 Pack NuGet package
+      - name: 📦 Pack NuGet Package
         if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="ITSMAndSysAdminTools"
-          nuspec="ITSMAndSysAdminTools.nuspec"
-          if [ ! -d "tmp-$pkg" ]; then
-            echo "❌ Error: Directory tmp-$pkg missing, skipping package"
-            exit 0
-          fi
           cd "tmp-$pkg"
-          mono /usr/local/bin/nuget pack "$nuspec" \
+          mono /usr/local/bin/nuget pack "$pkg.nuspec" \
             -OutputDirectory ../nupkg-out \
             -Symbols -SymbolPackageFormat snupkg \
-            -NonInteractive \
-            || { echo "❌ Error: Failed to pack $nuspec"; exit 0; }
+            -NonInteractive
 
       - name: 🚀 Push to GitHub Packages
         if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            if [ -f "$pkg_path" ]; then
-              echo "Pushing $pkg_path to GitHub Packages"
-              mono /usr/local/bin/nuget push "$pkg_path" \
-                -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-                -ApiKey "$GITHUB_TOKEN" \
-                -NonInteractive -SkipDuplicate
-            fi
+          for f in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
+            [ -f "$f" ] && mono /usr/local/bin/nuget push "$f" \
+              -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              -ApiKey "$GITHUB_TOKEN" \
+              -NonInteractive -SkipDuplicate
           done
 
       - name: 🚀 Push to NuGet.org
@@ -237,30 +139,24 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
-            if [ -f "$pkg_path" ]; then
-              echo "Pushing $pkg_path to NuGet.org"
-              mono /usr/local/bin/nuget push "$pkg_path" \
-                -Source "https://api.nuget.org/v3/index.json" \
-                -ApiKey "$NUGET_API_KEY" \
-                -NonInteractive -SkipDuplicate
-            fi
+          for f in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
+            [ -f "$f" ] && mono /usr/local/bin/nuget push "$f" \
+              -Source "https://api.nuget.org/v3/index.json" \
+              -ApiKey "$NUGET_API_KEY" \
+              -NonInteractive -SkipDuplicate
           done
 
-      - name: 🏷️ Create Git tag
-        if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
+      - name: 🏷️ Create Git Tag
+        if: steps.prepare.outputs.skip != 'true' && github.event_name == 'push'
         run: |
-          tag="ITSMAndSysAdminTools-v${{ steps.prepare.outputs.version }}"
-          if git tag --list | grep -q "^$tag$"; then
-            echo "Tag $tag already exists, skipping creation"
-          else
-            git config user.name "github-actions"
-            git config user.email "github-actions@github.com"
-            git tag "$tag"
-            git push origin "$tag"
-          fi
+          version=$(xmlstarlet sel -t -v "//metadata/version" "tmp-ITSMAndSysAdminTools/ITSMAndSysAdminTools.nuspec")
+          tag="ITSMAndSysAdminTools-v$version"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "$tag"
+          git push origin "$tag"
 
-      - name: 🧹 Clean up
+      - name: 🧹 Cleanup
         if: always()
         run: |
-          rm -rf "tmp-ITSMAndSysAdminTools" ReadmeCopies nupkg-out || true
+          rm -rf tmp-ITSMAndSysAdminTools ReadmeCopies nupkg-out
