@@ -16,11 +16,11 @@ jobs:
     strategy:
       matrix:
         package:
-          - { id: BlueTeamTools, folder: BlueTeam-Tools, nuspec: BlueTeamTools.nuspec }
-          - { id: CoreScriptLibrary, folder: Core-ScriptLibrary, nuspec: CoreScriptLibrary.nuspec }
-          - { id: ITSM-Templates-SVR, folder: ITSM-Templates-SVR, nuspec: ITSM-Templates-SVR.nuspec }
-          - { id: ITSM-Templates-WKS, folder: ITSM-Templates-WKS, nuspec: ITSM-Templates-WKS.nuspec }
-          - { id: SysAdminTools, folder: SysAdmin-Tools, nuspec: SysAdminTools.nuspec }
+          - { id: BlueTeam-Tools, folder: BlueTeam-Tools, nuspec: BlueTeam-Tools.nuspec, tags: "powershell security eventlog incidentresponse blueteam automation enterprise" }
+          - { id: Core-ScriptLibrary, folder: Core-ScriptLibrary, nuspec: Core-ScriptLibrary.nuspec, tags: "powershell scripting nuget modular automation dotnet" }
+          - { id: ITSM-Templates-SVR, folder: ITSM-Templates-SVR, nuspec: ITSM-Templates-SVR.nuspec, tags: "itsm server configuration documentation automation enterprise" }
+          - { id: ITSM-Templates-WKS, folder: ITSM-Templates-WKS, nuspec: ITSM-Templates-WKS.nuspec, tags: "itsm workstation configuration powershell registry automation windows" }
+          - { id: SysAdmin-Tools, folder: SysAdmin-Tools, nuspec: SysAdmin-Tools.nuspec, tags: "sysadmin activedirectory gpo powershell sso network wsus security automation enterprise" }
       fail-fast: false
 
     steps:
@@ -35,6 +35,7 @@ jobs:
           echo "Workflow started for package ${{ matrix.package.id }}"
           echo "Event: ${{ github.event_name }}"
           echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
           echo "Listing repository contents:"
           ls -R
           echo "Checking for .nuspec files in root:"
@@ -53,11 +54,11 @@ jobs:
           which mono || echo "mono not found"
           which nuget || echo "nuget not found"
 
-      - name: 📦 Install Mono and NuGet CLI
+      - name: 📦 Install dependencies
         run: |
-          echo "Installing mono-complete"
+          echo "Installing mono-complete and xmlstarlet"
           sudo apt-get update
-          sudo apt-get install -y mono-complete
+          sudo apt-get install -y mono-complete xmlstarlet
           echo "Checking mono version:"
           mono --version
           echo "Installing nuget.exe"
@@ -94,6 +95,12 @@ jobs:
           else
             echo "⚠️ Warning: README.md not found for $pkg"
           fi
+          if [ -f "$folder/icon.png" ]; then
+            cp "$folder/icon.png" "tmp-$pkg/icon.png"
+            echo "Copied icon.png for $pkg"
+          else
+            echo "⚠️ Warning: icon.png not found for $pkg"
+          fi
           if [ -f "LICENSE" ]; then
             cp "LICENSE" "tmp-$pkg/LICENSE"
             echo "Copied LICENSE to tmp-$pkg"
@@ -118,18 +125,19 @@ jobs:
           invalid_paths=false
           grep '<file src="' "$nuspec" | while read -r line ; do
             src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
+            src_expanded=$(echo "$src" | sed "s|\${{ matrix.package.folder }}|$folder|g")
             if [[ "$src" == */*/* ]]; then
-              dir=$(echo "$src" | cut -d'/' -f1)
+              dir=$(echo "$src_expanded" | cut -d'/' -f1)
               if [ -d "tmp-$pkg/$dir" ]; then
-                echo "Path $src exists in tmp-$pkg"
+                echo "Path $src_expanded exists in tmp-$pkg"
               else
                 echo "❌ Error: Directory $dir for $src in $nuspec does not exist in tmp-$pkg"
                 invalid_paths=true
               fi
-            elif [ -f "tmp-$pkg/$src" ]; then
-              echo "Path $src exists in tmp-$pkg"
+            elif [ -f "tmp-$pkg/$src_expanded" ]; then
+              echo "Path $src_expanded exists in tmp-$pkg"
             else
-              echo "❌ Error: File $src in $nuspec does not exist in tmp-$pkg"
+              echo "❌ Error: File $src_expanded in $nuspec does not exist in tmp-$pkg"
               invalid_paths=true
             fi
           done
@@ -140,18 +148,12 @@ jobs:
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: 📖 Extract version and changelog
-        id: changelog
+      - name: 📖 Enhance .nuspec with rich metadata
         if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="${{ matrix.package.id }}"
           nuspec="${{ matrix.package.nuspec }}"
-          if [ ! -f "CHANGELOG.md" ]; then
-            echo "⚠️ Warning: CHANGELOG.md missing, using default notes"
-            echo "notes=No changelog available" >> "$GITHUB_OUTPUT"
-            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          folder="${{ matrix.package.folder }}"
           version=$(xmlstarlet sel -t -m "//metadata/version" -v . "$nuspec" || echo "0.0.0")
           if [ -z "$version" ]; then
             echo "⚠️ Warning: Version not found in $nuspec, using default"
@@ -161,17 +163,41 @@ jobs:
           changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;/^## \\[/d' || echo "No changelog found for version $version")
           changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g;s/"/\\"/g')
           echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
-          # Inject changelog and README into .nuspec
-          xmlstarlet ed -u "//metadata/releaseNotes" -v "$changelog_sanitized" "$nuspec" > "tmp-$pkg/$nuspec.tmp" || \
-            xmlstarlet ed -s "//metadata" -t elem -n "releaseNotes" -v "$changelog_sanitized" "$nuspec" > "tmp-$pkg/$nuspec.tmp"
+          # Update .nuspec with rich metadata
+          cp "tmp-$pkg/$nuspec" "tmp-$pkg/$nuspec.bak"
+          xmlstarlet ed \
+            -u "//metadata/releaseNotes" -v "$changelog_sanitized" \
+            -s "//metadata[not(releaseNotes)]" -t elem -n "releaseNotes" -v "$changelog_sanitized" \
+            -u "//metadata/tags" -v "${{ matrix.package.tags }}" \
+            -s "//metadata[not(tags)]" -t elem -n "tags" -v "${{ matrix.package.tags }}" \
+            -s "//metadata[not(icon)]" -t elem -n "icon" -v "icon.png" \
+            -s "//metadata[not(repository)]" -t elem -n "repository" -v "" \
+            -s "//metadata/repository" -t attr -n "type" -v "git" \
+            -s "//metadata/repository" -t attr -n "url" -v "https://github.com/${{ github.repository }}" \
+            -s "//metadata/repository" -t attr -n "branch" -v "${{ github.ref_name }}" \
+            -s "//metadata/repository" -t attr -n "commit" -v "${{ github.sha }}" \
+            -s "//metadata[not(copyright)]" -t elem -n "copyright" -v "Copyright (c) 2025 Luiz Hamilton Roberto da Silva" \
+            -s "//metadata[not(owners)]" -t elem -n "owners" -v "Luiz Hamilton Roberto da Silva" \
+            -s "//metadata[not(requireLicenseAcceptance)]" -t elem -n "requireLicenseAcceptance" -v "false" \
+            "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
           mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
+          # Add README.md and icon.png to files if present
           if [ -f "tmp-$pkg/$pkg-README.md" ]; then
             xmlstarlet ed -s "//files" -t elem -n "file" -v "" \
               -s "//files/file[last()]" -t attr -n "src" -v "$pkg-README.md" \
               -s "//files/file[last()]" -t attr -n "target" -v "content" \
-              "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp" || true
-            mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec" 2>/dev/null || true
+              "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
+            mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
           fi
+          if [ -f "tmp-$pkg/icon.png" ]; then
+            xmlstarlet ed -s "//files" -t elem -n "file" -v "" \
+              -s "//files/file[last()]" -t attr -n "src" -v "icon.png" \
+              -s "//files/file[last()]" -t attr -n "target" -v "images" \
+              "tmp-$pkg/$nuspec" > "tmp-$pkg/$nuspec.tmp"
+            mv "tmp-$pkg/$nuspec.tmp" "tmp-$pkg/$nuspec"
+          fi
+          echo "Updated .nuspec with rich metadata:"
+          cat "tmp-$pkg/$nuspec"
 
       - name: 📦 Pack NuGet package
         if: steps.prepare.outputs.skip != 'true'
@@ -222,7 +248,7 @@ jobs:
       - name: 🏷️ Create Git tag
         if: steps.prepare.outputs.skip != 'true' && (github.event_name == 'push' || github.event_name == 'release')
         run: |
-          tag="${{ matrix.package.id }}-v${{ steps.changelog.outputs.version }}"
+          tag="${{ matrix.package.id }}-v${{ steps.prepare.outputs.version }}"
           if git tag --list | grep -q "^$tag$"; then
             echo "Tag $tag already exists, skipping creation"
           else
