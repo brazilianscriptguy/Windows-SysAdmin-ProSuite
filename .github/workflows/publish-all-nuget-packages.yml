@@ -41,6 +41,8 @@ jobs:
           ls -R
           echo "Checking for .nuspec files in root:"
           ls -l *.nuspec || echo "No .nuspec files found in root"
+          echo "Checking for LICENSE file:"
+          ls -l LICENSE || echo "LICENSE not found in root"
           echo "Checking for package directories:"
           for pkg in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tool; do
             ls -ld "$pkg" || echo "Directory $pkg not found"
@@ -73,7 +75,7 @@ jobs:
           pkg="${{ matrix.package }}"
           echo "Preparing package $pkg"
           if [ ! -f "$pkg.nuspec" ]; then
-            echo "⚠️ Warning: NuSpec file $pkg.nuspec missing in root, skipping package"
+            echo "❌ Error: NuSpec file $pkg.nuspec missing in root, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -86,6 +88,13 @@ jobs:
           fi
           cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
+          cp "ReadmeCopies/$pkg-README.md" "temp-$pkg/$pkg-README.md" || echo "⚠️ Warning: Failed to copy $pkg-README.md to temp-$pkg"
+          if [ -f "LICENSE" ]; then
+            cp "LICENSE" "temp-$pkg/LICENSE"
+            echo "Copied LICENSE to temp-$pkg"
+          else
+            echo "⚠️ Warning: LICENSE file not found in root"
+          fi
           echo "Listing temp-$pkg contents:"
           ls -lR "temp-$pkg"
           echo "Checking .nuspec file contents:"
@@ -94,13 +103,34 @@ jobs:
           invalid_paths=false
           grep '<file src="' "$pkg.nuspec" | while read -r line ; do
             src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
-            if [ -n "$src" ] && ! ls "temp-$pkg/$src" 2>/dev/null; then
-              echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+            if [[ "$src" == "$pkg/**/*" ]]; then
+              if [ -d "temp-$pkg/$pkg" ]; then
+                echo "Path $src exists in temp-$pkg"
+              else
+                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+                invalid_paths=true
+              fi
+            elif [[ "$src" == "$pkg-README.md" ]]; then
+              if [ -f "temp-$pkg/$pkg-README.md" ]; then
+                echo "Path $src exists in temp-$pkg"
+              else
+                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+                invalid_paths=true
+              fi
+            elif [[ "$src" == "LICENSE" ]]; then
+              if [ -f "temp-$pkg/LICENSE" ]; then
+                echo "Path $src exists in temp-$pkg"
+              else
+                echo "❌ Error: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+                invalid_paths=true
+              fi
+            else
+              echo "⚠️ Warning: Unhandled path $src in $pkg.nuspec"
               invalid_paths=true
             fi
           done
           if [ "$invalid_paths" = "true" ]; then
-            echo "⚠️ Warning: Invalid paths found in $pkg.nuspec, skipping package"
+            echo "❌ Error: Invalid paths found in $pkg.nuspec, skipping package"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -139,7 +169,7 @@ jobs:
           echo "Running nuget pack for $pkg.nuspec"
           mono /usr/local/bin/nuget pack "$pkg.nuspec" \
             -OutputDirectory ../nupkg-out \
-            -Properties "ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
+            -Properties "ReadMeFile=$pkg-README.md;SymbolPackageFormat=snupkg" \
             || { echo "❌ Error: Failed to pack $pkg.nuspec"; exit 0; }
           popd
 
