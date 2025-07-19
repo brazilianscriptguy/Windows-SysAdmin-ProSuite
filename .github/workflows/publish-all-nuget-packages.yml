@@ -55,6 +55,8 @@ jobs:
           echo "Submodule status:"
           git submodule status
           git submodule update --init --recursive
+          echo "Listing repository root contents:"
+          ls -lh .
 
       - name: 🧪 Debug - Validate package directory and files
         run: |
@@ -100,7 +102,12 @@ jobs:
       - name: 📄 Stage package files
         run: |
           # Copy package directory to temporary staging area
-          cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
+          if [ -n "$(ls -A "${{ matrix.package }}")" ]; then
+            cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
+          else
+            echo "❌ No files to copy in ${{ matrix.package }}"
+            exit 1
+          fi
           # Copy .nuspec file to temporary directory
           cp "$nuspec_path" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
           # Copy README.md to ReadmeCopies
