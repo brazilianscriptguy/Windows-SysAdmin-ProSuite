@@ -2,7 +2,7 @@ name: Publish NuGet Packages
 
 on:
   release:
-    types: [published]
+    types: [published, prerelease]
 
 permissions:
   contents: write
@@ -28,11 +28,13 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: 🛠️ Debug workflow trigger
+        run: echo "Workflow triggered for package ${{ matrix.package }} on event ${{ github.event_name }}"
+
       - name: 📁 Prepare and stage files
         run: |
           pkg="${{ matrix.package }}"
           mkdir -p ReadmeCopies nupkg-out "temp-$pkg"
-
           if [ ! -d "$pkg" ]; then
             echo "❌ Folder $pkg missing"
             exit 1
@@ -59,7 +61,6 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-
           changelog=$(awk "/^## \\[$version\\]/,/^## \\[/" CHANGELOG.md | sed '1d;$d' || echo "No changelog found for version $version")
           changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g')
           echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
@@ -81,7 +82,8 @@ jobs:
             if [ -f "$pkg_path" ]; then
               dotnet nuget push "$pkg_path" \
                 --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-                --api-key "$GITHUB_TOKEN"
+                --api-key "$GITHUB_TOKEN" \
+                --skip-duplicate
             fi
           done
 
@@ -92,8 +94,9 @@ jobs:
           for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
             if [ -f "$pkg_path" ]; then
               dotnet nuget push "$pkg_path" \
-                --source https://api.nuget.org/v3/index.json \
-                --api-key "$NUGET_API_KEY"
+                --source "https://api.nuget.org/v3/index.json" \
+                --api-key "$NUGET_API_KEY" \
+                --skip-duplicate
             fi
           done
 
@@ -114,7 +117,11 @@ jobs:
         run: |
           version=$(grep -m1 '<version>' *.nuspec | head -n 1 | sed -E 's/.*<version>(.+)<\/version>.*/\1/')
           tag="v$version"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag "$tag"
-          git push origin "$tag"
+          if git tag --list | grep -q "^$tag$"; then
+            echo "Tag $tag already exists, skipping creation"
+          else
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git tag "$tag"
+            git push origin "$tag"
+          fi
