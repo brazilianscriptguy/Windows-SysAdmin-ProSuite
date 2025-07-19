@@ -44,8 +44,20 @@ jobs:
           echo "Checking .NET SDK version:"
           dotnet --version
           echo "Checking nuget command availability:"
-          which dotnet || echo "dotnet not found"
-          which nuget || echo "nuget.exe not found"
+          which nuget || echo "nuget.exe not found yet"
+
+      - name: 📦 Install NuGet CLI
+        run: |
+          echo "Installing nuget.exe"
+          wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          chmod +x nuget.exe
+          echo "Checking nuget.exe version:"
+          mono nuget.exe --version || echo "Failed to check nuget.exe version"
+          echo "Moving nuget.exe to /usr/local/bin"
+          sudo mv nuget.exe /usr/local/bin/nuget
+          echo "Verifying nuget command:"
+          which nuget
+          nuget --version
 
       - name: 📁 Prepare and stage files
         id: prepare
@@ -100,11 +112,10 @@ jobs:
             exit 0
           fi
           pushd "temp-$pkg"
-          echo "Running dotnet pack for $pkg.nuspec"
-          dotnet pack --no-build --no-restore \
-            -p:NuspecFile="$pkg.nuspec" \
-            -p:NuspecProperties="ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
-            --output ../nupkg-out \
+          echo "Running nuget pack for $pkg.nuspec"
+          mono nuget pack "$pkg.nuspec" \
+            -OutputDirectory ../nupkg-out \
+            -Properties "ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
             || { echo "❌ Error: Failed to pack $pkg.nuspec"; exit 0; }
           popd
 
