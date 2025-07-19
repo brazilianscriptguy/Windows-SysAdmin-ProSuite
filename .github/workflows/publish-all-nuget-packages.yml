@@ -44,8 +44,8 @@ jobs:
           echo "Checking .NET SDK version:"
           dotnet --version
           echo "Checking for mono and nuget availability:"
-          which mono || echo "mono not found yet"
-          which nuget || echo "nuget not found yet"
+          which mono || echo "mono not found"
+          which nuget || echo "nuget not found"
 
       - name: 📦 Install Mono and NuGet CLI
         run: |
@@ -84,6 +84,20 @@ jobs:
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
           echo "Listing temp-$pkg contents:"
           ls -l "temp-$pkg"
+          echo "Checking .nuspec file contents:"
+          cat "$pkg.nuspec"
+          echo "Validating .nuspec file paths:"
+          grep '<file src="' "$pkg.nuspec" | while read -r line ; do
+            src=$(echo "$line" | sed -E 's/.*src="([^"]+)".*/\1/')
+            resolved_src=$(echo "$src" | sed "s|SysAdmin-Tools|SysAdmin-Tool|g")
+            if [[ "$src" != "$resolved_src" ]]; then
+              echo "⚠️ Warning: Replacing SysAdmin-Tools with SysAdmin-Tool in $pkg.nuspec"
+              sed -i "s|$src|$resolved_src|g" "temp-$pkg/$pkg.nuspec"
+            fi
+            if [ -n "$src" ] && ! ls "temp-$pkg/$src" 2>/dev/null; then
+              echo "⚠️ Warning: Path $src in $pkg.nuspec does not exist in temp-$pkg"
+            fi
+          done
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 📖 Extract version and changelog
