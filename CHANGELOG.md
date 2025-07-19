@@ -1,62 +1,224 @@
 # Changelog
 
-## Core-ScriptLibrary
-
-- 📦 Shared logic and modules for all toolsets.
-- 🔁 Modular-PS1-Scripts and NuGet-Package-Publisher architecture.
-- 🧩 Supports GUI shells, helper modules, packaging logic.
-- 🎯 Targets DevOps pipelines and Windows Server scripting.
-
-## ITSM-Templates-WKS
-
-- 🖥️ Templates for provisioning and securing Windows 10/11 workstations.
-- 🛡️ Automates pre/post domain join tasks and local policy configurations.
-- 🖨️ Includes printer mapping, layout personalization, and audit scripting.
-- 🔒 Hardening for compliance with ITSM and security policies.
-
-## ITSM-Templates-SVR
-
-- 🧰 Automation toolkit for Windows Server provisioning and hardening.
-- 🧾 Scripts for DNS, DHCP, registry fixes, and time sync with DCs.
-- 📄 Structured `.log` and `.csv` outputs for compliance audits.
-- ⚙️ Focused on secure baseline configuration and repeatable deployments.
-
 ## SysAdmin-Tools
-
-- 🧑‍💻 Enterprise-ready tools for managing AD, GPO, DNS, DHCP, and WSUS.
-- 🧮 Includes PSScriptAnalyzer integration and SHA256 signature outputs.
-- 🔁 Automation for Group Policy management and cert distribution.
-- 🧷 Central hub for daily Windows infrastructure administration.
+- Update Update-ADUserDisplayName.ps1
+- Update Cleanup-Inactive-ADComputerAccounts.ps1
+- Update Update-DNS-and-Sites-Services.ps1
+- Update Maintenance-WSUS-Admin-Tool.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update Maintenance-WSUS-Admin-Tool.ps1
+- Update README.md
+- Update README.md
+- Update Maintenance-WSUS-Admin-Tool.ps1
+- Update README.md
+- Create Deploy-JavaJRE-viaGPO.ps1
+- Update README.md
+- Update Generate-WSUSReindexScript.ps1
+- Update Check-WSUS-AdminAssembly.ps1
+- Update Check-WSUS-AdminAssembly.ps1
+- Update Check-WSUS-AdminAssembly.ps1
+- Update Remove-SharedFolders-and-Drives-viaGPO.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update Check-WSUS-AdminAssembly.ps1
+- Create Check-WSUS-AdminAssembly.ps1
+- Update README.md
+- Update README.md
+- Create wsus-reindex-EXAMPLE.sql
+- Create Generate-WSUSReindexScript.ps1
+- Rename SysAdmin-Tools/WSUS-Management-Tools/wsus-verify-fragmentation.sql to SysAdmin-Tools/WSUS-Management-Tools/Scripts/wsus-verify-fragmentation.sql
+- Create wsus-verify-fragmentation.sql
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update Maintenance-WSUS-Admin-Tool.ps1
+- Update Maintenance-WSUS-Admin-Tool.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Rename Maintain-WSUS-Tool.ps1 to Maintenance-WSUS-Admin-Tool.ps1
+- Update Maintain-WSUS-Tool.ps1
+- Update README.md
 
 ## BlueTeam-Tools
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update EventID4663-TrackingObjectDeletions.ps1
+- Update EventID4663-TrackingObjectDeletions.ps1
+- Update EventID5136-5137and5141-ADChanges-and-ObjectDeletions.ps1
+- Update EventID4800and4801-WorkstationLockStatus.ps1
+- Update EventID4771-KerberosPreAuthFailed.ps1
+- Update EventID4720to4756-PrivilegedAccessTracking.ps1
+- Update EventID4648-ExplicitCredentialsLogon.ps1
+- Update EventID4625-ADUserLoginAccountFailed.ps1
+- Update EventID4624and4634-ADUserLoginTracking.ps1
+- Update EventID4624-ADUserLoginViaRDP.ps1
+- Update EventID307-PrintAudit.ps1
+- Update EventID-Count-AllEvtx-Events.ps1
+- Update EventID4624and4634-ADUserLoginTracking.ps1
+- Update EventID4624-ADUserLoginViaRDP.ps1
+- Update EventID4663-TrackingObjectDeletions.ps1
+- Update EventID307-PrintAudit.ps1
+- Update EventID-Count-AllEvtx-Events.ps1
+- Update EventID4624-ADUserLoginViaRDP.ps1
+- Update EventID4624-ADUserLoginViaRDP.ps1
+- Update EventID-Count-AllEvtx-Events.ps1
+- Update EventID307-PrintAudit.ps1
+- Update EventID4663-TrackingObjectDeletions.ps1
+- Update README.md
+- Update and rename EventID4663-ObjectDeletionTracking.ps1 to EventID4663-TrackingObjectDeletions.ps1
+- Update and rename EventID4660and4663-ObjectDeletionTracking.ps1 to EventID4663-ObjectDeletionTracking.ps1
+- Update EventID4660and4663-ObjectDeletionTracking.ps1
+- Update Migrate-WinEvtStructure-Tool.ps1
+- Update PrintService-Operacional-EventLogs.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update Migrate-WinEvtStructure-Tool.ps1
+- Update Migrate-WinEvtStructure-Tool.ps1
+- Update Migrate-WinEvtStructure-Tool.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Create EventID4720to4756-PrivilegedAccessTracking.ps1
+- Update EventID5136-5137and5141-ADChanges-and-ObjectDeletions.ps1
+- Update EventID4771-KerberosPreAuthFailed.ps1
+- Update EventID4648-ExplicitCredentialsLogon.ps1
+- Update EventID4625-ADUserLoginAccountFailed.ps1
+- Update EventID4660and4663-ObjectDeletionTracking.ps1
+- Update README.md
 
-- 🛡️ Security and forensic utilities for Blue Team operations.
-- 📊 Threat detection, event log parsing, SIEM integration.
-- 🧪 Supports anomaly analysis and evidence preservation workflows.
-- 🔐 Focus on credential abuse detection and endpoint telemetry.
+## Core-ScriptLibrary
+- Update nuspec-generator.ps1
+- Update nuspec-generator.ps1
+- Update nuspec-generator.ps1
+- Update nuspec-generator.ps1
+- Create nuspec-generator.ps1
+- Update README.md
+- Update README.md
+- Update Create-Script-MainCodeStructure-Body.ps1
+- Update Create-Script-LoggingMethod.ps1
+- Update Create-Script-HeaderModel.ps1
+- Update Create-Script-LoggingMethod.ps1
+- Update Create-Script-MainCodeStructure-Body.ps1
+- Update Create-Script-LoggingMethod.ps1
+- Update Create-Script-HeaderModel.ps1
+- Update Create-Script-LoggingMethod.ps1
+- Update Create-Script-HeaderModel.ps1
+- Update Create-Script-HeaderModel.ps1
+- Update README.md
+- Update and rename Extract-Script-Headers.ps1 to Extract-Script-TextHeaders.ps1
+- Update and rename Extract-PowerSehllScripts-Headers.ps1 to Extract-Script-Headers.ps1
+- Update README.md
+- Update and rename Create-Script-MainStructure-Core.ps1 to Create-Script-MainCodeStructure-Body.ps1
+- Update README.md
+- Update and rename Create-Script-DefaultHeader.ps1 to Create-Script-HeaderModel.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Create README.md
+- Update README.md
+- Create README.md
+- Update Generate-NuGet-Package.ps1
+- Delete Core-ScriptLibrary/Nuget-Package-Publisher/pub.ps1
+- Update and rename Core-ScriptLibrary/Generate-NuGet-Package.ps1 to Core-ScriptLibrary/Nuget-Package-Publisher/Generate-NuGet-Package.ps1
+- Update README.md
+- Update README.md
+- Rename Core-ScriptLibrary/README.md to Core-ScriptLibrary/Modular-PS1-Scripts/README.md
+- Update and rename Core-ScriptLibrary/Extract-PowerSehllScripts-Headers.ps1 to Core-ScriptLibrary/Modular-PS1-Scripts/Extract-PowerSehllScripts-Headers.ps1
+- Rename Core-ScriptLibrary/Launch-Script-AutomaticMenu.ps1 to Core-ScriptLibrary/Modular-PS1-Scripts/Launch-Script-AutomaticMenu.ps1
+- Update and rename Core-ScriptLibrary/Create-Script-MainStructure-Core.ps1 to Core-ScriptLibrary/Modular-PS1-Scripts/Create-Script-MainStructure-Core.ps1
+- Rename Core-ScriptLibrary/Create-Script-LoggingMethod.ps1 to Core-ScriptLibrary/Modular-PS1-Scripts/Create-Script-LoggingMethod.ps1
+- Rename Core-ScriptLibrary/Create-Script-DefaultHeader.ps1 to Core-ScriptLibrary/Modular-PS1-Scripts/Create-Script-DefaultHeader.ps1
+- Create pub.ps1
+- Update and rename Publish-NuGet-Package.ps1 to Generate-NuGet-Package.ps1
+- Add files via upload
+- Update README.md
+- Update and rename Extract-Script-Headers.ps1 to Extract-PowerSehllScripts-Headers.ps1
+- Update Extract-Script-Headers.ps1
+- Update Launch-Script-AutomaticMenu.ps1
+- Update Launch-Script-AutomaticMenu.ps1
+- Update Extract-Script-Headers.ps1
 
+## ITSM-Templates-WKS
+- Delete ITSM-Templates-WKS/ITSM-Templates-WKS.nuspec
+- Update ITSM-Templates-WKS.nuspec
+- Create ITSM-Templates-WKS.nuspec
+- Update README.md
+- Update Renew-all-IP-Connections.vbs
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Add files via upload
+- Delete ITSM-Templates-WKS directory
+- Rename ITSM-Templates-WKS/ScriptsAdditionalSupport/ReaQta-Hive-Remover/ReaQta-Hive-Remover.hta to SysAdmin-Tools/SystemConfiguration-and-Deployment/ReaQta-Hive-Remover.hta
+- Update ReaQta-Hive-Remover.hta
+- Update ReaQta-Hive-Remover.hta
+- Create ReaQta-Hive-Remover.hta
+- Update Workstation-TimeSync.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update Inventory-InstalledSoftwareList.ps1
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Add files via upload
+## ITSM-Templates-SVR
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update README.md
+- Update and rename Test.txt to README.md
+- Create Test.txt
 ## GPOs-Templates
 
-- 🏛️ Reusable GPO templates for enterprise configurations.
-- 🔍 Covers security, UX, performance, and remote desktop policies.
-- 📦 Scripts to export/import GPOs with log automation.
-- 🔐 Aligns with CIS, NIST, and organizational standards.
-
 ## AD-SSO-APIs-Integration
-
-- 🔗 Integrates Active Directory with external apps using LDAP & SSO.
-- 🌐 Support for PHP, Node.js, Flask, Spring Boot, .NET environments.
-- 🧬 Uses modular, schema-aligned logins (`InetOrgPerson`).
-- 🛡️ Secure credential handling via secrets or environment vars.
-
-## READMEs-Files-Package
-
-- 📄 Bundles all `README.md` files from submodules into one ZIP.
-- 🧩 Includes `main-README.md` and renamed folder READMEs.
-- 🗃️ Ensures documentation consistency and backup.
-
-## All-Repository-Files
-
-- 🎒 Complete snapshot of the repository in one ZIP file.
-- 📚 Includes full documentation, licenses, and nested folder structure.
-- 🛠️ Useful for offline use, backup, and full-deployment scenarios.
