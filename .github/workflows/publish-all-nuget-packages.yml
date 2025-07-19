@@ -21,7 +21,7 @@ jobs:
           - Core-ScriptLibrary
           - ITSM-Templates-SVR
           - ITSM-Templates-WKS
-          - SysAdmin-Tool # Corrected to match SysAdmin-Tool.nuspec
+          - SysAdmin-Tool
       fail-fast: false # Continue with other packages if one fails
 
     steps:
@@ -41,8 +41,11 @@ jobs:
           ls -R
           echo "Checking for .nuspec files in root:"
           ls -l *.nuspec || echo "No .nuspec files found in root"
-          echo "Checking dotnet version:"
+          echo "Checking .NET SDK version:"
           dotnet --version
+          echo "Checking nuget command availability:"
+          which dotnet || echo "dotnet not found"
+          which nuget || echo "nuget.exe not found"
 
       - name: 📁 Prepare and stage files
         id: prepare
@@ -97,10 +100,11 @@ jobs:
             exit 0
           fi
           pushd "temp-$pkg"
-          echo "Running dotnet nuget pack for $pkg.nuspec"
-          dotnet nuget pack "$pkg.nuspec" \
+          echo "Running dotnet pack for $pkg.nuspec"
+          dotnet pack --no-build --no-restore \
+            -p:NuspecFile="$pkg.nuspec" \
+            -p:NuspecProperties="ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
             --output ../nupkg-out \
-            --properties "ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
             || { echo "❌ Error: Failed to pack $pkg.nuspec"; exit 0; }
           popd
 
