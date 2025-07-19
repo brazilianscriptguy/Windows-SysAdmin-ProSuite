@@ -23,12 +23,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 📦 Install mono to run nuget.exe
+      - name: 📦 Install mono
         run: |
           sudo apt-get update
           sudo apt-get install -y mono-complete
 
-      - name: 📦 Download latest nuget.exe
+      - name: 📥 Download nuget.exe
         run: |
           mkdir -p .github/tools
           wget -O .github/tools/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
@@ -38,35 +38,35 @@ jobs:
         run: |
           mkdir -p ReadmeCopies
           mkdir -p nupkg-out
-          mkdir -p temp-${{ matrix.package }}
+          mkdir -p "temp-${{ matrix.package }}"
 
-      - name: 🧪 Validate and locate .nuspec file
+      - name: 🧪 Validate README and .nuspec
         run: |
-          if [ -f "${{ matrix.package }}.nuspec" ]; then
-            echo "${{ matrix.package }}.nuspec" > nuspec_path.txt
-          elif [ -f "${{ matrix.package }}/${{ matrix.package }}.nuspec" ]; then
-            echo "${{ matrix.package }}/${{ matrix.package }}.nuspec" > nuspec_path.txt
-          else
-            echo "❌ .nuspec file not found for ${{ matrix.package }}"
-            exit 1
-          fi
-          cat nuspec_path.txt
+          echo "🔎 Verifying files for ${{ matrix.package }}"
 
-      - name: 📄 Stage package content
-        run: |
-          nuspec_path=$(cat nuspec_path.txt)
-
-          if [ -d "${{ matrix.package }}" ]; then
-            cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
-          else
-            echo "❌ Directory ${{ matrix.package }} not found"
+          # Validate README.md presence
+          if [ ! -f "${{ matrix.package }}/README.md" ]; then
+            echo "❌ README.md not found in ./${{ matrix.package }}/"
             exit 1
           fi
 
-          cp "$nuspec_path" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
+          # Validate .nuspec presence
+          if [ ! -f "${{ matrix.package }}.nuspec" ]; then
+            echo "❌ .nuspec file not found: ./${{ matrix.package }}.nuspec"
+            exit 1
+          fi
+
+          # Copy README and nuspec
           cp "${{ matrix.package }}/README.md" "ReadmeCopies/${{ matrix.package }}-README.md"
+          cp "${{ matrix.package }}.nuspec" "temp-${{ matrix.package }}/${{ matrix.package }}.nuspec"
 
-      - name: 📦 Pack NuGet package
+      - name: 📄 Stage files for packing
+        run: |
+          cp -r "${{ matrix.package }}"/* "temp-${{ matrix.package }}/"
+          echo "✅ Staged contents:"
+          ls -lh "temp-${{ matrix.package }}/"
+
+      - name: 📦 Pack NuGet Package
         run: |
           cd "temp-${{ matrix.package }}"
           mono ../../.github/tools/nuget.exe pack "${{ matrix.package }}.nuspec" \
@@ -74,35 +74,31 @@ jobs:
             -Properties "ReadMeFile=ReadmeCopies/${{ matrix.package }}-README.md;SymbolPackageFormat=snupkg"
           cd ../..
 
-      - name: 🧪 Check generated NuGet package
-        run: |
-          echo "📦 NuGet packages:"
-          ls -lh nupkg-out/
-          pkg_count=$(find nupkg-out -name '*.nupkg' | wc -l)
-          if [ "$pkg_count" -eq 0 ]; then
-            echo "❌ No package generated"
-            exit 1
-          fi
-
-      - name: 🚀 Push package to NuGet.org
+      - name: 🚀 Push to nuget.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          pkg_path=$(find nupkg-out -name '*.nupkg' | head -n 1)
+          pkg_path=$(find nupkg-out -name "${{ matrix.package }}.*.nupkg" | head -n 1)
+          if [ -z "$pkg_path" ]; then
+            echo "❌ No NuGet package found for ${{ matrix.package }}"
+            exit 1
+          fi
+          echo "📦 Found: $pkg_path"
           mono .github/tools/nuget.exe push "$pkg_path" \
             -Source https://api.nuget.org/v3/index.json \
             -ApiKey "$NUGET_API_KEY" \
             -NonInteractive
 
-      - name: 🏷️ Create Git tag and push
+      - name: 🏷️ Git tag release
         run: |
-          version=$(basename "$(find nupkg-out -name '*.nupkg' | head -n 1)" | sed -E 's/^.+\.([0-9]+\.[0-9]+\.[0-9]+)\.nupkg$/\1/')
+          version=$(basename "$(find nupkg-out -name '${{ matrix.package }}.*.nupkg' | head -n 1)" | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+)\.nupkg/\1/')
           tag="${{ matrix.package }}-v$version"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag "$tag"
           git push origin "$tag"
+          echo "🏷️ Created tag: $tag"
 
-      - name: 🧹 Clean up temporary artifacts
+      - name: 🧹 Cleanup
         run: |
-          rm -rf "temp-${{ matrix.package }}" nuspec_path.txt
+          rm -rf "temp-${{ matrix.package }}"
