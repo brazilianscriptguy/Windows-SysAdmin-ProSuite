@@ -42,23 +42,29 @@ jobs:
           find . -name "*.nuspec"
 
       - name: 📁 Prepare and stage files
+        id: prepare
         run: |
           pkg="${{ matrix.package }}"
           if [ ! -d "$pkg" ]; then
             echo "⚠️ Warning: Folder $pkg missing, skipping package"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ ! -f "$pkg.nuspec" ]; then
             echo "⚠️ Warning: NuSpec file $pkg.nuspec missing, skipping package"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "Creating directories and copying files for $pkg"
           mkdir -p ReadmeCopies nupkg-out "temp-$pkg"
           cp -r "$pkg" "temp-$pkg/$pkg"
           cp "$pkg/README.md" "ReadmeCopies/$pkg-README.md" || echo "⚠️ Warning: README.md not found for $pkg"
           cp "$pkg.nuspec" "temp-$pkg/$pkg.nuspec"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: 📖 Extract version and changelog
         id: changelog
+        if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="${{ matrix.package }}"
           if [ ! -f "CHANGELOG.md" ]; then
@@ -78,8 +84,13 @@ jobs:
           echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Pack NuGet package
+        if: steps.prepare.outputs.skip != 'true'
         run: |
           pkg="${{ matrix.package }}"
+          if [ ! -d "temp-$pkg" ]; then
+            echo "❌ Error: Directory temp-$pkg missing, cannot pack package"
+            exit 0
+          fi
           pushd "temp-$pkg"
           dotnet nuget pack "$pkg.nuspec" \
             --output ../nupkg-out \
@@ -87,6 +98,7 @@ jobs:
           popd
 
       - name: 🚀 Push to GitHub Packages
+        if: steps.prepare.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -101,6 +113,7 @@ jobs:
           done
 
       - name: 🚀 Push to NuGet.org
+        if: steps.prepare.outputs.skip != 'true'
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
@@ -115,8 +128,9 @@ jobs:
           done
 
       - name: 🧹 Clean up
+        if: always()
         run: |
-          rm -rf "temp-${{ matrix.package }}" ReadmeCopies nupkg-out || true
+          rm -rf "temp-${{ matrix.package }}" Eligibility
 
   create-release-tag:
     runs-on: ubuntu-latest
