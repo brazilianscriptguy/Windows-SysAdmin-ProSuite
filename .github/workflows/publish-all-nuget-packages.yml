@@ -54,10 +54,12 @@ jobs:
           version=$(grep -m1 '<version>' "$pkg.nuspec" | sed -E 's/.*<version>(.+)<\/version>.*/\1/')
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-          notes=$(awk "/^## \[$version\]/,/^## \[/" CHANGELOG.md | sed '1d;$d' || echo "No changelog found for $version")
-          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$notes" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          changelog=$(awk "/^## \[$version\]/,/^## \[/" CHANGELOG.md | sed '1d;$d')
+          changelog="${changelog:-No changelog found for version $version}"
+
+          # Replace newlines with \n for safe output
+          changelog_sanitized=$(printf "%s" "$changelog" | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "notes=$changelog_sanitized" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Pack NuGet package
         run: |
