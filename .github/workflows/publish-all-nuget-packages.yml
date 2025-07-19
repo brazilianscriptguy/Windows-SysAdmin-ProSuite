@@ -43,21 +43,25 @@ jobs:
           ls -l *.nuspec || echo "No .nuspec files found in root"
           echo "Checking .NET SDK version:"
           dotnet --version
-          echo "Checking nuget command availability:"
-          which nuget || echo "nuget.exe not found yet"
+          echo "Checking for mono and nuget availability:"
+          which mono || echo "mono not found yet"
+          which nuget || echo "nuget not found yet"
 
-      - name: 📦 Install NuGet CLI
+      - name: 📦 Install Mono and NuGet CLI
         run: |
+          echo "Installing mono-complete"
+          sudo apt-get update
+          sudo apt-get install -y mono-complete
+          echo "Checking mono version:"
+          mono --version
           echo "Installing nuget.exe"
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
           chmod +x nuget.exe
-          echo "Checking nuget.exe version:"
-          mono nuget.exe --version || echo "Failed to check nuget.exe version"
           echo "Moving nuget.exe to /usr/local/bin"
           sudo mv nuget.exe /usr/local/bin/nuget
           echo "Verifying nuget command:"
           which nuget
-          nuget --version
+          mono /usr/local/bin/nuget help | head -n 1
 
       - name: 📁 Prepare and stage files
         id: prepare
@@ -113,7 +117,7 @@ jobs:
           fi
           pushd "temp-$pkg"
           echo "Running nuget pack for $pkg.nuspec"
-          mono nuget pack "$pkg.nuspec" \
+          mono /usr/local/bin/nuget pack "$pkg.nuspec" \
             -OutputDirectory ../nupkg-out \
             -Properties "ReadMeFile=../ReadmeCopies/$pkg-README.md;SymbolPackageFormat=snupkg" \
             || { echo "❌ Error: Failed to pack $pkg.nuspec"; exit 0; }
