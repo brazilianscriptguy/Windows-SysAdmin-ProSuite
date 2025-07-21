@@ -2,10 +2,8 @@ name: make-github-releases
 
 on:
   workflow_dispatch: {}
-  release:
-    types: [published]
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight UTC
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
 
 permissions:
   contents: write
@@ -14,37 +12,24 @@ jobs:
   cleanup-github-releases:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - name: Install Dependencies
+      - name: Install GitHub CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y jq gh
 
-      - name: Configure GitHub CLI
+      - name: Authenticate with GitHub CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
+        run: gh auth login --with-token <<< "$GITHUB_TOKEN"
 
-      - name: Delete Older Releases for Managed Tags
+      - name: Delete all existing releases and tags
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          MANAGED_TAGS=("AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary" "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools")
-          for tag in "${MANAGED_TAGS[@]}"; do
-            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
-            if [ -z "$releases" ]; then continue; fi
-            sorted_releases=$(echo "$releases" | sort)
-            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
-            for old_tag in $releases_to_delete; do
-              gh release delete "$old_tag" -y
-              git push --delete origin "$old_tag"
-            done
+          gh release list --limit 1000 | awk '{print $1}' | while read tag; do
+            gh release delete "$tag" -y || true
+            git push --delete origin "$tag" || true
           done
 
   update-github-releases:
@@ -65,13 +50,13 @@ jobs:
         ]
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          submodules: true
           fetch-depth: 0
+          submodules: true
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y zip jq gh
@@ -81,32 +66,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh auth setup-git
 
-      - name: Handle Existing Release and Tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Define dynamic version tag
+        id: taggen
         run: |
-          TAG_NAME="${{ matrix.release_name }}"
-          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
-            gh release delete "$TAG_NAME" -y
-            git push --delete origin "$TAG_NAME"
-          fi
+          tag_hash=$(git rev-parse --short HEAD)
+          tag_date=$(date +%Y%m%d)
+          echo "VERSION_TAG=${{ matrix.release_name }}-${tag_date}-${tag_hash}" >> $GITHUB_ENV
 
       - name: Build and Package ${{ matrix.release_name }}
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
+          VERSION_TAG: ${{ env.VERSION_TAG }}
         run: |
-          set -e
           mkdir -p artifacts
-
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
-              cp README.md "./temp-$RELEASE_NAME/" || true
-              cp LICENSE "./temp-$RELEASE_NAME/" || true
-              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
-              rm -rf "temp-$RELEASE_NAME"
+              cp -r "$RELEASE_NAME" temp
+              cp README.md temp/ || true
+              cp LICENSE temp/ || true
+              zip -r "artifacts/$RELEASE_NAME.zip" temp
+              rm -rf temp
               ;;
-
             GPOs-Templates)
               mkdir -p GPOs-Templates
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
@@ -116,7 +96,6 @@ jobs:
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
-
             READMEs-Files-Package)
               mkdir -p READMEs-Files-Package
               cp README.md READMEs-Files-Package/main-README.md || true
@@ -128,7 +107,6 @@ jobs:
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               rm -rf READMEs-Files-Package
               ;;
-
             All-Repository-Files)
               mkdir -p All-Repository-Files
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
@@ -139,7 +117,6 @@ jobs:
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               rm -rf All-Repository-Files
               ;;
-
             AD-SSO-APIs-Integration)
               mkdir -p AD-SSO-APIs-Integration
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
@@ -148,35 +125,31 @@ jobs:
               ;;
           esac
 
-      - name: Generate SHA256 Signature
+      - name: Generate SHA256 signature
         run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.sha256.txt"
 
-      - name: Extract Release Notes from CHANGELOG.md
-        id: extract_notes
+      - name: Extract Release Notes
+        id: changelog
         run: |
-          tag="${{ matrix.release_name }}"
-          body=$(awk -v tag="## $tag" '
-            $0 == tag {found=1; next}
-            /^## / && found {exit}
-            found {print}
-          ' CHANGELOG.md)
-          echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "${body:-No changelog available.}" >> $GITHUB_ENV
+          tag="## ${{ matrix.release_name }}"
+          notes=$(awk -v t="$tag" 'BEGIN {f=0} $0==t {f=1; next} /^## / && f {exit} f {print}' CHANGELOG.md)
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          echo "${notes:-No changelog available.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1.1.0
         with:
-          tag_name: ${{ matrix.release_name }}
-          release_name: ${{ matrix.release_name }}
-          body: ${{ env.release_body }}
+          tag_name: ${{ env.VERSION_TAG }}
+          release_name: ${{ env.VERSION_TAG }}
+          body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Zip
+      - name: Upload Release ZIP
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -196,7 +169,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact Archive (for GitHub actions record)
+      - name: Upload GitHub Action Artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
