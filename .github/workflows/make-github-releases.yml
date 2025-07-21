@@ -1,4 +1,4 @@
-name: release-and-publish
+name: Update GitHub Releases
 
 on:
   push:
@@ -6,38 +6,9 @@ on:
       - main
 
 jobs:
-  prepare-release:
+  update-github-releases:
     runs-on: ubuntu-latest
-    outputs:
-      sha: ${{ steps.vars.outputs.sha }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Get short SHA and date
-        id: vars
-        run: |
-          echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-
-  cleanup-previous-tags:
-    needs: prepare-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete existing tags and releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release list --limit 100 | awk '{print $1}' | while read -r tag; do
-            echo "Deleting release: $tag"
-            gh release delete "$tag" --yes || true
-            echo "Deleting tag: $tag"
-            git push origin --delete "$tag" || true
-          done
-
-  release:
-    needs: [prepare-release, cleanup-previous-tags]
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         release_name:
@@ -48,37 +19,75 @@ jobs:
           - GPOs-Templates
           - Core-ScriptLibrary
           - BlueTeam-Tools
+          - All-Repository-Files
           - AD-SSO-APIs-Integration
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set variables
-        id: vars
-        run: |
-          echo "sha=${{ needs.prepare-release.outputs.sha }}" >> $GITHUB_OUTPUT
-          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-          echo "version_tag=${{ matrix.release_name }}-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.sha }}" >> $GITHUB_ENV
-
-      - name: Create release zip
-        run: |
-          mkdir -p artifacts
-          zip -r artifacts/${{ matrix.release_name }}.zip ${{ matrix.release_name }}
-
-      - name: Generate SHA256 hash
-        run: |
-          sha256sum artifacts/${{ matrix.release_name }}.zip > artifacts/${{ matrix.release_name }}.zip.sha256
-
-      - name: Upload release artifacts
-        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.version_tag }}
-          name: ${{ env.version_tag }}
-          body_path: .github/release-notes/${{ matrix.release_name }}.md
-          files: |
-            artifacts/${{ matrix.release_name }}.zip
-            artifacts/${{ matrix.release_name }}.zip.sha256
-            CHANGELOG.md
-            LICENSE
+          fetch-depth: 0
+
+      - name: Set release version tag
+        id: set_tag
+        run: |
+          timestamp=$(date +'%Y%m%d')
+          short_sha=$(git rev-parse --short HEAD)
+          version_tag="${{ matrix.release_name }}-${timestamp}-${short_sha}"
+          echo "VERSION_TAG=$version_tag" >> $GITHUB_ENV
+          echo "version_tag=$version_tag" >> $GITHUB_OUTPUT
+
+      - name: Delete existing tag and release (if exists)
+        continue-on-error: true
+        run: |
+          gh release delete "$VERSION_TAG" --yes || true
+          git push --delete origin "$VERSION_TAG" || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
+      - name: Package release folder
+        run: |
+          if [ -d "${{ matrix.release_name }}" ]; then
+            zip -r "artifacts/${{ matrix.release_name }}.zip" "${{ matrix.release_name }}"
+          else
+            echo "Folder '${{ matrix.release_name }}' not found."
+            exit 1
+          fi
+
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.zip.sha256"
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1.1.0
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          release_name: ${{ env.VERSION_TAG }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload main ZIP artifact
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.set_tag.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip
+          asset_name: ${{ matrix.release_name }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SHA256 checksum
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.set_tag.outputs.upload_url }}
+          asset_path: artifacts/${{ matrix.release_name }}.zip.sha256
+          asset_name: ${{ matrix.release_name }}.zip.sha256
+          asset_content_type: text/plain
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
