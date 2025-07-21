@@ -1,67 +1,80 @@
-name: Update GitHub Releases
+name: update-github-releases
 
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  update-github-releases:
+  release:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         release_name:
-          - SysAdmin-Tools
-          - READMEs-Files-Package
-          - ITSM-Templates-WKS
-          - ITSM-Templates-SVR
-          - GPOs-Templates
-          - Core-ScriptLibrary
-          - BlueTeam-Tools
-          - All-Repository-Files
           - AD-SSO-APIs-Integration
+          - All-Repository-Files
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - GPOs-Templates
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - READMEs-Files-Package
+          - SysAdmin-Tools
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set release version tag
-        id: set_tag
-        run: |
-          timestamp=$(date +'%Y%m%d')
-          short_sha=$(git rev-parse --short HEAD)
-          version_tag="${{ matrix.release_name }}-${timestamp}-${short_sha}"
-          echo "VERSION_TAG=$version_tag" >> $GITHUB_ENV
-          echo "version_tag=$version_tag" >> $GITHUB_OUTPUT
+      - name: Get short SHA
+        id: vars
+        run: echo "GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Delete existing tag and release (if exists)
-        continue-on-error: true
-        run: |
-          gh release delete "$VERSION_TAG" --yes || true
-          git push --delete origin "$VERSION_TAG" || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set version tag
+        run: echo "VERSION_TAG=${{ matrix.release_name }}-$(date +%Y%m%d)-${GIT_SHA}" >> $GITHUB_ENV
 
       - name: Create artifacts directory
         run: mkdir -p artifacts
 
-      - name: Package release folder
+      - name: Package release folder (with conditional logic)
         run: |
-          if [ -d "${{ matrix.release_name }}" ]; then
-            zip -r "artifacts/${{ matrix.release_name }}.zip" "${{ matrix.release_name }}"
-          else
-            echo "Folder '${{ matrix.release_name }}' not found."
-            exit 1
-          fi
+          case "${{ matrix.release_name }}" in
+            All-Repository-Files)
+              zip -r "artifacts/${{ matrix.release_name }}.zip" \
+                SysAdmin-Tools Core-ScriptLibrary ITSM-Templates-SVR \
+                ITSM-Templates-WKS GPOs-Templates BlueTeam-Tools \
+                AD-SSO-APIs-Integration README.md
+              ;;
+            READMEs-Files-Package)
+              find . -name README.md -exec cp --parents \{\} tmp-readmes/ \;
+              cd tmp-readmes && zip -r "../artifacts/${{ matrix.release_name }}.zip" .
+              cd .. && rm -rf tmp-readmes
+              ;;
+            *)
+              if [ -d "${{ matrix.release_name }}" ]; then
+                zip -r "artifacts/${{ matrix.release_name }}.zip" "${{ matrix.release_name }}"
+              else
+                echo "Folder '${{ matrix.release_name }}' not found."
+                exit 1
+              fi
+              ;;
+          esac
 
       - name: Generate SHA256 checksum
-        run: |
-          sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.zip.sha256"
+        run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.zip.sha256"
 
-      - name: Create GitHub release
+      - name: Include LICENSE and CHANGELOG.md
+        run: |
+          cp LICENSE artifacts/
+          cp CHANGELOG.md artifacts/
+
+      - name: Delete old release with same tag (if exists)
+        continue-on-error: true
+        run: |
+          gh release delete "$VERSION_TAG" --cleanup-tag --yes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create new release
         uses: actions/create-release@v1.1.0
         with:
           tag_name: ${{ env.VERSION_TAG }}
@@ -72,20 +85,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload main ZIP artifact
+      - name: Upload release artifacts
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.set_tag.outputs.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip
           asset_name: ${{ matrix.release_name }}.zip
           asset_content_type: application/zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload SHA256 checksum
+      - name: Upload SHA256 artifact
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.set_tag.outputs.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip.sha256
           asset_name: ${{ matrix.release_name }}.zip.sha256
           asset_content_type: text/plain
