@@ -15,33 +15,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          submodules: true
           fetch-depth: 0
 
-      - name: Install Dependencies
+      - name: Install GitHub CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y jq gh
 
-      - name: Configure GitHub CLI
+      - name: Authenticate GitHub CLI
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "GitHub CLI configured with GITHUB_TOKEN"
-
-      - name: Delete Existing Releases and Tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-          MANAGED_TAGS=(
-            "AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary"
-            "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools"
-          )
+          echo "$GH_TOKEN" | gh auth login --with-token
+
+      - name: Delete Old Releases and Tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MANAGED_TAGS=("AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary" "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools")
           for tag in "${MANAGED_TAGS[@]}"; do
-            releases=$(gh release list --json name,tagName | jq -r --arg tag "$tag" '.[] | select(.tagName | startswith($tag)) | .tagName')
-            for release_tag in $releases; do
-              gh release delete "$release_tag" -y || true
-              git push --delete origin "$release_tag" || true
+            existing_tags=$(gh release list --limit 100 | grep "$tag" | awk '{print $1}')
+            for old_tag in $existing_tags; do
+              gh release delete "$old_tag" -y || true
+              git push origin --delete "$old_tag" || true
             done
           done
 
@@ -51,16 +47,21 @@ jobs:
     strategy:
       matrix:
         release_name: [
-          "AD-SSO-APIs-Integration", "All-Repository-Files", "BlueTeam-Tools",
-          "Core-ScriptLibrary", "GPOs-Templates", "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS", "READMEs-Files-Package", "SysAdmin-Tools"
+          "AD-SSO-APIs-Integration",
+          "All-Repository-Files",
+          "BlueTeam-Tools",
+          "Core-ScriptLibrary",
+          "GPOs-Templates",
+          "ITSM-Templates-SVR",
+          "ITSM-Templates-WKS",
+          "READMEs-Files-Package",
+          "SysAdmin-Tools"
         ]
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          submodules: true
           fetch-depth: 0
 
       - name: Install Dependencies
@@ -68,26 +69,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zip jq gh
 
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | gh auth login --with-token
+
       - name: Set Version Tag
         id: version
         run: |
-          HASH=$(git rev-parse --short HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d)
-          echo "VERSION_TAG=${{ matrix.release_name }}-${DATE}-${HASH}" >> $GITHUB_ENV
+          echo "VERSION_TAG=${{ matrix.release_name }}-${DATE}-${SHORT_SHA}" >> $GITHUB_ENV
 
       - name: Build and Package ${{ matrix.release_name }}
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -e
           mkdir -p artifacts
 
-          case "${{ matrix.release_name }}" in
+          case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "${{ matrix.release_name }}" temp-${{ matrix.release_name }}
-              cp README.md temp-${{ matrix.release_name }}/ || true
-              cp LICENSE temp-${{ matrix.release_name }}/ || true
-              zip -r "artifacts/${{ matrix.release_name }}.zip" "temp-${{ matrix.release_name }}"
-              rm -rf temp-${{ matrix.release_name }}
+              cp -r "$RELEASE_NAME" "temp-$RELEASE_NAME"
+              cp README.md "temp-$RELEASE_NAME/" || true
+              cp LICENSE "temp-$RELEASE_NAME/" || true
+              zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
+              rm -rf "temp-$RELEASE_NAME"
               ;;
+
             GPOs-Templates)
               mkdir -p GPOs-Templates
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
@@ -96,6 +106,7 @@ jobs:
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
+
             READMEs-Files-Package)
               mkdir -p READMEs-Files-Package
               cp README.md READMEs-Files-Package/main-README.md || true
@@ -107,14 +118,18 @@ jobs:
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               rm -rf READMEs-Files-Package
               ;;
+
             All-Repository-Files)
-              if [ -d "All-Repository-Files" ]; then
-                zip -r artifacts/All-Repository-Files.zip All-Repository-Files
-              else
-                echo "Folder 'All-Repository-Files' not found."
-                exit 1
-              fi
+              mkdir -p All-Repository-Files
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                [ -d "$dir" ] && cp -r "$dir" All-Repository-Files/
+              done
+              cp README.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
+              zip -r artifacts/All-Repository-Files.zip All-Repository-Files
+              rm -rf All-Repository-Files
               ;;
+
             AD-SSO-APIs-Integration)
               mkdir -p AD-SSO-APIs-Integration
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
@@ -130,14 +145,18 @@ jobs:
         id: changelog
         run: |
           tag="## ${{ matrix.release_name }}"
-          body=$(awk -v tag="$tag" '$0 == tag {found=1; next} /^## / && found {exit} found {print}' CHANGELOG.md)
+          notes=$(awk -v tag="$tag" '
+            $0 == tag {found=1; next}
+            /^## / && found {exit}
+            found {print}
+          ' CHANGELOG.md)
           echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "${body:-No changelog available.}" >> $GITHUB_ENV
+          echo "${notes:-No changelog available.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/create-release@v1.1.0
+        uses: actions/create-release@v1
         with:
           tag_name: ${{ env.VERSION_TAG }}
           release_name: ${{ env.VERSION_TAG }}
@@ -147,7 +166,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Zip Asset
+      - name: Upload ZIP File
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -167,7 +186,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Archive Artifact for Workflow Logs
+      - name: Upload Artifacts to GitHub Actions
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
