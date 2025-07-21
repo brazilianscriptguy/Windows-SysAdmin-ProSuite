@@ -1,4 +1,4 @@
-name: build-github-releases
+name: make-github-releases
 
 on:
   workflow_dispatch: {}
