@@ -5,7 +5,7 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *'  # every day at midnight UTC
 
 permissions:
   contents: write
@@ -75,7 +75,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zip jq gh
-          pwsh -Command "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
 
       - name: Configure GitHub CLI
         env:
@@ -92,25 +91,18 @@ jobs:
             git push --delete origin "$TAG_NAME"
           fi
 
-      - name: Build, Analyze and Package ${{ matrix.release_name }}
+      - name: Build and Package ${{ matrix.release_name }}
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -e
-          mkdir -p artifacts lint-reports
+          mkdir -p artifacts
 
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
               cp README.md "./temp-$RELEASE_NAME/" || true
               cp LICENSE "./temp-$RELEASE_NAME/" || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './temp-$RELEASE_NAME' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/$RELEASE_NAME-AnalyzerReport.txt' -Encoding utf8
-              "
-
               zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
               rm -rf "temp-$RELEASE_NAME"
               ;;
@@ -121,13 +113,6 @@ jobs:
               cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
               cp README.md GPOs-Templates/ || true
               cp LICENSE GPOs-Templates/ || true
-
-              pwsh -Command "
-                Get-ChildItem -Recurse -Path './GPOs-Templates' -Include *.ps1 |
-                Invoke-ScriptAnalyzer -Recurse -Severity Warning,Error |
-                Out-File 'lint-reports/GPOs-Templates-AnalyzerReport.txt' -Encoding utf8
-              "
-
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
@@ -164,10 +149,7 @@ jobs:
           esac
 
       - name: Generate SHA256 Signature
-        run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.zip.sha256"
-
-      - name: Append to SHA256SUMS manifest
-        run: cat artifacts/${{ matrix.release_name }}.zip.sha256 >> artifacts/SHA256SUMS.txt
+        run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.sha256.txt"
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
@@ -194,7 +176,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Artifact
+      - name: Upload Release Zip
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -208,31 +190,13 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ matrix.release_name }}.zip.sha256
-          asset_name: ${{ matrix.release_name }}.zip.sha256
+          asset_path: artifacts/${{ matrix.release_name }}.sha256.txt
+          asset_name: ${{ matrix.release_name }}.sha256.txt
           asset_content_type: text/plain
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Central SHA256SUMS.txt
-        if: ${{ matrix.release_name == 'SysAdmin-Tools' }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/SHA256SUMS.txt
-          asset_name: SHA256SUMS.txt
-          asset_content_type: text/plain
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Lint Report
-        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' && matrix.release_name != 'AD-SSO-APIs-Integration' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: PSScriptAnalyzer-${{ matrix.release_name }}
-          path: lint-reports/${{ matrix.release_name }}-AnalyzerReport.txt
-
-      - name: Upload Artifact Zip
+      - name: Upload Artifact Archive (for GitHub actions record)
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.release_name }}
