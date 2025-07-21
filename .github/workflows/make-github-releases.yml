@@ -1,11 +1,11 @@
-name: make-github-releases
+name: build-github-releases
 
 on:
   workflow_dispatch: {}
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight UTC
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
@@ -91,13 +91,12 @@ jobs:
             git push --delete origin "$TAG_NAME"
           fi
 
-      - name: Build and Package ${{ matrix.release_name }}
+      - name: Prepare Artifacts
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -e
           mkdir -p artifacts
-
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
@@ -106,7 +105,6 @@ jobs:
               zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
               rm -rf "temp-$RELEASE_NAME"
               ;;
-
             GPOs-Templates)
               mkdir -p GPOs-Templates
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
@@ -116,7 +114,6 @@ jobs:
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
-
             READMEs-Files-Package)
               mkdir -p READMEs-Files-Package
               cp README.md READMEs-Files-Package/main-README.md || true
@@ -128,7 +125,6 @@ jobs:
               zip -r artifacts/READMEs-Files-Package.zip READMEs-Files-Package
               rm -rf READMEs-Files-Package
               ;;
-
             All-Repository-Files)
               mkdir -p All-Repository-Files
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
@@ -139,7 +135,6 @@ jobs:
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               rm -rf All-Repository-Files
               ;;
-
             AD-SSO-APIs-Integration)
               mkdir -p AD-SSO-APIs-Integration
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* AD-SSO-APIs-Integration/
@@ -148,18 +143,14 @@ jobs:
               ;;
           esac
 
-      - name: Generate SHA256 Signature
+      - name: Generate SHA256 Checksum
         run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.sha256.txt"
 
       - name: Extract Release Notes from CHANGELOG.md
         id: extract_notes
         run: |
           tag="${{ matrix.release_name }}"
-          body=$(awk -v tag="## $tag" '
-            $0 == tag {found=1; next}
-            /^## / && found {exit}
-            found {print}
-          ' CHANGELOG.md)
+          body=$(awk -v tag="## $tag" '$0 == tag {found=1; next} /^## / && found {exit} found {print}' CHANGELOG.md)
           echo "release_body<<EOF" >> $GITHUB_ENV
           echo "${body:-No changelog available.}" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
@@ -176,15 +167,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Zip
+      - name: Upload Main Artifact Zip
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip
           asset_name: ${{ matrix.release_name }}.zip
           asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SHA256 Checksum
         uses: actions/upload-release-asset@v1
@@ -193,11 +182,28 @@ jobs:
           asset_path: artifacts/${{ matrix.release_name }}.sha256.txt
           asset_name: ${{ matrix.release_name }}.sha256.txt
           asset_content_type: text/plain
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact Archive (for GitHub actions record)
-        uses: actions/upload-artifact@v4
+      - name: Upload License File
+        uses: actions/upload-release-asset@v1
         with:
-          name: artifacts-${{ matrix.release_name }}
-          path: artifacts/${{ matrix.release_name }}.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: LICENSE
+          asset_name: LICENSE
+          asset_content_type: text/plain
+
+      - name: Upload CHANGELOG File
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: CHANGELOG.md
+          asset_name: CHANGELOG.md
+          asset_content_type: text/markdown
+
+      - name: Upload SBOM (if available)
+        if: ${{ matrix.release_name != 'READMEs-Files-Package' && matrix.release_name != 'All-Repository-Files' }}
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: sbom/${{ matrix.release_name }}-sbom.json
+          asset_name: ${{ matrix.release_name }}-sbom.json
+          asset_content_type: application/json
