@@ -5,50 +5,13 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'  # Runs every day at midnight UTC
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
 
 jobs:
-  cleanup-github-releases:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Install GitHub CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh jq
-
-      - name: Configure GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      - name: Delete Older Releases for Managed Tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          MANAGED_TAGS=("AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary" "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools")
-          for tag in "${MANAGED_TAGS[@]}"; do
-            releases=$(gh release list --tag "$tag" --limit 100 --json name,tagName,createdAt | jq -r --arg tag "$tag" '.[] | select(.tagName == $tag) | "\(.createdAt) \(.tagName)"')
-            if [ -z "$releases" ]; then continue; fi
-            sorted_releases=$(echo "$releases" | sort)
-            releases_to_delete=$(echo "$sorted_releases" | head -n -1 | awk '{print $2}')
-            for old_tag in $releases_to_delete; do
-              gh release delete "$old_tag" -y
-              git push --delete origin "$old_tag"
-            done
-          done
-
   update-github-releases:
-    needs: cleanup-github-releases
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -68,26 +31,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
           submodules: true
+          fetch-depth: 0
 
-      - name: Install Zip Tool
-        run: sudo apt-get update && sudo apt-get install -y zip jq gh
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip jq gh
 
       - name: Configure GitHub CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh auth setup-git
-
-      - name: Handle Existing Release and Tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG_NAME="${{ matrix.release_name }}"
-          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
-            gh release delete "$TAG_NAME" -y
-            git push --delete origin "$TAG_NAME"
-          fi
 
       - name: Build and Package ${{ matrix.release_name }}
         env:
@@ -98,8 +53,9 @@ jobs:
 
           case "$RELEASE_NAME" in
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" "temp-$RELEASE_NAME"
-              cp CHANGELOG.md LICENSE "temp-$RELEASE_NAME/" || true
+              cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
+              cp CHANGELOG.md "./temp-$RELEASE_NAME/" || true
+              cp LICENSE "./temp-$RELEASE_NAME/" || true
               zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
               rm -rf "temp-$RELEASE_NAME"
               ;;
@@ -108,14 +64,15 @@ jobs:
               mkdir -p GPOs-Templates
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
               cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
-              cp CHANGELOG.md LICENSE GPOs-Templates/ || true
-              zip -r "artifacts/GPOs-Templates.zip" GPOs-Templates
+              cp CHANGELOG.md GPOs-Templates/ || true
+              cp LICENSE GPOs-Templates/ || true
+              zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
 
             READMEs-Files-Package)
               mkdir -p READMEs-Files-Package
-              cp CHANGELOG.md LICENSE READMEs-Files-Package/ || true
+              cp README.md READMEs-Files-Package/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
                 repo_dir=$(dirname "$file")
                 repo_name=$(basename "$repo_dir")
@@ -130,7 +87,8 @@ jobs:
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
                 cp -r "$dir" All-Repository-Files/
               done
-              cp CHANGELOG.md LICENSE All-Repository-Files/ || true
+              cp CHANGELOG.md All-Repository-Files/ || true
+              cp LICENSE All-Repository-Files/ || true
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               rm -rf All-Repository-Files
               ;;
@@ -155,9 +113,12 @@ jobs:
             /^## / && found {exit}
             found {print}
           ' CHANGELOG.md)
-          echo "release_body<<EOF" >> $GITHUB_ENV
-          echo "${body:-No changelog available.}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+
+          {
+            echo "release_body<<EOF"
+            echo "${body:-No changelog available.}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         id: create_release
@@ -165,13 +126,13 @@ jobs:
         with:
           tag_name: ${{ matrix.release_name }}
           release_name: ${{ matrix.release_name }}
-          body: ${{ env.release_body }}
+          body: ${{ steps.extract_notes.outputs.release_body }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload .zip Artifact
+      - name: Upload Release Artifact (.zip)
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -181,7 +142,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload .sha256 Artifact
+      - name: Upload SHA256 Checksum
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
