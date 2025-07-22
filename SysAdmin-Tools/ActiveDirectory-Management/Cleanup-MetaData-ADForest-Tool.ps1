@@ -481,7 +481,7 @@ $removeCNButton.Location = New-Object System.Drawing.Point(10, 40)
 $removeCNButton.Size = New-Object System.Drawing.Size(150, 30)
 $removeCNButton.Text = "Remove CN"
 $removeCNButton.Add_Click({
-    # Convert the DN from the user input format (e.g., forumstn.sede.tjap) to the required AD format (DC=forumstn,DC=SEDE,DC=TJAP)
+    # Convert the DN from the user input format (e.g., bossalesoffice.scriptguy.hq) to the required AD format (DC=scriptguy,DC=hq)
     $domainFormatDN = Convert-ToDCFormat -domainName $dnInput.Text
     if (-not [string]::IsNullOrWhiteSpace($domainFormatDN)) {
         Remove-CN -distinguishedName $domainFormatDN
