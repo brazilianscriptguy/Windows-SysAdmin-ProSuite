@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.2.2
         with:
           submodules: true
           fetch-depth: 0
@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.2.2
         with:
           submodules: true
           fetch-depth: 0
@@ -93,7 +93,7 @@ jobs:
             BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
               cp -r "$RELEASE_NAME" "./temp-$RELEASE_NAME"
               cp README.md "./temp-$RELEASE_NAME/" || true
-              cp LICENSE "./temp-$RELEASE_NAME/" || true
+              cp LICENSE.txt "./temp-$RELEASE_NAME/" || true
               zip -r "artifacts/$RELEASE_NAME.zip" "temp-$RELEASE_NAME"
               rm -rf "temp-$RELEASE_NAME"
               ;;
@@ -102,7 +102,7 @@ jobs:
               mkdir -p GPOs-Templates
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* GPOs-Templates/
               cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 GPOs-Templates/
-              cp README.md LICENSE GPOs-Templates/ || true
+              cp README.md LICENSE.txt GPOs-Templates/ || true
               zip -r artifacts/GPOs-Templates.zip GPOs-Templates
               rm -rf GPOs-Templates
               ;;
@@ -125,7 +125,7 @@ jobs:
                 cp -r "$dir" All-Repository-Files/
               done
               cp README.md All-Repository-Files/ || true
-              cp LICENSE All-Repository-Files/ || true
+              cp LICENSE.txt All-Repository-Files/ || true
               zip -r artifacts/All-Repository-Files.zip All-Repository-Files
               rm -rf All-Repository-Files
               ;;
