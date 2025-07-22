@@ -1,65 +1,76 @@
 # ===============================
-# Enforce LF as line ending for all text files
+# Enforce LF as line ending for all text/code files
 # ===============================
 
-# PowerShell, VBScript, and HTA files
-*.ps1 text eol=lf
-*.vbs text eol=lf
-*.hta text eol=lf
+# PowerShell, VBScript, and HTA
+*.ps1      text eol=lf
+*.vbs      text eol=lf
+*.hta      text eol=lf
 
-# YAML and JSON files
-*.yaml text eol=lf
-*.yml text eol=lf
-*.json text eol=lf
+# YAML and JSON
+*.yaml     text eol=lf
+*.yml      text eol=lf
+*.json     text eol=lf
 
-# Markdown and text files
-*.md text eol=lf
-*.txt text eol=lf
+# Markdown and plain text
+*.md       text eol=lf
+*.txt      text eol=lf
 
-# XML-based files (e.g., config, csproj, nuspec)
-*.xml text eol=lf
-*.config text eol=lf
-*.csproj text eol=lf
-*.nuspec text eol=lf
+# XML-based configs
+*.xml      text eol=lf
+*.config   text eol=lf
+*.csproj   text eol=lf
+*.nuspec   text eol=lf
 
-# JavaScript and TypeScript files
-*.js text eol=lf
-*.ts text eol=lf
+# Web and scripting files
+*.html     text eol=lf
+*.js       text eol=lf
+*.ts       text eol=lf
 
-# Shell scripts and configuration files
-*.sh text eol=lf
-*.conf text eol=lf
-*.ini text eol=lf
+# Shell scripts and Unix configs
+*.sh       text eol=lf
+*.bash     text eol=lf
+*.conf     text eol=lf
+*.ini      text eol=lf
+
+# Python
+*.py       text eol=lf
 
 # ===============================
-# Treat specific file types as binary
+# Treat specific files as binary (no normalization)
 # ===============================
 
-# Binary files (e.g., executables, archives, NuGet packages)
-*.exe binary
-*.pdf binary
-*.zip binary
-*.tar binary
-*.gz binary
-*.7z binary
-*.iso binary
-*.nupkg binary
+# Executables and archives
+*.exe      binary
+*.zip      binary
+*.tar      binary
+*.gz       binary
+*.7z       binary
+*.iso      binary
+*.nupkg    binary
+
+# Documents and static assets
+*.pdf      binary
+*.svg      binary
+
+# Image formats
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
 
 # Backup files
-*.bak binary
+*.bak      binary
 
-# Image files
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.svg binary
+# Fonts or binary blobs (if applicable)
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.eot      binary
 
 # ===============================
 # Notes for consistency
 # ===============================
-
-# The 'text' attribute ensures consistent line endings across platforms.
-# The 'eol=lf' forces LF as the line ending, ideal for cross-platform projects.
-# The 'binary' attribute ensures Git doesn't attempt to normalize or alter these files.
-
+# 'text' ensures Git normalizes line endings to LF (Linux-style)
+# 'eol=lf' forces files to use LF in working directory (no CRLF)
+# 'binary' disables line-ending conversion and diff for those files
