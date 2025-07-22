@@ -1,14 +1,14 @@
-<h1>🔹 Flask-API: Active Directory SSO Integration</h1>
+# 🔹 Flask-API: Active Directory SSO Integration
 
-<h2>📌 Overview</h2>
-<p>
-  The <strong>Flask-API</strong> is a <strong>Python-based REST API</strong> built with 
-  <strong>Flask</strong> that enables <strong>LDAP-based Single Sign-On (SSO) authentication</strong> 
-  with <strong>Active Directory</strong> using the <code>ldap3</code> library.
-</p>
+## 📌 Overview
 
-<h2>📁 Folder Structure</h2>
-<pre>
+The **Flask-API** is a **Python-based REST API** built with **Flask** that enables **LDAP-based Single Sign-On (SSO) authentication** with **Active Directory** using the `ldap3` library.
+
+---
+
+## 📁 Folder Structure
+
+```
 ActiveDirectory-SSO-Integrations/
 │
 ├── 📂 Flask-API/                     # Parent folder for Flask API integration
@@ -23,19 +23,24 @@ ActiveDirectory-SSO-Integrations/
 │   ├── 📂 utils/                     # Helper functions
 │   │   ├── 📜 logger.py              # Logs authentication events
 │   ├── 📖 README.md                  # Documentation for Flask-API
-</pre>
+```
 
-<h2>🛠️ Prerequisites</h2>
-<ul>
-  <li><strong>Python 3.8+</strong></li>
-  <li><strong>Active Directory instance</strong></li>
-  <li><strong>LDAP access credentials</strong></li>
-  <li><strong>Postman or cURL</strong> (for API testing)</li>
-</ul>
+---
 
-<h2>⚙️ Configuration</h2>
-<p>Modify <code>config.py</code> with your <strong>LDAP credentials</strong>:</p>
-<pre>
+## 🛠️ Prerequisites
+
+- **Python 3.8+**
+- **Active Directory instance**
+- **LDAP access credentials**
+- **Postman or cURL** (for API testing)
+
+---
+
+## ⚙️ Configuration
+
+Modify `config.py` with your **LDAP credentials**:
+
+```python
 LDAP_CONFIG = {
     "LDAP_SERVER": "ldap://ldap.headq.scriptguy:3268",
     "BASE_DN": "dc=headq,dc=scriptguy",
@@ -43,84 +48,93 @@ LDAP_CONFIG = {
     "BIND_PASSWORD": os.getenv("LDAP_PASSWORD"),
     "USER_FILTER": "(sAMAccountName={0})"
 }
-</pre>
+```
 
-<h2>🚀 How to Run</h2>
-<ol>
-  <li><strong>Clone the repository:</strong>
-    <pre>git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Flask-API</pre>
-  </li>
-  <li><strong>Set the LDAP password as an environment variable:</strong>
-    <pre>export LDAP_PASSWORD='your-secure-password'</pre>
-  </li>
-  <li><strong>Install dependencies:</strong>
-    <pre>pip install -r requirements.txt</pre>
-  </li>
-  <li><strong>Run the application:</strong>
-    <pre>python app.py</pre>
-  </li>
-</ol>
+---
 
-<h2>🔄 API Endpoints</h2>
+## 🚀 How to Run
 
-<h3>1️⃣ Authenticate User</h3>
-<ul>
-  <li><strong>Endpoint:</strong> <code>POST /api/auth/login</code></li>
-  <li><strong>Request Body:</strong>
-    <pre>{
-  "username": "john.doe",
-  "password": "SuperSecretPassword"
-}</pre>
-  </li>
-  <li><strong>Response:</strong>
-    <pre>{
-  "message": "Authentication successful"
-}</pre>
-  </li>
-</ul>
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Flask-API
+   ```
 
-<h3>2️⃣ Get User Details</h3>
-<ul>
-  <li><strong>Endpoint:</strong> <code>GET /api/user/{username}</code></li>
-  <li><strong>Example Request:</strong>
-    <pre>curl -X GET http://localhost:5000/api/user/john.doe</pre>
-  </li>
-  <li><strong>Response:</strong>
-    <pre>{
-  "username": "john.doe",
-  "displayName": "John Doe",
-  "email": "john.doe@example.com",
-  "department": "IT",
-  "role": "User"
-}</pre>
-  </li>
-</ul>
+2. **Set the LDAP password as an environment variable**:
+   ```bash
+   export LDAP_PASSWORD='your-secure-password'
+   ```
 
-<h2>📜 License</h2>
-<p>
-  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE" target="_blank">
-    <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License">
-  </a>
-</p>
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-<h2>🤝 Contributing</h2>
-<p>
-  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md" target="_blank">
-    <img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge" alt="Contributions Welcome">
-  </a>
-</p>
+4. **Run the application**:
+   ```bash
+   python app.py
+   ```
 
-<h2>📩 Support</h2>
-<p>
-  <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
-    <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email Badge">
-  </a>
-  <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md" target="_blank">
-    <img src="https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github" alt="GitHub Issues Badge">
-  </a>
-</p>
+---
 
-<hr>
+## 🔄 API Endpoints
+
+### 1️⃣ Authenticate User
+
+- **Endpoint**: `POST /api/auth/login`
+- **Request Body**:
+  ```json
+  {
+    "username": "john.doe",
+    "password": "SuperSecretPassword"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "Authentication successful"
+  }
+  ```
+
+---
+
+### 2️⃣ Get User Details
+
+- **Endpoint**: `GET /api/user/{username}`
+- **Example Request**:
+  ```bash
+  curl -X GET http://localhost:5000/api/user/john.doe
+  ```
+- **Response**:
+  ```json
+  {
+    "username": "john.doe",
+    "displayName": "John Doe",
+    "email": "john.doe@example.com",
+    "department": "IT",
+    "role": "User"
+  }
+  ```
+
+---
+
+## 📜 License
+
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
+
+---
+
+## 🤝 Contributing
+
+[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md)
+
+---
+
+## 📩 Support
+
+[![Email Badge](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
+
+---
 
 <p align="center">🚀 <strong>Enjoy Seamless SSO Integration!</strong> 🎯</p>
