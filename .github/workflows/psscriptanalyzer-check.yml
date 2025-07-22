@@ -1,4 +1,4 @@
-name: Analyze PowerShell Scripts
+name: PowerShell Code Quality Check
 
 on:
   push:
@@ -17,22 +17,27 @@ on:
 
 jobs:
   psscriptanalyzer:
-    name: PowerShell Code Quality Check
+    name: Analyze PowerShell Code
     runs-on: ubuntu-latest
 
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
-      - name: 🧪 Run PSScriptAnalyzer
-        uses: microsoft/psscriptanalyzer-action@v1.1
+      - name: 🛠️ Setup PowerShell
+        uses: actions/setup-pwsh@v1
         with:
-          path: '.'
-          recurse: true
-          severity: "Error,Warning"  # ✅ Fixed YAML syntax
-          enableExit: true
-          settings: |
-            @{
+          pwsh-version: '7.4'
+
+      - name: 🔍 Run PSScriptAnalyzer with SARIF Output
+        shell: pwsh
+        run: |
+          # Create hashtable for ScriptAnalyzer settings
+          $htPSA = [ordered]@{
+              Path = '.'
+              Recurse = $true
+              EnableExit = $true
+              Severity = @('Error', 'Warning')
               IncludeRules = @(
                 'PSAvoidUsingCmdletAliases',
                 'PSUseShouldProcessForStateChangingFunctions',
@@ -55,12 +60,18 @@ jobs:
                   CheckSeparator = $true
                 }
               }
-            }
+          }
 
-      - name: 📊 Upload PSScriptAnalyzer Results (Optional)
+          # Prepare SARIF output
+          $htCTS = [ordered]@{ FilePath = 'results.sarif' }
+
+          # Run analysis
+          Invoke-ScriptAnalyzer @htPSA | ConvertTo-SARIF @htCTS
+
+      - name: 📊 Upload SARIF Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: psscriptanalyzer-results.sarif
+          path: results.sarif
           retention-days: 7
