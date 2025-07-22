@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>ITSMAndSysAdminTools</id>
@@ -16,6 +16,10 @@
   </metadata>
 
   <files>
+    <!-- Root docs required by NuGet -->
+    <file src="LICENSE.txt" target="" />
+    <file src="README.md" target="" />
+
     <!-- SysAdmin-Tools -->
     <file src="SysAdmin-Tools\**\*.*" target="tools\SysAdmin-Tools" />
     <file src="SysAdmin-Tools\README.md" target="docs\SysAdmin-Tools\README.md" />
