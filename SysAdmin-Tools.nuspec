@@ -1,33 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
-    <id>SysAdmin-Tools</id>
+    <id>ITSMAndSysAdminTools</id>
     <version>1.0.0</version>
-    <title>System Administration Tools</title>
-    <authors>Luiz Hamilton Roberto da Silva</authors>
-    <description>A comprehensive set of tools for system administration, including PowerShell scripts for Active Directory management, network and infrastructure tasks, SSO integrations, and Group Policy Object templates for software deployment and security configurations.</description>
-    <projectUrl>https://github.com/your-repo/SysAdmin-Tools</projectUrl>
-    <license type="expression">MIT</license>
-    <tags>sysadmin activedirectory gpo powershell sso</tags>
+    <authors>brazilianscriptguy</authors>
+    <owners>brazilianscriptguy</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="file">LICENSE.txt</license>
+    <description>
+      Comprehensive suite of tools for Windows Server Administration and Workstation ITSM Templates, including AD, SSO, GPOs, Logging, Incident Response, and NuGet packaging.
+    </description>
+    <tags>SysAdmin ITSM PowerShell AD GPO SSO VBScript Windows NuGet</tags>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/main/icon.png</iconUrl>
+    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
   </metadata>
+
   <files>
-    <file src="SysAdmin-Tools\ActiveDirectory-Management\*.ps1" target="tools\ActiveDirectory-Management" />
-    <file src="SysAdmin-Tools\Network-and-Infrastructure-Management\*.ps1" target="tools\Network-and-Infrastructure-Management" />
-    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.ps1" target="tools\SystemConfiguration-and-Deployment" />
-    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.hta" target="tools\SystemConfiguration-and-Deployment" />
-    <file src="SysAdmin-Tools\SystemConfiguration-and-Deployment\*.bgi" target="tools\SystemConfiguration-and-Deployment" />
-    <file src="SysAdmin-Tools\WSUS-Management-Tools\*.ps1" target="tools\WSUS-Management-Tools" />
-    <file src="SysAdmin-Tools\WSUS-Management-Tools\Scripts\*.sql" target="content\WSUS-Management-Tools\Scripts" />
-    <file src="SysAdmin-Tools\Security-and-Process-Optimization\*.ps1" target="tools\Security-and-Process-Optimization" />
-    <file src="SysAdmin-Tools\ActiveDirectory-SSO-Integrations\**\*.*" target="content\ActiveDirectory-SSO-Integrations" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.ps1" target="tools\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.xml" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.inf" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.pol" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.ini" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.csv" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\GroupPolicyObjects-Templates\**\*.cmtx" target="content\GroupPolicyObjects-Templates" />
-    <file src="SysAdmin-Tools\README.md" target="content" />
-    <file src="SysAdmin-Tools\**\README.md" target="content" />
+    <!-- SysAdmin-Tools -->
+    <file src="SysAdmin-Tools\**\*.*" target="tools\SysAdmin-Tools" />
+    <file src="SysAdmin-Tools\README.md" target="docs\SysAdmin-Tools\README.md" />
+
+    <!-- ITSM-Templates-WKS -->
+    <file src="ITSM-Templates-WKS\**\*.*" target="tools\ITSM-Templates-WKS" />
+    <file src="ITSM-Templates-WKS\README.md" target="docs\ITSM-Templates-WKS\README.md" />
+    <file src="ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf" target="docs\ITSM-Templates-WKS\" />
+
+    <!-- ITSM-Templates-SVR -->
+    <file src="ITSM-Templates-SVR\**\*.*" target="tools\ITSM-Templates-SVR" />
+    <file src="ITSM-Templates-SVR\README.md" target="docs\ITSM-Templates-SVR\README.md" />
+
+    <!-- Core-ScriptLibrary -->
+    <file src="Core-ScriptLibrary\**\*.*" target="tools\Core-ScriptLibrary" />
+    <file src="Core-ScriptLibrary\README.md" target="docs\Core-ScriptLibrary\README.md" />
+
+    <!-- BlueTeam-Tools -->
+    <file src="BlueTeam-Tools\**\*.*" target="tools\BlueTeam-Tools" />
+    <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
   </files>
 </package>
