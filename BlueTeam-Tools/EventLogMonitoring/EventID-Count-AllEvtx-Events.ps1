@@ -350,3 +350,6 @@ $script:buttonStartAnalysis = $buttonStartAnalysis
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
 #endregion
+
+# End of script
+
