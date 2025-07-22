@@ -1,9 +1,49 @@
 {
-  "devDependencies": {
-    "prettier": "^3.1.1"
+  "name": "windows-sysadmin-prosuite",
+  "version": "1.0.0",
+  "description": "PowerShell & VBScript Automation Tools for Windows Server and ITSM Workstations — Secure, Scalable, and Enterprise-Ready.",
+  "author": "Luiz Hamilton (@brazilianscriptguy)",
+  "license": "MIT",
+  "homepage": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git"
   },
+  "keywords": [
+    "powershell",
+    "vbscript",
+    "windows-server",
+    "sysadmin",
+    "gpo",
+    "ad",
+    "ldap",
+    "forensics",
+    "automation",
+    "itsm",
+    "scripts",
+    "devops"
+  ],
   "scripts": {
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  }
+    "check": "prettier --check .",
+    "lint": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "tabWidth": 4,
+    "useTabs": false,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "lf"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "private": true
 }
