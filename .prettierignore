@@ -1,25 +1,21 @@
-# Ignore build output and dependencies
+# Ignore artifacts and dependencies
 node_modules/
 dist/
+build/
 coverage/
-*.min.js
 
-# Ignore logs and temp
-*.log
-*.tmp
-*.bak
-
-# Ignore system files
-.DS_Store
-Thumbs.db
-
-# Ignore NuGet artifacts
-*.nupkg
-*.snupkg
-
-# Ignore binaries
-*.exe
+# Ignore package archives or zip bundles
 *.zip
-*.7z
-*.tar.gz
-*.iso
+*.nupkg
+
+# Ignore PowerShell, VBScript, and binary scripts
+*.ps1
+*.vbs
+*.hta
+
+# Ignore logs
+*.log
+
+# Ignore generated JSON or test outputs
+*.test.json
+artifacts/
