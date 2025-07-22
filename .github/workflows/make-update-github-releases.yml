@@ -1,4 +1,4 @@
-name: Make GitHub Releases
+name: Make and Update GitHub Releases
 
 on:
   workflow_dispatch: {}
