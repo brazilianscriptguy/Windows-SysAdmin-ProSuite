@@ -32,5 +32,6 @@
 
     <file src="BlueTeam-Tools\**\*.*" target="tools\BlueTeam-Tools" />
     <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
+    <file src="LICENSE.txt" target="" />
   </files>
 </package>
