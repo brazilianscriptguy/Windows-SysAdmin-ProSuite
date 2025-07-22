@@ -1,7 +1,5 @@
-<div align="center">
-  <h1>🚀 Complete PowerShell and VBScript Toolkit for Managing Windows Servers and Workstations</h1>
-  <h3>ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022</h3>
-</div>
+<h1>🚀 Complete PowerShell and VBScript Toolkit for Managing Windows Servers and Workstations</h1>
+<h3>ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022</h3>
 
 <p style="text-align: justify; font-size: 16px; line-height: 1.8;">
   Welcome to the <strong>PowerShell Toolset for Windows Server Administration and VBScript Repository</strong> — a curated collection of scripts built by <code>@brazilianscriptguy</code> for advanced system administration. This repository provides a comprehensive suite of tools to streamline Windows Server operations and optimize Windows 10/11 workstation configurations while ensuring strict adherence to <strong>ITSM best practices</strong>.
@@ -134,7 +132,7 @@
   For documentation, troubleshooting, or advanced use cases, check the <code>README.md</code> files inside each directory.
 </p>
 
-<div align="center" style="margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;">
+<div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 12px;">
   <a href="mailto:luizhamilton.lhr@gmail.com" target="_blank">
     <img src="https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail" alt="Email">
   </a>
@@ -158,8 +156,8 @@
   </a>
 </div>
 
-<p style="text-align: center; font-size: 18px; margin-top: 20px;">
+<p style="font-size: 18px; margin-top: 20px;">
   💼 Thank you for choosing <strong>Windows-SysAdmin-ProSuite</strong> — your all-in-one solution for IT automation, compliance, and secure systems engineering.
 </p>
 
-<p align="center" style="color: #777;">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
+<p style="color: #777;">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
