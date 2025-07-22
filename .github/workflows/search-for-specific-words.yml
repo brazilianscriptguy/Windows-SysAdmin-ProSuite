@@ -9,7 +9,7 @@ on:
       search_term:
         description: 'Term to search for in the repo'
         required: true
-        default: 'tjap'
+        default: 'type here'
 
 jobs:
   search-keyword:
