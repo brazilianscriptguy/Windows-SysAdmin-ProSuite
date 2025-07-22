@@ -1,0 +1,62 @@
+# Exclude unnecessary files from Docker context
+
+# Git and version control
+.git
+.gitignore
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+.cache/
+Logs/
+Logs-TEMP/
+
+# Build and output directories
+bin/
+obj/
+artifacts/
+out/
+
+# System and IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+*.sdf
+*.sln.docstates
+*.vs/
+
+# Test, backup, documentation drafts
+tests/
+docs/
+*.md.bak
+*.bak.md
+
+# NuGet and dependency outputs
+NuGet/
+.nuget/
+*.nupkg
+*.snupkg
+*.nuspec
+NuGetPackageContent/
+
+# Environment and secrets
+*.env
+*.env.*
+secrets.*
+
+# Platform-specific
+Thumbs.db
+.DS_Store
+desktop.ini
+ehthumbs.db
+Icon?
+
+# Others
+*.ps1~
+*.swp
+*.directory
+*.ncrunch*
+_ReSharper*/
+*.resharper
