@@ -24,7 +24,7 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y mono-complete
+          sudo apt-get install -y mono-complete xmlstarlet
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
