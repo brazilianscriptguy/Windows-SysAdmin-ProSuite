@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧾 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y mono-complete xmlstarlet
@@ -29,9 +29,9 @@ jobs:
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
 
-      - name: 📁 Prepare and stage files
+      - name: Prepare and stage files
         run: |
-          pkg="ITSMAndSysAdminTools"
+          pkg="sysadmin-prosuite"
           nuspec="$pkg.nuspec"
           mkdir -p nupkg-out "tmp-$pkg"
 
@@ -46,34 +46,26 @@ jobs:
           cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "LICENSE.txt not found"; exit 1; }
           cp icon.png "tmp-$pkg/icon.png" || true
 
-      - name: 🔍 Extract NuGet Version from .nuspec
-        id: version
+      - name: Pack NuGet package
         run: |
-          version=$(xmlstarlet sel -N n="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd" \
-            -t -v "/n:package/n:metadata/n:version" "ITSMAndSysAdminTools.nuspec")
-          echo "NuGet Package Version: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: 📦 Pack NuGet package
-        run: |
-          pkg="ITSMAndSysAdminTools"
+          pkg="sysadmin-prosuite"
           cd "tmp-$pkg"
           mono /usr/local/bin/nuget pack "$pkg.nuspec" \
             -OutputDirectory ../nupkg-out \
-            -Symbols -SymbolPackageFormat snupkg \
             -NonInteractive
 
-      - name: 🚀 Push to GitHub Packages
+      - name: Push to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for pkg_path in nupkg-out/*.nupkg nupkg-out/*.snupkg; do
+          for pkg_path in nupkg-out/*.nupkg; do
             [ -f "$pkg_path" ] && mono /usr/local/bin/nuget push "$pkg_path" \
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
               -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
           done
 
-      - name: 🧹 Clean up
+      - name: Clean up
         if: always()
         run: |
-          rm -rf "tmp-ITSMAndSysAdminTools" nupkg-out || true
+          rm -rf "tmp-sysadmin-prosuite" nupkg-out || true
+          
