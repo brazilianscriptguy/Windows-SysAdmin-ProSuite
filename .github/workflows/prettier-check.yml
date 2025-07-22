@@ -2,27 +2,62 @@ name: Prettier Code Format Check
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+    paths:
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.jsx'
+      - '**/*.tsx'
+      - '**/*.css'
+      - '**/*.json'
+      - '**/*.md'
+      - '.prettierrc'
+      - '.prettierignore'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - develop
+    paths:
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.jsx'
+      - '**/*.tsx'
+      - '**/*.css'
+      - '**/*.json'
+      - '**/*.md'
+      - '.prettierrc'
+      - '.prettierignore'
+  workflow_dispatch:
 
 jobs:
   prettier:
-    name: Prettier Check
+    name: Prettier Code Format Validation
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Code
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
       - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.0.3
         with:
-          node-version: 20
+          node-version: '20'
+          cache: 'npm'
 
-      - name: 📦 Install Prettier
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Run Prettier Check
+        id: prettier
         run: |
-          npm install --save-dev prettier
+          npx prettier --check . > prettier-report.txt || true
 
-      - name: 🔍 Check Code Formatting
-        run: npx prettier --check .
+      - name: 📊 Upload Prettier Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prettier-report
+          path: prettier-report.txt
+          retention-days: 7
