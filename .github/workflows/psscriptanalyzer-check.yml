@@ -1,0 +1,25 @@
+name: Analyze PowerShell Scripts
+
+on:
+  push:
+    paths:
+      - '**/*.ps1'
+  pull_request:
+    paths:
+      - '**/*.ps1'
+  workflow_dispatch:
+
+jobs:
+  psscriptanalyzer:
+    name: PowerShell Code Style Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Run PSScriptAnalyzer
+        uses: microsoft/psscriptanalyzer-action@v1
+        with:
+          path: '.'
+          recurse: true
