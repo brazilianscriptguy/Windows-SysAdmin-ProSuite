@@ -1,61 +1,61 @@
 # Changelog
 
 ## AD-SSO-APIs-Integration
-- Create LDAP and SSO authentication templates.
-- Add integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
-- Add ENV-secured credentials and bind methods.
-- Provide modular, configurable, and cross-platform code.
+- ✅ Created secure LDAP and SSO authentication templates.
+- ➕ Added integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
+- 🔐 Introduced ENV-secured credential storage and bind authentication options.
+- ⚙️ Implemented modular and configurable architecture for cross-platform environments.
 
 ## All-Repository-Files
-- Create consolidated ZIP package with all project directories.
-- Include BlueTeam, Core, ITSM, SysAdmin, and templates.
-- Add LICENSE and project-wide README.md.
-- Prepare unified distribution for offline use.
+- 📦 Created unified ZIP package containing all project directories.
+- 🗂️ Included `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-WKS`, `ITSM-Templates-SVR`, and `SysAdmin-Tools`.
+- 📃 Appended root-level `LICENSE` and project-wide `README.md`.
+- 🚀 Finalized offline-ready distribution model for portability.
 
 ## BlueTeam-Tools
-- Create forensic and threat-hunting tools in PowerShell.
-- Add modules for parsing event logs (4624, 4625, 4663, 4720–4756, etc.).
-- Add tools for detecting privilege escalations and logon patterns.
-- Add collection scripts for DFIR.
-- Update all tools for consistency and logging.
+- 🧪 Built PowerShell forensic utilities for Blue Team and incident response.
+- 📈 Added event log parsing modules for IDs 4624, 4625, 4663, 4720–4756.
+- 🛡️ Introduced threat-hunting tools for privilege escalation, anomalous logon tracking, and DFIR collection.
+- 📤 Enhanced scripts with `.csv` export and `.log` output for auditing.
+- 🔄 Standardized logging and structure across all tools.
 
 ## Core-ScriptLibrary
-- Create modular PowerShell functions and developer helpers.
-- Add NuGet packaging templates.
-- Add default header, logger, and main structure generators.
-- Add script analyzers and metadata extractors.
-- Package and organize reusable components.
+- 🧰 Developed modular helper functions and reusable libraries in PowerShell.
+- 📦 Added NuGet packaging templates and publishing engine.
+- 📝 Introduced generators for headers, loggers, and main script blocks.
+- 🧪 Implemented static analysis and metadata extraction tools.
+- 🧱 Organized scripts into logical folders for packaging and consumption.
 
 ## GPOs-Templates
-- Create pre-configured Group Policy Objects.
-- Add export/import automation scripts.
-- Include templates for security, UX, and domain hardening.
-- Consolidate GPO tools from SysAdmin-Tools.
+- 🏗️ Created prebuilt GPO templates for greenfield and migration scenarios.
+- 🔁 Added PowerShell automation for GPO export/import tasks.
+- 🔐 Included security, UX, and compliance-hardening templates.
+- 🧹 Consolidated GPO-related scripts from SysAdmin-Tools into standalone set.
 
 ## ITSM-Templates-SVR
-- Create configuration scripts for Windows Server hardening and role setup.
-- Add DNS and DHCP automation tools.
-- Add GPO reset and security baseline templates.
-- Add PowerShell support for Server Core and GUI installations.
+- 🛠️ Added server provisioning and security hardening scripts.
+- 🌐 Included automated DNS, DHCP, and role setup tools.
+- 🧱 Developed templates for GPO reset and security baseline enforcement.
+- 🪟 Supported both Server Core and full GUI environments with conditional logic.
 
 ## ITSM-Templates-WKS
-- Create workstation scripts for pre/post domain join automation.
-- Add user profile cleanup, printer removal, and network reset scripts.
-- Add Windows layout and taskbar personalization.
-- Add VBS tools for legacy system compliance.
-- Add logging for ITSM support teams.
+- 💼 Built automation scripts for workstation onboarding and domain join.
+- 🧹 Included tools for profile cleanup, printer removal, and network configuration reset.
+- 🧑‍💻 Added layout and taskbar personalization for Windows 10/11.
+- 🗃️ Integrated legacy `.vbs` tools for backward compatibility.
+- 📝 Implemented structured logging and reporting for ITSM support staff.
 
 ## READMEs-Files-Package
-- Extract and centralize all README.md files across the repository.
-- Create main-README.md for project root.
-- Append individual README.md files with module-specific naming.
-- Package all READMEs into a ZIP for documentation distribution.
+- 📄 Extracted all `README.md` files from project folders.
+- 📘 Created root-level `main-README.md` as centralized index.
+- 🏷️ Renamed module-specific README files for clarity during standalone use.
+- 📦 Packaged into a ZIP archive for offline documentation delivery.
 
 ## SysAdmin-Tools
-- Create PowerShell scripts for automating Active Directory, GPOs, WSUS, Certificate Services, DHCP, and DNS tasks.
-- Add modules for AD user, group, and OU management.
-- Add scripts for WSUS cleanup and SQL reindexing.
-- Add Certificate Authority automation.
-- Add GPO creation and deployment tools.
-- Add DNS scavenging and DHCP reservation management.
-- Add support for workstation configuration via GPO.
+- 🧰 Built PowerShell scripts for AD, GPOs, WSUS, CA, DHCP, and DNS management.
+- 👥 Added AD user/group/OU lifecycle scripts.
+- ♻️ Developed WSUS cleanup tools with optional SQL maintenance.
+- 🔐 Integrated Certificate Services automation for CA and CRL tasks.
+- 🏗️ Delivered tools for dynamic GPO creation and enforcement.
+- 🧭 Enabled DNS scavenging, DHCP reservation extraction, and remediation.
+- 💻 Supported workstation hardening and automation via GPO-deployed scripts.
