@@ -7,12 +7,12 @@ on:
     branches: [main]
 
 jobs:
-  check-format:
-    name: Run Prettier Check
+  prettier:
+    name: Prettier Check
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Repository
+      - name: ⬇️ Checkout Code
         uses: actions/checkout@v4.2.2
 
       - name: ⚙️ Setup Node.js
@@ -20,13 +20,9 @@ jobs:
         with:
           node-version: 20
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install Prettier
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          npm install --save-dev prettier
 
-      - name: 🔍 Run Prettier Check
+      - name: 🔍 Check Code Formatting
         run: npx prettier --check .
