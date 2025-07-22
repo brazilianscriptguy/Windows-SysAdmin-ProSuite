@@ -49,7 +49,8 @@ jobs:
       - name: 🔍 Extract NuGet Version from .nuspec
         id: version
         run: |
-          version=$(xmlstarlet sel -t -v "/package/metadata/version" "ITSMAndSysAdminTools.nuspec")
+          version=$(xmlstarlet sel -N n="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd" \
+            -t -v "/n:package/n:metadata/n:version" "ITSMAndSysAdminTools.nuspec")
           echo "NuGet Package Version: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
