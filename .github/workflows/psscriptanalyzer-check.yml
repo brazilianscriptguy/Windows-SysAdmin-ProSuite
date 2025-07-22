@@ -1,4 +1,4 @@
-name: PowerShell Code Quality Check
+name: Analyze PowerShell Scripts
 
 on:
   push:
@@ -17,7 +17,7 @@ on:
 
 jobs:
   psscriptanalyzer:
-    name: Analyze PowerShell Code
+    name: PowerShell Code Quality Check
     runs-on: ubuntu-latest
 
     steps:
@@ -25,26 +25,26 @@ jobs:
         uses: actions/checkout@v4.2.2
 
       - name: 🛠️ Setup PowerShell
-        uses: actions/setup-pwsh@v1
+        uses: actions/setup-powershell@v1
         with:
-          pwsh-version: '7.4'
+          powershell-version: '7.4'
 
-      - name: 🔍 Run PSScriptAnalyzer with SARIF Output
+      - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
         run: |
-          # Create hashtable for ScriptAnalyzer settings
-          $htPSA = [ordered]@{
-              Path = '.'
-              Recurse = $true
-              EnableExit = $true
-              Severity = @('Error', 'Warning')
-              IncludeRules = @(
-                'PSAvoidUsingCmdletAliases',
-                'PSUseShouldProcessForStateChangingFunctions',
-                'PSAvoidUsingWriteHost',
-                'PSUseConsistentIndentation',
-                'PSUseConsistentWhitespace'
-              )
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $htPSA = @{
+            Path = '.'
+            Recurse = $true
+            Severity = @('Error', 'Warning')
+            IncludeRule = @(
+              'PSAvoidUsingCmdletAliases',
+              'PSUseShouldProcessForStateChangingFunctions',
+              'PSAvoidUsingWriteHost',
+              'PSUseConsistentIndentation',
+              'PSUseConsistentWhitespace'
+            )
+            Settings = @{
               Rules = @{
                 PSUseConsistentIndentation = @{
                   Enable = $true
@@ -60,18 +60,19 @@ jobs:
                   CheckSeparator = $true
                 }
               }
+            }
           }
 
-          # Prepare SARIF output
-          $htCTS = [ordered]@{ FilePath = 'results.sarif' }
+          $htCTS = @{
+            FilePath = 'psscriptanalyzer-results.sarif'
+          }
 
-          # Run analysis
           Invoke-ScriptAnalyzer @htPSA | ConvertTo-SARIF @htCTS
 
-      - name: 📊 Upload SARIF Results
+      - name: 📊 Upload Analysis Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: results.sarif
+          path: psscriptanalyzer-results.sarif
           retention-days: 7
