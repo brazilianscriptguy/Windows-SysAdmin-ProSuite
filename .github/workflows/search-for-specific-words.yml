@@ -1,0 +1,42 @@
+name: Search for Specific Word in Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      search_term:
+        description: 'tjap'
+        required: true
+        default: 'TODO'
+
+jobs:
+  search-keyword:
+    runs-on: ubuntu-latest
+    name: Search Keyword in Files
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set Search Term from Input or Default
+        run: |
+          echo "SEARCH_TERM=${{ github.event.inputs.search_term || 'TODO' }}" >> $GITHUB_ENV
+
+      - name: Search for Keyword in Repository Files
+        run: |
+          echo "🔍 Searching for '$SEARCH_TERM' in repository files..."
+          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . || echo "✅ No matches found for '$SEARCH_TERM'."
+
+      - name: Save Matches to Artifact
+        run: |
+          mkdir -p results
+          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . > results/matches.txt || echo "No matches found."
+        continue-on-error: true
+
+      - name: Upload Results as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyword-search-results
+          path: results/matches.txt
