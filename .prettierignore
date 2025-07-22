@@ -1,0 +1,25 @@
+# Ignore build output and dependencies
+node_modules/
+dist/
+coverage/
+*.min.js
+
+# Ignore logs and temp
+*.log
+*.tmp
+*.bak
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore NuGet artifacts
+*.nupkg
+*.snupkg
+
+# Ignore binaries
+*.exe
+*.zip
+*.7z
+*.tar.gz
+*.iso
