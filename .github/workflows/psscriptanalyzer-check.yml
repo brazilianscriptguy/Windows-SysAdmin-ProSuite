@@ -2,11 +2,15 @@ name: Analyze PowerShell Scripts
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
   workflow_dispatch:
@@ -25,7 +29,7 @@ jobs:
         with:
           path: '.'
           recurse: true
-          severity: ['Error', 'Warning']
+          severity: "Error,Warning"  # ✅ Fixed YAML syntax
           enableExit: true
           settings: |
             @{
@@ -53,7 +57,7 @@ jobs:
               }
             }
 
-      - name: 📊 Upload Analysis Results
+      - name: 📊 Upload PSScriptAnalyzer Results (Optional)
         if: always()
         uses: actions/upload-artifact@v4
         with:
