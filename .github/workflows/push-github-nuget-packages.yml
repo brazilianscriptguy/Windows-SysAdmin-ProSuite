@@ -1,4 +1,4 @@
-name: Publish NuGet Package
+name: Publish NuGet Package to GitHub
 
 on:
   push:
@@ -21,19 +21,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🛠️ Debug workflow start
-        run: |
-          echo "Workflow started for package ITSMAndSysAdminTools"
-          echo "Event: ${{ github.event_name }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Listing repository contents:"
-          ls -R
-
       - name: 📦 Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y mono-complete
+          sudo apt-get install -y mono-complete xmlstarlet
           wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
@@ -51,9 +42,9 @@ jobs:
           done
 
           cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
-          cp README.md "tmp-$pkg/$pkg-README.md" || true
+          cp README.md "tmp-$pkg/README.md" || { echo "README.md not found"; exit 1; }
+          cp LICENSE "tmp-$pkg/LICENSE.txt" || { echo "LICENSE not found"; exit 1; }
           cp icon.png "tmp-$pkg/icon.png" || true
-          cp LICENSE "tmp-$pkg/LICENSE.txt"
 
       - name: 📦 Pack NuGet package
         run: |
@@ -73,15 +64,6 @@ jobs:
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
               -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
           done
-
-      - name: 🏷️ Create Git tag
-        run: |
-          version=$(xmlstarlet sel -t -m "//metadata/version" -v . "tmp-ITSMAndSysAdminTools/ITSMAndSysAdminTools.nuspec")
-          tag="ITSMAndSysAdminTools-v$version"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag "$tag"
-          git push origin "$tag"
 
       - name: 🧹 Clean up
         if: always()
