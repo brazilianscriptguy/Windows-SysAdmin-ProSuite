@@ -43,7 +43,7 @@ jobs:
 
           cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
           cp README.md "tmp-$pkg/README.md" || { echo "README.md not found"; exit 1; }
-          cp LICENSE "tmp-$pkg/LICENSE.txt" || { echo "LICENSE not found"; exit 1; }
+          cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "LICENSE.txt not found"; exit 1; }
           cp icon.png "tmp-$pkg/icon.png" || true
 
       - name: 📦 Pack NuGet package
