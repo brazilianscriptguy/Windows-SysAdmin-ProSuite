@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 🧾 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y mono-complete xmlstarlet
@@ -29,24 +29,26 @@ jobs:
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
 
-      - name: Prepare and stage files
+      - name: 📁 Prepare and stage files
         run: |
           pkg="sysadmin-prosuite"
           nuspec="$pkg.nuspec"
           mkdir -p nupkg-out "tmp-$pkg"
 
+          # Copy each directory if it exists
           for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
             if [ -d "$dir" ]; then
               cp -r "$dir/." "tmp-$pkg/$dir/"
             fi
           done
 
+          # Copy required metadata and assets
           cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
-          cp README.md "tmp-$pkg/README.md" || { echo "README.md not found"; exit 1; }
-          cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "LICENSE.txt not found"; exit 1; }
+          cp README.md "tmp-$pkg/README.md" || { echo "::error file=README.md::README.md not found"; exit 1; }
+          cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
           cp icon.png "tmp-$pkg/icon.png" || true
 
-      - name: Pack NuGet package
+      - name: 🛠️ Pack NuGet package
         run: |
           pkg="sysadmin-prosuite"
           cd "tmp-$pkg"
@@ -54,18 +56,21 @@ jobs:
             -OutputDirectory ../nupkg-out \
             -NonInteractive
 
-      - name: Push to GitHub Packages
+      - name: 🚀 Push to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for pkg_path in nupkg-out/*.nupkg; do
-            [ -f "$pkg_path" ] && mono /usr/local/bin/nuget push "$pkg_path" \
-              -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
+            if [ -f "$pkg_path" ]; then
+              mono /usr/local/bin/nuget push "$pkg_path" \
+                -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+                -ApiKey "$GITHUB_TOKEN" \
+                -NonInteractive \
+                -SkipDuplicate
+            fi
           done
 
-      - name: Clean up
+      - name: 🧹 Clean up
         if: always()
         run: |
           rm -rf "tmp-sysadmin-prosuite" nupkg-out || true
-          
