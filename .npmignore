@@ -1,0 +1,72 @@
+# Exclude everything not needed for the npm package
+
+# Git metadata
+.git
+.gitignore
+
+# Development files and configs
+.editorconfig
+.gitattributes
+*.code-workspace
+
+# Logs, temp, cache
+*.log
+*.tmp
+*.bak
+.cache/
+Logs/
+Logs-TEMP/
+
+# Tests, docs, drafts
+tests/
+docs/
+drafts/
+*.md.bak
+*.bak.md
+
+# IDE/Editor configs
+.vscode/
+.idea/
+*.suo
+*.user
+*.sdf
+*.sln.docstates
+*.vs/
+
+# Build artifacts
+bin/
+obj/
+out/
+artifacts/
+*.dll
+*.exe
+*.app
+*.so
+*.lib
+*.a
+
+# NuGet-related
+*.nupkg
+*.snupkg
+*.nuspec
+NuGet/
+.nuget/
+NuGetPackageContent/
+
+# Environment and secrets
+*.env
+*.env.*
+secrets.*
+
+# Platform-specific
+Thumbs.db
+.DS_Store
+desktop.ini
+ehthumbs.db
+Icon?
+
+# Uncompiled or backup PowerShell
+*.ps1~
+*.ps1.xml
+*.psm1
+*.psd1
