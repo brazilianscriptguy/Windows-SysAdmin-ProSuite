@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       search_term:
-        description: 'tjap'
+        description: 'Term to search for in the repo'
         required: true
-        default: 'TODO'
+        default: 'tjap'
 
 jobs:
   search-keyword:
