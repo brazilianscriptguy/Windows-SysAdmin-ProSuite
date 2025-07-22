@@ -25,9 +25,9 @@ jobs:
         uses: actions/checkout@v4.2.2
 
       - name: 🛠️ Setup PowerShell
-        uses: actions/setup-powershell@v1
+        uses: actions/setup-pwsh@v1
         with:
-          powershell-version: '7.4'
+          pwsh-version: '7.4'
 
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
