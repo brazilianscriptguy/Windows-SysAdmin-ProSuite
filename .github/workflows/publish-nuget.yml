@@ -29,17 +29,11 @@ jobs:
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
 
-      - name: 🔍 Extract NuGet Version from .nuspec
-        id: version
-        run: |
-          version=$(xmlstarlet sel -t -m "//package/metadata/version" -v . ITSMAndSysAdminTools.nuspec)
-          echo "NuGet Package Version: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
       - name: 📁 Prepare and stage files
         run: |
           pkg="ITSMAndSysAdminTools"
-          mkdir -p "tmp-$pkg" nupkg-out
+          nuspec="$pkg.nuspec"
+          mkdir -p nupkg-out "tmp-$pkg"
 
           for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
             if [ -d "$dir" ]; then
@@ -47,10 +41,17 @@ jobs:
             fi
           done
 
-          cp "$pkg.nuspec" "tmp-$pkg/$pkg.nuspec"
-          cp LICENSE.txt "tmp-$pkg/LICENSE.txt"
-          cp README.md "tmp-$pkg/README.md"
+          cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
+          cp README.md "tmp-$pkg/README.md" || { echo "README.md not found"; exit 1; }
+          cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "LICENSE.txt not found"; exit 1; }
           cp icon.png "tmp-$pkg/icon.png" || true
+
+      - name: 🔍 Extract NuGet Version from .nuspec
+        id: version
+        run: |
+          version=$(xmlstarlet sel -t -v "/package/metadata/version" "ITSMAndSysAdminTools.nuspec")
+          echo "NuGet Package Version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Pack NuGet package
         run: |
@@ -70,14 +71,6 @@ jobs:
               -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
               -ApiKey "$GITHUB_TOKEN" -NonInteractive -SkipDuplicate
           done
-
-      - name: 🏷️ Tag version
-        run: |
-          tag="ITSMAndSysAdminTools-v${{ steps.version.outputs.version }}"
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag "$tag"
-          git push origin "$tag"
 
       - name: 🧹 Clean up
         if: always()
