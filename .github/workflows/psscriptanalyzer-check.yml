@@ -2,24 +2,74 @@ name: Analyze PowerShell Scripts
 
 on:
   push:
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
   pull_request:
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
   workflow_dispatch:
 
 jobs:
   psscriptanalyzer:
-    name: PowerShell Code Style Check
+    name: PowerShell Code Quality Check
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
-      - name: Run PSScriptAnalyzer
-        uses: microsoft/psscriptanalyzer-action@v1
+      - name: 🛠️ Setup PowerShell
+        uses: actions/setup-powershell@v1
         with:
-          path: '.'
-          recurse: true
+          powershell-version: '7.4'
+
+      - name: 🧪 Run PSScriptAnalyzer
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error, Warning `
+              -Settings @{
+                  IncludeRules = @(
+                    'PSAvoidUsingCmdletAliases',
+                    'PSUseShouldProcessForStateChangingFunctions',
+                    'PSAvoidUsingWriteHost',
+                    'PSUseConsistentIndentation',
+                    'PSUseConsistentWhitespace'
+                  )
+                  Rules = @{
+                    PSUseConsistentIndentation = @{
+                      Enable = $true
+                      IndentationSize = 4
+                      PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+                    }
+                    PSUseConsistentWhitespace = @{
+                      Enable = $true
+                      CheckInnerBrace = $true
+                      CheckOpenBrace = $true
+                      CheckOpenParen = $true
+                      CheckOperator = $true
+                      CheckSeparator = $true
+                    }
+                  }
+              }
+
+          if ($results.Count -gt 0) {
+              $results | ConvertTo-Json -Depth 10 | Out-File psscriptanalyzer-results.json
+              $results | ForEach-Object { Write-Host "$($_.Severity): $($_.Message) [$($_.RuleName)] in $($_.ScriptName):$($_.Line)" }
+              exit 1
+          } else {
+              Write-Host "✅ No PSScriptAnalyzer violations found."
+          }
+
+      - name: 📊 Upload Analysis Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psscriptanalyzer-results
+          path: psscriptanalyzer-results.json
+          retention-days: 7
