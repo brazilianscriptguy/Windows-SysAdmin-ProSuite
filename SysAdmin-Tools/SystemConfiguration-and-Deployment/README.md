@@ -1,109 +1,87 @@
-<div>
-  <h1>⚙️ System Configuration and Deployment Tools</h1>
+## ⚙️ System Configuration and Deployment Tools
 
-  <h2>📝 Overview</h2>
-  <p>
-    The <strong>System Configuration and Deployment</strong> folder contains a curated set of 
-    <strong>PowerShell scripts</strong> for deploying and configuring software, enforcing GPO policies, and applying consistent system settings. 
-    These tools are optimized for scalable, secure, and automated management of workstations and servers in Active Directory (AD) environments.
-  </p>
+### 📝 Overview
 
-  <h3>✅ Key Features</h3>
-  <ul>
-    <li><strong>Graphical Interface:</strong> GUI-based scripts simplify use for administrators and support staff.</li>
-    <li><strong>Centralized Logging:</strong> Each execution logs results in structured <code>.log</code> files.</li>
-    <li><strong>Streamlined Deployment:</strong> Automates software installs, policy updates, and environment standardization.</li>
-    <li><strong>Policy Compliance:</strong> Removes unauthorized software and enforces configuration baselines.</li>
-  </ul>
+The **System Configuration and Deployment** folder contains a curated set of **PowerShell scripts** for deploying and configuring software, enforcing GPO policies, and applying consistent system settings. These tools are optimized for scalable, secure, and automated management of workstations and servers in Active Directory (AD) environments.
 
-  <hr />
+### ✅ Key Features
 
-  <h2>🛠️ Prerequisites</h2>
-  <ol>
-    <li>
-      <strong>⚙️ PowerShell:</strong>
-      <ul>
-        <li>Requires PowerShell version 5.1 or later.</li>
-        <li>Check version:
-          <pre><code>$PSVersionTable.PSVersion</code></pre>
-        </li>
-      </ul>
-    </li>
-    <li>
-      <strong>🔑 Administrator Privileges:</strong>
-      <p>All scripts require elevated permissions to execute configuration and deployment actions.</p>
-    </li>
-    <li>
-      <strong>📦 Required Modules:</strong>
-      <p>Ensure modules such as <code>GroupPolicy</code> and <code>PSWindowsUpdate</code> are available.</p>
-    </li>
-  </ol>
+- **Graphical Interface**: GUI-based scripts simplify use for administrators and support staff  
+- **Centralized Logging**: Each execution logs results in structured `.log` files  
+- **Streamlined Deployment**: Automates software installs, policy updates, and environment standardization  
+- **Policy Compliance**: Removes unauthorized software and enforces configuration baselines
 
-  <hr />
+---
 
-  <h2>📜 Script Descriptions (Alphabetical Order)</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%;">
-    <thead>
-      <tr>
-        <th style="padding: 8px;">Script Name</th>
-        <th style="padding: 8px;">Function</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Broadcast-ADUser-LogonMessage-viaGPO.ps1</strong></td><td>Displays custom logon messages via GPO to domain users.</td></tr>
-      <tr><td><strong>Cleanup-WebBrowsers-Tool.ps1</strong></td><td>Clears browser cache, cookies, and session data for better performance and privacy.</td></tr>
-      <tr><td><strong>Clear-and-ReSyncGPOs-ADComputers.ps1</strong></td><td>Resets and re-applies GPOs across all domain-joined machines.</td></tr>
-      <tr><td><strong>Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1</strong></td><td>Synchronizes local folders from a network share using GPO scripting.</td></tr>
-      <tr><td><strong>Deploy-FortiClientVPN-viaGPO.ps1</strong></td><td>Installs FortiClient VPN across endpoints via GPO for secure access.</td></tr>
-      <tr><td><strong>Deploy-FusionInventoryAgent-viaGPO.ps1</strong></td><td>Deploys FusionInventory Agent for inventory tracking and reporting.</td></tr>
-      <tr><td><strong>Deploy-GLPI-Agent-viaGPO.ps1</strong></td><td>Installs GLPI Agent for asset and inventory management.</td></tr>
-      <tr><td><strong>Deploy-JavaJRE-viaGPO.ps1</strong></td><td>Deploys Java Runtime Environment silently via GPO.</td></tr>
-      <tr><td><strong>Deploy-KasperskyAV-viaGPO.ps1</strong></td><td>Deploys Kaspersky Endpoint Security using GPO deployment methods.</td></tr>
-      <tr><td><strong>Deploy-LibreOfficeFullPackage-viaGPO.ps1</strong></td><td>Installs LibreOffice full suite silently on domain machines.</td></tr>
-      <tr><td><strong>Deploy-PowerShell-viaGPO.ps1</strong></td><td>Ensures correct installation and updates of PowerShell runtime.</td></tr>
-      <tr><td><strong>Deploy-ZoomWorkplace-viaGPO.ps1</strong></td><td>Deploys Zoom app to domain computers for enterprise communication.</td></tr>
-      <tr><td><strong>Enhance-BGInfoDisplay-viaGPO.ps1</strong></td><td>Applies BGInfo to display system metadata on desktops.</td></tr>
-      <tr><td><strong>Install-KMSLicensingServer-Tool.ps1</strong></td><td>Sets up a KMS server for centralized license activation.</td></tr>
-      <tr><td><strong>Install-RDSLicensingServer-Tool.ps1</strong></td><td>Configures RDS Licensing Server for CAL management.</td></tr>
-      <tr><td><strong>Install-Winget-on-Windows-Servers-viaGPO.ps1</strong></td><td>Installs winget CLI and dependencies on Windows Server systems.</td></tr>
-      <tr><td><strong>Remove-ReaQtaHive-Services-Tool.ps1</strong></td><td>Uninstalls ReaQta services and cleans up all associated artifacts.</td></tr>
-      <tr><td><strong>Remove-SharedFolders-and-Drives-viaGPO.ps1</strong></td><td>Removes non-compliant shares and mapped drives using GPO.</td></tr>
-      <tr><td><strong>Remove-Softwares-NonCompliance-Tool.ps1</strong></td><td>Uninstalls manually defined non-compliant software on the local machine.</td></tr>
-      <tr><td><strong>Remove-Softwares-NonCompliance-viaGPO.ps1</strong></td><td>Automates unauthorized software removal via GPO execution.</td></tr>
-      <tr><td><strong>Rename-DiskVolumes-viaGPO.ps1</strong></td><td>Applies standardized labels to volumes across systems via GPO.</td></tr>
-      <tr><td><strong>Reset-and-Sync-DomainGPOs-viaGPO.ps1</strong></td><td>Force-resets and reapplies all domain GPOs.</td></tr>
-      <tr><td><strong>Retrieve-LocalMachine-InstalledSoftwareList.ps1</strong></td><td>Exports all installed software to a clean CSV (ANSI encoded).</td></tr>
-      <tr><td><strong>Uninstall-SelectedApp-Tool.ps1</strong></td><td>Interactive GUI for selecting and removing specific apps.</td></tr>
-      <tr><td><strong>Update-ADComputer-Winget-Explicit.ps1</strong></td><td>Uses <code>winget</code> to update selected packages on workstations.</td></tr>
-      <tr><td><strong>Update-ADComputer-Winget-viaGPO.ps1</strong></td><td>Pushes scheduled <code>winget</code> updates using GPO mechanisms.</td></tr>
-    </tbody>
-  </table>
+## 🛠️ Prerequisites
 
-  <hr />
+1. **⚙️ PowerShell**  
+   - Requires PowerShell version 5.1 or later  
+   - Check version:
+     ```powershell
+     $PSVersionTable.PSVersion
+     ```
 
-  <h2>🚀 Usage Instructions</h2>
-  <ol>
-    <li><strong>Run the Script:</strong> Right-click on the <code>.ps1</code> file and choose <em>Run with PowerShell</em>.</li>
-    <li><strong>Input Parameters:</strong> Follow GUI prompts or configure script variables as needed.</li>
-    <li><strong>Check Results:</strong> Logs are saved in <code>C:\Logs-TEMP\</code> or a predefined directory. CSV exports may be generated for reporting.</li>
-  </ol>
+2. **🔑 Administrator Privileges**  
+   All scripts require elevated permissions to execute configuration and deployment actions
 
-  <hr />
+3. **📦 Required Modules**  
+   Ensure modules such as `GroupPolicy` and `PSWindowsUpdate` are available
 
-  <h2>📁 Complementary Files</h2>
-  <ul>
-    <li><strong>Broadcast-ADUser-LogonMessage-viaGPO.hta:</strong> GUI editor for customizing domain logon messages.</li>
-    <li><strong>Enhance-BGInfoDisplay-viaGPO.bgi:</strong> Custom BGInfo configuration template for system data overlays.</li>
-    <li><strong>Remove-Softwares-NonCompliance-Tool.txt:</strong> Text-based config file listing software titles to remove.</li>
-  </ul>
+---
 
-  <hr />
+## 📜 Script Descriptions (Alphabetical Order)
 
-  <h2>💡 Optimization Tips</h2>
-  <ul>
-    <li><strong>Leverage GPO Scheduling:</strong> Trigger scripts during computer startup using GPO scripts.</li>
-    <li><strong>Use Task Scheduler:</strong> Schedule repetitive maintenance tasks using Windows Task Scheduler.</li>
-    <li><strong>Centralize Logs:</strong> Redirect logs to a network share for unified audit and monitoring.</li>
-    <li><strong>Parameterize for Reuse:</strong> Adjust variables and arguments to fit different deployment profiles.</li>
-  </ul>
-</div>
+| **Script Name**                                     | **Function**                                                                   |
+|-----------------------------------------------------|---------------------------------------------------------------------------------|
+| **Broadcast-ADUser-LogonMessage-viaGPO.ps1**        | Displays custom logon messages via GPO to domain users                         |
+| **Cleanup-WebBrowsers-Tool.ps1**                    | Clears browser cache, cookies, and session data                                |
+| **Clear-and-ReSyncGPOs-ADComputers.ps1**            | Resets and re-applies GPOs across all domain-joined machines                   |
+| **Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1**  | Synchronizes folders via GPO from a network share                              |
+| **Deploy-FortiClientVPN-viaGPO.ps1**                | Installs FortiClient VPN across endpoints via GPO                              |
+| **Deploy-FusionInventoryAgent-viaGPO.ps1**          | Deploys FusionInventory Agent for inventory tracking                           |
+| **Deploy-GLPI-Agent-viaGPO.ps1**                    | Installs GLPI Agent for asset management                                       |
+| **Deploy-JavaJRE-viaGPO.ps1**                       | Installs Java Runtime Environment silently via GPO                             |
+| **Deploy-KasperskyAV-viaGPO.ps1**                   | Deploys Kaspersky Endpoint Security via GPO                                    |
+| **Deploy-LibreOfficeFullPackage-viaGPO.ps1**        | Installs LibreOffice suite silently on domain machines                         |
+| **Deploy-PowerShell-viaGPO.ps1**                    | Ensures PowerShell runtime is correctly installed and updated                  |
+| **Deploy-ZoomWorkplace-viaGPO.ps1**                 | Deploys Zoom app via GPO for enterprise communication                          |
+| **Enhance-BGInfoDisplay-viaGPO.ps1**                | Applies BGInfo to show system metadata on desktop                              |
+| **Install-KMSLicensingServer-Tool.ps1**             | Sets up a KMS server for centralized licensing                                 |
+| **Install-RDSLicensingServer-Tool.ps1**             | Configures RDS Licensing Server for CAL management                             |
+| **Install-Winget-on-Windows-Servers-viaGPO.ps1**    | Installs `winget` CLI on Windows Server systems                                |
+| **Remove-ReaQtaHive-Services-Tool.ps1**             | Removes ReaQta services and related files                                      |
+| **Remove-SharedFolders-and-Drives-viaGPO.ps1**      | Deletes non-compliant shares and drives via GPO                                |
+| **Remove-Softwares-NonCompliance-Tool.ps1**         | Uninstalls specified non-compliant software from local machine                 |
+| **Remove-Softwares-NonCompliance-viaGPO.ps1**       | Automates software removal via GPO                                             |
+| **Rename-DiskVolumes-viaGPO.ps1**                   | Applies consistent volume labels across systems                                |
+| **Reset-and-Sync-DomainGPOs-viaGPO.ps1**            | Forces reapplication of all domain GPOs                                        |
+| **Retrieve-LocalMachine-InstalledSoftwareList.ps1** | Exports a clean list of installed software to `.csv` (ANSI encoded)            |
+| **Uninstall-SelectedApp-Tool.ps1**                  | GUI tool for selecting and removing installed applications                     |
+| **Update-ADComputer-Winget-Explicit.ps1**           | Updates selected packages via `winget` on local machine                        |
+| **Update-ADComputer-Winget-viaGPO.ps1**             | Pushes scheduled `winget` updates via GPO                                      |
+
+---
+
+## 🚀 Usage Instructions
+
+1. **Run the Script**: Right-click on the `.ps1` file and choose _Run with PowerShell_  
+2. **Input Parameters**: Follow GUI prompts or set variables in the script  
+3. **Check Results**: Logs saved to `C:\Logs-TEMP\` or custom path; `.csv` reports may be generated
+
+---
+
+## 📁 Complementary Files
+
+- **Broadcast-ADUser-LogonMessage-viaGPO.hta**: GUI editor for customizing domain logon messages  
+- **Enhance-BGInfoDisplay-viaGPO.bgi**: BGInfo template to overlay system metadata  
+- **Remove-Softwares-NonCompliance-Tool.txt**: Config file listing software names to remove
+
+---
+
+## 💡 Optimization Tips
+
+- **Leverage GPO Scheduling**: Use GPO scripts during system startup  
+- **Use Task Scheduler**: Automate periodic maintenance tasks  
+- **Centralize Logs**: Store logs on a shared path for unified auditing  
+- **Parameterize for Reuse**: Adjust arguments and variables for different deployment needs
