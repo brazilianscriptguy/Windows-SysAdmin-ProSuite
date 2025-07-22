@@ -2,6 +2,7 @@
 # Logs and Temporary Files
 # =====================================
 *.log
+*.log.txt
 *.tmp
 *.temp
 *.old
@@ -10,6 +11,7 @@
 *.swp
 *.lock
 *.directory
+*.ps1~
 
 # Ignore log directories
 Logs/
@@ -42,13 +44,13 @@ out/
 .nuget/
 NuGet/
 *.nupkg
-*.nuspec
 *.snupkg
+*.nuspec
 NuGetPackageContent/
 NuGetPackageContent/lib/net*/**/*.dll
 
 # =====================================
-# Sensitive Information
+# Sensitive and Environment-Specific Files
 # =====================================
 *.pfx
 *.cert
@@ -58,7 +60,7 @@ NuGetPackageContent/lib/net*/**/*.dll
 secrets.*
 
 # =====================================
-# IDE Configuration and Workspace Files
+# IDE and Editor Configuration Files
 # =====================================
 .vscode/
 .idea/
@@ -67,17 +69,15 @@ secrets.*
 *.suo
 *.sdf
 *.sln.docstates
-*.vs/
 .vs/
+*.vs/
 
 # =====================================
-# PowerShell Modules and Logs
+# PowerShell Modules and Metadata
 # =====================================
 *.ps1.xml
 *.psd1
 *.psm1
-*.ps1~    # backup files
-*.log.txt
 
 # =====================================
 # Java / SpringBoot-API
@@ -118,13 +118,13 @@ PHP-API/vendor/
 PHP-API/composer.lock
 
 # =====================================
-# Placeholder and Special Project Folders
+# Placeholder and Stub Projects
 # =====================================
 PlaceholderDll/
 PlaceholderDll/*.csproj
 
 # =====================================
-# Configuration and Project Metadata Files
+# Config & Tooling Metadata
 # =====================================
 config/.editorconfig
 config/.gitattributes
@@ -137,7 +137,7 @@ config/nuget.config
 *.bak.md
 
 # =====================================
-# Operating System Files
+# Operating System Metadata Files
 # =====================================
 Thumbs.db
 .DS_Store
@@ -146,7 +146,7 @@ ehthumbs.db
 Icon?
 
 # =====================================
-# Development Tool Exclusions
+# Development Tools & Test Coverage
 # =====================================
 *.ncrunch*
 _ReSharper*/
