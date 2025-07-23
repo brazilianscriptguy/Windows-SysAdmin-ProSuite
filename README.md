@@ -14,11 +14,11 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 | Folder | Description |
 |--------|-------------|
-| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tools for DFIR: log analysis, credential tracing, memory and file integrity checks, incident triage, and evidence preservation. |
-| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Modules-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Foundational script modules, reusable logic blocks, and helper functions used across all toolkits. Includes NuGet packaging templates and GUI engines. |
-| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Server-side scripts for Windows Server 2019/2022: GPO reset, DNS/DHCP baseline, CA deployment, IIS/role compliance, and secure configuration enforcement. |
-| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | Workstation preparation templates for Windows 10/11: offline domain join, user profile cleanup, UX layout (Start Menu, Taskbar), and printer resets. |
-| [![SysAdmin Tools](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Unified GUI scripts for managing Active Directory, GPOs, WSUS, DHCP, DNS, and Certificate Services. Focused on infrastructure-level automation and centralized admin tasks. |
+| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tools for DFIR: EventLogMonitoring and IncidentResponse modules for breach triage, credential tracing, and evidence preservation. |
+| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Modules-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Modular scripting libraries including helper functions and NuGet publishing logic. Structured into Modular-PS1-Scripts and Nuget-Package-Publisher. |
+| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Windows Server 2019/2022 compliance: GPO, DNS, DHCP, AD CS, and IIS configurations with institutional baseline templates. |
+| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | ITSM templates for Windows 10/11 deployment: includes BeforeJoinDomain, AfterJoinDomain, and layout reset assets. |
+| [![SysAdmin Tools](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Centralized GUI automation for Active Directory, GPOs, WSUS, DNS, DHCP, CA, and more — divided into 7 major operational folders. |
 
 ---
 
@@ -51,7 +51,11 @@ git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 ```
 
 1. **Browse folders:**  
-   `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-SVR`, `ITSM-Templates-WKS`, and `SysAdmin-Tools`
+   - `BlueTeam-Tools/EventLogMonitoring`, `BlueTeam-Tools/IncidentResponse`  
+   - `Core-ScriptLibrary/Modular-PS1-Scripts`, `Core-ScriptLibrary/Nuget-Package-Publisher`  
+   - `ITSM-Templates-SVR`  
+   - `ITSM-Templates-WKS/BeforeJoinDomain`, `AfterJoinDomain`, `Assets`  
+   - `SysAdmin-Tools/...` (7 subfolders)
 
 2. **Run scripts:**
    - `.ps1`: Right-click → Run with PowerShell  
