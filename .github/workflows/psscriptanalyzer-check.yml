@@ -31,13 +31,23 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
+      - name: 🕵️ Debug Repository Contents
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing all files in repository:"
+          find . -type f
+          echo "Checking for PowerShell scripts:"
+          find . -type f -name "*.ps1" || echo "No .ps1 files found"
+
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           try {
-            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-            Write-Output "PSScriptAnalyzer installed successfully"
+            Write-Output "Installing PSScriptAnalyzer"
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -MinimumVersion 1.22.0
+            Write-Output "PSScriptAnalyzer version: $(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)"
             $htPSA = @{
               Path = '.'
               Recurse = $true
@@ -67,19 +77,51 @@ jobs:
                 }
               }
             }
-            $htCTS = @{
-              FilePath = './psscriptanalyzer-results.sarif'
-            }
-            Write-Output "Running PSScriptAnalyzer with parameters: $($htPSA | ConvertTo-Json -Depth 5)"
+            Write-Output "Running PSScriptAnalyzer on path: $(Get-Location)"
             $results = Invoke-ScriptAnalyzer @htPSA
+            $sarifFile = "./psscriptanalyzer-results.sarif"
             if ($results) {
-              Write-Output "Analysis completed. Found $($results.Count) issues."
-              $results | ConvertTo-SARIF @htCTS
-              Write-Output "SARIF file generated at: ./psscriptanalyzer-results.sarif"
+              Write-Output "Found $($results.Count) issues"
+              # Attempt to use ConvertTo-SARIF if available
+              if (Get-Command ConvertTo-SARIF -ErrorAction SilentlyContinue) {
+                $results | ConvertTo-SARIF -FilePath $sarifFile
+                Write-Output "SARIF file generated using ConvertTo-SARIF: $sarifFile"
+              } else {
+                Write-Output "ConvertTo-SARIF not available, generating basic SARIF"
+                $sarifResults = $results | ForEach-Object {
+                  @{
+                    ruleId = $_.RuleName
+                    level = $_.Severity
+                    message = @{ text = $_.Message }
+                    locations = @(
+                      @{
+                        physicalLocation = @{
+                          artifactLocation = @{ uri = $_.ScriptPath }
+                          region = @{
+                            startLine = $_.Line
+                            startColumn = $_.Column
+                          }
+                        }
+                      }
+                    )
+                  }
+                }
+                $sarif = @{
+                  version = "2.1.0"
+                  runs = @(
+                    @{
+                      tool = @{ driver = @{ name = "PSScriptAnalyzer"; version = "$(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)" } }
+                      results = $sarifResults
+                    }
+                  )
+                }
+                $sarif | ConvertTo-Json -Depth 10 | Out-File -FilePath $sarifFile -Encoding utf8
+                Write-Output "SARIF file generated manually: $sarifFile"
+              }
             } else {
-              Write-Output "No issues found or no scripts analyzed."
-              # Create an empty SARIF file to avoid upload failure
-              '{"version": "2.1.0", "runs": []}' | Out-File -FilePath ./psscriptanalyzer-results.sarif -Encoding utf8
+              Write-Output "No issues found or no scripts analyzed"
+              '{"version": "2.1.0", "runs": []}' | Out-File -FilePath $sarifFile -Encoding utf8
+              Write-Output "Empty SARIF file generated: $sarifFile"
             }
           } catch {
             Write-Error "PSScriptAnalyzer failed: $_"
@@ -90,6 +132,7 @@ jobs:
         shell: bash
         run: |
           echo "Current directory: $(pwd)"
+          echo "Listing files:"
           ls -la
           if [ -f "./psscriptanalyzer-results.sarif" ]; then
             echo "SARIF file exists"
@@ -104,7 +147,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: psscriptanalyzer-results.sarif
+          path: ./psscriptanalyzer-results.sarif
           retention-days: 7
 
       - name: 📤 Upload SARIF to GitHub
@@ -114,4 +157,3 @@ jobs:
           sarif_file: ./psscriptanalyzer-results.sarif
           checkout_path: ${{ github.workspace }}
           wait-for-processing: true
-          
