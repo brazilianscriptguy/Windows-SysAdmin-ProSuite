@@ -21,6 +21,11 @@ jobs:
   psscriptanalyzer:
     name: PowerShell Code Quality Check
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      security-events: write
+      statuses: write
 
     steps:
       - name: 📦 Checkout Repository
@@ -29,7 +34,8 @@ jobs:
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
         run: |
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
+          $ErrorActionPreference = 'Stop'
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
           $htPSA = @{
             Path = '.'
             Recurse = $true
@@ -78,4 +84,10 @@ jobs:
           name: psscriptanalyzer-results
           path: psscriptanalyzer-results.sarif
           retention-days: 7
+
+      - name: 📤 Upload SARIF to GitHub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: psscriptanalyzer-results.sarif
           
