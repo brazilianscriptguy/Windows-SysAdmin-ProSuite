@@ -2,12 +2,16 @@ name: Analyze PowerShell Scripts
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
       - '.psscriptanalyzer'
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
     paths:
       - '**/*.ps1'
       - '.psscriptanalyzer'
@@ -27,113 +31,139 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
-      - name: 🔍 Run PSScriptAnalyzer and Generate SARIF
+      - name: 🕵️ Debug Repository Contents
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "GitHub workspace: ${{ github.workspace }}"
+          echo "Listing all files in repository:"
+          find . -type f
+          echo "Checking for PowerShell scripts:"
+          if find . -type f -name "*.ps1" | grep .; then
+            echo "PowerShell scripts found"
+          else
+            echo "No PowerShell scripts found"
+          fi
+
+      - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
-          # Install PSScriptAnalyzer
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -MinimumVersion 1.22.0
-          $analyzerVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -First 1 -ExpandProperty Version)
-
-          # Define analyzer settings
-          $htPSA = @{
-            Path = '.'
-            Recurse = $true
-            Severity = @('Error', 'Warning')
-            IncludeRule = @(
-              'PSAvoidUsingCmdletAliases',
-              'PSUseShouldProcessForStateChangingFunctions',
-              'PSAvoidUsingWriteHost',
-              'PSUseConsistentIndentation',
-              'PSUseConsistentWhitespace'
-            )
-            Settings = @{
-              Rules = @{
-                PSUseConsistentIndentation = @{
-                  Enable = $true
-                  IndentationSize = 4
-                  PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
-                }
-                PSUseConsistentWhitespace = @{
-                  Enable = $true
-                  CheckInnerBrace = $true
-                  CheckOpenBrace = $true
-                  CheckOpenParen = $true
-                  CheckOperator = $true
-                  CheckSeparator = $true
+          $sarifFile = "${{ github.workspace }}/psscriptanalyzer-results.sarif"
+          Write-Output "Target SARIF file path: $sarifFile"
+          Write-Output "Checking PowerShell version:"
+          $PSVersionTable | Format-Table -AutoSize | Out-String | Write-Output
+          try {
+            Write-Output "Installing PSScriptAnalyzer"
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -MinimumVersion 1.22.0 -ErrorAction Stop
+            Write-Output "PSScriptAnalyzer version: $(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)"
+            $scriptFiles = Get-ChildItem -Path . -Recurse -Include *.ps1
+            if ($scriptFiles) {
+              Write-Output "Found $($scriptFiles.Count) PowerShell scripts"
+              $htPSA = @{
+                Path = '.'
+                Recurse = $true
+                Severity = @('Error', 'Warning')
+                IncludeRule = @(
+                  'PSAvoidUsingCmdletAliases',
+                  'PSUseShouldProcessForStateChangingFunctions',
+                  'PSAvoidUsingWriteHost',
+                  'PSUseConsistentIndentation',
+                  'PSUseConsistentWhitespace'
+                )
+                Settings = @{
+                  Rules = @{
+                    PSUseConsistentIndentation = @{
+                      Enable = $true
+                      IndentationSize = 4
+                      PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+                    }
+                    PSUseConsistentWhitespace = @{
+                      Enable = $true
+                      CheckInnerBrace = $true
+                      CheckOpenBrace = $true
+                      CheckOpenParen = $true
+                      CheckOperator = $true
+                      CheckSeparator = $true
+                    }
+                  }
                 }
               }
-            }
-          }
-
-          $results = Invoke-ScriptAnalyzer @htPSA
-          $sarifFile = "./psscriptanalyzer-results.sarif"
-
-          if ($results) {
-            # Try using ConvertTo-SARIF if available
-            if (Get-Command ConvertTo-SARIF -ErrorAction SilentlyContinue) {
-              $results | ConvertTo-SARIF -FilePath $sarifFile
-            } else {
-              # Manual SARIF generation
-              $sarifResults = $results | ForEach-Object {
-                $level = switch ($_.Severity.ToLowerInvariant()) {
-                  'error'       { 'error' }
-                  'warning'     { 'warning' }
-                  'information' { 'note' }
-                  default       { 'note' }
-                }
-
-                @{
-                  ruleId = $_.RuleName
-                  level = $level
-                  message = @{ text = $_.Message }
-                  locations = @(
-                    @{
-                      physicalLocation = @{
-                        artifactLocation = @{ uri = $_.ScriptPath }
-                        region = @{
-                          startLine = $_.Line
-                          startColumn = $_.Column
+              Write-Output "Running PSScriptAnalyzer on path: $(Get-Location)"
+              $results = Invoke-ScriptAnalyzer @htPSA
+              if ($results) {
+                Write-Output "Found $($results.Count) issues"
+                $sarifResults = $results | ForEach-Object {
+                  @{
+                    ruleId = $_.RuleName
+                    level = $_.Severity.ToString().ToLower()
+                    message = @{ text = $_.Message }
+                    locations = @(
+                      @{
+                        physicalLocation = @{
+                          artifactLocation = @{ uri = $_.ScriptPath.Replace(${{ github.workspace }} + '/', '') }
+                          region = @{
+                            startLine = $_.Line
+                            startColumn = $_.Column
+                          }
                         }
                       }
+                    )
+                  }
+                }
+                $sarif = @{
+                  '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
+                  version = '2.1.0'
+                  runs = @(
+                    @{
+                      tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = "$(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)" } }
+                      results = $sarifResults
                     }
                   )
                 }
+                $sarif | ConvertTo-Json -Depth 10 | Out-File -FilePath $sarifFile -Encoding utf8
+                Write-Output "SARIF file generated: $sarifFile"
+              } else {
+                Write-Output "No issues found"
+                '{"$schema": "http://json.schemastore.org/sarif-2.1.0", "version": "2.1.0", "runs": []}' | Out-File -FilePath $sarifFile -Encoding utf8
+                Write-Output "Empty SARIF file generated: $sarifFile"
               }
-
-              $sarif = @{
-                version = "2.1.0"
-                runs = @(
-                  @{
-                    tool = @{
-                      driver = @{
-                        name = "PSScriptAnalyzer"
-                        version = "$analyzerVersion"
-                      }
-                    }
-                    results = $sarifResults
-                  }
-                )
-              }
-
-              $sarif | ConvertTo-Json -Depth 10 | Out-File -FilePath $sarifFile -Encoding utf8
+            } else {
+              Write-Output "No PowerShell scripts found in repository"
+              '{"$schema": "http://json.schemastore.org/sarif-2.1.0", "version": "2.1.0", "runs": []}' | Out-File -FilePath $sarifFile -Encoding utf8
+              Write-Output "Empty SARIF file generated: $sarifFile"
             }
-          } else {
-            '{"version": "2.1.0", "runs": []}' | Out-File -FilePath $sarifFile -Encoding utf8
+          } catch {
+            Write-Error "PSScriptAnalyzer failed: $_"
+            exit 1
           }
+
+      - name: 🕵️ Debug SARIF File Existence
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files:"
+          ls -la
+          if [ -f "${{ github.workspace }}/psscriptanalyzer-results.sarif" ]; then
+            echo "SARIF file exists"
+            cat "${{ github.workspace }}/psscriptanalyzer-results.sarif"
+          else
+            echo "SARIF file not found at ${{ github.workspace }}/psscriptanalyzer-results.sarif"
+            exit 1
+          fi
 
       - name: 📊 Upload Analysis Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: ./psscriptanalyzer-results.sarif
+          path: ${{ github.workspace }}/psscriptanalyzer-results.sarif
           retention-days: 7
 
       - name: 📤 Upload SARIF to GitHub
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ./psscriptanalyzer-results.sarif
+          sarif_file: ${{ github.workspace }}/psscriptanalyzer-results.sarif
+          checkout_path: ${{ github.workspace }}
           wait-for-processing: true
