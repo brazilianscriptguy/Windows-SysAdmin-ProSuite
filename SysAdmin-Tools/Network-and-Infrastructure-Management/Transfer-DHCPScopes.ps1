@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    PowerShell GUI Tool for Exporting and Importing DHCP Scopes Between Servers
+    PowerShell GUI Tool for Exporting and Importing DHCP Scopes Between Servers.
 
 .DESCRIPTION
     Provides a Windows Forms GUI for exporting DHCP scopes (with leases) and importing them across domain servers.
