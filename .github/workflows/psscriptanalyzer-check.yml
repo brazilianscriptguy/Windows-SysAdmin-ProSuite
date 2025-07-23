@@ -26,15 +26,10 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4.2.2
 
-      - name: 🛠️ Setup PowerShell
-        uses: actions/setup-powershell@v2
-        with:
-          powershell-version: '7.4'
-
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         shell: pwsh
         run: |
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
           $htPSA = @{
             Path = '.'
             Recurse = $true
@@ -69,7 +64,12 @@ jobs:
             FilePath = 'psscriptanalyzer-results.sarif'
           }
 
-          Invoke-ScriptAnalyzer @htPSA | ConvertTo-SARIF @htCTS
+          try {
+            Invoke-ScriptAnalyzer @htPSA | ConvertTo-SARIF @htCTS
+          } catch {
+            Write-Error "PSScriptAnalyzer failed: $_"
+            exit 1
+          }
 
       - name: 📊 Upload Analysis Results
         if: always()
