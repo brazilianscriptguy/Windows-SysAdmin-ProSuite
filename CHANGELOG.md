@@ -1,73 +1,73 @@
-# Changelog
+# 📦 Changelog
 
-## AD-SSO-APIs-Integration
+## 🔗 AD-SSO-APIs-Integration
 - ✅ Created secure LDAP and SSO authentication templates.
-- ➕ Added integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
-- 🔐 Introduced ENV-secured credential storage and bind authentication options.
-- ⚙️ Implemented modular and configurable architecture for cross-platform environments.
-- 📦 Prepared `.nupkg` packaging with platform tags and metadata for publishing.
+- ➕ Added ready-to-use integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
+- 🔐 Introduced environment-based credential storage and bind authentication options.
+- ⚙️ Implemented modular and cross-platform architecture with fallback strategies.
+- 📦 Prepared `.nupkg` packaging with platform-specific tags and enriched metadata.
 
-## All-Repository-Files
-- 📦 Created unified ZIP package containing all project directories.
-- 🗂️ Included `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-WKS`, `ITSM-Templates-SVR`, and `SysAdmin-Tools`.
-- 📃 Appended root-level `LICENSE.txt` and project-wide `README.md`.
-- 🚀 Finalized offline-ready distribution model for portability.
-- 🧱 Aligned structure with staging logic for release automation.
+## 🧳 All-Repository-Files
+- 📦 Created a unified ZIP archive bundling all repository components.
+- 🗂️ Included full directories: `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-WKS`, `ITSM-Templates-SVR`, and `SysAdmin-Tools`.
+- 📃 Appended project-wide `README.md` and root-level `LICENSE.txt`.
+- 🚀 Enabled offline-ready deployment and portable usage model.
+- 🧱 Synchronized with staging directory structure used in automated release workflows.
 
-## BlueTeam-Tools
-- 🧪 Built PowerShell forensic utilities for Blue Team and incident response.
-- 📈 Added event log parsing modules for IDs 4624, 4625, 4663, 4720–4756.
-- 🛡️ Introduced threat-hunting tools for privilege escalation, anomalous logon tracking, and DFIR collection.
-- 📤 Enhanced scripts with `.csv` export and `.log` output for auditing.
-- 🔄 Standardized logging and structure across all tools.
-- 🪟 Improved GUI responsiveness and error handling for analyst workflows.
-- 🧾 Markdown-based documentation generated for every folder/toolset.
+## 🕵️ BlueTeam-Tools
+- 🧪 Developed PowerShell-based forensic utilities for threat detection and DFIR.
+- 📈 Added event log analyzers for Event IDs: 4624, 4625, 4663, and 4720–4756.
+- 🛡️ Implemented tools for detecting privilege escalation and anomalous logons.
+- 📤 All outputs now support `.csv` exports and detailed `.log` tracing.
+- 🔄 Unified internal logic, folder structure, and naming conventions.
+- 🪟 Enhanced GUI interfaces with improved responsiveness and exception handling.
+- 🧾 Folder-specific `README.md` documentation included.
 
-## Core-ScriptLibrary
-- 🧰 Developed modular helper functions and reusable libraries in PowerShell.
-- 📦 Added NuGet packaging templates and publishing engine.
-- 📝 Introduced generators for headers, loggers, and main script blocks.
-- 🧪 Implemented static analysis and metadata extraction tools.
-- 🧱 Organized scripts into logical folders for packaging and consumption.
-- 🧾 Markdown and `.nuspec` auto-generation with enhanced metadata.
+## 🧰 Core-ScriptLibrary
+- 🧩 Built a library of modular helper functions and shared logic blocks in PowerShell.
+- 📦 Introduced NuGet `.nuspec` definitions and packaging automation.
+- 📝 Developed script generators for headers, logging blocks, and entry-points.
+- 🧪 Added tools for static code analysis and metadata parsing.
+- 🧱 Clean folder separation for consumption in other repositories.
+- 🧾 Automatic generation of `README.md` and `.nuspec` files with full metadata support.
 
-## GPOs-Templates
-- 🏗️ Created prebuilt GPO templates for greenfield and migration scenarios.
-- 🔁 Added PowerShell automation for GPO export/import tasks.
-- 🔐 Included security, UX, and compliance-hardening templates.
-- 🧹 Consolidated GPO-related scripts from SysAdmin-Tools into standalone set.
-- 📘 Documented each GPO use case and configuration as Markdown.
+## 🏛️ GPOs-Templates
+- 🏗️ Delivered baseline GPO templates for greenfield deployments and migrations.
+- 🔁 Enabled automated GPO export/import via PowerShell.
+- 🔐 Included templates for security lockdown, UX control, and compliance enforcement.
+- 🧹 Extracted and centralized GPO tools previously located in `SysAdmin-Tools`.
+- 📘 Detailed Markdown documentation per GPO policy and implementation guide.
 
-## ITSM-Templates-SVR
-- 🛠️ Added server provisioning and security hardening scripts.
-- 🌐 Included automated DNS, DHCP, and role setup tools.
-- 🧱 Developed templates for GPO reset and security baseline enforcement.
-- 🪟 Supported both Server Core and full GUI environments with conditional logic.
-- 💼 Added `.log` and `.csv` reporting to all provisioning steps.
+## 🖥️ ITSM-Templates-SVR
+- 🛠️ Introduced server provisioning, hardening, and compliance scripts.
+- 🌐 Tools for automated DNS, DHCP, AD CS, and server roles deployment.
+- 🧱 Templates enforce institutional baselines, GPO resets, and security hardening.
+- 🪟 Supports both GUI-based and Server Core environments with adaptive logic.
+- 💼 Included `.log` and `.csv` outputs for provisioning validation.
 
-## ITSM-Templates-WKS
-- 💼 Built automation scripts for workstation onboarding and domain join.
-- 🧹 Included tools for profile cleanup, printer removal, and network configuration reset.
-- 🧑‍💻 Added layout and taskbar personalization for Windows 10/11.
-- 🗃️ Integrated legacy `.vbs` tools for backward compatibility.
-- 📝 Implemented structured logging and reporting for ITSM support staff.
-- 🧾 Markdown documentation and sample HTA templates embedded.
+## 💻 ITSM-Templates-WKS
+- 💼 Developed onboarding toolkit for Windows 10/11 ITSM environments.
+- 🧹 Tools included for cleanup of user profiles, printer queues, and network settings.
+- 🧑‍💻 Provided layout customizations: Start Menu, Taskbar, and UX policies.
+- 🗃️ Integrated legacy `.vbs` tools for hybrid and legacy deployments.
+- 📝 Implemented standardized logging, export, and domain prep workflows.
+- 🧾 Markdown documentation and HTA sample templates embedded.
 
-## READMEs-Files-Package
-- 📄 Extracted all `README.md` files from project folders.
-- 📘 Created root-level `main-README.md` as centralized index.
-- 🏷️ Renamed module-specific README files for clarity during standalone use.
-- 📦 Packaged into a ZIP archive for offline documentation delivery.
-- 🔄 Updated Markdown format to follow new profile-wide documentation model.
+## 📄 READMEs-Files-Package
+- 📄 Extracted every `README.md` file from all top-level and subfolders.
+- 📘 Created centralized `main-README.md` with index and usage instructions.
+- 🏷️ Renamed each module’s README to follow descriptive and consistent naming.
+- 📦 Packaged into `READMEs-Files-Package.zip` for offline documentation use.
+- 🔄 All Markdown files updated to reflect new unified documentation structure.
 
-## SysAdmin-Tools
-- 🧰 Built PowerShell scripts for AD, GPOs, WSUS, CA, DHCP, and DNS management.
-- 👥 Added AD user/group/OU lifecycle scripts.
-- ♻️ Developed WSUS cleanup tools with optional SQL maintenance.
-- 🔐 Integrated Certificate Services automation for CA and CRL tasks.
-- 🏗️ Delivered tools for dynamic GPO creation and enforcement.
-- 🧭 Enabled DNS scavenging, DHCP reservation extraction, and remediation.
-- 💻 Supported workstation hardening and automation via GPO-deployed scripts.
-- 🖥️ Added GUI interfaces for WSUS, GPO, certificate, and update tasks.
-- 📜 Script metadata extraction and version tagging via helper tools.
-- 🧾 Markdown README and `.nuspec` synchronization enabled for packaging.
+## 🧭 SysAdmin-Tools
+- 🧰 Built comprehensive PowerShell tools for infrastructure administration.
+- 👥 AD scripts support lifecycle of users, groups, OUs, and password policies.
+- ♻️ WSUS cleanup tools now include WID and SQL-based maintenance options.
+- 🔐 Automated Certificate Authority deployment, renewal, and CRL management.
+- 🏗️ Tools for GPO creation, linking, reset, and baseline enforcement.
+- 🧭 DNS scavenging, DHCP reservations, and scope automation supported.
+- 💻 Enabled workstation automation via GPO-deployed compliance agents.
+- 🖥️ All major tools include GUI with logging, error handling, and retry logic.
+- 📜 Embedded version control and script metadata extraction helpers.
+- 🧾 `.nuspec` generation and README synchronization integrated into CI flow.
