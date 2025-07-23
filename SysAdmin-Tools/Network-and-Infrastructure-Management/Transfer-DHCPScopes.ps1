@@ -1,617 +1,374 @@
 <#
 .SYNOPSIS
-    PowerShell script for transferring DHCP scopes with a GUI.
+    PowerShell GUI Tool for Exporting and Importing DHCP Scopes Between Servers
 
 .DESCRIPTION
-    This script facilitates the export and import of DHCP scopes between servers 
-    in a specified domain. It features error handling, logging for tracking operations, 
-    and a graphical user interface (GUI) for simplified management. 
-
-    The script provides options to either inactivate or exclude the DHCP scope 
-    from the source server during export. Additionally, it supports asynchronous 
-    tasks with progress indicators for exporting and importing scopes.
+    Provides a Windows Forms GUI for exporting DHCP scopes (with leases) and importing them across domain servers.
+    Includes options for excluding and inactivating scopes, structured logging, and GUI feedback.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 24, 2024
+    v3.5 – July 23, 2025
 #>
 
-param(
-    [switch]$ShowConsole = $false
-)
-
-# Hide the PowerShell console window for a cleaner UI unless requested to show the console
+#region --- Hide Console ---
 if (-not $ShowConsole) {
     Add-Type @"
     using System;
     using System.Runtime.InteropServices;
     public class Window {
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern IntPtr GetConsoleWindow();
-        [DllImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        public static void Hide() {
-            var handle = GetConsoleWindow();
-            ShowWindow(handle, 0); // 0 = SW_HIDE
-        }
-        public static void Show() {
-            var handle = GetConsoleWindow();
-            ShowWindow(handle, 5); // 5 = SW_SHOW
-        }
+        [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 "@
-    [Window]::Hide()
+    [Window]::ShowWindow([Window]::GetConsoleWindow(), 0)
 }
+#endregion
 
-# Load Windows Forms Assemblies
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+#region --- Globals and Logging ---
+$global:ExportDir = Join-Path $env:LOCALAPPDATA "ScriptLogs"
+$global:LogPath = ""
 
-# Enhanced logging function with error handling and validation
-function Log-Message {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Message,
-
-        [Parameter(Mandatory=$false)]
-        [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
-        [string]$MessageType = "INFO"
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-
-    try {
-        # Ensure the log path exists, create if necessary
-        if (-not (Test-Path $logDir)) {
-            New-Item -Path $logDir -ItemType Directory -ErrorAction Stop
-        }
-        # Attempt to write to the log file
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        # Fallback: Log to console if writing to the log file fails
-        Write-Error "Failed to write to log: $_"
-        Write-Output $logEntry
+function Initialize-Logger {
+    if (-not (Test-Path $global:ExportDir)) {
+        New-Item -Path $global:ExportDir -ItemType Directory -Force | Out-Null
     }
-}
-
-# Unified error handling function refactored as a reusable method
-function Handle-Error {
-    param (
-        [Parameter(Mandatory = $true)][string]$ErrorMessage
-    )
-    Log-Message -Message "ERROR: $ErrorMessage" -MessageType "ERROR"
-    [System.Windows.Forms.MessageBox]::Show($ErrorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-}
-
-# Function to initialize script name and file paths
-function Initialize-ScriptPaths {
-    # Use $MyInvocation.ScriptName to get the full path of the script, fallback to "Script" if it doesn't exist
-    $scriptName = if ($MyInvocation.ScriptName) {
-        [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.ScriptName)
-    } else {
-        "Script"  # Fallback if no name is available
-    }
-
-    # Define the log directory and file name with timestamp
-    $logDir = 'C:\Logs-TEMP'
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $logFileName = "${scriptName}_${timestamp}.log"
-    $logPath = Join-Path $logDir $logFileName
+    $global:LogPath = Join-Path $global:ExportDir "TransferDhcpScopes_$timestamp.log"
+    Add-Content -Path $global:LogPath -Value "=== Logging started at $(Get-Date -Format 'u') ==="
+}
 
-    # Ensure the log directory exists, create it if necessary
-    if (-not (Test-Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-    }
+function Write-Log {
+    param (
+        [string]$Message,
+        [ValidateSet("INFO", "WARNING", "ERROR")][string]$Level = "INFO"
+    )
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $entry = "[$timestamp] [$Level] $Message"
+    Add-Content -Path $global:LogPath -Value $entry
+    if ($Level -eq "ERROR") { Write-Error $entry }
+    elseif ($Level -eq "WARNING") { Write-Warning $entry }
+}
+#endregion
 
-    # Return paths for use in logging
-    return @{
-        LogDir = $logDir
-        LogPath = $logPath
-        ScriptName = $scriptName
+#region --- Utilities ---
+function Get-LatestExportFile {
+    try {
+        $latest = Get-ChildItem -Path $global:ExportDir -Filter "Export-Scope_*.xml" |
+                  Sort-Object LastWriteTime -Descending |
+                  Select-Object -First 1
+        return $latest?.FullName
+    } catch {
+        Write-Log "Error getting latest export file: $_" -Level "ERROR"
+        return ""
     }
 }
 
-# Function to retrieve forest domains
 function Get-ForestDomains {
     try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.Domains | Select-Object -ExpandProperty Name
+        return [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().Domains |
+               Select-Object -ExpandProperty Name
     } catch {
-        Handle-Error "Failed to retrieve forest domains. Error: $_"
+        Write-Log "Error loading domains: $_" -Level "ERROR"
         return @()
     }
 }
 
-# Function to retrieve DHCP server from the domain
 function Get-DHCPServerFromDomain {
-    param (
-        [string]$domain
-    )
+    param ([string]$Domain)
     try {
-        $dhcpServers = Get-DhcpServerInDC
-        if ($dhcpServers -and $dhcpServers.Count -gt 0) {
-            foreach ($server in $dhcpServers) {
-                if ($server.DNSName -like "*$domain*") {
-                    return $server.DNSName  # Return the first matching DHCP server for the domain
-                }
+        $servers = Get-DhcpServerInDC
+        foreach ($srv in $servers) {
+            if ($srv.DnsName -like "*$Domain*") {
+                return $srv.DnsName
             }
-            Handle-Error "No authorized DHCP server found for the domain '${domain}'."
-            return $null
-        } else {
-            Handle-Error "No authorized DHCP servers found in Active Directory."
-            return $null
         }
+        return $null
     } catch {
-        Handle-Error "Error retrieving DHCP server for domain '${domain}': $_"
+        Write-Log "DHCP server retrieval error: $_" -Level "ERROR"
         return $null
     }
 }
 
-# Function to execute the export of DHCP scopes
+function Test-ScopeId {
+    param ([string]$ScopeId)
+    return $ScopeId -match "^\d{1,3}(\.\d{1,3}){3}$"
+}
+#endregion
+
+#region --- Core Functions ---
 function Export-DhcpScope {
     param (
         [string]$Server,
         [string]$ScopeId,
-        [string]$ExportFilePath,
         [bool]$ExcludeScope,
-        [bool]$InactivateScope
+        [bool]$InactivateScope,
+        [ref]$ExportedFilePath,
+        [System.Windows.Forms.ProgressBar]$ProgressBar
     )
-
     try {
-        # Log the parameters being used
-        Log-Message -Message "Starting export of Scope ID '$ScopeId' from Server '$Server' to File '$ExportFilePath'. ExcludeScope: $ExcludeScope, InactivateScope: $InactivateScope" -MessageType "INFO"
-
-        # Validate the server and scope ID
-        if (-not $Server) {
-            Handle-Error "Server name is required for export."
-            return $false
-        }
-        if (-not $ScopeId) {
-            Handle-Error "Scope ID is required for export."
-            return $false
+        $ProgressBar.Value = 10
+        if (-not (Test-ScopeId $ScopeId)) {
+            throw "Invalid Scope ID format: $ScopeId"
         }
 
-        # Validate the export file path
-        if (-not (Test-Path (Split-Path -Path $ExportFilePath -Parent))) {
-            try {
-                # Create export directory if it doesn't exist
-                New-Item -Path (Split-Path -Path $ExportFilePath -Parent) -ItemType Directory -Force | Out-Null
-            } catch {
-                Handle-Error "Failed to create export directory: $_"
-                return $false
-            }
-        }
+        $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+        $exportFile = Join-Path $global:ExportDir "Export-Scope_${ScopeId}_$timestamp.xml"
+        $ExportedFilePath.Value = $exportFile
 
-        # Log the start of the Export-DhcpServer command
-        Log-Message -Message "Executing Export-DhcpServer for Scope '$ScopeId' on Server '$Server'." -MessageType "INFO"
+        Export-DhcpServer -ComputerName $Server -File $exportFile -Leases -ScopeId $ScopeId -Force
+        Write-Log "Exported scope $ScopeId to $exportFile"
+        $ProgressBar.Value = 60
 
-        # Actual Export-DhcpServer cmdlet (synchronous)
-        try {
-            Export-DhcpServer -ComputerName $Server -File $ExportFilePath -ScopeId $ScopeId -Leases -Force -ErrorAction Stop
-            Log-Message -Message "Export completed for Scope '$ScopeId' on Server '$Server'" -MessageType "INFO"
-        } catch {
-            $errorMsg = $_.Exception.Message
-            Handle-Error "Failed to execute Export-DhcpServer for Scope '$ScopeId' on Server '$Server'. Error: $errorMsg"
-            return $false
-        }
-
-        # Handle ExcludeScope option if needed
-        if ($ExcludeScope) {
-            Log-Message -Message "Excluding Scope '$ScopeId' from Server '$Server'." -MessageType "INFO"
-            try {
-                Remove-DhcpServerv4Scope -ComputerName $Server -ScopeId $ScopeId -Force -ErrorAction Stop
-                Log-Message -Message "Scope '$ScopeId' successfully excluded from Server '$Server'." -MessageType "INFO"
-            } catch {
-                Handle-Error "Failed to exclude DHCP scope '$ScopeId' from server '$Server'. Error: $_"
-                return $false
-            }
-        }
-
-        # Handle InactivateScope option
         if ($InactivateScope) {
-            Log-Message -Message "Inactivating Scope '$ScopeId' as per user selection." -MessageType "INFO"
-            try {
-                Set-DhcpServerv4Scope -ComputerName $Server -ScopeId $ScopeId -State Inactive -ErrorAction Stop
-                Log-Message -Message "Scope '$ScopeId' inactivated on Server '$Server'." -MessageType "INFO"
-            } catch {
-                Handle-Error "Failed to inactivate DHCP scope '$ScopeId' on server '$Server'. Error: $_"
-                return $false
-            }
+            Set-DhcpServerv4Scope -ComputerName $Server -ScopeId $ScopeId -State Inactive
+            Write-Log "Inactivated scope $ScopeId"
         }
 
+        if ($ExcludeScope) {
+            Remove-DhcpServerv4Scope -ComputerName $Server -ScopeId $ScopeId -Force
+            Write-Log "Removed scope $ScopeId from $Server"
+        }
+
+        $ProgressBar.Value = 100
         return $true
     } catch {
-        Handle-Error "An unexpected error occurred during the export of DHCP scope '$ScopeId' from server '$Server'. Error: $_"
+        Write-Log "Export failed: $_" -Level "ERROR"
+        $ProgressBar.Value = 0
         return $false
     }
 }
 
-# Function to import DHCP scope from file (target server and domain included)
 function Import-DhcpScope {
     param (
         [string]$Server,
-        [string]$Domain,
         [string]$ImportFilePath,
-        [string]$ScopeId
+        [bool]$InactivateAfter = $false,
+        [System.Windows.Forms.ProgressBar]$ProgressBar
     )
-
     try {
-        Log-Message -Message "Starting import of DHCP scope '$ScopeId' from file '$ImportFilePath' to server '$Server' in domain '$Domain'." -MessageType "INFO"
-
-        # Validate server, domain, and import file
-        if (-not $Server) {
-            Handle-Error "Target server is required for import."
-            return $false
-        }
-        if (-not $Domain) {
-            Handle-Error "Target domain is required for import."
-            return $false
-        }
+        $ProgressBar.Value = 10
         if (-not (Test-Path $ImportFilePath)) {
-            Handle-Error "Import file does not exist: $ImportFilePath"
-            return $false
+            throw "Import file not found: $ImportFilePath"
         }
 
-        # Check if the scope exists before import
-        $existingScope = Get-DhcpServerv4Scope -ComputerName $Server | Where-Object { $_.ScopeId -eq $ScopeId }
-        if ($existingScope) {
-            Handle-Error "WARNING: Scope $ScopeId exists on server $Server. This scope will not be imported."
-            return $false
+        Import-DhcpServer -ComputerName $Server -File $ImportFilePath -Leases -BackupPath $global:ExportDir -ErrorAction Stop
+        Write-Log "Imported scopes from $ImportFilePath to $Server"
+
+        if ($InactivateAfter -and ($ImportFilePath -match "Export-Scope_([\d\.]+)_")) {
+            $scopeId = $matches[1]
+            Set-DhcpServerv4Scope -ComputerName $Server -ScopeId $scopeId -State Inactive
+            Write-Log "Inactivated scope $scopeId after import"
         }
 
-        # Execute import cmdlet
-        try {
-            Import-DhcpServer -ComputerName $Server -File $ImportFilePath -Leases -BackupPath "C:\Logs-TEMP\DHCP-Backup" -ScopeId $ScopeId -ErrorAction Stop
-            Log-Message -Message "Import completed for Scope '$ScopeId' from file '$ImportFilePath' on Server '$Server'." -MessageType "INFO"
-        } catch {
-            $errorMsg = $_.Exception.Message
-            Handle-Error "Failed to execute Import-DhcpServer for Scope '$ScopeId' on Server '$Server'. Error: $errorMsg"
-            return $false
-        }
-
+        $ProgressBar.Value = 100
         return $true
     } catch {
-        Handle-Error "An unexpected error occurred during the import. Error: $_"
+        Write-Log "Import failed: $_" -Level "ERROR"
+        $ProgressBar.Value = 0
         return $false
     }
 }
+#endregion
 
-# Function to execute asynchronous jobs with progress handling
-function Run-AsynchronousJob {
-    param (
-        [scriptblock]$JobScript,
-        [string]$JobDescription,
-        [ref]$Result
-    )
+#region --- GUI ---
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-    Log-Message "Starting background task: ${JobDescription}" -MessageType "INFO"
-
-    $job = Start-Job -ScriptBlock $JobScript -Name $JobDescription
-
-    Register-ObjectEvent -InputObject $job -EventName StateChanged -Action {
-        param($sender, $e)
-
-        if ($e.NewState -eq 'Completed') {
-            $jobResult = Receive-Job -Job $sender -ErrorAction SilentlyContinue
-
-            if ($sender.ChildJobs[0].JobStateInfo.State -eq 'Failed') {
-                $errorMessage = $sender.ChildJobs[0].JobStateInfo.Reason.ToString()
-                Handle-Error "${JobDescription} failed: ${errorMessage}"
-                $Result.Value = $false
-            } else {
-                Log-Message "${JobDescription} completed successfully." -MessageType "INFO"
-                $Result.Value = $true
-            }
-
-            # Clean up the job
-            Remove-Job -Job $sender -Force
-        }
+function Show-GUI {
+    $form = New-Object Windows.Forms.Form -Property @{
+        Text = "DHCP Scope Transfer Tool v3.5"
+        Size = '720,460'
+        StartPosition = 'CenterScreen'
     }
-}
 
-# GUI Creation Function
-function Create-GUI {
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'DHCP Scope Transfer Tool'
-    $form.Size = New-Object System.Drawing.Size(650, 480)
-    $form.StartPosition = 'CenterScreen'
+    $tabs = New-Object Windows.Forms.TabControl
+    $tabs.Size = '680,400'
+    $tabs.Location = '10,10'
+    $form.Controls.Add($tabs)
 
-    # Create Tab Control for Export and Import
-    $tabControl = New-Object System.Windows.Forms.TabControl
-    $tabControl.Location = New-Object System.Drawing.Point(10, 10)
-    $tabControl.Size = New-Object System.Drawing.Size(600, 400)
-    $form.Controls.Add($tabControl)
+    #region Export Tab
+    $tabExport = New-Object Windows.Forms.TabPage -Property @{ Text = "Export Scope" }
+    $tabs.Controls.Add($tabExport)
 
-    # Export Tab
-    $exportTab = New-Object System.Windows.Forms.TabPage
-    $exportTab.Text = 'Export DHCP Scope'
-    $tabControl.Controls.Add($exportTab)
+    $cmbDomain = New-Object Windows.Forms.ComboBox -Property @{ Location = '150,30'; Size = '200,20'; DropDownStyle = 'DropDownList' }
+    $txtServer = New-Object Windows.Forms.TextBox -Property @{ Location = '150,70'; Size = '200,20' }
+    $cmbScope = New-Object Windows.Forms.ComboBox -Property @{ Location = '150,110'; Size = '200,20'; DropDownStyle = 'DropDownList' }
+    $txtExportPath = New-Object Windows.Forms.TextBox -Property @{ Location = '150,150'; Size = '400,20'; ReadOnly = $true }
+    $btnBrowseExport = New-Object Windows.Forms.Button -Property @{ Text = "Select Path"; Location = '560,150'; Size = '80,22' }
+    $chkExclude = New-Object Windows.Forms.CheckBox -Property @{ Text = "Delete scope after export"; Location = '360,30'; Size = '200,20'; AutoSize = $true }
+    $chkInactivate = New-Object Windows.Forms.CheckBox -Property @{ Text = "Disable scope after export"; Location = '360,60'; Size = '200,20'; AutoSize = $true }
+    $btnExport = New-Object Windows.Forms.Button -Property @{ Text = "Export"; Location = '360,90'; Size = '120,30' }
+    $barExport = New-Object Windows.Forms.ProgressBar -Property @{ Location = '10,260'; Size = '630,25' }
+    $lblStatusExport = New-Object Windows.Forms.Label -Property @{ Text = ""; Location = '10,290'; Size = '630,20' }
 
-    # Import Tab
-    $importTab = New-Object System.Windows.Forms.TabPage
-    $importTab.Text = 'Import DHCP Scope'
-    $tabControl.Controls.Add($importTab)
+    $tabExport.Controls.AddRange(@(
+        (New-Object Windows.Forms.Label -Property @{ Text = "Source Domain:"; Location = '10,30'; AutoSize = $true }),
+        $cmbDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
+        $txtServer, (New-Object Windows.Forms.Label -Property @{ Text = "Scope ID:"; Location = '10,110'; AutoSize = $true }),
+        $cmbScope, (New-Object Windows.Forms.Label -Property @{ Text = "Export Path:"; Location = '10,150'; AutoSize = $true }),
+        $txtExportPath, $btnBrowseExport, $chkExclude, $chkInactivate, $btnExport, $barExport, $lblStatusExport
+    ))
 
-    # Elements on Export Tab
-    $lblSourceDomain = New-Object System.Windows.Forms.Label
-    $lblSourceDomain.Text = "Source Domain:"
-    $lblSourceDomain.Location = New-Object System.Drawing.Point(10, 20)
-    $lblSourceDomain.AutoSize = $true
-    $exportTab.Controls.Add($lblSourceDomain)
+    #endregion
 
-    $comboBoxSourceDomain = New-Object System.Windows.Forms.ComboBox
-    $comboBoxSourceDomain.Location = New-Object System.Drawing.Point(150, 20)
-    $comboBoxSourceDomain.Size = New-Object System.Drawing.Size(200, 20)
-    $comboBoxSourceDomain.DropDownStyle = 'DropDownList'
-    $exportTab.Controls.Add($comboBoxSourceDomain)
+    #region Import Tab
+    $tabImport = New-Object Windows.Forms.TabPage -Property @{ Text = "Import Scope" }
+    $tabs.Controls.Add($tabImport)
 
-    $lblSourceServer = New-Object System.Windows.Forms.Label
-    $lblSourceServer.Text = "Source Server:"
-    $lblSourceServer.Location = New-Object System.Drawing.Point(10, 100)
-    $lblSourceServer.AutoSize = $true
-    $exportTab.Controls.Add($lblSourceServer)
+    $cmbImpDomain = New-Object Windows.Forms.ComboBox -Property @{ Location = '150,30'; Size = '200,20'; DropDownStyle = 'DropDownList' }
+    $txtImpServer = New-Object Windows.Forms.TextBox -Property @{ Location = '150,70'; Size = '200,20' }
+    $txtImpFile = New-Object Windows.Forms.TextBox -Property @{ Location = '150,110'; Size = '400,20'; Text = Get-LatestExportFile }
+    $btnBrowseImp = New-Object Windows.Forms.Button -Property @{ Text = "Select File"; Location = '560,110'; Size = '80,22' }
+    $chkInactivateImp = New-Object Windows.Forms.CheckBox -Property @{ Text = "Disable scope after import"; Location = '360,30'; Size = '200,20'; AutoSize = $true }
+    $btnImport = New-Object Windows.Forms.Button -Property @{ Text = "Import"; Location = '360,60'; Size = '120,30' }
+    $barImport = New-Object Windows.Forms.ProgressBar -Property @{ Location = '10,260'; Size = '630,25' }
+    $lblStatusImport = New-Object Windows.Forms.Label -Property @{ Text = ""; Location = '10,290'; Size = '630,20' }
 
-    $txtSourceServer = New-Object System.Windows.Forms.TextBox
-    $txtSourceServer.Location = New-Object System.Drawing.Point(150, 100)
-    $txtSourceServer.Size = New-Object System.Drawing.Size(200, 20)
-    $exportTab.Controls.Add($txtSourceServer)
+    $tabImport.Controls.AddRange(@(
+        (New-Object Windows.Forms.Label -Property @{ Text = "Destination Domain:"; Location = '10,30'; AutoSize = $true }),
+        $cmbImpDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
+        $txtImpServer, (New-Object Windows.Forms.Label -Property @{ Text = "Import File:"; Location = '10,110'; AutoSize = $true }),
+        $txtImpFile, $btnBrowseImp, $chkInactivateImp, $btnImport, $barImport, $lblStatusImport
+    ))
+    #endregion
 
-    $lblScopeId = New-Object System.Windows.Forms.Label
-    $lblScopeId.Text = "Scope ID:"
-    $lblScopeId.Location = New-Object System.Drawing.Point(10, 180)
-    $lblScopeId.AutoSize = $true
-    $exportTab.Controls.Add($lblScopeId)
+    #region ToolTips
+    $toolTip = New-Object System.Windows.Forms.ToolTip
+    $toolTip.SetToolTip($cmbDomain, "Select source domain for scope export")
+    $toolTip.SetToolTip($txtServer, "DHCP server auto-detected from domain")
+    $toolTip.SetToolTip($cmbScope, "IP address range for scope (e.g., 192.168.1.0)")
+    $toolTip.SetToolTip($txtExportPath, "XML file path for exported scope")
+    $toolTip.SetToolTip($btnBrowseExport, "Choose export file path")
+    $toolTip.SetToolTip($chkExclude, "Remove scope from source server")
+    $toolTip.SetToolTip($chkInactivate, "Disable scope on source server")
+    $toolTip.SetToolTip($btnExport, "Export selected scope")
+    $toolTip.SetToolTip($cmbImpDomain, "Select destination domain for import")
+    $toolTip.SetToolTip($txtImpServer, "DHCP server for scope import")
+    $toolTip.SetToolTip($txtImpFile, "XML file with scope data to import")
+    $toolTip.SetToolTip($btnBrowseImp, "Select file for scope import")
+    $toolTip.SetToolTip($chkInactivateImp, "Disable imported scope")
+    $toolTip.SetToolTip($btnImport, "Import scope from selected file")
+    #endregion
 
-    $comboBoxScopes = New-Object System.Windows.Forms.ComboBox
-    $comboBoxScopes.Location = New-Object System.Drawing.Point(150, 180)
-    $comboBoxScopes.Size = New-Object System.Drawing.Size(200, 20)
-    $comboBoxScopes.DropDownStyle = 'DropDownList'
-    $exportTab.Controls.Add($comboBoxScopes)
+    #region Events
+    foreach ($d in Get-ForestDomains) {
+        $cmbDomain.Items.Add($d) | Out-Null
+        $cmbImpDomain.Items.Add($d) | Out-Null
+    }
 
-    $lblBackupPath = New-Object System.Windows.Forms.Label
-    $lblBackupPath.Text = "Export File Path:"
-    $lblBackupPath.Location = New-Object System.Drawing.Point(10, 220)
-    $lblBackupPath.AutoSize = $true
-    $exportTab.Controls.Add($lblBackupPath)
+    $cmbDomain.Add_SelectedIndexChanged({
+        $cmbScope.Items.Clear()
+        $txtServer.Text = Get-DHCPServerFromDomain $cmbDomain.SelectedItem
+        if ($txtServer.Text) {
+            Get-DhcpServerv4Scope -ComputerName $txtServer.Text | ForEach-Object {
+                $cmbScope.Items.Add($_.ScopeId) | Out-Null
+            }
+        }
+        $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
+    })
 
-    $txtBackupPath = New-Object System.Windows.Forms.TextBox
-    $txtBackupPath.Text = "C:\Logs-TEMP\DHCP-Export\DhcpScopeConfig.xml"
-    $txtBackupPath.Location = New-Object System.Drawing.Point(150, 220)
-    $txtBackupPath.Size = New-Object System.Drawing.Size(400, 20)
-    $txtBackupPath.ReadOnly = $true
-    $exportTab.Controls.Add($txtBackupPath)
+    $cmbImpDomain.Add_SelectedIndexChanged({
+        $txtImpServer.Text = Get-DHCPServerFromDomain $cmbImpDomain.SelectedItem
+        $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
+    })
 
-    $chkExcludeScope = New-Object System.Windows.Forms.CheckBox
-    $chkExcludeScope.Text = "Exclude Source Scope"
-    $chkExcludeScope.Location = New-Object System.Drawing.Point(400, 20)
-    $chkExcludeScope.AutoSize = $true
-    $exportTab.Controls.Add($chkExcludeScope)
+    $txtImpFile.Add_TextChanged({
+        $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
+    })
 
-    $chkInactivateScope = New-Object System.Windows.Forms.CheckBox
-    $chkInactivateScope.Text = "Inactivate Source Scope"
-    $chkInactivateScope.Location = New-Object System.Drawing.Point(400, 60)
-    $chkInactivateScope.AutoSize = $true
-    $exportTab.Controls.Add($chkInactivateScope)
+    $btnBrowseExport.Add_Click({
+        $dlg = New-Object Windows.Forms.SaveFileDialog
+        $dlg.InitialDirectory = $global:ExportDir
+        $dlg.Filter = "XML files (*.xml)|*.xml"
+        $dlg.FileName = "Export-Scope_$($cmbScope.Text)_$(Get-Date -Format 'yyyyMMdd_HHmmss').xml"
+        if ($dlg.ShowDialog() -eq "OK") {
+            $txtExportPath.Text = $dlg.FileName
+        }
+    })
 
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Location = New-Object System.Drawing.Point(10, 300)
-    $progressBar.Size = New-Object System.Drawing.Size(550, 30)
-    $progressBar.Minimum = 0
-    $progressBar.Maximum = 100
-    $progressBar.Step = 50
-    $exportTab.Controls.Add($progressBar)
+    $btnBrowseImp.Add_Click({
+        $dlg = New-Object Windows.Forms.OpenFileDialog
+        $dlg.InitialDirectory = $global:ExportDir
+        $dlg.Filter = "XML files (*.xml)|*.xml"
+        if ($dlg.ShowDialog() -eq "OK") {
+            $txtImpFile.Text = $dlg.FileName
+        }
+    })
 
-    $btnExport = New-Object System.Windows.Forms.Button
-    $btnExport.Text = "Export Scope"
-    $btnExport.Location = New-Object System.Drawing.Point(400, 100)
-    $btnExport.Size = New-Object System.Drawing.Size(150, 30)
-    $exportTab.Controls.Add($btnExport)
-
-    # Import Tab Elements
-    $lblImportDomain = New-Object System.Windows.Forms.Label
-    $lblImportDomain.Text = "Target Domain:"
-    $lblImportDomain.Location = New-Object System.Drawing.Point(10, 20)
-    $lblImportDomain.AutoSize = $true
-    $importTab.Controls.Add($lblImportDomain)
-
-    $comboBoxTargetDomain = New-Object System.Windows.Forms.ComboBox
-    $comboBoxTargetDomain.Location = New-Object System.Drawing.Point(150, 20)
-    $comboBoxTargetDomain.Size = New-Object System.Drawing.Size(200, 20)
-    $comboBoxTargetDomain.DropDownStyle = 'DropDownList'
-    $importTab.Controls.Add($comboBoxTargetDomain)
-
-    $lblImportServer = New-Object System.Windows.Forms.Label
-    $lblImportServer.Text = "Target Server:"
-    $lblImportServer.Location = New-Object System.Drawing.Point(10, 100)
-    $lblImportServer.AutoSize = $true
-    $importTab.Controls.Add($lblImportServer)
-
-    $txtTargetServer = New-Object System.Windows.Forms.TextBox
-    $txtTargetServer.Location = New-Object System.Drawing.Point(150, 100)
-    $txtTargetServer.Size = New-Object System.Drawing.Size(200, 20)
-    $importTab.Controls.Add($txtTargetServer)
-
-    $lblImportFile = New-Object System.Windows.Forms.Label
-    $lblImportFile.Text = "Import File Path:"
-    $lblImportFile.Location = New-Object System.Drawing.Point(10, 60)
-    $lblImportFile.AutoSize = $true
-    $importTab.Controls.Add($lblImportFile)
-
-    $txtImportFile = New-Object System.Windows.Forms.TextBox
-    $txtImportFile.Text = "C:\Logs-TEMP\DHCP-Export\DhcpScopeConfig.xml"
-    $txtImportFile.Location = New-Object System.Drawing.Point(150, 60)
-    $txtImportFile.Size = New-Object System.Drawing.Size(400, 20)
-    $importTab.Controls.Add($txtImportFile)
-
-    $progressBarImport = New-Object System.Windows.Forms.ProgressBar
-    $progressBarImport.Location = New-Object System.Drawing.Point(10, 300)
-    $progressBarImport.Size = New-Object System.Drawing.Size(550, 30)
-    $progressBarImport.Minimum = 0
-    $progressBarImport.Maximum = 100
-    $progressBarImport.Step = 50
-    $importTab.Controls.Add($progressBarImport)
-
-    $btnImport = New-Object System.Windows.Forms.Button
-    $btnImport.Text = "Import Scope"
-    $btnImport.Location = New-Object System.Drawing.Point(400, 100)
-    $btnImport.Size = New-Object System.Drawing.Size(150, 30)
-    $importTab.Controls.Add($btnImport)
-
-    # Event Handlers for the Export button
     $btnExport.Add_Click({
-        $sourceServer = $txtSourceServer.Text.Trim()
-        $selectedScope = $comboBoxScopes.SelectedItem
-        if ($selectedScope) {
-            $scopeId = $selectedScope
-        } else {
-            $scopeId = ""
+        $barExport.Value = 0
+        $lblStatusExport.Text = "Validating inputs..."
+        if (-not $txtServer.Text -or -not $cmbScope.Text) {
+            [Windows.Forms.MessageBox]::Show("Select domain, server, and scope ID", "Error", "OK", "Error")
+            $lblStatusExport.Text = "Export failed: Missing inputs"
+            return
         }
-        $exportFilePath = $txtBackupPath.Text
-        $excludeScope = $chkExcludeScope.Checked
-        $inactivateScope = $chkInactivateScope.Checked
+        if (-not (Test-ScopeId $cmbScope.Text)) {
+            [Windows.Forms.MessageBox]::Show("Invalid Scope ID format (e.g., 192.168.1.0)", "Error", "OK", "Error")
+            $lblStatusExport.Text = "Export failed: Invalid Scope ID"
+            return
+        }
 
-        if ($sourceServer -and $scopeId) {
-            $progressBar.Value = 0
-            $progressBar.PerformStep()
-            
-            # Directly call Export-DhcpScope synchronously to capture errors
-            $exportResult = Export-DhcpScope -Server $sourceServer -ScopeId $scopeId -ExportFilePath $exportFilePath -ExcludeScope $excludeScope -InactivateScope $inactivateScope
+        $lblStatusExport.Text = "Exporting scope..."
+        $exportedFile = $txtExportPath.Text
+        $success = Export-DhcpScope -Server $txtServer.Text -ScopeId $cmbScope.Text `
+            -ExcludeScope:$chkExclude.Checked -InactivateScope:$chkInactivate.Checked `
+            -ExportedFilePath ([ref]$exportedFile) -ProgressBar $barExport
 
-            $progressBar.Value = 100
-
-            # Show message after the operation
-            if ($exportResult) {
-                [System.Windows.Forms.MessageBox]::Show("Export completed successfully!", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            } else {
-                [System.Windows.Forms.MessageBox]::Show("Export failed!", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            }
+        if ($success) {
+            $txtExportPath.Text = $exportedFile
+            $txtImpFile.Text = $exportedFile
+            [Windows.Forms.MessageBox]::Show("Scope exported to $exportedFile", "Success", "OK", "Information")
+            $lblStatusExport.Text = "Export completed"
         } else {
-            Handle-Error "Please select the Source Server and Scope ID."
+            [Windows.Forms.MessageBox]::Show("Export failed. Check log.", "Error", "OK", "Error")
+            $lblStatusExport.Text = "Export failed"
         }
     })
 
-    # Event Handlers for the Import button
     $btnImport.Add_Click({
-        # Retrieve the values from the input fields and ComboBox
-        $targetServer = $txtTargetServer.Text.Trim()
-        $importFilePath = $txtImportFile.Text.Trim()
-        $selectedTargetDomain = $comboBoxTargetDomain.SelectedItem
-        $importScopeId = $comboBoxScopes.SelectedItem  # Assuming this is where the scope ID comes from
+        $barImport.Value = 0
+        $lblStatusImport.Text = "Validating inputs..."
+        if (-not $txtImpServer.Text -or -not $txtImpFile.Text) {
+            [Windows.Forms.MessageBox]::Show("Specify server and import file", "Error", "OK", "Error")
+            $lblStatusImport.Text = "Import failed: Missing inputs"
+            return
+        }
 
-        # Debugging: Log retrieved values for troubleshooting
-        Log-Message -Message "Target Server: $targetServer" -MessageType "DEBUG"
-        Log-Message -Message "Import File Path: $importFilePath" -MessageType "DEBUG"
-        Log-Message -Message "Import Scope ID: $importScopeId" -MessageType "DEBUG"
-        Log-Message -Message "Selected Target Domain: $selectedTargetDomain" -MessageType "DEBUG"
+        $lblStatusImport.Text = "Importing scope..."
+        $success = Import-DhcpScope -Server $txtImpServer.Text -ImportFilePath $txtImpFile.Text `
+            -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
 
-        # Validate that all fields are correctly filled
-        if (-not [string]::IsNullOrWhiteSpace($targetServer) -and 
-            -not [string]::IsNullOrWhiteSpace($importFilePath) -and 
-            -not [string]::IsNullOrWhiteSpace($importScopeId) -and 
-            $selectedTargetDomain) {
-
-            # Set progress bar to 0 before starting the import process
-            $progressBarImport.Value = 0
-            $progressBarImport.PerformStep()
-
-            # Run the import function with filled parameters
-            $importResult = Import-DhcpScope -Server $targetServer -Domain $selectedTargetDomain -ImportFilePath $importFilePath -ScopeId $importScopeId
-
-            # Complete progress bar once the process is done
-            $progressBarImport.Value = 100
-
-            # Notify the user of success or failure
-            if ($importResult) {
-                [System.Windows.Forms.MessageBox]::Show("Import completed successfully!", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            } else {
-                [System.Windows.Forms.MessageBox]::Show("Import failed!", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            }
+        if ($success) {
+            [Windows.Forms.MessageBox]::Show("Scope imported to $txtImpServer.Text", "Success", "OK", "Information")
+            $lblStatusImport.Text = "Import completed"
         } else {
-            # Log the values and show an error if any required field is not filled
-            Log-Message -Message "Failed validation: Target Server = $targetServer, Import File Path = $importFilePath, Scope ID = $importScopeId, Target Domain = $selectedTargetDomain" -MessageType "ERROR"
-            Handle-Error "Please specify the Target Server, Import File Path, Scope ID, and Target Domain."
+            [Windows.Forms.MessageBox]::Show("Import failed. Check log.", "Error", "OK", "Error")
+            $lblStatusImport.Text = "Import failed"
         }
     })
 
-    # Populate domain comboboxes
-    $domains = Get-ForestDomains
-    foreach ($domain in $domains) {
-        $comboBoxSourceDomain.Items.Add($domain) | Out-Null
-        $comboBoxTargetDomain.Items.Add($domain) | Out-Null
-    }
+    # Initial button state
+    $btnExport.Enabled = $false
+    $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
+    #endregion
 
-    # Event handler for selecting the Source Domain to get DHCP servers and scopes
-    $comboBoxSourceDomain.Add_SelectedIndexChanged({
-        $selectedSourceDomain = $comboBoxSourceDomain.SelectedItem
-        if ($selectedSourceDomain) {
-            $sourceServer = Get-DHCPServerFromDomain -domain $selectedSourceDomain
-            if ($sourceServer) {
-                $txtSourceServer.Text = $sourceServer
-                $comboBoxScopes.Items.Clear()
-                try {
-                    $scopes = Get-DhcpServerv4Scope -ComputerName $sourceServer
-                    foreach ($scope in $scopes) {
-                        $comboBoxScopes.Items.Add($scope.ScopeId) | Out-Null
-                    }
-                    Log-Message -Message "Fetched DHCP scopes for server '$sourceServer'." -MessageType "INFO"
-                } catch {
-                    Handle-Error "Failed to retrieve scopes from server '$sourceServer'. Error: $_"
-                }
-            }
-        }
-    })
-
-    # Event handler for selecting the Target Domain to get DHCP servers
-    $comboBoxTargetDomain.Add_SelectedIndexChanged({
-        $selectedTargetDomain = $comboBoxTargetDomain.SelectedItem
-        if ($selectedTargetDomain) {
-            $targetServer = Get-DHCPServerFromDomain -domain $selectedTargetDomain
-            if ($targetServer) {
-                $txtTargetServer.Text = $targetServer
-                Log-Message -Message "Selected target server: '$targetServer'." -MessageType "INFO"
-            }
-        }
-    })
-
-    # Display the GUI
     $form.ShowDialog()
 }
+#endregion
 
-# Initialize Script Paths and Logging
-$paths = Initialize-ScriptPaths
-$global:logDir = $paths.LogDir
-$global:logPath = $paths.LogPath
-
-# Ensure the log directory and file exist
+# --- Run Script ---
 try {
-    if (-not (Test-Path $global:logDir)) {
-        New-Item -Path $global:logDir -ItemType Directory -Force | Out-Null
-    }
-    # Create the log file if it doesn't exist
-    if (-not (Test-Path $global:logPath)) {
-        New-Item -Path $global:logPath -ItemType File -Force | Out-Null
-    }
-} catch {
-    Handle-Error "Failed to initialize logging."
-    exit
-}
-
-# Import Necessary Modules with Error Handling
-try {
+    Initialize-Logger
     Import-Module DHCPServer -ErrorAction Stop
     Import-Module ActiveDirectory -ErrorAction Stop
+    Show-GUI
 } catch {
-    Handle-Error "Failed to import necessary modules."
-    exit
+    Write-Log "Startup error: $_" -Level "ERROR"
+    [Windows.Forms.MessageBox]::Show("Startup failed: $_", "Error", "OK", "Error")
 }
-
-# Log that the script has started
-Log-Message -Message "Script started" -MessageType "INFO"
-
-# Execute the GUI creation function
-Create-GUI
 
 # End of script
