@@ -2,7 +2,7 @@
 
 ### ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022
 
-Welcome to the **PowerShell Toolset for Windows Server Administration** and **VBScript Repository** — a curated collection of scripts built by `@brazilianscriptguy` for advanced system administration. This repository delivers a full-featured toolkit to streamline Windows Server operations and optimize workstation configurations, all aligned with ITSM best practices.
+Welcome to the **PowerShell Toolset for Windows Server Administration** and **VBScript Repository** — a curated collection of automation scripts by [`@brazilianscriptguy`](https://github.com/brazilianscriptguy) for secure, compliant, and scalable Windows infrastructure management.
 
 ✨ All tools include intuitive **graphical user interfaces (GUI)**, generate structured `.log` files, and many also export `.csv` audit reports.
 
@@ -12,13 +12,13 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 **Purpose-built for critical IT areas:**
 
-| Module | Description |
+| Folder | Description |
 |--------|-------------|
-| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | Forensic response, incident triage, and real-time log analysis. |
-| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Asset-red?style=for-the-badge&logo=visualstudiocode)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Reusable automation modules and secure script templates. |
-| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Server-side scripts for hardening and service-role compliance. |
-| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | Workstation scripts for domain prep, profile cleanup, and personalization. |
-| [![SysAdmin ToolSet](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Central scripts for managing AD, GPOs, DNS, DHCP, and infrastructure. |
+| [`BlueTeam-Tools`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tools for DFIR: log analysis, credential tracing, memory and file integrity checks, incident triage, and evidence preservation. |
+| [`Core-ScriptLibrary`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Foundational script modules, reusable logic blocks, and helper functions used across all toolkits. Includes NuGet packaging templates and GUI engines. |
+| [`ITSM-Templates-SVR`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Server-side scripts for Windows Server 2019/2022: GPO reset, DNS/DHCP baseline, CA deployment, IIS/role compliance, and secure configuration enforcement. |
+| [`ITSM-Templates-WKS`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | Workstation preparation templates for Windows 10/11: offline domain join, user profile cleanup, UX layout (Start Menu, Taskbar), and printer resets. |
+| [`SysAdmin-Tools`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Unified GUI scripts for managing Active Directory, GPOs, WSUS, DHCP, DNS, and Certificate Services. Focused on infrastructure-level automation and centralized admin tasks. |
 
 ---
 
@@ -28,15 +28,19 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 - ⚡ **PowerShell Automation:** Modular, secure scripting with reusable logic blocks.  
 - 🔐 **Server Hardening:** Templates for DNS, CA, firewall, IIS, and role deployment.  
 - 🖥️ **Workstation Compliance:** Domain join prep, offline logins, and layout configs.  
-- 👤 **AD & LDAP Tools:** Identity lifecycle, GPO reset, and directory object management.
+- 👤 **AD & LDAP Tools:** Identity lifecycle, GPO reset, and directory object management.  
 
 ---
 
-## 🌟 Key Highlights
+## 🌟 Key Highlights & Core Competencies
 
 - 🖼️ **GUI-Driven Interfaces:** All scripts include user-friendly graphical front ends.  
 - 📝 **Structured Output:** `.log` and `.csv` exports enable traceability and audits.  
-- 🧩 **Customizable Logic:** Scripts are adaptable via parameters and modular design.
+- 🧩 **Customizable Logic:** Scripts are adaptable via parameters and modular design.  
+- 💼 **Windows Automation:** PowerShell & VBScript tools for AD, DNS, WSUS, and GPOs.  
+- 🛡️ **Forensics & DFIR:** Artifact collection, log parsing, and breach detection.  
+- 🔁 **CI/CD Pipelines:** GitHub Actions automate linting, packaging, and releases.  
+- 🧠 **ITSM & IAM Expertise:** Built for secure identity workflows and compliance.  
 
 ---
 
@@ -47,7 +51,7 @@ git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 ```
 
 1. **Browse folders:**  
-   `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-SVR`, `ITSM-Templates-WKS`, and `SysAdmin-Tools`.
+   `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-SVR`, `ITSM-Templates-WKS`, and `SysAdmin-Tools`
 
 2. **Run scripts:**
    - `.ps1`: Right-click → Run with PowerShell  
