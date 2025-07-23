@@ -35,47 +35,69 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-          $htPSA = @{
-            Path = '.'
-            Recurse = $true
-            Severity = @('Error', 'Warning')
-            IncludeRule = @(
-              'PSAvoidUsingCmdletAliases',
-              'PSUseShouldProcessForStateChangingFunctions',
-              'PSAvoidUsingWriteHost',
-              'PSUseConsistentIndentation',
-              'PSUseConsistentWhitespace'
-            )
-            Settings = @{
-              Rules = @{
-                PSUseConsistentIndentation = @{
-                  Enable = $true
-                  IndentationSize = 4
-                  PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
-                }
-                PSUseConsistentWhitespace = @{
-                  Enable = $true
-                  CheckInnerBrace = $true
-                  CheckOpenBrace = $true
-                  CheckOpenParen = $true
-                  CheckOperator = $true
-                  CheckSeparator = $true
+          try {
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+            Write-Output "PSScriptAnalyzer installed successfully"
+            $htPSA = @{
+              Path = '.'
+              Recurse = $true
+              Severity = @('Error', 'Warning')
+              IncludeRule = @(
+                'PSAvoidUsingCmdletAliases',
+                'PSUseShouldProcessForStateChangingFunctions',
+                'PSAvoidUsingWriteHost',
+                'PSUseConsistentIndentation',
+                'PSUseConsistentWhitespace'
+              )
+              Settings = @{
+                Rules = @{
+                  PSUseConsistentIndentation = @{
+                    Enable = $true
+                    IndentationSize = 4
+                    PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+                  }
+                  PSUseConsistentWhitespace = @{
+                    Enable = $true
+                    CheckInnerBrace = $true
+                    CheckOpenBrace = $true
+                    CheckOpenParen = $true
+                    CheckOperator = $true
+                    CheckSeparator = $true
+                  }
                 }
               }
             }
-          }
-
-          $htCTS = @{
-            FilePath = 'psscriptanalyzer-results.sarif'
-          }
-
-          try {
-            Invoke-ScriptAnalyzer @htPSA | ConvertTo-SARIF @htCTS
+            $htCTS = @{
+              FilePath = './psscriptanalyzer-results.sarif'
+            }
+            Write-Output "Running PSScriptAnalyzer with parameters: $($htPSA | ConvertTo-Json -Depth 5)"
+            $results = Invoke-ScriptAnalyzer @htPSA
+            if ($results) {
+              Write-Output "Analysis completed. Found $($results.Count) issues."
+              $results | ConvertTo-SARIF @htCTS
+              Write-Output "SARIF file generated at: ./psscriptanalyzer-results.sarif"
+            } else {
+              Write-Output "No issues found or no scripts analyzed."
+              # Create an empty SARIF file to avoid upload failure
+              '{"version": "2.1.0", "runs": []}' | Out-File -FilePath ./psscriptanalyzer-results.sarif -Encoding utf8
+            }
           } catch {
             Write-Error "PSScriptAnalyzer failed: $_"
             exit 1
           }
+
+      - name: 🕵️ Debug SARIF File Existence
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+          if [ -f "./psscriptanalyzer-results.sarif" ]; then
+            echo "SARIF file exists"
+            cat ./psscriptanalyzer-results.sarif
+          else
+            echo "SARIF file not found"
+            exit 1
+          fi
 
       - name: 📊 Upload Analysis Results
         if: always()
@@ -89,5 +111,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: psscriptanalyzer-results.sarif
+          sarif_file: ./psscriptanalyzer-results.sarif
+          checkout_path: ${{ github.workspace }}
+          wait-for-processing: true
           
