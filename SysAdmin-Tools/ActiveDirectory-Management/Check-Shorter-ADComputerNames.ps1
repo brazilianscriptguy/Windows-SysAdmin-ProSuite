@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script to Identify Short Active Directory Computer Names.
 
@@ -59,7 +59,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         [string]$LogLevel = "INFO"
     )
@@ -168,8 +168,8 @@ function Search-ADComputers {
 
                 $obj = [PSCustomObject]@{
                     CharactersLength = $comp.Name.Length
-                    WorkstationFQDN  = $comp.DNSHostName
-                    DomainFQDN       = $domain
+                    WorkstationFQDN = $comp.DNSHostName
+                    DomainFQDN = $domain
                 }
                 $results += $obj
             }
@@ -227,10 +227,10 @@ $btnSearch.Location = New-Object System.Drawing.Point(470, 30)
 $btnSearch.Size = New-Object System.Drawing.Size(80, 25)
 $btnSearch.Text = 'Search'
 $btnSearch.Add_Click({
-    $searchScope = $cmbScope.SelectedItem
-    $specificDomain = $cmbDomain.SelectedItem
-    Search-ADComputers -listView $listView -searchScope $searchScope -specificDomain $specificDomain
-})
+        $searchScope = $cmbScope.SelectedItem
+        $specificDomain = $cmbDomain.SelectedItem
+        Search-ADComputers -listView $listView -searchScope $searchScope -specificDomain $specificDomain
+    })
 $mainForm.Controls.Add($btnSearch)
 
 # List View to display results
@@ -251,23 +251,23 @@ $btnExport.Location = New-Object System.Drawing.Point(30, 480)
 $btnExport.Size = New-Object System.Drawing.Size(120, 30)
 $btnExport.Text = 'Export to CSV'
 $btnExport.Add_Click({
-    if ($global:exportData -and $global:exportData.Count -gt 0) {
-        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-        $saveFileDialog.Filter = "CSV files (*.csv)|*.csv"
-        $saveFileDialog.Title = "Save Exported Data"
-        $saveFileDialog.FileName = "${scriptName}_$($cmbScope.SelectedItem.Replace(' ', '_'))_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-        if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            try {
-                $global:exportData | Export-Csv -Path $saveFileDialog.FileName -NoTypeInformation -Delimiter ';' -Encoding UTF8
-                Show-InfoMessage "Data successfully exported to ${saveFileDialog.FileName}"
-            } catch {
-                Show-ErrorMessage "Failed to export data: $_"
+        if ($global:exportData -and $global:exportData.Count -gt 0) {
+            $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+            $saveFileDialog.Filter = "CSV files (*.csv)|*.csv"
+            $saveFileDialog.Title = "Save Exported Data"
+            $saveFileDialog.FileName = "${scriptName}_$($cmbScope.SelectedItem.Replace(' ', '_'))_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
+            if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                try {
+                    $global:exportData | Export-Csv -Path $saveFileDialog.FileName -NoTypeInformation -Delimiter ';' -Encoding UTF8
+                    Show-InfoMessage "Data successfully exported to ${saveFileDialog.FileName}"
+                } catch {
+                    Show-ErrorMessage "Failed to export data: $_"
+                }
             }
+        } else {
+            Show-InfoMessage "No data available to export."
         }
-    } else {
-        Show-InfoMessage "No data available to export."
-    }
-})
+    })
 $mainForm.Controls.Add($btnExport)
 
 # Close Button
@@ -287,24 +287,24 @@ $mainForm.Controls.Add($lblExplanation)
 
 # Event Handler for Search Scope Change
 $cmbScope.Add_SelectedIndexChanged({
-    switch ($cmbScope.SelectedItem) {
-        'Specific Domain' {
-            try {
-                $forest = Get-ADForest
+        switch ($cmbScope.SelectedItem) {
+            'Specific Domain' {
+                try {
+                    $forest = Get-ADForest
+                    $cmbDomain.Items.Clear()
+                    $forest.Domains | ForEach-Object { $cmbDomain.Items.Add($_) }
+                    $cmbDomain.Enabled = $true
+                } catch {
+                    Show-ErrorMessage "Failed to retrieve domains from the forest. Ensure you have the necessary permissions."
+                }
+            }
+            default {
+                $cmbDomain.Enabled = $false
                 $cmbDomain.Items.Clear()
-                $forest.Domains | ForEach-Object { $cmbDomain.Items.Add($_) }
-                $cmbDomain.Enabled = $true
-            } catch {
-                Show-ErrorMessage "Failed to retrieve domains from the forest. Ensure you have the necessary permissions."
+                $cmbDomain.Text = ""
             }
         }
-        default {
-            $cmbDomain.Enabled = $false
-            $cmbDomain.Items.Clear()
-            $cmbDomain.Text = ""
-        }
-    }
-})
+    })
 
 # Show GUI
 [void]$mainForm.ShowDialog()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Tracking System Restarts and Shutdowns via Get-EventLog and Event IDs 6005, 6006, 6008, 6009, 6013, 1074, and 1076.
 
@@ -64,7 +64,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -203,24 +203,24 @@ function Process-LogFiles {
 
 # Start Analysis button click event
 $buttonStartAnalysis.Add_Click({
-    $daysToProcess = $textBoxDays.Text
-    $daysToProcessInt = 0
-    if (-not [int]::TryParse($daysToProcess, [ref]$daysToProcessInt)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter a valid number of days.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return
-    }
+        $daysToProcess = $textBoxDays.Text
+        $daysToProcessInt = 0
+        if (-not [int]::TryParse($daysToProcess, [ref]$daysToProcessInt)) {
+            [System.Windows.Forms.MessageBox]::Show("Please enter a valid number of days.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
 
-    Log-Message "Starting analysis of System log for Event IDs 6005, 6006, 6008, 6009, 6013, 1074, and 1076"
-    $statusLabel.Text = "Processing..."
-    $progressBar.Value = 0
-    $form.Refresh()
+        Log-Message "Starting analysis of System log for Event IDs 6005, 6006, 6008, 6009, 6013, 1074, and 1076"
+        $statusLabel.Text = "Processing..."
+        $progressBar.Value = 0
+        $form.Refresh()
 
-    # Process the log files
-    Process-LogFiles -AutoOpen $AutoOpen -daysToProcess $daysToProcessInt
+        # Process the log files
+        Process-LogFiles -AutoOpen $AutoOpen -daysToProcess $daysToProcessInt
 
-    # Reset progress bar
-    $progressBar.Value = 0
-})
+        # Reset progress bar
+        $progressBar.Value = 0
+    })
 
 # Show the main form
 $form.Add_Shown({ $form.Activate() })

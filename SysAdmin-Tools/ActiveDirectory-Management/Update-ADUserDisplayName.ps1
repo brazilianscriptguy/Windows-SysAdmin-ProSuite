@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Updating AD User Display Names Based on Email Address.
 
@@ -162,7 +162,7 @@ function Preview-Changes {
                         SamAccountName = $user.SamAccountName
                         OldDisplayName = $user.DisplayName
                         NewDisplayName = ($parts[0] + " " + $parts[1]).ToUpper()
-                        Domain         = $TargetDomain
+                        Domain = $TargetDomain
                     }
                 }
             }
@@ -187,11 +187,11 @@ function Apply-Changes {
             Set-ADUser -Server $dc -Identity $user.SamAccountName -DisplayName $change.NewDisplayName
 
             $script:undoStack.Push([PSCustomObject]@{
-                SamAccountName = $change.SamAccountName
-                OldDisplayName = $user.DisplayName
-                NewDisplayName = $change.NewDisplayName
-                Domain         = $change.Domain
-            })
+                    SamAccountName = $change.SamAccountName
+                    OldDisplayName = $user.DisplayName
+                    NewDisplayName = $change.NewDisplayName
+                    Domain = $change.Domain
+                })
 
             Log-Message "Updated $($change.SamAccountName): '$($user.DisplayName)' -> '$($change.NewDisplayName)'"
         } catch {
@@ -276,7 +276,7 @@ function Show-UpdateForm {
     $colSelect.Width = 50
     $grid.Columns.Add($colSelect)
 
-    foreach ($name in "SamAccountName","OldDisplayName","NewDisplayName","Domain") {
+    foreach ($name in "SamAccountName", "OldDisplayName", "NewDisplayName", "Domain") {
         $col = New-Object Windows.Forms.DataGridViewTextBoxColumn
         $col.Name = $name
         $col.HeaderText = $name
@@ -314,45 +314,45 @@ function Show-UpdateForm {
     $form.Controls.Add($btnExport)
 
     $btnPreview.Add_Click({
-        $grid.Rows.Clear()
-        $targetDomain = $comboBox.SelectedItem
-        $emailFilter = $emailBox.Text
-        $script:previewResults = Preview-Changes -TargetDomain $targetDomain -EmailFilter $emailFilter
-        if ($script:previewResults.Count -eq 0) {
-            Show-InfoMessage "No users found for the given filter."
-            return
-        }
-        foreach ($result in $script:previewResults) {
-            $rowIndex = $grid.Rows.Add()
-            $row = $grid.Rows[$rowIndex]
-            $row.Cells["Select"].Value = $false
-            $row.Cells["SamAccountName"].Value = $result.SamAccountName
-            $row.Cells["OldDisplayName"].Value = $result.OldDisplayName
-            $row.Cells["NewDisplayName"].Value = $result.NewDisplayName
-            $row.Cells["Domain"].Value = $result.Domain
-        }
-        $btnApply.Enabled = $true
-        $btnExport.Enabled = $true
-    })
+            $grid.Rows.Clear()
+            $targetDomain = $comboBox.SelectedItem
+            $emailFilter = $emailBox.Text
+            $script:previewResults = Preview-Changes -TargetDomain $targetDomain -EmailFilter $emailFilter
+            if ($script:previewResults.Count -eq 0) {
+                Show-InfoMessage "No users found for the given filter."
+                return
+            }
+            foreach ($result in $script:previewResults) {
+                $rowIndex = $grid.Rows.Add()
+                $row = $grid.Rows[$rowIndex]
+                $row.Cells["Select"].Value = $false
+                $row.Cells["SamAccountName"].Value = $result.SamAccountName
+                $row.Cells["OldDisplayName"].Value = $result.OldDisplayName
+                $row.Cells["NewDisplayName"].Value = $result.NewDisplayName
+                $row.Cells["Domain"].Value = $result.Domain
+            }
+            $btnApply.Enabled = $true
+            $btnExport.Enabled = $true
+        })
 
     $btnApply.Add_Click({
-        $selectedChanges = @()
-        foreach ($row in $grid.Rows) {
-            if ($row.Cells["Select"].Value) {
-                $selectedChanges += [PSCustomObject]@{
-                    SamAccountName = $row.Cells["SamAccountName"].Value
-                    OldDisplayName = $row.Cells["OldDisplayName"].Value
-                    NewDisplayName = $row.Cells["NewDisplayName"].Value
-                    Domain         = $row.Cells["Domain"].Value
+            $selectedChanges = @()
+            foreach ($row in $grid.Rows) {
+                if ($row.Cells["Select"].Value) {
+                    $selectedChanges += [PSCustomObject]@{
+                        SamAccountName = $row.Cells["SamAccountName"].Value
+                        OldDisplayName = $row.Cells["OldDisplayName"].Value
+                        NewDisplayName = $row.Cells["NewDisplayName"].Value
+                        Domain = $row.Cells["Domain"].Value
+                    }
                 }
             }
-        }
-        if ($selectedChanges.Count -eq 0) {
-            Show-InfoMessage "No rows selected."
-            return
-        }
-        Apply-Changes -Changes $selectedChanges
-    })
+            if ($selectedChanges.Count -eq 0) {
+                Show-InfoMessage "No rows selected."
+                return
+            }
+            Apply-Changes -Changes $selectedChanges
+        })
 
     $btnUndo.Add_Click({ Undo-LastChange })
     $btnExport.Add_Click({ Export-Results -Results $script:previewResults })

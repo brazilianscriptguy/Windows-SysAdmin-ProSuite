@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Managing Expired Certificates in a Windows Certificate Authority.
 
@@ -132,9 +132,9 @@ function Parse-CustomDate {
 # Retrieve Expired Certificates
 function Get-ExpiredCertificates {
     param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [DateTime]$Until = (Get-Date),
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$CAName
     )
 
@@ -164,7 +164,7 @@ function Get-ExpiredCertificates {
                 $expirationDate = [datetime]$matches[2]
                 if ($expirationDate -le $Until) {
                     $expiredCertificates += [PSCustomObject]@{
-                        RequestID      = $requestID
+                        RequestID = $requestID
                         ExpirationDate = $expirationDate
                     }
                 }
@@ -181,9 +181,9 @@ function Get-ExpiredCertificates {
 # Revoke Expired Certificates
 function Revoke-ExpiredCertificates {
     param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [DateTime]$Until = (Get-Date),
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$CAName
     )
 
@@ -212,7 +212,7 @@ function Revoke-ExpiredCertificates {
 # Remove Revoked Certificates
 function Remove-RevokedCertificates {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$CAName
     )
 
@@ -228,7 +228,7 @@ function Remove-RevokedCertificates {
 # Compact CA Database
 function Compact-CADatabase {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$CAName
     )
 
@@ -274,55 +274,55 @@ function Get-UntilDateFromText() {
 }
 
 $form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "List Expired Certificates"
-    Location = New-Object System.Drawing.Point(10, 50)
-    Size = New-Object System.Drawing.Size(560, 40)
-    Add_Click = {
-        $untilDate = Get-UntilDateFromText
-        if ($untilDate -eq $null) { return }
+            Text = "List Expired Certificates"
+            Location = New-Object System.Drawing.Point(10, 50)
+            Size = New-Object System.Drawing.Size(560, 40)
+            Add_Click = {
+                $untilDate = Get-UntilDateFromText
+                if ($untilDate -eq $null) { return }
 
-        $certs = Get-ExpiredCertificates -Until $untilDate -CAName $currentCA
-        Show-Message -Message "$($certs.Count) expired certificate(s) found on CA '$currentCA'. Check the log for details." -Type "Information"
-    }
-}))
-
-$form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Revoke Expired Certificates"
-    Location = New-Object System.Drawing.Point(10, 100)
-    Size = New-Object System.Drawing.Size(560, 40)
-    Add_Click = {
-        $untilDate = Get-UntilDateFromText
-        if ($untilDate -eq $null) { return }
-        Revoke-ExpiredCertificates -Until $untilDate -CAName $currentCA
-    }
-}))
+                $certs = Get-ExpiredCertificates -Until $untilDate -CAName $currentCA
+                Show-Message -Message "$($certs.Count) expired certificate(s) found on CA '$currentCA'. Check the log for details." -Type "Information"
+            }
+        }))
 
 $form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Remove Revoked Certificates"
-    Location = New-Object System.Drawing.Point(10, 150)
-    Size = New-Object System.Drawing.Size(560, 40)
-    Add_Click = {
-        Remove-RevokedCertificates -CAName $currentCA
-    }
-}))
+            Text = "Revoke Expired Certificates"
+            Location = New-Object System.Drawing.Point(10, 100)
+            Size = New-Object System.Drawing.Size(560, 40)
+            Add_Click = {
+                $untilDate = Get-UntilDateFromText
+                if ($untilDate -eq $null) { return }
+                Revoke-ExpiredCertificates -Until $untilDate -CAName $currentCA
+            }
+        }))
 
 $form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Compact CA Database"
-    Location = New-Object System.Drawing.Point(10, 200)
-    Size = New-Object System.Drawing.Size(560, 40)
-    Add_Click = {
-        Compact-CADatabase -CAName $currentCA
-    }
-}))
+            Text = "Remove Revoked Certificates"
+            Location = New-Object System.Drawing.Point(10, 150)
+            Size = New-Object System.Drawing.Size(560, 40)
+            Add_Click = {
+                Remove-RevokedCertificates -CAName $currentCA
+            }
+        }))
 
 $form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
-    Text = "Close"
-    Location = New-Object System.Drawing.Point(10, 250)
-    Size = New-Object System.Drawing.Size(560, 40)
-    Add_Click = {
-        $form.Close()
-    }
-}))
+            Text = "Compact CA Database"
+            Location = New-Object System.Drawing.Point(10, 200)
+            Size = New-Object System.Drawing.Size(560, 40)
+            Add_Click = {
+                Compact-CADatabase -CAName $currentCA
+            }
+        }))
+
+$form.Controls.Add((New-Object System.Windows.Forms.Button -Property @{
+            Text = "Close"
+            Location = New-Object System.Drawing.Point(10, 250)
+            Size = New-Object System.Drawing.Size(560, 40)
+            Add_Click = {
+                $form.Close()
+            }
+        }))
 
 # Show the GUI
 [void]$form.ShowDialog()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script to Restart Spooler and LPD Services with Enhanced GUI, Logging, and Debug Information.
 
@@ -36,10 +36,10 @@ public class Window {
 # Enhanced logging function with error handling and validation
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO"
     )
@@ -260,15 +260,15 @@ function Create-GUI {
         $btnRestart.Location = New-Object System.Drawing.Point(30, 100)
         $btnRestart.Size = New-Object System.Drawing.Size(400, 30)
         $btnRestart.Add_Click({
-            $selectedServer = $comboBoxServers.SelectedItem
-            if ($selectedServer) {
-                $listBox.Items.Clear()
-                Restart-PrintServices -serverName $selectedServer
-            } else {
-                Log-Message -Message "ERROR: No server selected."
-                Handle-Error "Please select a server."
-            }
-        })
+                $selectedServer = $comboBoxServers.SelectedItem
+                if ($selectedServer) {
+                    $listBox.Items.Clear()
+                    Restart-PrintServices -serverName $selectedServer
+                } else {
+                    Log-Message -Message "ERROR: No server selected."
+                    Handle-Error "Please select a server."
+                }
+            })
         $form.Controls.Add($btnRestart)
 
         # ListBox to display logs

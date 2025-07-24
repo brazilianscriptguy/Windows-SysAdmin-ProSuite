@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Enables legacy OS domain join compatibility via registry.
 
@@ -89,9 +89,9 @@ $btnApply.Text = "Apply Registry Fix"
 $btnApply.Size = '180,40'
 $btnApply.Location = '140,100'
 $btnApply.Add_Click({
-    Apply-DomainJoinSetting
-    Write-Log "User clicked Apply button"
-})
+        Apply-DomainJoinSetting
+        Write-Log "User clicked Apply button"
+    })
 $form.Controls.Add($btnApply)
 
 # Log and start GUI

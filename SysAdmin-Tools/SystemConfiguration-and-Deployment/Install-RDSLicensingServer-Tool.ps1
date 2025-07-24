@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Tool for Installing and Configuring Remote Desktop Licensing (RDS CALs) Server on Windows Server.
 
@@ -58,9 +58,9 @@ if (-not (Test-Path $logDir)) {
 # Function to Log Messages
 function Write-Log {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO"
     )
@@ -151,19 +151,19 @@ function Create-RDSLicensingGUI {
 
     # Event handler for Verify RDS Licensing Role button
     $buttonVerify.Add_Click({
-        if (Check-ExistingRDSLicensingRole) {
-            $buttonStart.Enabled = $false
-        } else {
-            $buttonStart.Enabled = $true
-        }
-    })
+            if (Check-ExistingRDSLicensingRole) {
+                $buttonStart.Enabled = $false
+            } else {
+                $buttonStart.Enabled = $true
+            }
+        })
 
     # Event handler for Start Installation button
     $buttonStart.Add_Click({
-        $buttonStart.Enabled = $false
-        Install-RDSLicensing
-        $buttonStart.Enabled = $true
-    })
+            $buttonStart.Enabled = $false
+            Install-RDSLicensing
+            $buttonStart.Enabled = $true
+        })
 
     # Show the form
     $form.ShowDialog()

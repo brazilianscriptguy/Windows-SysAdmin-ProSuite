@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Decoding Suspicious Characters in Email Messages.
 
@@ -571,13 +571,13 @@ $buttonSelectFile.Text = "Select EML File"
 $buttonSelectFile.Size = New-Object System.Drawing.Size(360, 40)
 $buttonSelectFile.Location = New-Object System.Drawing.Point(10, 20)
 $buttonSelectFile.Add_Click({
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog
-    $dialog.Filter = "EML Files (*.eml)|*.eml"
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $filePath = $dialog.FileName
-        $textBoxFilePath.Text = $filePath
-    }
-})
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Filter = "EML Files (*.eml)|*.eml"
+        if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $filePath = $dialog.FileName
+            $textBoxFilePath.Text = $filePath
+        }
+    })
 
 # TextBox to display the selected file path
 $textBoxFilePath = New-Object System.Windows.Forms.TextBox
@@ -619,13 +619,13 @@ $buttonBrowseOutput.Text = "Browse"
 $buttonBrowseOutput.Size = New-Object System.Drawing.Size(80, 20)
 $buttonBrowseOutput.Location = New-Object System.Drawing.Point(310, 130)
 $buttonBrowseOutput.Add_Click({
-    $dialog = New-Object System.Windows.Forms.SaveFileDialog
-    $dialog.Filter = "Text Files (*.txt)|*.txt"
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $outputFilePath = $dialog.FileName
-        $textBoxOutputPath.Text = $outputFilePath
-    }
-})
+        $dialog = New-Object System.Windows.Forms.SaveFileDialog
+        $dialog.Filter = "Text Files (*.txt)|*.txt"
+        if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $outputFilePath = $dialog.FileName
+            $textBoxOutputPath.Text = $outputFilePath
+        }
+    })
 
 # Status label
 $labelStatus = New-Object System.Windows.Forms.Label
@@ -639,22 +639,22 @@ $buttonAnalyze.Text = "Start Analysis"
 $buttonAnalyze.Size = New-Object System.Drawing.Size(360, 40)
 $buttonAnalyze.Location = New-Object System.Drawing.Point(10, 190)
 $buttonAnalyze.Add_Click({
-    if ([string]::IsNullOrWhiteSpace($textBoxFilePath.Text)) {
-        Handle-Error -ErrorMessage "Please select an EML file before starting the analysis."
-    } else {
-        $labelStatus.Text = "Analysis in progress..."
-        $form.Refresh()
-        $outputFilePath = $textBoxOutputPath.Text
-        $userLanguage = $comboBoxLanguage.SelectedItem.ToString()
-        Analyze-EMLFile -FilePath $textBoxFilePath.Text -OutputFilePath $outputFilePath -UserLanguage $userLanguage
-        $labelStatus.Text = "Analysis completed."
-        $form.Refresh()
-        $result = [System.Windows.Forms.MessageBox]::Show("Analysis completed. Do you want to open the results?", "Analysis Completed", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Information)
-        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            Invoke-Item -Path $outputFilePath
+        if ([string]::IsNullOrWhiteSpace($textBoxFilePath.Text)) {
+            Handle-Error -ErrorMessage "Please select an EML file before starting the analysis."
+        } else {
+            $labelStatus.Text = "Analysis in progress..."
+            $form.Refresh()
+            $outputFilePath = $textBoxOutputPath.Text
+            $userLanguage = $comboBoxLanguage.SelectedItem.ToString()
+            Analyze-EMLFile -FilePath $textBoxFilePath.Text -OutputFilePath $outputFilePath -UserLanguage $userLanguage
+            $labelStatus.Text = "Analysis completed."
+            $form.Refresh()
+            $result = [System.Windows.Forms.MessageBox]::Show("Analysis completed. Do you want to open the results?", "Analysis Completed", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Information)
+            if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Invoke-Item -Path $outputFilePath
+            }
         }
-    }
-})
+    })
 
 # Add controls to the form
 $form.Controls.Add($buttonSelectFile)

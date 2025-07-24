@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Updating Software via Winget Using GPO.
 
@@ -31,7 +31,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -53,8 +53,8 @@ function Find-WingetPath {
     try {
         Log-Message "Searching for winget executable..."
         $wingetPath = Get-ChildItem -Path $SearchBase -Filter 'winget.exe' -Recurse -ErrorAction Ignore |
-                      Where-Object { $_.FullName -like "*$SearchPattern" } |
-                      Select-Object -ExpandProperty FullName -First 1
+            Where-Object { $_.FullName -like "*$SearchPattern" } |
+            Select-Object -ExpandProperty FullName -First 1
         if ($wingetPath -and (Test-Path -Path $wingetPath -Type Leaf)) {
             Log-Message "winget found at: $wingetPath"
             return $wingetPath

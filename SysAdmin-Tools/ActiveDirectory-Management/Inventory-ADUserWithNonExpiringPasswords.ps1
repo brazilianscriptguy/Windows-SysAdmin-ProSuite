@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Listing AD Users with Non-Expiring Passwords.
 
@@ -121,51 +121,51 @@ $exportButton.Location = New-Object System.Drawing.Point(10, 100)
 $exportButton.Size = New-Object System.Drawing.Size(360, 30)
 $exportButton.Text = "Export to CSV"
 $exportButton.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
-    if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
-        try {
-            $csvPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "${scriptName}-${domainFQDN}-${timestamp}.csv"
+        $domainFQDN = $comboBoxDomain.SelectedItem
+        if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
+            try {
+                $csvPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "${scriptName}-${domainFQDN}-${timestamp}.csv"
 
-            $neverExpireUsers = Get-ADUser -Filter { PasswordNeverExpires -eq $true } -Properties PasswordNeverExpires -Server $domainFQDN |
-                                Select-Object Name, SamAccountName, DistinguishedName
+                $neverExpireUsers = Get-ADUser -Filter { PasswordNeverExpires -eq $true } -Properties PasswordNeverExpires -Server $domainFQDN |
+                    Select-Object Name, SamAccountName, DistinguishedName
 
-            if ($neverExpireUsers.Count -gt 0) {
-                $neverExpireUsers | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-                Log-Message -Message "Report exported to: $csvPath" -MessageType "INFO"
+                if ($neverExpireUsers.Count -gt 0) {
+                    $neverExpireUsers | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+                    Log-Message -Message "Report exported to: $csvPath" -MessageType "INFO"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Report exported to:`n$csvPath",
+                        "Export Successful",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Information
+                    )
+                } else {
+                    Log-Message -Message "No users with 'Password Never Expires' found in $domainFQDN." -MessageType "INFO"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "No users with 'Password Never Expires' found in $domainFQDN.",
+                        "No Data Found",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Information
+                    )
+                }
+            } catch {
+                Log-Message -Message "An error occurred during export: $_" -MessageType "ERROR"
                 [System.Windows.Forms.MessageBox]::Show(
-                    "Report exported to:`n$csvPath",
-                    "Export Successful",
+                    "An error occurred: $_",
+                    "Error",
                     [System.Windows.Forms.MessageBoxButtons]::OK,
-                    [System.Windows.Forms.MessageBoxIcon]::Information
-                )
-            } else {
-                Log-Message -Message "No users with 'Password Never Expires' found in $domainFQDN." -MessageType "INFO"
-                [System.Windows.Forms.MessageBox]::Show(
-                    "No users with 'Password Never Expires' found in $domainFQDN.",
-                    "No Data Found",
-                    [System.Windows.Forms.MessageBoxButtons]::OK,
-                    [System.Windows.Forms.MessageBoxIcon]::Information
+                    [System.Windows.Forms.MessageBoxIcon]::Error
                 )
             }
-        } catch {
-            Log-Message -Message "An error occurred during export: $_" -MessageType "ERROR"
+        } else {
+            Log-Message -Message "Input Error: Domain FQDN is empty or invalid." -MessageType "WARNING"
             [System.Windows.Forms.MessageBox]::Show(
-                "An error occurred: $_",
-                "Error",
+                "Please select a valid domain FQDN.",
+                "Input Error",
                 [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Error
+                [System.Windows.Forms.MessageBoxIcon]::Warning
             )
         }
-    } else {
-        Log-Message -Message "Input Error: Domain FQDN is empty or invalid." -MessageType "WARNING"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Please select a valid domain FQDN.",
-            "Input Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Warning
-        )
-    }
-})
+    })
 $form.Controls.Add($exportButton)
 
 # Close button
@@ -174,8 +174,8 @@ $closeButton.Location = New-Object System.Drawing.Point(10, 150)
 $closeButton.Size = New-Object System.Drawing.Size(360, 30)
 $closeButton.Text = "Close"
 $closeButton.Add_Click({
-    $form.Close()
-})
+        $form.Close()
+    })
 $form.Controls.Add($closeButton)
 
 # Show the GUI

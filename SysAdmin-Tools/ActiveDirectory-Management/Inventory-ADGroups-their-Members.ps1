@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Retrieving Information on AD Groups and Their Members.
 
@@ -212,15 +212,15 @@ function Get-ADGroupInfo {
                         $accountStatus = Get-AccountStatus -User $user
 
                         $groupInfo.Add([PSCustomObject]@{
-                            DomainFQDN       = $DomainFQDN
-                            GroupName        = $group.Name
-                            MemberName       = $member.Name
-                            SamAccountName   = $member.SamAccountName
-                            AccountStatus    = $accountStatus
-                            LastLogonDate    = $user.LastLogonDate
-                            CreationDate     = $user.Created
-                            DistinguishedName = $member.DistinguishedName
-                        })
+                                DomainFQDN = $DomainFQDN
+                                GroupName = $group.Name
+                                MemberName = $member.Name
+                                SamAccountName = $member.SamAccountName
+                                AccountStatus = $accountStatus
+                                LastLogonDate = $user.LastLogonDate
+                                CreationDate = $user.Created
+                                DistinguishedName = $member.DistinguishedName
+                            })
                     } catch {
                         Write-Log "Error processing member '$($member.Name)' in group '$groupName' (domain '$DomainFQDN'): $_" -Level Error
                     }
@@ -299,10 +299,10 @@ $buttonSelectAll.Text = "Select All Groups"
 $buttonSelectAll.Location = New-Object Drawing.Point(10, 215)
 $buttonSelectAll.Size = New-Object Drawing.Size(120, 20)
 $buttonSelectAll.Add_Click({
-    $selectAll = $buttonSelectAll.Text -eq "Select All Groups"
-    $listViewGroups.Items | ForEach-Object { $_.Checked = $selectAll }
-    $buttonSelectAll.Text = if ($selectAll) { "Clear Selection" } else { "Select All Groups" }
-})
+        $selectAll = $buttonSelectAll.Text -eq "Select All Groups"
+        $listViewGroups.Items | ForEach-Object { $_.Checked = $selectAll }
+        $buttonSelectAll.Text = if ($selectAll) { "Clear Selection" } else { "Select All Groups" }
+    })
 $form.Controls.Add($buttonSelectAll)
 
 # Output Folder
@@ -323,12 +323,12 @@ $buttonBrowseOutputDir.Text = "Browse"
 $buttonBrowseOutputDir.Location = New-Object Drawing.Point(420, 260)
 $buttonBrowseOutputDir.Size = New-Object Drawing.Size(50, 20)
 $buttonBrowseOutputDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxOutputDir.Text = $folder 
-        Write-Log "Output Folder updated to: '$folder' via browse"
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxOutputDir.Text = $folder 
+            Write-Log "Output Folder updated to: '$folder' via browse"
+        }
+    })
 $form.Controls.Add($buttonBrowseOutputDir)
 
 # Start button
@@ -361,36 +361,36 @@ $form.Controls.Add($buttonClose)
 
 # Domain selection event handler to populate groups
 $comboBoxDomain.Add_SelectedIndexChanged({
-    $domainFQDN = $comboBoxDomain.SelectedItem
-    if ($domainFQDN) {
-        $statusLabel.Text = "Loading groups from '$domainFQDN'..."
-        $form.Refresh()
-        List-DomainGroups -DomainFQDN $domainFQDN -ListView $listViewGroups
-        $buttonSelectAll.Text = "Select All Groups"  # Reset button text
-    }
-})
+        $domainFQDN = $comboBoxDomain.SelectedItem
+        if ($domainFQDN) {
+            $statusLabel.Text = "Loading groups from '$domainFQDN'..."
+            $form.Refresh()
+            List-DomainGroups -DomainFQDN $domainFQDN -ListView $listViewGroups
+            $buttonSelectAll.Text = "Select All Groups"  # Reset button text
+        }
+    })
 
 # Start button event handler
 $buttonStartAnalysis.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
-    $outputFolder = $textBoxOutputDir.Text
+        $domainFQDN = $comboBoxDomain.SelectedItem
+        $outputFolder = $textBoxOutputDir.Text
 
-    if ([string]::IsNullOrWhiteSpace($domainFQDN)) {
-        Show-MessageBox -Message "Please select a Domain FQDN." -Title "Input Required" -Icon Warning
-        return
-    }
-
-    if (-not (Test-Path $outputFolder)) {
-        try {
-            New-Item -Path $outputFolder -ItemType Directory -Force | Out-Null
-        } catch {
-            Show-MessageBox -Message "Failed to create output folder '$outputFolder': $_" -Title "Error" -Icon Error
+        if ([string]::IsNullOrWhiteSpace($domainFQDN)) {
+            Show-MessageBox -Message "Please select a Domain FQDN." -Title "Input Required" -Icon Warning
             return
         }
-    }
 
-    Get-ADGroupInfo -DomainFQDN $domainFQDN -OutputFolder $outputFolder -ListView $listViewGroups
-})
+        if (-not (Test-Path $outputFolder)) {
+            try {
+                New-Item -Path $outputFolder -ItemType Directory -Force | Out-Null
+            } catch {
+                Show-MessageBox -Message "Failed to create output folder '$outputFolder': $_" -Title "Error" -Icon Error
+                return
+            }
+        }
+
+        Get-ADGroupInfo -DomainFQDN $domainFQDN -OutputFolder $outputFolder -ListView $listViewGroups
+    })
 
 $form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()

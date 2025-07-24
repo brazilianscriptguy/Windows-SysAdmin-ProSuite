@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Deploying GLPI Agent via GPO.
 
@@ -27,9 +27,9 @@ param (
 $ErrorActionPreference = "Stop"
 
 # Define log file name and path
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logFileName = "${scriptName}.log"
-$logPath     = Join-Path $GLPILogDir $logFileName
+$logPath = Join-Path $GLPILogDir $logFileName
 
 # Get the user’s domain from the environment variable; if not set, use a default value.
 $userDomain = $env:USERDOMAIN
@@ -48,7 +48,7 @@ function Log-Message {
         [string]$Severity = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry  = "[$Severity] [$timestamp] $Message"
+    $logEntry = "[$Severity] [$timestamp] $Message"
     try {
         Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
     }

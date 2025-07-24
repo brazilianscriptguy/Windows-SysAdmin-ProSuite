@@ -113,24 +113,24 @@ $btn.Text = "Execute Rename"
 $btn.Size = New-Object System.Drawing.Size(150, 40)
 $btn.Location = New-Object System.Drawing.Point(150, 190)
 $btn.Add_Click({
-    $progress.Value = 0
-    $form.Refresh()
-    $statusLabel.Text = "Processing..."
-    Log-Message "===== Rename Operation Started ====="
+        $progress.Value = 0
+        $form.Refresh()
+        $statusLabel.Text = "Processing..."
+        Log-Message "===== Rename Operation Started ====="
 
-    if ($chkC.Checked) {
-        Rename-Volume -DriveLetter "C" -NewLabel $env:COMPUTERNAME
-        $progress.Value += 50
-    }
-    if ($chkD.Checked) {
-        Rename-Volume -DriveLetter "D" -NewLabel "Personal-Files"
-        $progress.Value += 50
-    }
+        if ($chkC.Checked) {
+            Rename-Volume -DriveLetter "C" -NewLabel $env:COMPUTERNAME
+            $progress.Value += 50
+        }
+        if ($chkD.Checked) {
+            Rename-Volume -DriveLetter "D" -NewLabel "Personal-Files"
+            $progress.Value += 50
+        }
 
-    $statusLabel.Text = "Operation completed."
-    [System.Windows.Forms.MessageBox]::Show("Disk volume rename completed successfully.", "Finished", 'OK', 'Information')
-    Log-Message "===== Rename Operation Completed ====="
-})
+        $statusLabel.Text = "Operation completed."
+        [System.Windows.Forms.MessageBox]::Show("Disk volume rename completed successfully.", "Finished", 'OK', 'Information')
+        Log-Message "===== Rename Operation Completed ====="
+    })
 $form.Controls.Add($btn)
 
 $form.ShowDialog() | Out-Null

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Fix Delegation Wizard GUI - Deep DNS and AD Cleanup
 
@@ -98,7 +98,7 @@ function Remove-DNS-AD-Residuals {
     }
 
     # --- AD CLEANUP IN ALL NCs ---
-    $domainComponents = ($defaultDomain -split "\.").ForEach({ "DC=$_"})
+    $domainComponents = ($defaultDomain -split "\.").ForEach({ "DC=$_" })
     $baseList = @(
         "$($domainComponents -join ',')",
         "CN=Configuration,$($domainComponents -join ',')",
@@ -147,54 +147,54 @@ function Run-DCDNSDiag {
 # GUI
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Fix Delegation Wizard - Deep DNS & AD Cleanup"
-$form.Size = New-Object System.Drawing.Size(720,640)
+$form.Size = New-Object System.Drawing.Size(720, 640)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true
 
 $lblInput = New-Object System.Windows.Forms.Label
 $lblInput.Text = "Enter hostname with delegation issue (e.g., DC03-LOCAL):"
-$lblInput.Location = New-Object System.Drawing.Point(20,20)
-$lblInput.Size = New-Object System.Drawing.Size(400,20)
+$lblInput.Location = New-Object System.Drawing.Point(20, 20)
+$lblInput.Size = New-Object System.Drawing.Size(400, 20)
 $form.Controls.Add($lblInput)
 
 $txtHostname = New-Object System.Windows.Forms.TextBox
 $txtHostname.Location = New-Object System.Drawing.Point(420, 18)
-$txtHostname.Size = New-Object System.Drawing.Size(250,20)
+$txtHostname.Size = New-Object System.Drawing.Size(250, 20)
 $form.Controls.Add($txtHostname)
 
 $btnFix = New-Object System.Windows.Forms.Button
 $btnFix.Text = "Fix Delegation"
-$btnFix.Size = New-Object System.Drawing.Size(160,30)
-$btnFix.Location = New-Object System.Drawing.Point(20,50)
+$btnFix.Size = New-Object System.Drawing.Size(160, 30)
+$btnFix.Location = New-Object System.Drawing.Point(20, 50)
 $form.Controls.Add($btnFix)
 
 $btnDiag = New-Object System.Windows.Forms.Button
 $btnDiag.Text = "Run DCDIAG"
-$btnDiag.Size = New-Object System.Drawing.Size(160,30)
-$btnDiag.Location = New-Object System.Drawing.Point(200,50)
+$btnDiag.Size = New-Object System.Drawing.Size(160, 30)
+$btnDiag.Location = New-Object System.Drawing.Point(200, 50)
 $form.Controls.Add($btnDiag)
 
 $txtOutput = New-Object System.Windows.Forms.TextBox
 $txtOutput.Multiline = $true
 $txtOutput.ScrollBars = "Vertical"
 $txtOutput.Font = 'Consolas,10'
-$txtOutput.Size = New-Object System.Drawing.Size(660,460)
-$txtOutput.Location = New-Object System.Drawing.Point(20,90)
+$txtOutput.Size = New-Object System.Drawing.Size(660, 460)
+$txtOutput.Location = New-Object System.Drawing.Point(20, 90)
 $form.Controls.Add($txtOutput)
 
 $btnFix.Add_Click({
-    $hostname = $txtHostname.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($hostname)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter the hostname to proceed.", "Warning", 'OK', 'Warning')
-        return
-    }
-    $txtOutput.Clear()
-    Remove-DNS-AD-Residuals -hostname $hostname
-})
+        $hostname = $txtHostname.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($hostname)) {
+            [System.Windows.Forms.MessageBox]::Show("Please enter the hostname to proceed.", "Warning", 'OK', 'Warning')
+            return
+        }
+        $txtOutput.Clear()
+        Remove-DNS-AD-Residuals -hostname $hostname
+    })
 
 $btnDiag.Add_Click({
-    Run-DCDNSDiag
-})
+        Run-DCDNSDiag
+    })
 
 [void]$form.ShowDialog()
 

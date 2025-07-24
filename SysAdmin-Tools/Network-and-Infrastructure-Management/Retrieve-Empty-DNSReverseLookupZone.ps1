@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Detecting Empty DNS Reverse Lookup Zones.
 
@@ -59,9 +59,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -143,145 +143,145 @@ $closeButton.Size = New-Object System.Drawing.Size(100, 30)
 $form.Controls.Add($closeButton)
 
 $closeButton.Add_Click({
-    $form.Close()
-})
+        $form.Close()
+    })
 
 # Add an event handler for the Start button
 $startButton.Add_Click({
-    $dnsServer = $dnsTextBox.Text
-    $emptyZonesTextBox.Clear()
+        $dnsServer = $dnsTextBox.Text
+        $emptyZonesTextBox.Clear()
 
-    if ([string]::IsNullOrWhiteSpace($dnsServer)) {
-        Show-ErrorMessage "Please provide a DNS server."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($dnsServer)) {
+            Show-ErrorMessage "Please provide a DNS server."
+            return
+        }
 
-    # Disable buttons
-    $startButton.Enabled = $false
-    $excludeButton.Enabled = $false
-    $closeButton.Enabled = $false
+        # Disable buttons
+        $startButton.Enabled = $false
+        $excludeButton.Enabled = $false
+        $closeButton.Enabled = $false
 
-    # Ensure DNS Server module is loaded
-    if (-not (Get-Module -Name DNSServer)) {
-        Import-Module DNSServer
-    }
+        # Ensure DNS Server module is loaded
+        if (-not (Get-Module -Name DNSServer)) {
+            Import-Module DNSServer
+        }
 
-    # Initialize an array to hold empty zones
-    $emptyZones = @()
+        # Initialize an array to hold empty zones
+        $emptyZones = @()
 
-    # Log the start of the process
-    Log-Message "DNS Reverse Lookup Zones Search Started"
+        # Log the start of the process
+        Log-Message "DNS Reverse Lookup Zones Search Started"
 
-    # Function to check if a DNS reverse lookup zone is empty
-    function Check-ZoneEmpty {
-        param (
-            [string]$zoneName
-        )
+        # Function to check if a DNS reverse lookup zone is empty
+        function Check-ZoneEmpty {
+            param (
+                [string]$zoneName
+            )
     
-        # Get all records for the zone
-        try {
-            $records = Get-DnsServerResourceRecord -ZoneName $zoneName -ComputerName $dnsServer -ErrorAction Stop
-        } catch {
-            Log-Message "Error retrieving records for zone ${zoneName}: $($_.Exception.Message)" -MessageType "ERROR"
-            return $false
-        }
+            # Get all records for the zone
+            try {
+                $records = Get-DnsServerResourceRecord -ZoneName $zoneName -ComputerName $dnsServer -ErrorAction Stop
+            } catch {
+                Log-Message "Error retrieving records for zone ${zoneName}: $($_.Exception.Message)" -MessageType "ERROR"
+                return $false
+            }
 
-        # Check if the zone contains only static records (without timestamps)
-        $containsTimestampedRecords = $false
-        $recordCount = $records.Count
+            # Check if the zone contains only static records (without timestamps)
+            $containsTimestampedRecords = $false
+            $recordCount = $records.Count
 
-        if ($recordCount -eq 0) {
-            Log-Message "Zone ${zoneName} is completely empty (no records found)." -MessageType "INFO"
-            $emptyZonesTextBox.AppendText("Zone ${zoneName} is completely empty.`r`n")
-            return $true
-        }
+            if ($recordCount -eq 0) {
+                Log-Message "Zone ${zoneName} is completely empty (no records found)." -MessageType "INFO"
+                $emptyZonesTextBox.AppendText("Zone ${zoneName} is completely empty.`r`n")
+                return $true
+            }
 
-        foreach ($record in $records) {
-            if ($record.TimeStamp -ne $null) { # Records with a timestamp are dynamic
-                $containsTimestampedRecords = $true
-                break
+            foreach ($record in $records) {
+                if ($record.TimeStamp -ne $null) { # Records with a timestamp are dynamic
+                    $containsTimestampedRecords = $true
+                    break
+                }
+            }
+
+            # A zone is only considered empty if it contains no timestamped records
+            if (-not $containsTimestampedRecords) {
+                Log-Message "Empty zone found: $($zoneName)" -MessageType "INFO"
+                $emptyZonesTextBox.AppendText("Empty zone found: $($zoneName)`r`n")
+                return $true
+            } else {
+                return $false
             }
         }
 
-        # A zone is only considered empty if it contains no timestamped records
-        if (-not $containsTimestampedRecords) {
-            Log-Message "Empty zone found: $($zoneName)" -MessageType "INFO"
-            $emptyZonesTextBox.AppendText("Empty zone found: $($zoneName)`r`n")
-            return $true
+        # Get all zones
+        try {
+            $zones = Get-DnsServerZone -ComputerName $dnsServer -ErrorAction Stop
+        } catch {
+            $zoneError = "Error retrieving DNS zones: $($_.Exception.Message)"
+            Log-Message $zoneError -MessageType "ERROR"
+            Show-ErrorMessage $zoneError
+            $startButton.Enabled = $true
+            $excludeButton.Enabled = $false
+            $closeButton.Enabled = $true
+            return
+        }
+
+        # Filter only reverse lookup zones
+        $reverseLookupZones = $zones | Where-Object { $_.IsReverseLookupZone -eq $true }
+
+        # Check each reverse lookup zone for being empty and add to the emptyZones array
+        foreach ($zone in $reverseLookupZones) {
+            if (Check-ZoneEmpty -zoneName $zone.ZoneName) {
+                $emptyZones += $zone.ZoneName
+            }
+        }
+
+        # Log the completion and summary
+        if ($emptyZones.Count -gt 0) {
+            foreach ($zone in $emptyZones) {
+                Log-Message "Empty zone identified: $zone" -MessageType "INFO"
+            }
+            $excludeButton.Enabled = $true
         } else {
-            return $false
+            Log-Message "No empty zones were found." -MessageType "INFO"
+            $emptyZonesTextBox.AppendText("No empty zones were found.`r`n")
         }
-    }
 
-    # Get all zones
-    try {
-        $zones = Get-DnsServerZone -ComputerName $dnsServer -ErrorAction Stop
-    } catch {
-        $zoneError = "Error retrieving DNS zones: $($_.Exception.Message)"
-        Log-Message $zoneError -MessageType "ERROR"
-        Show-ErrorMessage $zoneError
+        Log-Message "DNS Reverse Lookup Zones Search Completed"
+
+        # Show final message with log file path
+        Show-InfoMessage "Process completed. Log file saved to $logPath"
+
+        # Re-enable buttons
         $startButton.Enabled = $true
-        $excludeButton.Enabled = $false
         $closeButton.Enabled = $true
-        return
-    }
-
-    # Filter only reverse lookup zones
-    $reverseLookupZones = $zones | Where-Object { $_.IsReverseLookupZone -eq $true }
-
-    # Check each reverse lookup zone for being empty and add to the emptyZones array
-    foreach ($zone in $reverseLookupZones) {
-        if (Check-ZoneEmpty -zoneName $zone.ZoneName) {
-            $emptyZones += $zone.ZoneName
-        }
-    }
-
-    # Log the completion and summary
-    if ($emptyZones.Count -gt 0) {
-        foreach ($zone in $emptyZones) {
-            Log-Message "Empty zone identified: $zone" -MessageType "INFO"
-        }
-        $excludeButton.Enabled = $true
-    } else {
-        Log-Message "No empty zones were found." -MessageType "INFO"
-        $emptyZonesTextBox.AppendText("No empty zones were found.`r`n")
-    }
-
-    Log-Message "DNS Reverse Lookup Zones Search Completed"
-
-    # Show final message with log file path
-    Show-InfoMessage "Process completed. Log file saved to $logPath"
-
-    # Re-enable buttons
-    $startButton.Enabled = $true
-    $closeButton.Enabled = $true
-})
+    })
 
 # Add an event handler for the Exclude Empty Zones button
 $excludeButton.Add_Click({
-    $dnsServer = $dnsTextBox.Text
+        $dnsServer = $dnsTextBox.Text
 
-    if ($emptyZones.Count -eq 0) {
-        Show-InfoMessage "No empty zones to exclude."
-        return
-    }
-
-    # Confirm exclusion action
-    $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to exclude all identified empty zones?", "Confirm Exclusion", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-    if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-        foreach ($zone in $emptyZones) {
-            try {
-                Remove-DnsServerZone -Name $zone -ComputerName $dnsServer -Force -ErrorAction Stop
-                Log-Message "Excluded empty zone: $zone" -MessageType "INFO"
-                $emptyZonesTextBox.AppendText("Excluded empty zone: $zone`r`n")
-            } catch {
-                Log-Message "Error excluding zone ${zone}: $($_.Exception.Message)" -MessageType "ERROR"
-                Show-ErrorMessage "Error excluding zone ${zone}: $($_.Exception.Message)"
-            }
+        if ($emptyZones.Count -eq 0) {
+            Show-InfoMessage "No empty zones to exclude."
+            return
         }
-        Show-InfoMessage "Exclusion of empty zones completed. Log file saved to $logPath"
-    }
-})
+
+        # Confirm exclusion action
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to exclude all identified empty zones?", "Confirm Exclusion", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            foreach ($zone in $emptyZones) {
+                try {
+                    Remove-DnsServerZone -Name $zone -ComputerName $dnsServer -Force -ErrorAction Stop
+                    Log-Message "Excluded empty zone: $zone" -MessageType "INFO"
+                    $emptyZonesTextBox.AppendText("Excluded empty zone: $zone`r`n")
+                } catch {
+                    Log-Message "Error excluding zone ${zone}: $($_.Exception.Message)" -MessageType "ERROR"
+                    Show-ErrorMessage "Error excluding zone ${zone}: $($_.Exception.Message)"
+                }
+            }
+            Show-InfoMessage "Exclusion of empty zones completed. Log file saved to $logPath"
+        }
+    })
 
 # Show the form
 $form.ShowDialog()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Organizing SSL/TLS Certificates in the Repository.
 
@@ -120,11 +120,11 @@ $sourceBrowseButton.Size = New-Object System.Drawing.Size(80, 20)
 $sourceBrowseButton.Text = 'Browse'
 $form.Controls.Add($sourceBrowseButton)
 $sourceBrowseButton.Add_Click({
-    $selectedPath = Select-Directory
-    if ($selectedPath -ne $null) {
-        $sourceTextBox.Text = $selectedPath
-    }
-})
+        $selectedPath = Select-Directory
+        if ($selectedPath -ne $null) {
+            $sourceTextBox.Text = $selectedPath
+        }
+    })
 
 # Target Directory UI Components
 $targetLabel = New-Object System.Windows.Forms.Label
@@ -144,11 +144,11 @@ $targetBrowseButton.Size = New-Object System.Drawing.Size(80, 20)
 $targetBrowseButton.Text = 'Browse'
 $form.Controls.Add($targetBrowseButton)
 $targetBrowseButton.Add_Click({
-    $selectedPath = Select-Directory
-    if ($selectedPath -ne $null) {
-        $targetTextBox.Text = $selectedPath
-    }
-})
+        $selectedPath = Select-Directory
+        if ($selectedPath -ne $null) {
+            $targetTextBox.Text = $selectedPath
+        }
+    })
 
 # Start Button and Log Box
 $button = New-Object System.Windows.Forms.Button
@@ -165,57 +165,57 @@ $form.Controls.Add($logBox)
 
 # Start button click event
 $button.Add_Click({
-    $logPath = Join-Path $targetTextBox.Text "process-events_$(Get-Date -Format 'yyyyMMddHHmmss').log"
-    Write-Log "Process started."
+        $logPath = Join-Path $targetTextBox.Text "process-events_$(Get-Date -Format 'yyyyMMddHHmmss').log"
+        Write-Log "Process started."
     
-    if ([string]::IsNullOrWhiteSpace($sourceTextBox.Text) -or [string]::IsNullOrWhiteSpace($targetTextBox.Text)) {
-        [System.Windows.Forms.MessageBox]::Show("Please fill in all required fields.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Write-Log "Missing required fields."
-        return
-    }
-
-    if (-not (Test-Path $sourceTextBox.Text)) {
-        [System.Windows.Forms.MessageBox]::Show("Source directory does not exist", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Write-Log "Source directory does not exist."
-        return
-    }
-
-    if (-not (Test-Path $targetTextBox.Text)) {
-        New-Item -Path $targetTextBox.Text -ItemType Directory | Out-Null
-        Write-Log "Created target directory."
-    }
-
-    $extensions = '*.cer', '*.crl', '*.crt', '*.der', '*.pem', '*.pfx', '*.p12', '*.p7b'
-    $certFiles = Get-ChildItem -Path $sourceTextBox.Text -Include $extensions -Recurse -ErrorAction SilentlyContinue
-    $processedFiles = 0
-
-    foreach ($file in $certFiles) {
-        try {
-            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $file.FullName
-            $commonName = ExtractCommonName -issuerName $cert.Issuer
-            $commonNameFolder = $commonName -replace '[\\\/:*?"<>|]', ''  # Clean folder name of invalid characters
-            $commonNameFolderPath = Join-Path $targetTextBox.Text $commonNameFolder
-
-            if (-not (Test-Path $commonNameFolderPath)) {
-                New-Item -Path $commonNameFolderPath -ItemType Directory | Out-Null
-                Write-Log "Created folder for common name: $commonName"
-            }
-
-            $targetFilePath = Join-Path $commonNameFolderPath $file.Name
-            Move-Item -Path $file.FullName -Destination $targetFilePath -Force
-            Write-Log "Moved $file to $commonNameFolderPath"
-            $processedFiles++
-        } catch {
-            Write-Log "Error processing file $($file.FullName): $_"
+        if ([string]::IsNullOrWhiteSpace($sourceTextBox.Text) -or [string]::IsNullOrWhiteSpace($targetTextBox.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please fill in all required fields.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "Missing required fields."
+            return
         }
-    }
 
-    Remove-EmptyDirectories -DirectoryPath $sourceTextBox.Text
+        if (-not (Test-Path $sourceTextBox.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Source directory does not exist", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "Source directory does not exist."
+            return
+        }
 
-    Write-Log "Processed $processedFiles files."
-    [System.Windows.Forms.MessageBox]::Show("Certificates have been organized by common name. Processed $processedFiles files.", "Process Completed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Write-Log "All operations completed."
-})
+        if (-not (Test-Path $targetTextBox.Text)) {
+            New-Item -Path $targetTextBox.Text -ItemType Directory | Out-Null
+            Write-Log "Created target directory."
+        }
+
+        $extensions = '*.cer', '*.crl', '*.crt', '*.der', '*.pem', '*.pfx', '*.p12', '*.p7b'
+        $certFiles = Get-ChildItem -Path $sourceTextBox.Text -Include $extensions -Recurse -ErrorAction SilentlyContinue
+        $processedFiles = 0
+
+        foreach ($file in $certFiles) {
+            try {
+                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $file.FullName
+                $commonName = ExtractCommonName -issuerName $cert.Issuer
+                $commonNameFolder = $commonName -replace '[\\\/:*?"<>|]', ''  # Clean folder name of invalid characters
+                $commonNameFolderPath = Join-Path $targetTextBox.Text $commonNameFolder
+
+                if (-not (Test-Path $commonNameFolderPath)) {
+                    New-Item -Path $commonNameFolderPath -ItemType Directory | Out-Null
+                    Write-Log "Created folder for common name: $commonName"
+                }
+
+                $targetFilePath = Join-Path $commonNameFolderPath $file.Name
+                Move-Item -Path $file.FullName -Destination $targetFilePath -Force
+                Write-Log "Moved $file to $commonNameFolderPath"
+                $processedFiles++
+            } catch {
+                Write-Log "Error processing file $($file.FullName): $_"
+            }
+        }
+
+        Remove-EmptyDirectories -DirectoryPath $sourceTextBox.Text
+
+        Write-Log "Processed $processedFiles files."
+        [System.Windows.Forms.MessageBox]::Show("Certificates have been organized by common name. Processed $processedFiles files.", "Process Completed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "All operations completed."
+    })
 
 $form.ShowDialog()
 

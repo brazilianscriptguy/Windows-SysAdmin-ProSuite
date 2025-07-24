@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script to Collect and Export WSUS Environment Details.
 
@@ -170,12 +170,12 @@ function Get-WSUSDetails {
 
         # General WSUS information
         $wsusInfo = [PSCustomObject]@{
-            WSUSVersion       = $wsusServer.Version.ToString()
-            LastSyncResult    = $wsusServer.GetSynchronizationStatus().LastSynchronizationResult.ToString()
-            LastSyncTime      = $wsusServer.GetSynchronizationStatus().LastSynchronizationTime
-            NextSyncTime      = $wsusServer.GetConfiguration().NextSyncTime
-            UpdateLanguages   = ($wsusServer.GetConfiguration().EnabledUpdateLanguages -join ", ")
-            SyncSource        = if ($wsusServer.GetConfiguration().SyncFromMicrosoftUpdate) { "Microsoft Update" } else { "Another WSUS Server" }
+            WSUSVersion = $wsusServer.Version.ToString()
+            LastSyncResult = $wsusServer.GetSynchronizationStatus().LastSynchronizationResult.ToString()
+            LastSyncTime = $wsusServer.GetSynchronizationStatus().LastSynchronizationTime
+            NextSyncTime = $wsusServer.GetConfiguration().NextSyncTime
+            UpdateLanguages = ($wsusServer.GetConfiguration().EnabledUpdateLanguages -join ", ")
+            SyncSource = if ($wsusServer.GetConfiguration().SyncFromMicrosoftUpdate) { "Microsoft Update" } else { "Another WSUS Server" }
         }
 
         # WSUS computer groups
@@ -189,7 +189,7 @@ function Get-WSUSDetails {
         # WSUS update statistics
         $updates = $wsusServer.GetUpdates()
         $updateStats = [PSCustomObject]@{
-            TotalUpdates    = $updates.Count
+            TotalUpdates = $updates.Count
             ApprovedUpdates = ($updates | Where-Object { $_.IsApproved }).Count
             DeclinedUpdates = ($updates | Where-Object { $_.IsDeclined }).Count
         }
@@ -203,10 +203,10 @@ function Get-WSUSDetails {
         }
 
         return @{
-            GeneralInfo       = $wsusInfo
-            ComputerGroups    = $computerGroups
-            UpdateStatistics  = $updateStats
-            LogSizeInMB       = "{0:N2}" -f $logSizeMB
+            GeneralInfo = $wsusInfo
+            ComputerGroups = $computerGroups
+            UpdateStatistics = $updateStats
+            LogSizeInMB = "{0:N2}" -f $logSizeMB
         }
     } catch {
         Log-Message -Message "Error gathering WSUS details: $_" -Type "ERROR"
@@ -244,65 +244,65 @@ $form.Controls.Add($progressBar)
 
 # Event handler for the button
 $btnGather.Add_Click({
-    $btnGather.Enabled = $false
-    $statusLabel.Text = "Gathering WSUS data..."
-    $progressBar.Value = 20
-    $form.Refresh()
+        $btnGather.Enabled = $false
+        $statusLabel.Text = "Gathering WSUS data..."
+        $progressBar.Value = 20
+        $form.Refresh()
 
-    $wsusDetails = Get-WSUSDetails
-    if ($wsusDetails -eq $null) {
-        $statusLabel.Text = "Error gathering data."
-        $progressBar.Value = 0
-        $btnGather.Enabled = $true
-        return
-    }
-
-    $progressBar.Value = 60
-    $statusLabel.Text = "Exporting data..."
-    $form.Refresh()
-
-    try {
-        # Prepare data for CSV
-        $exportData = @()
-
-        # Combine GeneralInfo with ComputerGroups and UpdateStatistics
-        foreach ($group in $wsusDetails.ComputerGroups) {
-            $dataRow = [PSCustomObject]@{
-                WSUSVersion       = $wsusDetails.GeneralInfo.WSUSVersion
-                LastSyncResult    = $wsusDetails.GeneralInfo.LastSyncResult
-                LastSyncTime      = $wsusDetails.GeneralInfo.LastSyncTime
-                NextSyncTime      = $wsusDetails.GeneralInfo.NextSyncTime
-                UpdateLanguages   = $wsusDetails.GeneralInfo.UpdateLanguages
-                SyncSource        = $wsusDetails.GeneralInfo.SyncSource
-                GroupName         = $group.GroupName
-                Computers         = $group.Computers
-                TotalUpdates      = $wsusDetails.UpdateStatistics.TotalUpdates
-                ApprovedUpdates   = $wsusDetails.UpdateStatistics.ApprovedUpdates
-                DeclinedUpdates   = $wsusDetails.UpdateStatistics.DeclinedUpdates
-                LogSizeInMB       = $wsusDetails.LogSizeInMB
-            }
-            $exportData += $dataRow
+        $wsusDetails = Get-WSUSDetails
+        if ($wsusDetails -eq $null) {
+            $statusLabel.Text = "Error gathering data."
+            $progressBar.Value = 0
+            $btnGather.Enabled = $true
+            return
         }
 
-        # Export data to CSV
-        $exportData | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+        $progressBar.Value = 60
+        $statusLabel.Text = "Exporting data..."
+        $form.Refresh()
 
-        $progressBar.Value = 100
-        $statusLabel.Text = "Process complete."
-        Show-InfoMessage -Message "WSUS details exported successfully to: ${csvPath}"
-        Log-Message -Message "WSUS details exported successfully to: ${csvPath}" -Type "INFO"
-    } catch {
-        Log-Message -Message "Error exporting data to CSV: $_" -Type "ERROR"
-        Show-ErrorMessage -Message "Error exporting data. Verify permissions and file path. Error: $_"
-        $statusLabel.Text = "Error exporting data."
-        $progressBar.Value = 0
-    } finally {
-        $btnGather.Enabled = $true
-    }
-})
+        try {
+            # Prepare data for CSV
+            $exportData = @()
+
+            # Combine GeneralInfo with ComputerGroups and UpdateStatistics
+            foreach ($group in $wsusDetails.ComputerGroups) {
+                $dataRow = [PSCustomObject]@{
+                    WSUSVersion = $wsusDetails.GeneralInfo.WSUSVersion
+                    LastSyncResult = $wsusDetails.GeneralInfo.LastSyncResult
+                    LastSyncTime = $wsusDetails.GeneralInfo.LastSyncTime
+                    NextSyncTime = $wsusDetails.GeneralInfo.NextSyncTime
+                    UpdateLanguages = $wsusDetails.GeneralInfo.UpdateLanguages
+                    SyncSource = $wsusDetails.GeneralInfo.SyncSource
+                    GroupName = $group.GroupName
+                    Computers = $group.Computers
+                    TotalUpdates = $wsusDetails.UpdateStatistics.TotalUpdates
+                    ApprovedUpdates = $wsusDetails.UpdateStatistics.ApprovedUpdates
+                    DeclinedUpdates = $wsusDetails.UpdateStatistics.DeclinedUpdates
+                    LogSizeInMB = $wsusDetails.LogSizeInMB
+                }
+                $exportData += $dataRow
+            }
+
+            # Export data to CSV
+            $exportData | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+
+            $progressBar.Value = 100
+            $statusLabel.Text = "Process complete."
+            Show-InfoMessage -Message "WSUS details exported successfully to: ${csvPath}"
+            Log-Message -Message "WSUS details exported successfully to: ${csvPath}" -Type "INFO"
+        } catch {
+            Log-Message -Message "Error exporting data to CSV: $_" -Type "ERROR"
+            Show-ErrorMessage -Message "Error exporting data. Verify permissions and file path. Error: $_"
+            $statusLabel.Text = "Error exporting data."
+            $progressBar.Value = 0
+        } finally {
+            $btnGather.Enabled = $true
+        }
+    })
 
 # Show the GUI
-$form.Add_Shown({$form.Activate()})
+$form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
 
 # End of script

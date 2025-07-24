@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI to Export Installed Software Inventory (x86 and x64) in ANSI Format
 
@@ -48,10 +48,10 @@ function Get-InstalledPrograms {
     foreach ($path in $registryPaths) {
         Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | ForEach-Object {
             [PSCustomObject]@{
-                DisplayName       = $_.DisplayName
-                DisplayVersion    = $_.DisplayVersion
+                DisplayName = $_.DisplayName
+                DisplayVersion = $_.DisplayVersion
                 IdentifyingNumber = ($_.PSPath -replace 'Microsoft.PowerShell.Core\\Registry::', '') -replace 'HKEY_LOCAL_MACHINE', 'HKLM:'
-                Architecture      = if ($_.PSPath -match 'WOW6432Node') { '32-bit' } else { '64-bit' }
+                Architecture = if ($_.PSPath -match 'WOW6432Node') { '32-bit' } else { '64-bit' }
             }
         }
     }
@@ -112,51 +112,51 @@ $form.CancelButton = $btnCancel
 
 # OK button click logic
 $btnOK.Add_Click({
-    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-    $fileName = "Installed-Inventory-SoftwaresList_$($env:COMPUTERNAME)_$timestamp.csv"
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $fileName = "Installed-Inventory-SoftwaresList_$($env:COMPUTERNAME)_$timestamp.csv"
 
-    # Determine output path based on selection
-    if ($radioDefault.Checked) {
-        $outputPath = [System.IO.Path]::Combine([Environment]::GetFolderPath("MyDocuments"), $fileName)
-    } elseif ($radioCustom.Checked -and -not [string]::IsNullOrWhiteSpace($textBox.Text)) {
-        if (-not (Test-Path $textBox.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("The custom path is invalid or not found.", "Path Error", 'OK', 'Error')
+        # Determine output path based on selection
+        if ($radioDefault.Checked) {
+            $outputPath = [System.IO.Path]::Combine([Environment]::GetFolderPath("MyDocuments"), $fileName)
+        } elseif ($radioCustom.Checked -and -not [string]::IsNullOrWhiteSpace($textBox.Text)) {
+            if (-not (Test-Path $textBox.Text)) {
+                [System.Windows.Forms.MessageBox]::Show("The custom path is invalid or not found.", "Path Error", 'OK', 'Error')
+                return
+            }
+            $outputPath = [System.IO.Path]::Combine($textBox.Text, $fileName)
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a valid path.", "Error", 'OK', 'Error')
             return
         }
-        $outputPath = [System.IO.Path]::Combine($textBox.Text, $fileName)
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("Please select a valid path.", "Error", 'OK', 'Error')
-        return
-    }
 
-    # Gather software inventory and export to CSV
-    $programs = Get-InstalledPrograms
-    if ($programs.Count -gt 0) {
-        try {
-            # Manually write CSV lines to ensure ANSI encoding and formatting
-            $header = '"DisplayName","DisplayVersion","IdentifyingNumber","Architecture"'
-            $lines = $programs | ForEach-Object {
-                '"' + ($_.DisplayName -replace '"','""') + '","' +
-                ($_.DisplayVersion -replace '"','""') + '","' +
-                ($_.IdentifyingNumber -replace '"','""') + '","' +
-                ($_.Architecture -replace '"','""') + '"'
+        # Gather software inventory and export to CSV
+        $programs = Get-InstalledPrograms
+        if ($programs.Count -gt 0) {
+            try {
+                # Manually write CSV lines to ensure ANSI encoding and formatting
+                $header = '"DisplayName","DisplayVersion","IdentifyingNumber","Architecture"'
+                $lines = $programs | ForEach-Object {
+                    '"' + ($_.DisplayName -replace '"', '""') + '","' +
+                    ($_.DisplayVersion -replace '"', '""') + '","' +
+                    ($_.IdentifyingNumber -replace '"', '""') + '","' +
+                    ($_.Architecture -replace '"', '""') + '"'
+                }
+
+                $output = @($header) + $lines
+                $output | Out-File -FilePath $outputPath -Encoding Default
+
+                # Notify user and open file
+                [System.Windows.Forms.MessageBox]::Show("Export completed:`n$outputPath", "Done", 'OK', 'Information')
+                Start-Process "notepad.exe" -ArgumentList "`"$outputPath`""
+            } catch {
+                [System.Windows.Forms.MessageBox]::Show("Error writing to file: $_", "Export Error", 'OK', 'Error')
             }
-
-            $output = @($header) + $lines
-            $output | Out-File -FilePath $outputPath -Encoding Default
-
-            # Notify user and open file
-            [System.Windows.Forms.MessageBox]::Show("Export completed:`n$outputPath", "Done", 'OK', 'Information')
-            Start-Process "notepad.exe" -ArgumentList "`"$outputPath`""
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Error writing to file: $_", "Export Error", 'OK', 'Error')
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("No installed software found.", "No Results", 'OK', 'Information')
         }
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("No installed software found.", "No Results", 'OK', 'Information')
-    }
 
-    $form.Close()
-})
+        $form.Close()
+    })
 
 # Cancel button click logic
 $btnCancel.Add_Click({ $form.Close() })

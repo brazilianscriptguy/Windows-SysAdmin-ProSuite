@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI Tool for Exporting and Importing DHCP Scopes Between Servers.
 
@@ -57,8 +57,8 @@ function Write-Log {
 function Get-LatestExportFile {
     try {
         $latest = Get-ChildItem -Path $global:ExportDir -Filter "Export-Scope_*.xml" |
-                  Sort-Object LastWriteTime -Descending |
-                  Select-Object -First 1
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
         return $latest?.FullName
     } catch {
         Write-Log "Error getting latest export file: $_" -Level "ERROR"
@@ -69,7 +69,7 @@ function Get-LatestExportFile {
 function Get-ForestDomains {
     try {
         return [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().Domains |
-               Select-Object -ExpandProperty Name
+            Select-Object -ExpandProperty Name
     } catch {
         Write-Log "Error loading domains: $_" -Level "ERROR"
         return @()
@@ -184,7 +184,7 @@ function Import-DhcpScope {
         # Load and parse XML
         [xml]$xmlContent = [xml](Get-Content -Path $ImportFilePath -Raw -ErrorAction Stop)
         $existingScopes = Get-DhcpServerv4Scope -ComputerName $Server -ErrorAction Stop |
-                          Select-Object -ExpandProperty ScopeId
+            Select-Object -ExpandProperty ScopeId
 
         $xmlScopeNodes = $xmlContent.DHCPServer.IPv4.Scopes.Scope
         $scopesToImport = @()
@@ -265,12 +265,12 @@ function Show-GUI {
     $lblStatusExport = New-Object Windows.Forms.Label -Property @{ Text = ""; Location = '10,290'; Size = '630,20' }
 
     $tabExport.Controls.AddRange(@(
-        (New-Object Windows.Forms.Label -Property @{ Text = "Source Domain:"; Location = '10,30'; AutoSize = $true }),
-        $cmbDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
-        $txtServer, (New-Object Windows.Forms.Label -Property @{ Text = "Scope ID:"; Location = '10,110'; AutoSize = $true }),
-        $cmbScope, (New-Object Windows.Forms.Label -Property @{ Text = "Export Path:"; Location = '10,150'; AutoSize = $true }),
-        $txtExportPath, $btnBrowseExport, $chkExclude, $chkInactivate, $btnExport, $barExport, $lblStatusExport
-    ))
+            (New-Object Windows.Forms.Label -Property @{ Text = "Source Domain:"; Location = '10,30'; AutoSize = $true }),
+            $cmbDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
+            $txtServer, (New-Object Windows.Forms.Label -Property @{ Text = "Scope ID:"; Location = '10,110'; AutoSize = $true }),
+            $cmbScope, (New-Object Windows.Forms.Label -Property @{ Text = "Export Path:"; Location = '10,150'; AutoSize = $true }),
+            $txtExportPath, $btnBrowseExport, $chkExclude, $chkInactivate, $btnExport, $barExport, $lblStatusExport
+        ))
 
     #endregion
 
@@ -288,11 +288,11 @@ function Show-GUI {
     $lblStatusImport = New-Object Windows.Forms.Label -Property @{ Text = ""; Location = '10,290'; Size = '630,20' }
 
     $tabImport.Controls.AddRange(@(
-        (New-Object Windows.Forms.Label -Property @{ Text = "Destination Domain:"; Location = '10,30'; AutoSize = $true }),
-        $cmbImpDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
-        $txtImpServer, (New-Object Windows.Forms.Label -Property @{ Text = "Import File:"; Location = '10,110'; AutoSize = $true }),
-        $txtImpFile, $btnBrowseImp, $chkInactivateImp, $btnImport, $barImport, $lblStatusImport
-    ))
+            (New-Object Windows.Forms.Label -Property @{ Text = "Destination Domain:"; Location = '10,30'; AutoSize = $true }),
+            $cmbImpDomain, (New-Object Windows.Forms.Label -Property @{ Text = "DHCP Server:"; Location = '10,70'; AutoSize = $true }),
+            $txtImpServer, (New-Object Windows.Forms.Label -Property @{ Text = "Import File:"; Location = '10,110'; AutoSize = $true }),
+            $txtImpFile, $btnBrowseImp, $chkInactivateImp, $btnImport, $barImport, $lblStatusImport
+        ))
     #endregion
 
     #region ToolTips
@@ -320,114 +320,114 @@ function Show-GUI {
     }
 
     $cmbDomain.Add_SelectedIndexChanged({
-    $cmbScope.Items.Clear()
-    $txtServer.Text = Get-DHCPServerFromDomain $cmbDomain.SelectedItem
-    if ($txtServer.Text) {
-        Get-DhcpServerv4Scope -ComputerName $txtServer.Text | ForEach-Object {
-            $cmbScope.Items.Add($_.ScopeId) | Out-Null
-        }
-    }
-    $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
-})
+            $cmbScope.Items.Clear()
+            $txtServer.Text = Get-DHCPServerFromDomain $cmbDomain.SelectedItem
+            if ($txtServer.Text) {
+                Get-DhcpServerv4Scope -ComputerName $txtServer.Text | ForEach-Object {
+                    $cmbScope.Items.Add($_.ScopeId) | Out-Null
+                }
+            }
+            $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
+        })
 
-$cmbScope.Add_SelectedIndexChanged({
-    $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
-})
+    $cmbScope.Add_SelectedIndexChanged({
+            $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
+        })
 
     $cmbImpDomain.Add_SelectedIndexChanged({
-        $txtImpServer.Text = Get-DHCPServerFromDomain $cmbImpDomain.SelectedItem
-        $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
-    })
+            $txtImpServer.Text = Get-DHCPServerFromDomain $cmbImpDomain.SelectedItem
+            $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
+        })
 
     $txtImpFile.Add_TextChanged({
-        $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
-    })
+            $btnImport.Enabled = $txtImpServer.Text -and $txtImpFile.Text
+        })
 
     $btnBrowseExport.Add_Click({
-        $dlg = New-Object Windows.Forms.SaveFileDialog
-        $dlg.InitialDirectory = $global:ExportDir
-        $dlg.Filter = "XML files (*.xml)|*.xml"
-        $dlg.FileName = "Export-Scope_$($cmbScope.Text)_$(Get-Date -Format 'yyyyMMdd_HHmmss').xml"
-        if ($dlg.ShowDialog() -eq "OK") {
-            $txtExportPath.Text = $dlg.FileName
-        }
-    })
+            $dlg = New-Object Windows.Forms.SaveFileDialog
+            $dlg.InitialDirectory = $global:ExportDir
+            $dlg.Filter = "XML files (*.xml)|*.xml"
+            $dlg.FileName = "Export-Scope_$($cmbScope.Text)_$(Get-Date -Format 'yyyyMMdd_HHmmss').xml"
+            if ($dlg.ShowDialog() -eq "OK") {
+                $txtExportPath.Text = $dlg.FileName
+            }
+        })
 
     $btnBrowseImp.Add_Click({
-        $dlg = New-Object Windows.Forms.OpenFileDialog
-        $dlg.InitialDirectory = $global:ExportDir
-        $dlg.Filter = "XML files (*.xml)|*.xml"
-        if ($dlg.ShowDialog() -eq "OK") {
-            $txtImpFile.Text = $dlg.FileName
-        }
-    })
+            $dlg = New-Object Windows.Forms.OpenFileDialog
+            $dlg.InitialDirectory = $global:ExportDir
+            $dlg.Filter = "XML files (*.xml)|*.xml"
+            if ($dlg.ShowDialog() -eq "OK") {
+                $txtImpFile.Text = $dlg.FileName
+            }
+        })
 
     $btnExport.Add_Click({
-        $barExport.Value = 0
-        $lblStatusExport.Text = "Validating inputs..."
-        if (-not $txtServer.Text -or -not $cmbScope.Text) {
-            [Windows.Forms.MessageBox]::Show("Select domain, server, and scope ID", "Error", "OK", "Error")
-            $lblStatusExport.Text = "Export failed: Missing inputs"
-            return
-        }
-        if (-not (Test-ScopeId $cmbScope.Text)) {
-            [Windows.Forms.MessageBox]::Show("Invalid Scope ID format (e.g., 192.168.1.0)", "Error", "OK", "Error")
-            $lblStatusExport.Text = "Export failed: Invalid Scope ID"
-            return
-        }
+            $barExport.Value = 0
+            $lblStatusExport.Text = "Validating inputs..."
+            if (-not $txtServer.Text -or -not $cmbScope.Text) {
+                [Windows.Forms.MessageBox]::Show("Select domain, server, and scope ID", "Error", "OK", "Error")
+                $lblStatusExport.Text = "Export failed: Missing inputs"
+                return
+            }
+            if (-not (Test-ScopeId $cmbScope.Text)) {
+                [Windows.Forms.MessageBox]::Show("Invalid Scope ID format (e.g., 192.168.1.0)", "Error", "OK", "Error")
+                $lblStatusExport.Text = "Export failed: Invalid Scope ID"
+                return
+            }
 
-        $lblStatusExport.Text = "Exporting scope..."
-        $exportedFile = $txtExportPath.Text
-        $success = Export-DhcpScope -Server $txtServer.Text -ScopeId $cmbScope.Text `
-            -ExcludeScope:$chkExclude.Checked -InactivateScope:$chkInactivate.Checked `
-            -ExportedFilePath ([ref]$exportedFile) -ProgressBar $barExport
+            $lblStatusExport.Text = "Exporting scope..."
+            $exportedFile = $txtExportPath.Text
+            $success = Export-DhcpScope -Server $txtServer.Text -ScopeId $cmbScope.Text `
+                -ExcludeScope:$chkExclude.Checked -InactivateScope:$chkInactivate.Checked `
+                -ExportedFilePath ([ref]$exportedFile) -ProgressBar $barExport
 
-        if ($success) {
-            $txtExportPath.Text = $exportedFile
-            $txtImpFile.Text = $exportedFile
-            [Windows.Forms.MessageBox]::Show("Scope exported to $exportedFile", "Success", "OK", "Information")
-            $lblStatusExport.Text = "Export completed"
-        } else {
-            [Windows.Forms.MessageBox]::Show("Export failed. Check log.", "Error", "OK", "Error")
-            $lblStatusExport.Text = "Export failed"
-        }
-    })
+            if ($success) {
+                $txtExportPath.Text = $exportedFile
+                $txtImpFile.Text = $exportedFile
+                [Windows.Forms.MessageBox]::Show("Scope exported to $exportedFile", "Success", "OK", "Information")
+                $lblStatusExport.Text = "Export completed"
+            } else {
+                [Windows.Forms.MessageBox]::Show("Export failed. Check log.", "Error", "OK", "Error")
+                $lblStatusExport.Text = "Export failed"
+            }
+        })
 
     $btnImport.Add_Click({
-    $barImport.Value = 0
-    $lblStatusImport.Text = "Validating inputs..."
+            $barImport.Value = 0
+            $lblStatusImport.Text = "Validating inputs..."
 
-    $serverName = $txtImpServer.Text.Trim()
-    $importFile = $txtImpFile.Text.Trim()
+            $serverName = $txtImpServer.Text.Trim()
+            $importFile = $txtImpFile.Text.Trim()
 
-    if (-not $serverName -or -not $importFile) {
-        [Windows.Forms.MessageBox]::Show("Specify both server and import file.", "Error", "OK", "Error")
-        $lblStatusImport.Text = "Import failed: Missing inputs"
-        return
-    }
+            if (-not $serverName -or -not $importFile) {
+                [Windows.Forms.MessageBox]::Show("Specify both server and import file.", "Error", "OK", "Error")
+                $lblStatusImport.Text = "Import failed: Missing inputs"
+                return
+            }
 
-    $lblStatusImport.Text = "Importing scope..."
-    $result = Import-DhcpScope -Server $serverName -ImportFilePath $importFile `
-        -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
+            $lblStatusImport.Text = "Importing scope..."
+            $result = Import-DhcpScope -Server $serverName -ImportFilePath $importFile `
+                -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
 
-    switch ($result) {
-        "Imported" {
-            [Windows.Forms.MessageBox]::Show("Scope import process completed on server:`n$serverName", "Success", "OK", "Information")
-            $lblStatusImport.Text = "Import completed"
-        }
-        "Skipped" {
-            $lblStatusImport.Text = "Nothing was imported"
-        }
-        "Failed" {
-            [Windows.Forms.MessageBox]::Show("Import failed. Check log for details.", "Error", "OK", "Error")
-            $lblStatusImport.Text = "Import failed"
-        }
-        default {
-            [Windows.Forms.MessageBox]::Show("Unexpected result: $result", "Error", "OK", "Error")
-            $lblStatusImport.Text = "Import failed"
-        }
-    }
-})
+            switch ($result) {
+                "Imported" {
+                    [Windows.Forms.MessageBox]::Show("Scope import process completed on server:`n$serverName", "Success", "OK", "Information")
+                    $lblStatusImport.Text = "Import completed"
+                }
+                "Skipped" {
+                    $lblStatusImport.Text = "Nothing was imported"
+                }
+                "Failed" {
+                    [Windows.Forms.MessageBox]::Show("Import failed. Check log for details.", "Error", "OK", "Error")
+                    $lblStatusImport.Text = "Import failed"
+                }
+                default {
+                    [Windows.Forms.MessageBox]::Show("Unexpected result: $result", "Error", "OK", "Error")
+                    $lblStatusImport.Text = "Import failed"
+                }
+            }
+        })
 
     # Initial button state
     $btnExport.Enabled = $false

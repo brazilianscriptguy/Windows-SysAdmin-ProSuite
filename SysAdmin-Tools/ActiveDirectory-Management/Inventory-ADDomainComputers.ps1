@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Generating an Inventory of AD Domain Computers.
 
@@ -183,47 +183,47 @@ $generateButton.Location = New-Object System.Drawing.Point(10, 150)
 $generateButton.Size = New-Object System.Drawing.Size(180, 30)
 $generateButton.Text = 'Generate Report'
 $generateButton.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
+        $domainFQDN = $comboBoxDomain.SelectedItem
 
-    if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
-        try {
-            $progressBar.Value = 10
-            $statusLabel.Text = "Retrieving domain information..."
-            $sanitizedDomainFQDN = $domainFQDN -replace "\.", "_"
-            $outputFile = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${sanitizedDomainFQDN}_$timestamp.csv"
+        if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
+            try {
+                $progressBar.Value = 10
+                $statusLabel.Text = "Retrieving domain information..."
+                $sanitizedDomainFQDN = $domainFQDN -replace "\.", "_"
+                $outputFile = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${sanitizedDomainFQDN}_$timestamp.csv"
 
-            # Retrieve domain controllers
-            $progressBar.Value = 40
-            $statusLabel.Text = "Retrieving Domain Controllers..."
-            $domainControllers = Get-ADComputer -Filter { (OperatingSystem -Like '*Server*') -and (IsDomainController -eq $true) } -Server $domainFQDN -Properties Name, OperatingSystem, OperatingSystemVersion | Select-Object Name, OperatingSystem, OperatingSystemVersion
+                # Retrieve domain controllers
+                $progressBar.Value = 40
+                $statusLabel.Text = "Retrieving Domain Controllers..."
+                $domainControllers = Get-ADComputer -Filter { (OperatingSystem -Like '*Server*') -and (IsDomainController -eq $true) } -Server $domainFQDN -Properties Name, OperatingSystem, OperatingSystemVersion | Select-Object Name, OperatingSystem, OperatingSystemVersion
 
-            # Retrieve domain computers
-            $progressBar.Value = 70
-            $statusLabel.Text = "Retrieving Domain Computers..."
-            $domainComputers = Get-ADComputer -Filter { OperatingSystem -NotLike '*Server*' } -Server $domainFQDN -Properties Name, OperatingSystem, OperatingSystemVersion | Select-Object Name, OperatingSystem, OperatingSystemVersion
+                # Retrieve domain computers
+                $progressBar.Value = 70
+                $statusLabel.Text = "Retrieving Domain Computers..."
+                $domainComputers = Get-ADComputer -Filter { OperatingSystem -NotLike '*Server*' } -Server $domainFQDN -Properties Name, OperatingSystem, OperatingSystemVersion | Select-Object Name, OperatingSystem, OperatingSystemVersion
 
-            # Export results to CSV
-            $progressBar.Value = 90
-            $statusLabel.Text = "Exporting to CSV..."
-            $result = @($domainControllers; $domainComputers)
-            $result | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8
+                # Export results to CSV
+                $progressBar.Value = 90
+                $statusLabel.Text = "Exporting to CSV..."
+                $result = @($domainControllers; $domainComputers)
+                $result | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8
 
-            $progressBar.Value = 100
-            Show-InfoMessage "Computers exported to `n$outputFile"
-            $statusLabel.Text = "Report generated successfully."
-            Log-Message -Message "Report generated successfully: $outputFile" -MessageType "INFO"
-        } catch {
-            Show-ErrorMessage "Error querying Active Directory: $($_.Exception.Message)"
-            $statusLabel.Text = "An error occurred."
-            Log-Message -Message "Error querying Active Directory: $($_.Exception.Message)" -MessageType "ERROR"
-            $progressBar.Value = 0
+                $progressBar.Value = 100
+                Show-InfoMessage "Computers exported to `n$outputFile"
+                $statusLabel.Text = "Report generated successfully."
+                Log-Message -Message "Report generated successfully: $outputFile" -MessageType "INFO"
+            } catch {
+                Show-ErrorMessage "Error querying Active Directory: $($_.Exception.Message)"
+                $statusLabel.Text = "An error occurred."
+                Log-Message -Message "Error querying Active Directory: $($_.Exception.Message)" -MessageType "ERROR"
+                $progressBar.Value = 0
+            }
+        } else {
+            Show-ErrorMessage 'Please select a valid FQDN of the Domain.'
+            $statusLabel.Text = 'Input Error.'
+            Log-Message -Message "Input Error: Invalid FQDN." -MessageType "ERROR"
         }
-    } else {
-        Show-ErrorMessage 'Please select a valid FQDN of the Domain.'
-        $statusLabel.Text = 'Input Error.'
-        Log-Message -Message "Input Error: Invalid FQDN." -MessageType "ERROR"
-    }
-})
+    })
 $form.Controls.Add($generateButton)
 
 # Close button
@@ -232,8 +232,8 @@ $closeButton.Location = New-Object System.Drawing.Point(210, 150)
 $closeButton.Size = New-Object System.Drawing.Size(180, 30)
 $closeButton.Text = 'Close'
 $closeButton.Add_Click({
-    $form.Close()
-})
+        $form.Close()
+    })
 $form.Controls.Add($closeButton)
 
 $form.Add_Shown({ $form.Activate() })

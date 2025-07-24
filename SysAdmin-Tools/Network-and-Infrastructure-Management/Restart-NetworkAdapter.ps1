@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Restarting Network Adapters via GUI.
 
@@ -107,28 +107,28 @@ $restartButton.Text = "Restart the Network Card"
 $restartButton.Size = New-Object System.Drawing.Size(150, 23)
 $restartButton.Location = New-Object System.Drawing.Point(10, 170)
 $restartButton.Add_Click({
-    $selectedAdapter = $listBox.SelectedItem
-    if ($selectedAdapter) {
-        $InterfaceAlias = $selectedAdapter.Split(" ")[0]
-        Disable-Adapter -InterfaceAlias $InterfaceAlias
-        if ((Check-NetAdapterStatus -InterfaceAlias $InterfaceAlias) -eq 'Disabled') {
-            Log-Message "Network adapter $InterfaceAlias disabled successfully."
-            Enable-Adapter -InterfaceAlias $InterfaceAlias
-            if ((Check-NetAdapterStatus -InterfaceAlias $InterfaceAlias) -eq 'Up') {
-                [System.Windows.Forms.MessageBox]::Show("Network adapter $InterfaceAlias restarted successfully.", 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                Log-Message "Network adapter $InterfaceAlias re-enabled successfully."
+        $selectedAdapter = $listBox.SelectedItem
+        if ($selectedAdapter) {
+            $InterfaceAlias = $selectedAdapter.Split(" ")[0]
+            Disable-Adapter -InterfaceAlias $InterfaceAlias
+            if ((Check-NetAdapterStatus -InterfaceAlias $InterfaceAlias) -eq 'Disabled') {
+                Log-Message "Network adapter $InterfaceAlias disabled successfully."
+                Enable-Adapter -InterfaceAlias $InterfaceAlias
+                if ((Check-NetAdapterStatus -InterfaceAlias $InterfaceAlias) -eq 'Up') {
+                    [System.Windows.Forms.MessageBox]::Show("Network adapter $InterfaceAlias restarted successfully.", 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    Log-Message "Network adapter $InterfaceAlias re-enabled successfully."
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show("Failed to re-enable the network adapter $InterfaceAlias.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    Log-Message "Failed to re-enable the network adapter $InterfaceAlias."
+                }
             } else {
-                [System.Windows.Forms.MessageBox]::Show("Failed to re-enable the network adapter $InterfaceAlias.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                Log-Message "Failed to re-enable the network adapter $InterfaceAlias."
+                [System.Windows.Forms.MessageBox]::Show("Failed to disable the network adapter $InterfaceAlias.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                Log-Message "Failed to disable the network adapter $InterfaceAlias."
             }
         } else {
-            [System.Windows.Forms.MessageBox]::Show("Failed to disable the network adapter $InterfaceAlias.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            Log-Message "Failed to disable the network adapter $InterfaceAlias."
+            [System.Windows.Forms.MessageBox]::Show("Please select a network adapter first.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("Please select a network adapter first.", 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-})
+    })
 $form.Controls.Add($restartButton)
 
 # Load the network adapters into the list box

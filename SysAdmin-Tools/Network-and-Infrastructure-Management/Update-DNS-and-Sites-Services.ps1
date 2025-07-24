@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Updating DNS Zones and AD Sites and Services Subnets.
 
@@ -310,28 +310,28 @@ $closeButton = New-Object Windows.Forms.Button; $closeButton.Text = 'Close'; $cl
 $CancelRequested = $false
 
 $executeButton.Add_Click({
-    if ($textBoxDHCP.Text -and $textBoxDNS.Text -and $textBoxSites.Text) {
-        $executeButton.Enabled = $false
-        $cancelButton.Enabled = $true
-        $CancelRequested = $false
-        $statusLabel.Text = "Starting process..."
-        Log-Message "Executing with DHCP: $($textBoxDHCP.Text), DNS: $($textBoxDNS.Text), Site: $($textBoxSites.Text)"
-        Process-DHCPScopes -DHCPServer $textBoxDHCP.Text -DNSServer $textBoxDNS.Text -SitesAndServicesTarget $textBoxSites.Text `
-            -ProgressBar $progressBar -StatusLabel $statusLabel -ExecuteButton $executeButton -CancelButton $cancelButton `
-            -CancelRequested ([ref]$CancelRequested)
-    } else {
-        Show-ErrorMessage "Fill in all required fields."
-    }
-})
+        if ($textBoxDHCP.Text -and $textBoxDNS.Text -and $textBoxSites.Text) {
+            $executeButton.Enabled = $false
+            $cancelButton.Enabled = $true
+            $CancelRequested = $false
+            $statusLabel.Text = "Starting process..."
+            Log-Message "Executing with DHCP: $($textBoxDHCP.Text), DNS: $($textBoxDNS.Text), Site: $($textBoxSites.Text)"
+            Process-DHCPScopes -DHCPServer $textBoxDHCP.Text -DNSServer $textBoxDNS.Text -SitesAndServicesTarget $textBoxSites.Text `
+                -ProgressBar $progressBar -StatusLabel $statusLabel -ExecuteButton $executeButton -CancelButton $cancelButton `
+                -CancelRequested ([ref]$CancelRequested)
+        } else {
+            Show-ErrorMessage "Fill in all required fields."
+        }
+    })
 
 $cancelButton.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel the operation?", "Confirm", "YesNo", "Warning") | Out-Null
-    if ($confirm -eq 'Yes') {
-        $CancelRequested = $true
-        Log-Message "User requested cancellation"
-        $statusLabel.Text = "Canceling..."
-    }
-})
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Cancel the operation?", "Confirm", "YesNo", "Warning") | Out-Null
+        if ($confirm -eq 'Yes') {
+            $CancelRequested = $true
+            Log-Message "User requested cancellation"
+            $statusLabel.Text = "Canceling..."
+        }
+    })
 
 $closeButton.Add_Click({ $form.Close() })
 

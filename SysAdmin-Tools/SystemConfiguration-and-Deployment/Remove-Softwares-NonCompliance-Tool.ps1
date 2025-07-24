@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Uninstalling Non-Compliant Software from Workstations.
 
@@ -72,9 +72,9 @@ if (-not (Test-Path $logDir)) {
 # Logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -129,12 +129,12 @@ function Load-SoftwareList {
 function Get-InstalledPrograms {
     Log-Message "Retrieving the list of installed programs."
     $installedPrograms64Bit = Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
-                              Where-Object { $_.DisplayName } |
-                              Select-Object DisplayName, DisplayVersion, UninstallString, @{Name="Architecture"; Expression={"64-bit"}}
+        Where-Object { $_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion, UninstallString, @{Name = "Architecture"; Expression = { "64-bit" } }
 
     $installedPrograms32Bit = Get-ItemProperty -Path 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
-                              Where-Object { $_.DisplayName } |
-                              Select-Object DisplayName, DisplayVersion, UninstallString, @{Name="Architecture"; Expression={"32-bit"}}
+        Where-Object { $_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion, UninstallString, @{Name = "Architecture"; Expression = { "32-bit" } }
 
     return $installedPrograms64Bit + $installedPrograms32Bit
 }
@@ -242,42 +242,42 @@ function Start-UninstallProcess {
 
     # Define DoWork event
     $backgroundWorker.Add_DoWork({
-        param ($sender, $e)
-        try {
-            $softwareNames = Load-SoftwareList -FilePath $e.Argument
-            Uninstall-Software -SoftwareNames $softwareNames -backgroundWorker $sender
-        } catch {
-            Log-Message "Error in DoWork: $_" -MessageType "ERROR"
-            $e.Result = $_
-        }
-    })
+            param ($sender, $e)
+            try {
+                $softwareNames = Load-SoftwareList -FilePath $e.Argument
+                Uninstall-Software -SoftwareNames $softwareNames -backgroundWorker $sender
+            } catch {
+                Log-Message "Error in DoWork: $_" -MessageType "ERROR"
+                $e.Result = $_
+            }
+        })
 
     # Define ProgressChanged event
     $backgroundWorker.Add_ProgressChanged({
-        param ($sender, $e)
-        $progressBar.Value = $e.ProgressPercentage
-        $statusLabel.Text = $e.UserState
-    })
+            param ($sender, $e)
+            $progressBar.Value = $e.ProgressPercentage
+            $statusLabel.Text = $e.UserState
+        })
 
     # Define RunWorkerCompleted event
     $backgroundWorker.Add_RunWorkerCompleted({
-        param ($sender, $e)
-        if ($e.Cancelled) {
-            $statusLabel.Text = "Process canceled."
-            Log-Message "Process was canceled by user." -MessageType "INFO"
-        } elseif ($e.Error) {
-            $statusLabel.Text = "Error occurred: $($e.Error.Message)"
-            Log-Message "Error occurred: $($e.Error.Message)" -MessageType "ERROR"
-        } elseif ($e.Result -is [Exception]) {
-            $statusLabel.Text = "Error occurred: $($e.Result.Message)"
-            Log-Message "Error occurred: $($e.Result.Message)" -MessageType "ERROR"
-        } else {
-            $statusLabel.Text = "Process completed successfully."
-            Log-Message "Script execution completed successfully." -MessageType "INFO"
-        }
-        $executeButton.Enabled = $true
-        $cancelButton.Enabled = $false
-    })
+            param ($sender, $e)
+            if ($e.Cancelled) {
+                $statusLabel.Text = "Process canceled."
+                Log-Message "Process was canceled by user." -MessageType "INFO"
+            } elseif ($e.Error) {
+                $statusLabel.Text = "Error occurred: $($e.Error.Message)"
+                Log-Message "Error occurred: $($e.Error.Message)" -MessageType "ERROR"
+            } elseif ($e.Result -is [Exception]) {
+                $statusLabel.Text = "Error occurred: $($e.Result.Message)"
+                Log-Message "Error occurred: $($e.Result.Message)" -MessageType "ERROR"
+            } else {
+                $statusLabel.Text = "Process completed successfully."
+                Log-Message "Script execution completed successfully." -MessageType "INFO"
+            }
+            $executeButton.Enabled = $true
+            $cancelButton.Enabled = $false
+        })
 
     # Start the BackgroundWorker
     $backgroundWorker.RunWorkerAsync($softwareListPath)
@@ -287,15 +287,15 @@ function Start-UninstallProcess {
 
     # Define Click event for the Cancel button
     $cancelButton.Add_Click({
-        $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the process?", "Cancel Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
-            if ($backgroundWorker.IsBusy) {
-                $backgroundWorker.CancelAsync()
-                $statusLabel.Text = "Canceling process..."
-                Log-Message "User requested to cancel the process." -MessageType "INFO"
+            $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the process?", "Cancel Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
+                if ($backgroundWorker.IsBusy) {
+                    $backgroundWorker.CancelAsync()
+                    $statusLabel.Text = "Canceling process..."
+                    Log-Message "User requested to cancel the process." -MessageType "INFO"
+                }
             }
-        }
-    })
+        })
 }
 
 # Function to Create and Show the GUI
@@ -387,67 +387,67 @@ function Show-GUI {
 
     # Define Click event for the Browse button
     $browseButton.Add_Click({
-        $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $fileDialog.Filter = "Text files (*.txt)|*.txt"
-        if ($fileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $textBoxSoftwareList.Text = $fileDialog.FileName
-        }
-    })
+            $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
+            $fileDialog.Filter = "Text files (*.txt)|*.txt"
+            if ($fileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                $textBoxSoftwareList.Text = $fileDialog.FileName
+            }
+        })
 
     # Define Click event for Execute button
     $executeButton.Add_Click({
-        $softwareListPath = $textBoxSoftwareList.Text.Trim()
-        if ($softwareListPath -and (Test-Path $softwareListPath)) {
-            $executeButton.Enabled = $false
-            $cancelButton.Enabled = $true
-            $statusLabel.Text = "Starting uninstallation process..."
-            $progressBar.Value = 0
-            $listView.Items.Clear()
+            $softwareListPath = $textBoxSoftwareList.Text.Trim()
+            if ($softwareListPath -and (Test-Path $softwareListPath)) {
+                $executeButton.Enabled = $false
+                $cancelButton.Enabled = $true
+                $statusLabel.Text = "Starting uninstallation process..."
+                $progressBar.Value = 0
+                $listView.Items.Clear()
 
-            try {
-                $softwareNames = Load-SoftwareList -FilePath $softwareListPath
-                $installedPrograms = Get-InstalledPrograms
-                $matchedPrograms = @()
+                try {
+                    $softwareNames = Load-SoftwareList -FilePath $softwareListPath
+                    $installedPrograms = Get-InstalledPrograms
+                    $matchedPrograms = @()
 
-                foreach ($name in $softwareNames) {
-                    $matched = $installedPrograms | Where-Object { $_.DisplayName -like "*$name*" }
-                    if ($matched) {
-                        foreach ($app in $matched) {
-                            $matchedPrograms += $app
-                            # Add to ListView
-                            $listItem = New-Object System.Windows.Forms.ListViewItem
-                            $listItem.Text = $app.DisplayName
-                            $listItem.SubItems.Add($app.DisplayVersion)
-                            $listItem.SubItems.Add($app.Architecture)
-                            $listView.Items.Add($listItem)
+                    foreach ($name in $softwareNames) {
+                        $matched = $installedPrograms | Where-Object { $_.DisplayName -like "*$name*" }
+                        if ($matched) {
+                            foreach ($app in $matched) {
+                                $matchedPrograms += $app
+                                # Add to ListView
+                                $listItem = New-Object System.Windows.Forms.ListViewItem
+                                $listItem.Text = $app.DisplayName
+                                $listItem.SubItems.Add($app.DisplayVersion)
+                                $listItem.SubItems.Add($app.Architecture)
+                                $listView.Items.Add($listItem)
+                            }
+                        } else {
+                            Log-Message "Software not found: $name" -MessageType "WARNING"
                         }
-                    } else {
-                        Log-Message "Software not found: $name" -MessageType "WARNING"
                     }
-                }
 
-                if ($matchedPrograms.Count -eq 0) {
-                    Show-InfoMessage "No matching installed software found for the provided list."
-                    $statusLabel.Text = "Status: No matches found."
+                    if ($matchedPrograms.Count -eq 0) {
+                        Show-InfoMessage "No matching installed software found for the provided list."
+                        $statusLabel.Text = "Status: No matches found."
+                        $executeButton.Enabled = $true
+                        $cancelButton.Enabled = $false
+                    } else {
+                        Log-Message "$($matchedPrograms.Count) matching software(s) found for uninstallation."
+                        $statusLabel.Text = "Status: Ready to uninstall."
+
+                        # Start the uninstallation process in background
+                        Start-UninstallProcess -softwareListPath $softwareListPath -progressBar $progressBar -statusLabel $statusLabel -executeButton $executeButton -cancelButton $cancelButton -listView $listView
+                    }
+                } catch {
+                    Show-ErrorMessage $_.Exception.Message
+                    $statusLabel.Text = "Status: An error occurred."
                     $executeButton.Enabled = $true
                     $cancelButton.Enabled = $false
-                } else {
-                    Log-Message "$($matchedPrograms.Count) matching software(s) found for uninstallation."
-                    $statusLabel.Text = "Status: Ready to uninstall."
-
-                    # Start the uninstallation process in background
-                    Start-UninstallProcess -softwareListPath $softwareListPath -progressBar $progressBar -statusLabel $statusLabel -executeButton $executeButton -cancelButton $cancelButton -listView $listView
                 }
-            } catch {
-                Show-ErrorMessage $_.Exception.Message
-                $statusLabel.Text = "Status: An error occurred."
-                $executeButton.Enabled = $true
-                $cancelButton.Enabled = $false
+            } else {
+                Show-ErrorMessage "Please provide a valid path to the software list file."
             }
-        } else {
-            Show-ErrorMessage "Please provide a valid path to the software list file."
-        }
-    })
+        })
 
     # Add the Uninstall Software tab to the TabControl
     $tabControl.TabPages.Add($tabUninstall)
@@ -457,8 +457,8 @@ function Show-GUI {
 
     # Define Click event for Close button
     $closeButton.Add_Click({
-        $form.Close()
-    })
+            $form.Close()
+        })
 
     # Show the form
     [System.Windows.Forms.Application]::Run($form)

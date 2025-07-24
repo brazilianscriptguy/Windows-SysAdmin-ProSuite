@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI Tool for Selective Removal of Expired Certificates
 
@@ -67,7 +67,7 @@ function Write-Log {
 function Show-Message {
     param (
         [string]$Message,
-        [ValidateSet('Information','Error')][string]$Type
+        [ValidateSet('Information', 'Error')][string]$Type
     )
     $icon = if ($Type -eq 'Error') { 'Error' } else { 'Information' }
     [System.Windows.Forms.MessageBox]::Show($Message, $Type, 'OK', $icon)
@@ -186,15 +186,15 @@ $btnRemove.Text = "Remove All Listed"
 $btnRemove.Location = '290,320'
 $btnRemove.Size = '260,30'
 $btnRemove.Add_Click({
-    if ($listBox.Items.Count -eq 0) {
-        Show-Message -Message "No certificates listed to remove." -Type "Error"
-        return
-    }
+        if ($listBox.Items.Count -eq 0) {
+            Show-Message -Message "No certificates listed to remove." -Type "Error"
+            return
+        }
 
-    $thumbs = @($listBox.Items | ForEach-Object { $_.Split('|')[0].Trim() })
-    Remove-CertificatesByThumbprint -Thumbprints $thumbs
-    $listBox.Items.Clear()
-})
+        $thumbs = @($listBox.Items | ForEach-Object { $_.Split('|')[0].Trim() })
+        Remove-CertificatesByThumbprint -Thumbprints $thumbs
+        $listBox.Items.Clear()
+    })
 $form.Controls.Add($btnRemove)
 
 $btnClose = New-Object System.Windows.Forms.Button

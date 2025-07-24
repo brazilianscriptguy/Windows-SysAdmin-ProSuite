@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Generic NuGet Package Builder & Publisher
 
@@ -568,36 +568,36 @@ function Show-GUI {
     $buttonRun.TabIndex = $tabIndex
     $tabIndex++
     $buttonRun.Add_Click({
-        $statusLabel.Text = "Uploading..."
-        $statusLabel.ForeColor = [System.Drawing.Color]::Black
-        Validate-Inputs
-        if ($script:validationError) {
-            $statusLabel.Text = "Error: $script:validationError"
-            $statusLabel.ForeColor = [System.Drawing.Color]::Red
-            return
-        }
-        try {
-            $sourceDirs = $textBoxSourceDirs.Text.Trim() -split ",\s*" | Where-Object { $_ }
-            $excludeDirs = $textBoxExcludeDirs.Text.Trim() -split ",\s*" | Where-Object { $_ }
+            $statusLabel.Text = "Uploading..."
+            $statusLabel.ForeColor = [System.Drawing.Color]::Black
+            Validate-Inputs
+            if ($script:validationError) {
+                $statusLabel.Text = "Error: $script:validationError"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Red
+                return
+            }
+            try {
+                $sourceDirs = $textBoxSourceDirs.Text.Trim() -split ",\s*" | Where-Object { $_ }
+                $excludeDirs = $textBoxExcludeDirs.Text.Trim() -split ",\s*" | Where-Object { $_ }
 
-            Execute-Workflow -RootDir $textBoxRootDir.Text.Trim() `
-                            -GitHubUsername $textBoxGitHubUsername.Text.Trim() `
-                            -GitHubPAT $textBoxGitHubPAT.Text.Trim() `
-                            -PackageId $textBoxPackageId.Text.Trim() `
-                            -Description $textBoxDescription.Text.Trim() `
-                            -Tags $textBoxTags.Text.Trim() `
-                            -SourceDirs $sourceDirs `
-                            -ExcludeDirs $excludeDirs
+                Execute-Workflow -RootDir $textBoxRootDir.Text.Trim() `
+                    -GitHubUsername $textBoxGitHubUsername.Text.Trim() `
+                    -GitHubPAT $textBoxGitHubPAT.Text.Trim() `
+                    -PackageId $textBoxPackageId.Text.Trim() `
+                    -Description $textBoxDescription.Text.Trim() `
+                    -Tags $textBoxTags.Text.Trim() `
+                    -SourceDirs $sourceDirs `
+                    -ExcludeDirs $excludeDirs
 
-            $textBoxResults.AppendText("Workflow completed successfully.`r`n")
-            $statusLabel.Text = "Success"
-            $statusLabel.ForeColor = [System.Drawing.Color]::Green
-        } catch {
-            $textBoxResults.AppendText("Error: $_`r`n")
-            $statusLabel.Text = "Error: $_"
-            $statusLabel.ForeColor = [System.Drawing.Color]::Red
-        }
-    })
+                $textBoxResults.AppendText("Workflow completed successfully.`r`n")
+                $statusLabel.Text = "Success"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Green
+            } catch {
+                $textBoxResults.AppendText("Error: $_`r`n")
+                $statusLabel.Text = "Error: $_"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Red
+            }
+        })
     $buttonPanel.Controls.Add($buttonRun)
 
     # Exit Button
@@ -639,8 +639,8 @@ function Show-GUI {
     $buttonHelp.TabIndex = $tabIndex
     $tabIndex++
     $buttonHelp.Add_Click({
-        Start-Process "https://github.com/your-username/your-repo"
-    })
+            Start-Process "https://github.com/your-username/your-repo"
+        })
     $form.Controls.Add($buttonHelp)
 
     # Footer Label

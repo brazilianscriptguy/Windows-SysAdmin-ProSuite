@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Updating Software on AD Computers via Winget.
 
@@ -57,7 +57,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     if (![string]::IsNullOrWhiteSpace($Message)) {
@@ -93,8 +93,8 @@ function Find-WingetPath {
     try {
         Log-Message "Searching for winget executable..."
         $wingetPath = Get-ChildItem -Path $SearchBase -Filter 'winget.exe' -Recurse -ErrorAction Ignore |
-                      Where-Object { $_.FullName -like "*$SearchPattern" } |
-                      Select-Object -ExpandProperty FullName -First 1
+            Where-Object { $_.FullName -like "*$SearchPattern" } |
+            Select-Object -ExpandProperty FullName -First 1
         if ($wingetPath -and (Test-Path -Path $wingetPath -Type Leaf)) {
             Log-Message "winget found at: $wingetPath"
             return $wingetPath
@@ -191,27 +191,27 @@ $startButton.Location = New-Object System.Drawing.Point(10, 20)
 $startButton.Size = New-Object System.Drawing.Size(170, 30)
 $startButton.Text = 'Start Update'
 $startButton.Add_Click({
-    Log-Message "winget update process started by user."
+        Log-Message "winget update process started by user."
 
-    $CancelRequested = $false
+        $CancelRequested = $false
 
-    $wingetPath = Get-Command "winget" -ErrorAction SilentlyContinue
-
-    if ($wingetPath) {
-        Log-Message "winget found. Proceeding with the update."
-        Update-Software -WingetPath $wingetPath -ProgressBar $progressBar -StatusLabel $statusLabel -CancelRequested ([ref]$CancelRequested) -StartButton $startButton -CancelButton $cancelButton
-    } else {
-        Log-Message "Winget is not installed or not found in the PATH. Attempting to find it..."
-        $wingetPath = Find-WingetPath
+        $wingetPath = Get-Command "winget" -ErrorAction SilentlyContinue
 
         if ($wingetPath) {
+            Log-Message "winget found. Proceeding with the update."
             Update-Software -WingetPath $wingetPath -ProgressBar $progressBar -StatusLabel $statusLabel -CancelRequested ([ref]$CancelRequested) -StartButton $startButton -CancelButton $cancelButton
         } else {
-            $statusLabel.Text = "winget not found. Please verify the installation and path."
-            Log-Message "winget not found. Please verify the installation and path."
+            Log-Message "Winget is not installed or not found in the PATH. Attempting to find it..."
+            $wingetPath = Find-WingetPath
+
+            if ($wingetPath) {
+                Update-Software -WingetPath $wingetPath -ProgressBar $progressBar -StatusLabel $statusLabel -CancelRequested ([ref]$CancelRequested) -StartButton $startButton -CancelButton $cancelButton
+            } else {
+                $statusLabel.Text = "winget not found. Please verify the installation and path."
+                Log-Message "winget not found. Please verify the installation and path."
+            }
         }
-    }
-})
+    })
 $form.Controls.Add($startButton)
 
 # Cancel button setup
@@ -221,13 +221,13 @@ $cancelButton.Size = New-Object System.Drawing.Size(170, 30)
 $cancelButton.Text = 'Cancel Update'
 $cancelButton.Enabled = $false
 $cancelButton.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the update?", "Confirm Cancellation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-    if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
-        $CancelRequested = $true
-        Log-Message "User requested cancellation of update."
-        $statusLabel.Text = "Update cancellation requested..."
-    }
-})
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the update?", "Confirm Cancellation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
+            $CancelRequested = $true
+            Log-Message "User requested cancellation of update."
+            $statusLabel.Text = "Update cancellation requested..."
+        }
+    })
 $form.Controls.Add($cancelButton)
 
 # Enable/disable buttons based on update status
@@ -244,9 +244,9 @@ function Update-ButtonStates {
 }
 
 $form.Add_Shown({
-    $form.Activate()
-    Update-ButtonStates -StartButton $startButton -CancelButton $cancelButton -StartEnabled $true -CancelEnabled $false
-})
+        $form.Activate()
+        Update-ButtonStates -StartButton $startButton -CancelButton $cancelButton -StartEnabled $true -CancelEnabled $false
+    })
 
 [void]$form.ShowDialog()
 

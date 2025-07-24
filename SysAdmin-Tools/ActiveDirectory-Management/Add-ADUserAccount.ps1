@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Creating New AD User Accounts with Tabbed GUI and OU/Group Search.
 
@@ -49,9 +49,9 @@ if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Forc
 # Logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING")]
         [string]$MessageType = "INFO"
     )
@@ -75,17 +75,17 @@ function Export-ToCSV {
         [datetime]$Timestamp
     )
     $userDetails = [PSCustomObject]@{
-        Timestamp          = $Timestamp
-        Domain             = $Domain
-        OU                 = $OU
-        GivenName          = $GivenName
-        Surname            = $Surname
-        DisplayName        = $DisplayName
+        Timestamp = $Timestamp
+        Domain = $Domain
+        OU = $OU
+        GivenName = $GivenName
+        Surname = $Surname
+        DisplayName = $DisplayName
         AccountDescription = $AccountDescription
-        Company            = $Company
-        EmailAddress       = $EmailAddress
-        SamAccountName     = $SamAccountName
-        UserGroup          = $UserGroup
+        Company = $Company
+        EmailAddress = $EmailAddress
+        SamAccountName = $SamAccountName
+        UserGroup = $UserGroup
     }
     $userDetails | Export-Csv -Path $csvFilePath -NoTypeInformation -Append -Force
 }
@@ -171,29 +171,29 @@ function Create-ADUser {
         $upnSuffix = Get-UPNSuffix
 
         New-ADUser -Server $Domain `
-                   -Name "$GivenName $Surname" `
-                   -GivenName $GivenName `
-                   -Surname $Surname `
-                   -DisplayName $DisplayName `
-                   -Description $AccountDescription `
-                   -Title $Title `
-                   -Company $Company `
-                   -OfficePhone $PhoneNumber `
-                   -EmailAddress $EmailAddress `
-                   -SamAccountName $SamAccountName `
-                   -UserPrincipalName "$SamAccountName@$upnSuffix" `
-                   -Path $OU `
-                   -AccountPassword (ConvertTo-SecureString $Password -AsPlainText -Force) `
-                   -ChangePasswordAtLogon $true `
-                   -Enabled $true `
-                   -AccountExpirationDate $expiration
+            -Name "$GivenName $Surname" `
+            -GivenName $GivenName `
+            -Surname $Surname `
+            -DisplayName $DisplayName `
+            -Description $AccountDescription `
+            -Title $Title `
+            -Company $Company `
+            -OfficePhone $PhoneNumber `
+            -EmailAddress $EmailAddress `
+            -SamAccountName $SamAccountName `
+            -UserPrincipalName "$SamAccountName@$upnSuffix" `
+            -Path $OU `
+            -AccountPassword (ConvertTo-SecureString $Password -AsPlainText -Force) `
+            -ChangePasswordAtLogon $true `
+            -Enabled $true `
+            -AccountExpirationDate $expiration
 
         Add-ADGroupMember -Server $Domain -Identity $UserGroup -Members $SamAccountName
 
         Log-Message "User: $SamAccountName - $DisplayName created successfully in OU: $OU on domain $Domain"
         Export-ToCSV -Domain $Domain -OU $OU -GivenName $GivenName -Surname $Surname -DisplayName $DisplayName `
-                     -AccountDescription $AccountDescription -Company $Company -EmailAddress $EmailAddress `
-                     -SamAccountName $SamAccountName -UserGroup $UserGroup -Timestamp (Get-Date)
+            -AccountDescription $AccountDescription -Company $Company -EmailAddress $EmailAddress `
+            -SamAccountName $SamAccountName -UserGroup $UserGroup -Timestamp (Get-Date)
         Show-InfoMessage "User '$SamAccountName' created successfully in OU: $OU"
         return $true
     } catch {
@@ -271,8 +271,8 @@ function Show-Form {
 
     # Populate Title ComboBox
     $titles = @("Cybersecurity Analyst", "Incident Responder", "Information Security Officer", "Network Security Engineer", "Penetration Tester", 
-            "Security Architect", "Security Consultant", "Security Operations Center (SOC) Analyst", "Threat Intelligence Analyst", 
-            "Vulnerability Assessor") | Sort-Object
+        "Security Architect", "Security Consultant", "Security Operations Center (SOC) Analyst", "Threat Intelligence Analyst", 
+        "Vulnerability Assessor") | Sort-Object
     $cmbTitle.Items.AddRange($titles)
     $cmbTitle.SelectedIndex = 0
 
@@ -364,71 +364,71 @@ function Show-Form {
 
     # Event handlers
     $txtGivenName.Add_TextChanged({ 
-        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
-        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
-        $txtDisplayName.Text = "$firstName $lastName".Trim()
-    })
+            $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+            $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+            $txtDisplayName.Text = "$firstName $lastName".Trim()
+        })
     $txtSurname.Add_TextChanged({ 
-        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
-        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
-        $txtDisplayName.Text = "$firstName $lastName".Trim()
-    })
+            $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+            $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+            $txtDisplayName.Text = "$firstName $lastName".Trim()
+        })
 
     $btnCreate.Add_Click({
-        $statusLabel.Text = "Creating user..."
-        $requiredFields = @($txtGivenName, $txtSurname, $txtLoginID, $txtEmail, $txtPassword)
-        if ($requiredFields | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }) {
-            Show-ErrorMessage "Please fill in all required fields."
-            $statusLabel.Text = "Creation failed: Missing required fields"
-            return
-        }
-        if (-not $cmbOU.SelectedItem) {
-            Show-ErrorMessage "Please select an Organizational Unit."
-            $statusLabel.Text = "Creation failed: No OU selected"
-            return
-        }
-        if (-not $cmbGroup.SelectedItem) {
-            Show-ErrorMessage "Please select a User Group."
-            $statusLabel.Text = "Creation failed: No User Group selected"
-            return
-        }
+            $statusLabel.Text = "Creating user..."
+            $requiredFields = @($txtGivenName, $txtSurname, $txtLoginID, $txtEmail, $txtPassword)
+            if ($requiredFields | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }) {
+                Show-ErrorMessage "Please fill in all required fields."
+                $statusLabel.Text = "Creation failed: Missing required fields"
+                return
+            }
+            if (-not $cmbOU.SelectedItem) {
+                Show-ErrorMessage "Please select an Organizational Unit."
+                $statusLabel.Text = "Creation failed: No OU selected"
+                return
+            }
+            if (-not $cmbGroup.SelectedItem) {
+                Show-ErrorMessage "Please select a User Group."
+                $statusLabel.Text = "Creation failed: No User Group selected"
+                return
+            }
 
-        $success = Create-ADUser -Domain $cmbDomain.SelectedItem `
-                                -OU $cmbOU.SelectedItem `
-                                -GivenName $txtGivenName.Text `
-                                -Surname $txtSurname.Text `
-                                -DisplayName $txtDisplayName.Text `
-                                -AccountDescription $txtDescription.Text `
-                                -Title $cmbTitle.SelectedItem `
-                                -Company $txtCompany.Text `
-                                -PhoneNumber $txtPhone.Text `
-                                -EmailAddress $txtEmail.Text `
-                                -Password $txtPassword.Text `
-                                -SamAccountName $txtLoginID.Text `
-                                -AccountExpirationDate $dateTimePicker.Value `
-                                -NoExpiration $chkNoExpiration.Checked `
-                                -UserGroup $cmbGroup.SelectedItem
+            $success = Create-ADUser -Domain $cmbDomain.SelectedItem `
+                -OU $cmbOU.SelectedItem `
+                -GivenName $txtGivenName.Text `
+                -Surname $txtSurname.Text `
+                -DisplayName $txtDisplayName.Text `
+                -AccountDescription $txtDescription.Text `
+                -Title $cmbTitle.SelectedItem `
+                -Company $txtCompany.Text `
+                -PhoneNumber $txtPhone.Text `
+                -EmailAddress $txtEmail.Text `
+                -Password $txtPassword.Text `
+                -SamAccountName $txtLoginID.Text `
+                -AccountExpirationDate $dateTimePicker.Value `
+                -NoExpiration $chkNoExpiration.Checked `
+                -UserGroup $cmbGroup.SelectedItem
         
-        $statusLabel.Text = if ($success) { "User created successfully" } else { "User creation failed" }
-        if ($success) {
+            $statusLabel.Text = if ($success) { "User created successfully" } else { "User creation failed" }
+            if ($success) {
+                $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
+                $txtDescription.Text = "Default User Account"; $cmbTitle.SelectedIndex = 0
+                $txtCompany.Text = "SCRIPTGUY Enterprise"; $txtPhone.Text = "+55(96)98115-5265"
+                $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
+                $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
+                $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
+            }
+        })
+
+    $btnClear.Add_Click({
             $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
             $txtDescription.Text = "Default User Account"; $cmbTitle.SelectedIndex = 0
             $txtCompany.Text = "SCRIPTGUY Enterprise"; $txtPhone.Text = "+55(96)98115-5265"
             $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
             $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
             $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
-        }
-    })
-
-    $btnClear.Add_Click({
-        $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
-        $txtDescription.Text = "Default User Account"; $cmbTitle.SelectedIndex = 0
-        $txtCompany.Text = "SCRIPTGUY Enterprise"; $txtPhone.Text = "+55(96)98115-5265"
-        $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
-        $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
-        $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
-        $statusLabel.Text = "Form cleared"
-    })
+            $statusLabel.Text = "Form cleared"
+        })
 
     # Show form
     $form.ShowDialog()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Creating New DHCP Reservations.
 
@@ -321,85 +321,85 @@ function Create-GUI {
     $btnClose.Location = New-Object System.Drawing.Point(350, 410)
     $btnClose.Size = New-Object System.Drawing.Size(200, 40)
     $btnClose.Add_Click({
-        $form.Close()
-    })
+            $form.Close()
+        })
     $form.Controls.Add($btnClose)
 
     # Event Handlers
     $comboBoxDomains.Add_SelectedIndexChanged({
-        $selectedDomain = $comboBoxDomains.SelectedItem
-        $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
-        if ($dhcpServer) {
-            $scopes = Get-DhcpServerv4Scope -ComputerName $dhcpServer
-            $comboBoxScopes.Items.Clear()
-            foreach ($scope in $scopes) {
-                # Ensure ScopeID is treated as string
-                $scopeID = $scope.ScopeId.ToString()
-                $scopeName = $scope.Name
-                $scopeStart = $scope.StartRange.ToString()
-                $scopeEnd = $scope.EndRange.ToString()
-                $comboBoxScopes.Items.Add("$scopeID - $scopeName - $scopeStart to $scopeEnd")
+            $selectedDomain = $comboBoxDomains.SelectedItem
+            $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
+            if ($dhcpServer) {
+                $scopes = Get-DhcpServerv4Scope -ComputerName $dhcpServer
+                $comboBoxScopes.Items.Clear()
+                foreach ($scope in $scopes) {
+                    # Ensure ScopeID is treated as string
+                    $scopeID = $scope.ScopeId.ToString()
+                    $scopeName = $scope.Name
+                    $scopeStart = $scope.StartRange.ToString()
+                    $scopeEnd = $scope.EndRange.ToString()
+                    $comboBoxScopes.Items.Add("$scopeID - $scopeName - $scopeStart to $scopeEnd")
+                }
             }
-        }
-    })
+        })
 
     $btnFindIPs.Add_Click({
-        $selectedScope = $comboBoxScopes.SelectedItem
-        $selectedDomain = $comboBoxDomains.SelectedItem
-        if ($selectedScope -and $selectedDomain) {
-            $scopeID = $selectedScope.Split(" ")[0]
-            $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
-            if (-not $dhcpServer) {
-                [System.Windows.Forms.MessageBox]::Show("Failed to retrieve DHCP server.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                return
-            }
-
-            $availableIPs = Get-AvailableIPs -ScopeID $scopeID -dhcpServer $dhcpServer
-            $comboBoxIPs.Items.Clear()
-            if ($availableIPs.Count -gt 0) {
-                foreach ($ip in $availableIPs) {
-                    $comboBoxIPs.Items.Add($ip)
+            $selectedScope = $comboBoxScopes.SelectedItem
+            $selectedDomain = $comboBoxDomains.SelectedItem
+            if ($selectedScope -and $selectedDomain) {
+                $scopeID = $selectedScope.Split(" ")[0]
+                $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
+                if (-not $dhcpServer) {
+                    [System.Windows.Forms.MessageBox]::Show("Failed to retrieve DHCP server.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    return
                 }
-                [System.Windows.Forms.MessageBox]::Show("Available IPs retrieved successfully.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+
+                $availableIPs = Get-AvailableIPs -ScopeID $scopeID -dhcpServer $dhcpServer
+                $comboBoxIPs.Items.Clear()
+                if ($availableIPs.Count -gt 0) {
+                    foreach ($ip in $availableIPs) {
+                        $comboBoxIPs.Items.Add($ip)
+                    }
+                    [System.Windows.Forms.MessageBox]::Show("Available IPs retrieved successfully.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show("No available IPs found in the selected scope.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                }
             } else {
-                [System.Windows.Forms.MessageBox]::Show("No available IPs found in the selected scope.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                [System.Windows.Forms.MessageBox]::Show("Please select a valid scope and domain.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
             }
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Please select a valid scope and domain.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-    })
+        })
 
     $btnAddReservation.Add_Click({
-        $selectedScope = $comboBoxScopes.SelectedItem
-        $selectedIP = $comboBoxIPs.SelectedItem
-        $reservationName = $txtName.Text.Trim()
-        $macAddress = $txtMAC.Text.Trim().Replace(":", "").Replace("-", "")
-        $description = $txtDesc.Text.Trim()
-        $selectedDomain = $comboBoxDomains.SelectedItem
+            $selectedScope = $comboBoxScopes.SelectedItem
+            $selectedIP = $comboBoxIPs.SelectedItem
+            $reservationName = $txtName.Text.Trim()
+            $macAddress = $txtMAC.Text.Trim().Replace(":", "").Replace("-", "")
+            $description = $txtDesc.Text.Trim()
+            $selectedDomain = $comboBoxDomains.SelectedItem
 
-        if (-not (Validate-MACAddress -macAddress $macAddress)) {
-            [System.Windows.Forms.MessageBox]::Show("Invalid MAC Address. Use format: D8BBC1830F62", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
-
-        if ($selectedScope -and $selectedIP -and $reservationName -and $macAddress -and $description -and $selectedDomain) {
-            $scopeID = $selectedScope.Split(" ")[0]
-            $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
-            if (-not $dhcpServer) {
-                [System.Windows.Forms.MessageBox]::Show("Failed to retrieve DHCP server.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            if (-not (Validate-MACAddress -macAddress $macAddress)) {
+                [System.Windows.Forms.MessageBox]::Show("Invalid MAC Address. Use format: D8BBC1830F62", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
                 return
             }
-            Add-DhcpReservation -ScopeID $scopeID -IPAddress $selectedIP -MACAddress $macAddress -ReservationName $reservationName -Description $description -dhcpServer $dhcpServer
-            [System.Windows.Forms.MessageBox]::Show("Reservation added successfully.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            # Clear input fields
-            $txtName.Clear()
-            $txtMAC.Clear()
-            $txtDesc.Clear()
-            $comboBoxIPs.SelectedIndex = -1
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Please complete all fields.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-    })
+
+            if ($selectedScope -and $selectedIP -and $reservationName -and $macAddress -and $description -and $selectedDomain) {
+                $scopeID = $selectedScope.Split(" ")[0]
+                $dhcpServer = Get-DHCPServerFromDomain -domain $selectedDomain
+                if (-not $dhcpServer) {
+                    [System.Windows.Forms.MessageBox]::Show("Failed to retrieve DHCP server.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    return
+                }
+                Add-DhcpReservation -ScopeID $scopeID -IPAddress $selectedIP -MACAddress $macAddress -ReservationName $reservationName -Description $description -dhcpServer $dhcpServer
+                [System.Windows.Forms.MessageBox]::Show("Reservation added successfully.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                # Clear input fields
+                $txtName.Clear()
+                $txtMAC.Clear()
+                $txtDesc.Clear()
+                $comboBoxIPs.SelectedIndex = -1
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("Please complete all fields.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            }
+        })
 
     # Show the form
     $form.ShowDialog()

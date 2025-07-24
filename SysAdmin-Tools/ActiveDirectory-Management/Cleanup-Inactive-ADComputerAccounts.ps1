@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Cleaning Up Inactive AD Computer Accounts.
 
@@ -61,9 +61,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -128,7 +128,7 @@ function Find-OldWorkstationAccounts {
     $InactiveTimeSpan = [TimeSpan]::FromDays($InactiveDays)
     $CutOffDate = (Get-Date).Add(-$InactiveTimeSpan)
     Log-Message "Searching for workstations inactive since $($CutOffDate.ToShortDateString())"
-    $oldComputers = Get-ADComputer -Server $DCName -Filter {LastLogonDate -lt $CutOffDate -and Enabled -eq $true} -Properties LastLogonDate, DistinguishedName, OperatingSystem | Where-Object { $_.OperatingSystem -notlike "*Server*" }
+    $oldComputers = Get-ADComputer -Server $DCName -Filter { LastLogonDate -lt $CutOffDate -and Enabled -eq $true } -Properties LastLogonDate, DistinguishedName, OperatingSystem | Where-Object { $_.OperatingSystem -notlike "*Server*" }
 
     Log-Message "Found $($oldComputers.Count) old workstations."
     return $oldComputers
@@ -165,7 +165,7 @@ function Remove-SelectedWorkstationAccounts {
         $TimeStamp = Get-Date -Format "yyyyMMdd_HHmmss"
         $FileName = "${ScriptName}_${DCName}-${TimeStamp}.csv"
         $FilePath = Join-Path -Path $MyDocuments -ChildPath $FileName
-        $RemovedComputers | Select-Object @{Name='Name';Expression={$_.Name}}, @{Name='DistinguishedName';Expression={$_.DistinguishedName}} | Export-Csv -Path $FilePath -NoTypeInformation -Force
+        $RemovedComputers | Select-Object @{Name = 'Name'; Expression = { $_.Name } }, @{Name = 'DistinguishedName'; Expression = { $_.DistinguishedName } } | Export-Csv -Path $FilePath -NoTypeInformation -Force
         Show-InfoMessage "$($RemovedComputers.Count) workstation(s) removed. Details exported to '$FilePath'."
         Log-Message "Removed $($RemovedComputers.Count) workstations. Details exported to '$FilePath'."
     }
@@ -227,22 +227,22 @@ function Show-GUI {
     $buttonFind.Size = New-Object System.Drawing.Size(150, 50)
     $buttonFind.Text = "Find Old Workstations"
     $buttonFind.Add_Click({
-        $DCName = $comboBoxDC.SelectedItem
-        $InactiveDays = $textBoxDays.Text
-        if ([string]::IsNullOrWhiteSpace($DCName) -or ![int]::TryParse($textBoxDays.Text, [ref]$InactiveDays)) {
-            Show-ErrorMessage "Please provide both Domain Controller FQDN and a valid number for Inactive Days Threshold."
-            return
-        }
-        $oldComputers = Find-OldWorkstationAccounts -DCName $DCName -InactiveDays $InactiveDays
-        $listView.Items.Clear()
-        foreach ($computer in $oldComputers) {
-            $item = New-Object System.Windows.Forms.ListViewItem($computer.Name)
-            $item.SubItems.Add($computer.DistinguishedName)
-            $item.Tag = $computer
-            $listView.Items.Add($item)
-        }
-        Show-InfoMessage "Found $($oldComputers.Count) old workstation(s) with an inactive threshold of $InactiveDays day(s)."
-    })
+            $DCName = $comboBoxDC.SelectedItem
+            $InactiveDays = $textBoxDays.Text
+            if ([string]::IsNullOrWhiteSpace($DCName) -or ![int]::TryParse($textBoxDays.Text, [ref]$InactiveDays)) {
+                Show-ErrorMessage "Please provide both Domain Controller FQDN and a valid number for Inactive Days Threshold."
+                return
+            }
+            $oldComputers = Find-OldWorkstationAccounts -DCName $DCName -InactiveDays $InactiveDays
+            $listView.Items.Clear()
+            foreach ($computer in $oldComputers) {
+                $item = New-Object System.Windows.Forms.ListViewItem($computer.Name)
+                $item.SubItems.Add($computer.DistinguishedName)
+                $item.Tag = $computer
+                $listView.Items.Add($item)
+            }
+            Show-InfoMessage "Found $($oldComputers.Count) old workstation(s) with an inactive threshold of $InactiveDays day(s)."
+        })
     $form.Controls.Add($buttonFind)
 
     # Checkbox to select/deselect all workstations
@@ -251,11 +251,11 @@ function Show-GUI {
     $checkboxSelectAll.Size = New-Object System.Drawing.Size(150, 20)
     $checkboxSelectAll.Text = "Select/Deselect All"
     $checkboxSelectAll.Add_CheckedChanged({
-        $isChecked = $checkboxSelectAll.Checked
-        foreach ($item in $listView.Items) {
-            $item.Checked = $isChecked
-        }
-    })
+            $isChecked = $checkboxSelectAll.Checked
+            foreach ($item in $listView.Items) {
+                $item.Checked = $isChecked
+            }
+        })
     $form.Controls.Add($checkboxSelectAll)
 
     # Button to remove selected workstations and export details to CSV
@@ -264,21 +264,21 @@ function Show-GUI {
     $buttonRemove.Size = New-Object System.Drawing.Size(480, 40)
     $buttonRemove.Text = "Remove Selected Workstations and Export to CSV"
     $buttonRemove.Add_Click({
-        $selectedItems = $listView.CheckedItems
-        if ($selectedItems.Count -eq 0) {
-            Show-ErrorMessage "No workstations selected for removal."
-            return
-        }
+            $selectedItems = $listView.CheckedItems
+            if ($selectedItems.Count -eq 0) {
+                Show-ErrorMessage "No workstations selected for removal."
+                return
+            }
 
-        $DCName = $comboBoxDC.SelectedItem
-        if ([string]::IsNullOrWhiteSpace($DCName)) {
-            Show-ErrorMessage "Domain Controller FQDN is missing."
-            return
-        }
+            $DCName = $comboBoxDC.SelectedItem
+            if ([string]::IsNullOrWhiteSpace($DCName)) {
+                Show-ErrorMessage "Domain Controller FQDN is missing."
+                return
+            }
 
-        $selectedComputers = $selectedItems | ForEach-Object { $_.Tag }
-        Remove-SelectedWorkstationAccounts -SelectedComputers $selectedComputers -DCName $DCName
-    })
+            $selectedComputers = $selectedItems | ForEach-Object { $_.Tag }
+            Remove-SelectedWorkstationAccounts -SelectedComputers $selectedComputers -DCName $DCName
+        })
     $form.Controls.Add($buttonRemove)
 
     $form.ShowDialog() | Out-Null

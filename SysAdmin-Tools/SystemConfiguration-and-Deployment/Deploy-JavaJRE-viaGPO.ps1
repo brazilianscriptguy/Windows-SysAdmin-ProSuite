@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Silent Java Runtime Environment (JRE) installation script for all workstations via Computer GPO.
 
@@ -102,8 +102,8 @@ function Get-JavaVersionFromRegistry {
 
         foreach ($path in $uninstallKeys) {
             $entry = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-                     Where-Object { $_.DisplayName -like "*Zulu*" -and $_.DisplayVersion -match "^\d+\.\d+\.\d+" } |
-                     Select-Object -First 1
+                Where-Object { $_.DisplayName -like "*Zulu*" -and $_.DisplayVersion -match "^\d+\.\d+\.\d+" } |
+                Select-Object -First 1
 
             if ($entry) {
                 return $entry.DisplayVersion

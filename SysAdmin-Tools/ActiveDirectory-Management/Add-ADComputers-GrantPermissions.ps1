@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Adding Workstations to AD OUs and Granting Permissions.
 
@@ -108,10 +108,10 @@ function Grant-ComputerJoinPermission {
         Initialize-DirectorySearcher
 
         # AD rights GUIDs
-        $AD_RIGHTS_GUID_RESET_PASSWORD      = "00299570-246D-11D0-A768-00AA006E0529"
+        $AD_RIGHTS_GUID_RESET_PASSWORD = "00299570-246D-11D0-A768-00AA006E0529"
         $AD_RIGHTS_GUID_VALIDATED_WRITE_DNS = "72E39547-7B18-11D1-ADEF-00C04FD8D5CD"
         $AD_RIGHTS_GUID_VALIDATED_WRITE_SPN = "F3A64788-5306-11D1-A9C5-0000F80367C1"
-        $AD_RIGHTS_GUID_ACCT_RESTRICTIONS   = "4C164200-20C0-11D0-A768-00AA006E0529"
+        $AD_RIGHTS_GUID_ACCT_RESTRICTIONS = "4C164200-20C0-11D0-A768-00AA006E0529"
 
         # Searches for a computer object; if found, returns its DirectoryEntry
         function Get-ComputerDirectoryEntry {
@@ -147,39 +147,39 @@ function Grant-ComputerJoinPermission {
             $accessControlEntries = New-Object Collections.ArrayList
             # Reset password
             [Void]$accessControlEntries.Add((
-                New-Object DirectoryServices.ExtendedRightAccessRule(
-                    $Identity,
-                    [Security.AccessControl.AccessControlType]"Allow",
-                    [Guid]$AD_RIGHTS_GUID_RESET_PASSWORD
-                )
-            ))
+                    New-Object DirectoryServices.ExtendedRightAccessRule(
+                        $Identity,
+                        [Security.AccessControl.AccessControlType]"Allow",
+                        [Guid]$AD_RIGHTS_GUID_RESET_PASSWORD
+                    )
+                ))
             # Validated write to DNS host name
             [Void]$accessControlEntries.Add((
-                New-Object DirectoryServices.ActiveDirectoryAccessRule(
-                    $Identity,
-                    [DirectoryServices.ActiveDirectoryRights]"Self",
-                    [Security.AccessControl.AccessControlType]"Allow",
-                    [Guid]$AD_RIGHTS_GUID_VALIDATED_WRITE_DNS
-                )
-            ))
+                    New-Object DirectoryServices.ActiveDirectoryAccessRule(
+                        $Identity,
+                        [DirectoryServices.ActiveDirectoryRights]"Self",
+                        [Security.AccessControl.AccessControlType]"Allow",
+                        [Guid]$AD_RIGHTS_GUID_VALIDATED_WRITE_DNS
+                    )
+                ))
             # Validated write to service principal name
             [Void]$accessControlEntries.Add((
-                New-Object DirectoryServices.ActiveDirectoryAccessRule(
-                    $Identity,
-                    [DirectoryServices.ActiveDirectoryRights]"Self",
-                    [Security.AccessControl.AccessControlType]"Allow",
-                    [Guid]$AD_RIGHTS_GUID_VALIDATED_WRITE_SPN
-                )
-            ))
+                    New-Object DirectoryServices.ActiveDirectoryAccessRule(
+                        $Identity,
+                        [DirectoryServices.ActiveDirectoryRights]"Self",
+                        [Security.AccessControl.AccessControlType]"Allow",
+                        [Guid]$AD_RIGHTS_GUID_VALIDATED_WRITE_SPN
+                    )
+                ))
             # Write account restrictions
             [Void]$accessControlEntries.Add((
-                New-Object DirectoryServices.ActiveDirectoryAccessRule(
-                    $Identity,
-                    [DirectoryServices.ActiveDirectoryRights]"WriteProperty",
-                    [Security.AccessControl.AccessControlType]"Allow",
-                    [Guid]$AD_RIGHTS_GUID_ACCT_RESTRICTIONS
-                )
-            ))
+                    New-Object DirectoryServices.ActiveDirectoryAccessRule(
+                        $Identity,
+                        [DirectoryServices.ActiveDirectoryRights]"WriteProperty",
+                        [Security.AccessControl.AccessControlType]"Allow",
+                        [Guid]$AD_RIGHTS_GUID_ACCT_RESTRICTIONS
+                    )
+                ))
             # Get ActiveDirectorySecurity object
             $adSecurity = $dirEntry.ObjectSecurity
             # Add ACEs to ActiveDirectorySecurity object
@@ -253,17 +253,17 @@ function Show-Form {
     $txtComputers.Text = "Enter computer names separated by commas"
     $txtComputers.ForeColor = [System.Drawing.Color]::Gray
     $txtComputers.Add_Enter({
-        if ($txtComputers.Text -eq "Enter computer names separated by commas") {
-            $txtComputers.Text = ''
-            $txtComputers.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
+            if ($txtComputers.Text -eq "Enter computer names separated by commas") {
+                $txtComputers.Text = ''
+                $txtComputers.ForeColor = [System.Drawing.Color]::Black
+            }
+        })
     $txtComputers.Add_Leave({
-        if ($txtComputers.Text -eq '') {
-            $txtComputers.Text = "Enter computer names separated by commas"
-            $txtComputers.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
+            if ($txtComputers.Text -eq '') {
+                $txtComputers.Text = "Enter computer names separated by commas"
+                $txtComputers.ForeColor = [System.Drawing.Color]::Gray
+            }
+        })
 
     $lblFileInfo = New-Object System.Windows.Forms.Label; $lblFileInfo.Text = "No file selected"; $lblFileInfo.Location = New-Object System.Drawing.Point(140, 50); $lblFileInfo.Size = New-Object System.Drawing.Size(380, 20)
 
@@ -286,17 +286,17 @@ function Show-Form {
     $txtOUSearch.Text = "Search OU..."
     $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
     $txtOUSearch.Add_Enter({
-        if ($txtOUSearch.Text -eq "Search OU...") {
-            $txtOUSearch.Text = ''
-            $txtOUSearch.ForeColor = [System.Drawing.Color]::Black
-        }
-    })
+            if ($txtOUSearch.Text -eq "Search OU...") {
+                $txtOUSearch.Text = ''
+                $txtOUSearch.ForeColor = [System.Drawing.Color]::Black
+            }
+        })
     $txtOUSearch.Add_Leave({
-        if ($txtOUSearch.Text -eq '') {
-            $txtOUSearch.Text = "Search OU..."
-            $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
-        }
-    })
+            if ($txtOUSearch.Text -eq '') {
+                $txtOUSearch.Text = "Search OU..."
+                $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
+            }
+        })
 
     $lblOU = New-Object System.Windows.Forms.Label; $lblOU.Text = "OU:"; $lblOU.Location = New-Object System.Drawing.Point(10, 45); $lblOU.AutoSize = $true
     $cmbOU = New-Object System.Windows.Forms.ComboBox; $cmbOU.Location = New-Object System.Drawing.Point(140, 45); $cmbOU.Size = New-Object System.Drawing.Size(380, 20); $cmbOU.DropDownStyle = 'DropDownList'
@@ -334,28 +334,28 @@ function Show-Form {
     $openFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
 
     $btnOpenFile.Add_Click({
-        if ($openFileDialog.ShowDialog() -eq 'OK') {
-            $file = $openFileDialog.FileName
-            $computers = Get-Content -Path $file
-            # Validate each computer name from the file
-            $invalidComputers = @()
-            foreach ($computer in $computers) {
-                $computer = $computer.Trim()
-                if (-not [string]::IsNullOrWhiteSpace($computer)) {
-                    if ($computer.Length -ne 15 -or $computer -cne $computer.ToUpper()) {
-                        $invalidComputers += $computer
+            if ($openFileDialog.ShowDialog() -eq 'OK') {
+                $file = $openFileDialog.FileName
+                $computers = Get-Content -Path $file
+                # Validate each computer name from the file
+                $invalidComputers = @()
+                foreach ($computer in $computers) {
+                    $computer = $computer.Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($computer)) {
+                        if ($computer.Length -ne 15 -or $computer -cne $computer.ToUpper()) {
+                            $invalidComputers += $computer
+                        }
                     }
                 }
+                if ($invalidComputers.Count -gt 0) {
+                    [System.Windows.Forms.MessageBox]::Show("The following computer names are invalid (must be exactly 15 characters and uppercase):`n" + ($invalidComputers -join ", "), 'Error', 'OK', 'Error')
+                    return
+                }
+                $txtComputers.Text = $computers -join ', '
+                $lblFileInfo.Text = "Loaded file: $($openFileDialog.FileName) with $($computers.Count) entries."
+                $txtOutput.Clear() # Clear output when loading a new file
             }
-            if ($invalidComputers.Count -gt 0) {
-                [System.Windows.Forms.MessageBox]::Show("The following computer names are invalid (must be exactly 15 characters and uppercase):`n" + ($invalidComputers -join ", "), 'Error', 'OK', 'Error')
-                return
-            }
-            $txtComputers.Text = $computers -join ', '
-            $lblFileInfo.Text = "Loaded file: $($openFileDialog.FileName) with $($computers.Count) entries."
-            $txtOutput.Clear() # Clear output when loading a new file
-        }
-    })
+        })
 
     # Tooltips
     $toolTip = New-Object System.Windows.Forms.ToolTip
@@ -385,111 +385,111 @@ function Show-Form {
 
     # Event handlers
     $btnAddAndGrant.Add_Click({
-        try {
-            $statusLabel.Text = "Processing computers..."
-            $txtOutput.Clear() # Clear previous output before starting
-            if ($txtComputers.Text -eq "Enter computer names separated by commas" -or [string]::IsNullOrWhiteSpace($txtComputers.Text)) {
-                [System.Windows.Forms.MessageBox]::Show("Please enter computer names or load a file.", 'Error', 'OK', 'Error')
-                $statusLabel.Text = "Operation failed: No computer names provided"
-                return
-            }
-            if (-not $cmbOU.SelectedItem) {
-                [System.Windows.Forms.MessageBox]::Show("Please select an Organizational Unit.", 'Error', 'OK', 'Error')
-                $statusLabel.Text = "Operation failed: No OU selected"
-                return
-            }
+            try {
+                $statusLabel.Text = "Processing computers..."
+                $txtOutput.Clear() # Clear previous output before starting
+                if ($txtComputers.Text -eq "Enter computer names separated by commas" -or [string]::IsNullOrWhiteSpace($txtComputers.Text)) {
+                    [System.Windows.Forms.MessageBox]::Show("Please enter computer names or load a file.", 'Error', 'OK', 'Error')
+                    $statusLabel.Text = "Operation failed: No computer names provided"
+                    return
+                }
+                if (-not $cmbOU.SelectedItem) {
+                    [System.Windows.Forms.MessageBox]::Show("Please select an Organizational Unit.", 'Error', 'OK', 'Error')
+                    $statusLabel.Text = "Operation failed: No OU selected"
+                    return
+                }
 
-            $computers = $txtComputers.Text -split ','
-            # Validate computer names
-            $invalidComputers = @()
-            $validComputers = @()
-            foreach ($computer in $computers) {
-                $computer = $computer.Trim()
-                if (-not [string]::IsNullOrWhiteSpace($computer)) {
-                    if ($computer.Length -ne 15 -or $computer -cne $computer.ToUpper()) {
-                        $invalidComputers += $computer
-                    } else {
-                        $validComputers += $computer
+                $computers = $txtComputers.Text -split ','
+                # Validate computer names
+                $invalidComputers = @()
+                $validComputers = @()
+                foreach ($computer in $computers) {
+                    $computer = $computer.Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($computer)) {
+                        if ($computer.Length -ne 15 -or $computer -cne $computer.ToUpper()) {
+                            $invalidComputers += $computer
+                        } else {
+                            $validComputers += $computer
+                        }
                     }
                 }
-            }
 
-            if ($invalidComputers.Count -gt 0) {
-                [System.Windows.Forms.MessageBox]::Show("The following computer names are invalid (must be exactly 15 characters and uppercase):`n" + ($invalidComputers -join ", "), 'Error', 'OK', 'Error')
-                $statusLabel.Text = "Operation failed: Invalid computer names"
-                return
-            }
-
-            if ($validComputers.Count -eq 0) {
-                [System.Windows.Forms.MessageBox]::Show("No valid computer names provided.", 'Error', 'OK', 'Error')
-                $statusLabel.Text = "Operation failed: No valid computer names"
-                return
-            }
-
-            $ou = $cmbOU.SelectedItem.ToString()
-            $supportGroup = $txtSupportGroup.Text
-            $domain = $txtDomainName.Text
-            $description = $txtDescription.Text # Get the description value
-            $outputPath = Join-Path ([System.Environment]::GetFolderPath('MyDocuments')) "ComputerJoinPermission_${domain}_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-
-            $csvData = @()
-            $successCount = 0
-            $failureCount = 0
-            $totalCount = 0
-
-            foreach ($computer in $validComputers) {
-                $totalCount++
-                try {
-                    New-ADComputer -Name $computer -SAMAccountName $computer -Path $ou -Description $description -PasswordNotRequired $true -PassThru -Verbose
-                    Grant-ComputerJoinPermission -Identity $supportGroup -Name $computer -Domain $domain
-                    $successCount++
-                    $csvData += [PSCustomObject]@{ComputerName=$computer; OU=$ou; Status="Success"}
-                } catch {
-                    $errorMessage = $_.Exception.Message
-                    $failureCount++
-                    $csvData += [PSCustomObject]@{ComputerName=$computer; OU=$ou; Status="Failed; Error: $errorMessage"}
+                if ($invalidComputers.Count -gt 0) {
+                    [System.Windows.Forms.MessageBox]::Show("The following computer names are invalid (must be exactly 15 characters and uppercase):`n" + ($invalidComputers -join ", "), 'Error', 'OK', 'Error')
+                    $statusLabel.Text = "Operation failed: Invalid computer names"
+                    return
                 }
+
+                if ($validComputers.Count -eq 0) {
+                    [System.Windows.Forms.MessageBox]::Show("No valid computer names provided.", 'Error', 'OK', 'Error')
+                    $statusLabel.Text = "Operation failed: No valid computer names"
+                    return
+                }
+
+                $ou = $cmbOU.SelectedItem.ToString()
+                $supportGroup = $txtSupportGroup.Text
+                $domain = $txtDomainName.Text
+                $description = $txtDescription.Text # Get the description value
+                $outputPath = Join-Path ([System.Environment]::GetFolderPath('MyDocuments')) "ComputerJoinPermission_${domain}_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
+
+                $csvData = @()
+                $successCount = 0
+                $failureCount = 0
+                $totalCount = 0
+
+                foreach ($computer in $validComputers) {
+                    $totalCount++
+                    try {
+                        New-ADComputer -Name $computer -SAMAccountName $computer -Path $ou -Description $description -PasswordNotRequired $true -PassThru -Verbose
+                        Grant-ComputerJoinPermission -Identity $supportGroup -Name $computer -Domain $domain
+                        $successCount++
+                        $csvData += [PSCustomObject]@{ComputerName = $computer; OU = $ou; Status = "Success" }
+                    } catch {
+                        $errorMessage = $_.Exception.Message
+                        $failureCount++
+                        $csvData += [PSCustomObject]@{ComputerName = $computer; OU = $ou; Status = "Failed; Error: $errorMessage" }
+                    }
+                }
+
+                # Construct the detailed output message from csvData
+                $outputLines = @()
+                foreach ($entry in $csvData) {
+                    $line = "`"$($entry.ComputerName)`",`"$($entry.OU)`",`"$($entry.Status)`""
+                    $outputLines += $line
+                }
+                $detailedMessage = $outputLines -join "`r`n"
+
+                # Set the detailed message to the output textbox and force UI update
+                $txtOutput.Text = $detailedMessage
+                $txtOutput.Refresh() # Force refresh to ensure the UI updates
+                $txtOutput.Update()  # Additional UI update to ensure visibility
+
+                # Export detailed results to CSV
+                $csvData | Export-Csv -Path $outputPath -NoTypeInformation
+
+                # Show a completion message box to the operator
+                $completionMessage = "Operation completed: Processed $totalCount computer(s). $successCount succeeded, $failureCount failed.`nCheck the output for details."
+                [System.Windows.Forms.MessageBox]::Show($completionMessage, 'Operation Completed', 'OK', 'Information')
+
+                $statusLabel.Text = "Operation completed"
+            } catch {
+                # Catch any unexpected errors and display them
+                $errorMessage = $_.Exception.Message
+                [System.Windows.Forms.MessageBox]::Show("An unexpected error occurred: $errorMessage", 'Error', 'OK', 'Error')
+                $statusLabel.Text = "Operation failed: $errorMessage"
             }
-
-            # Construct the detailed output message from csvData
-            $outputLines = @()
-            foreach ($entry in $csvData) {
-                $line = "`"$($entry.ComputerName)`",`"$($entry.OU)`",`"$($entry.Status)`""
-                $outputLines += $line
-            }
-            $detailedMessage = $outputLines -join "`r`n"
-
-            # Set the detailed message to the output textbox and force UI update
-            $txtOutput.Text = $detailedMessage
-            $txtOutput.Refresh() # Force refresh to ensure the UI updates
-            $txtOutput.Update()  # Additional UI update to ensure visibility
-
-            # Export detailed results to CSV
-            $csvData | Export-Csv -Path $outputPath -NoTypeInformation
-
-            # Show a completion message box to the operator
-            $completionMessage = "Operation completed: Processed $totalCount computer(s). $successCount succeeded, $failureCount failed.`nCheck the output for details."
-            [System.Windows.Forms.MessageBox]::Show($completionMessage, 'Operation Completed', 'OK', 'Information')
-
-            $statusLabel.Text = "Operation completed"
-        } catch {
-            # Catch any unexpected errors and display them
-            $errorMessage = $_.Exception.Message
-            [System.Windows.Forms.MessageBox]::Show("An unexpected error occurred: $errorMessage", 'Error', 'OK', 'Error')
-            $statusLabel.Text = "Operation failed: $errorMessage"
-        }
-    })
+        })
 
     $btnClear.Add_Click({
-        $txtComputers.Text = "Enter computer names separated by commas"
-        $txtComputers.ForeColor = [System.Drawing.Color]::Gray
-        $lblFileInfo.Text = "No file selected"
-        $txtOUSearch.Text = "Search OU..."
-        $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
-        Update-OU
-        $txtOutput.Clear()
-        $statusLabel.Text = "Form cleared"
-    })
+            $txtComputers.Text = "Enter computer names separated by commas"
+            $txtComputers.ForeColor = [System.Drawing.Color]::Gray
+            $lblFileInfo.Text = "No file selected"
+            $txtOUSearch.Text = "Search OU..."
+            $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
+            Update-OU
+            $txtOutput.Clear()
+            $statusLabel.Text = "Form cleared"
+        })
 
     # Show form
     $form.ShowDialog()

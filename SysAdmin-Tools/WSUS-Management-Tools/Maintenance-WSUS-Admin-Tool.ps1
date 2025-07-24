@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     WSUS Update Source and Proxy Configuration Script
 
@@ -19,9 +19,9 @@
 
 # Setup Logging with single consolidated file
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir     = 'C:\Logs-TEMP\WSUS-GUI\Logs'
-$timestamp  = Get-Date -Format "yyyyMMdd-HHmmss"  # Set once at script start: 20250716-1105
-$logPath    = Join-Path $logDir "$scriptName-$timestamp.log"
+$logDir = 'C:\Logs-TEMP\WSUS-GUI\Logs'
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"  # Set once at script start: 20250716-1105
+$logPath = Join-Path $logDir "$scriptName-$timestamp.log"
 
 if (-not (Test-Path $logDir)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
@@ -68,12 +68,12 @@ Add-Type -AssemblyName System.Drawing
 
 $global:Config = @{
     WsusAssemblyPath = "C:\Windows\Microsoft.Net\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration\v4.0_4.0.0.0__31bf3856ad364e35\Microsoft.UpdateServices.Administration.dll"
-    SqlScriptDir     = "C:\Logs-TEMP\WSUS-GUI\Scripts"
-    WsusUtilPath     = "C:\Program Files\Update Services\Tools\wsusutil.exe"
-    LogDir           = 'C:\Logs-TEMP\WSUS-GUI\Logs'
-    BackupDir        = 'C:\Logs-TEMP\WSUS-GUI\Backups'
-    CsvDir           = 'C:\Logs-TEMP\WSUS-GUI\CSV'
-    SettingsFile     = 'C:\Logs-TEMP\WSUS-GUI\settings.json'
+    SqlScriptDir = "C:\Logs-TEMP\WSUS-GUI\Scripts"
+    WsusUtilPath = "C:\Program Files\Update Services\Tools\wsusutil.exe"
+    LogDir = 'C:\Logs-TEMP\WSUS-GUI\Logs'
+    BackupDir = 'C:\Logs-TEMP\WSUS-GUI\Backups'
+    CsvDir = 'C:\Logs-TEMP\WSUS-GUI\CSV'
+    SettingsFile = 'C:\Logs-TEMP\WSUS-GUI\settings.json'
 }
 
 # Load or prompt for configuration
@@ -94,10 +94,10 @@ if (Test-Path $Config.SettingsFile) {
     $txtWsusAssembly = New-Object System.Windows.Forms.TextBox; $txtWsusAssembly.Text = $Config.WsusAssemblyPath; $txtWsusAssembly.Location = New-Object System.Drawing.Point(150, 20); $txtWsusAssembly.Size = New-Object System.Drawing.Size(230, 20); $formConfig.Controls.Add($txtWsusAssembly)
 
     $btnSave = New-Object System.Windows.Forms.Button; $btnSave.Text = "Save"; $btnSave.Location = New-Object System.Drawing.Point(150, 150); $btnSave.Add_Click({
-        $Config.WsusAssemblyPath = $txtWsusAssembly.Text
-        $Config | ConvertTo-Json | Set-Content -Path $Config.SettingsFile -Force
-        $formConfig.Close()
-    }); $formConfig.Controls.Add($btnSave)
+            $Config.WsusAssemblyPath = $txtWsusAssembly.Text
+            $Config | ConvertTo-Json | Set-Content -Path $Config.SettingsFile -Force
+            $formConfig.Close()
+        }); $formConfig.Controls.Add($btnSave)
 
     [void]$formConfig.ShowDialog()
 }
@@ -163,22 +163,22 @@ function Validate-WSUSAssembly {
 
 function Save-Settings {
     $settings = @{
-        ServerName         = $txtServer.Text
-        Port               = $txtPort.Text
-        DeclineUnapproved  = $chkDeclineUnapproved.Checked
-        DeclineExpired     = $chkDeclineExpired.Checked
-        DeclineSuperseded  = $chkDeclineSuperseded.Checked
+        ServerName = $txtServer.Text
+        Port = $txtPort.Text
+        DeclineUnapproved = $chkDeclineUnapproved.Checked
+        DeclineExpired = $chkDeclineExpired.Checked
+        DeclineSuperseded = $chkDeclineSuperseded.Checked
         RemoveClassifications = $chkRemoveClassifications.Checked
-        UnusedUpdates      = $chkUnusedUpdates.Checked
-        ObsoleteComputers  = $chkObsoleteComputers.Checked
-        UnneededFiles      = $chkUnneededFiles.Checked
-        ExpiredUpdates     = $chkExpiredUpdates.Checked
-        SupersededUpdates  = $chkSupersededUpdates.Checked
-        CheckDB            = $chkCheckDB.Checked
+        UnusedUpdates = $chkUnusedUpdates.Checked
+        ObsoleteComputers = $chkObsoleteComputers.Checked
+        UnneededFiles = $chkUnneededFiles.Checked
+        ExpiredUpdates = $chkExpiredUpdates.Checked
+        SupersededUpdates = $chkSupersededUpdates.Checked
+        CheckDB = $chkCheckDB.Checked
         CheckFragmentation = $chkCheckFragmentation.Checked
-        Reindex            = $chkReindex.Checked
-        ShrinkDB           = $chkShrink.Checked
-        BackupDB           = $chkBackup.Checked
+        Reindex = $chkReindex.Checked
+        ShrinkDB = $chkShrink.Checked
+        BackupDB = $chkBackup.Checked
     }
     $settings | ConvertTo-Json | Set-Content -Path $Config.SettingsFile -Force
 }
@@ -210,7 +210,7 @@ function Get-WSUSServers {
     try {
         if (Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue) {
             Import-Module ActiveDirectory -ErrorAction Stop
-            $wsusServers = Get-ADObject -Filter {objectClass -eq "microsoftWSUS"} -Properties dNSHostName | Select-Object -ExpandProperty dNSHostName -ErrorAction Stop
+            $wsusServers = Get-ADObject -Filter { objectClass -eq "microsoftWSUS" } -Properties dNSHostName | Select-Object -ExpandProperty dNSHostName -ErrorAction Stop
             if ($wsusServers) {
                 $servers += $wsusServers
             }
@@ -256,9 +256,9 @@ function Test-WSUSConnection {
 
 function Decline-Updates {
     param (
-        [Parameter(Mandatory=$true)][string]$Type,
-        [Parameter(Mandatory=$true)][scriptblock]$Filter,
-        [Parameter(Mandatory=$true)][string]$ServerName,
+        [Parameter(Mandatory = $true)][string]$Type,
+        [Parameter(Mandatory = $true)][scriptblock]$Filter,
+        [Parameter(Mandatory = $true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -278,12 +278,12 @@ function Decline-Updates {
                 $update.Decline()
                 Log-Message "Declined $Type update: $($update.Title)" -MessageType INFO
                 $log += [PSCustomObject]@{
-                    KB          = $update.KnowledgeBaseArticles -join ","
-                    Title       = $update.Title
-                    Type        = $Type
-                    Date        = $update.CreationDate
-                    DeclinedOn  = Get-Date
-                    Server      = $ServerName
+                    KB = $update.KnowledgeBaseArticles -join ","
+                    Title = $update.Title
+                    Type = $Type
+                    Date = $update.CreationDate
+                    DeclinedOn = Get-Date
+                    Server = $ServerName
                 }
             } catch {
                 Log-Message "Failed to decline $Type update: $($update.Title) - $_" -MessageType ERROR
@@ -298,7 +298,7 @@ function Decline-Updates {
 
 function Decline-ByClassification {
     param (
-        [Parameter(Mandatory=$true)][string]$ServerName,
+        [Parameter(Mandatory = $true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -321,12 +321,12 @@ function Decline-ByClassification {
                 $update.Decline()
                 Log-Message "Declined classification-based update: $($update.Title)" -MessageType INFO
                 $log += [PSCustomObject]@{
-                    KB          = $update.KnowledgeBaseArticles -join ","
-                    Title       = $update.Title
-                    Type        = "Classification"
-                    Date        = $update.CreationDate
-                    DeclinedOn  = Get-Date
-                    Server      = $ServerName
+                    KB = $update.KnowledgeBaseArticles -join ","
+                    Title = $update.Title
+                    Type = "Classification"
+                    Date = $update.CreationDate
+                    DeclinedOn = Get-Date
+                    Server = $ServerName
                 }
             } catch {
                 Log-Message "Failed to decline classification-based update: $($update.Title) - $_" -MessageType ERROR
@@ -341,12 +341,12 @@ function Decline-ByClassification {
 
 function Run-WSUSCleanup {
     param (
-        [Parameter(Mandatory=$true)][bool]$IncludeUnusedUpdates,
-        [Parameter(Mandatory=$true)][bool]$IncludeObsoleteComputers,
-        [Parameter(Mandatory=$true)][bool]$IncludeUnneededFiles,
-        [Parameter(Mandatory=$true)][bool]$IncludeExpiredUpdates,
-        [Parameter(Mandatory=$true)][bool]$IncludeSupersededUpdates,
-        [Parameter(Mandatory=$true)][string]$ServerName,
+        [Parameter(Mandatory = $true)][bool]$IncludeUnusedUpdates,
+        [Parameter(Mandatory = $true)][bool]$IncludeObsoleteComputers,
+        [Parameter(Mandatory = $true)][bool]$IncludeUnneededFiles,
+        [Parameter(Mandatory = $true)][bool]$IncludeExpiredUpdates,
+        [Parameter(Mandatory = $true)][bool]$IncludeSupersededUpdates,
+        [Parameter(Mandatory = $true)][string]$ServerName,
         [int]$Port = 8530,
         [bool]$UseSSL = $false
     )
@@ -574,8 +574,8 @@ $btnTestConnection.Location = New-Object System.Drawing.Point(410, 15)
 $btnTestConnection.Size = New-Object System.Drawing.Size(135, 27)
 $btnTestConnection.Font = $font
 $btnTestConnection.Add_Click({
-    Test-ConnectionClick -ServerName $txtServer.Text -Port ([int]$txtPort.Text)
-})
+        Test-ConnectionClick -ServerName $txtServer.Text -Port ([int]$txtPort.Text)
+    })
 $panelTop.Controls.Add($btnTestConnection)
 
 $lblStatus = New-Object System.Windows.Forms.Label
@@ -779,348 +779,348 @@ $runspacePool = [RunspaceFactory]::CreateRunspacePool(1, 4)
 $runspacePool.Open()
 
 $btnRun.Add_Click({
-    try {
-        $btnRun.Enabled = $false
-        $btnCancel.Enabled = $false
-        $btnHelp.Enabled = $false
-        $btnClose.Enabled = $false
-        $progress.Value = 0
-        $statusBar.Text = "Starting WSUS maintenance..."
-        Log-Message "Starting WSUS maintenance..." -MessageType INFO
-        Save-Settings
+        try {
+            $btnRun.Enabled = $false
+            $btnCancel.Enabled = $false
+            $btnHelp.Enabled = $false
+            $btnClose.Enabled = $false
+            $progress.Value = 0
+            $statusBar.Text = "Starting WSUS maintenance..."
+            Log-Message "Starting WSUS maintenance..." -MessageType INFO
+            Save-Settings
 
-        Validate-WSUSAssembly
+            Validate-WSUSAssembly
 
-        $selectedServer = $txtServer.Text
-        $port = [int]$txtPort.Text
-        Log-Message "Testing WSUS connection to ${selectedServer}:${port}..." -MessageType INFO
-        $wsus = Test-WSUSConnection -ServerName $selectedServer -Port $port
-        Log-Message "WSUS connection test passed." -MessageType INFO
+            $selectedServer = $txtServer.Text
+            $port = [int]$txtPort.Text
+            Log-Message "Testing WSUS connection to ${selectedServer}:${port}..." -MessageType INFO
+            $wsus = Test-WSUSConnection -ServerName $selectedServer -Port $port
+            Log-Message "WSUS connection test passed." -MessageType INFO
 
-        $tasks = @()
-        if ($chkDeclineUnapproved.Checked) { $tasks += "DeclineUnapproved" }
-        if ($chkDeclineExpired.Checked) { $tasks += "DeclineExpired" }
-        if ($chkDeclineSuperseded.Checked) { $tasks += "DeclineSuperseded" }
-        if ($chkRemoveClassifications.Checked) { $tasks += "RemoveClassifications" }
-        if ($chkUnusedUpdates.Checked -or $chkObsoleteComputers.Checked -or $chkUnneededFiles.Checked -or $chkExpiredUpdates.Checked -or $chkSupersededUpdates.Checked) { $tasks += "WSUSCleanup" }
-        if ($chkCheckDB.Checked) { $tasks += "CheckDB" }
-        if ($chkCheckFragmentation.Checked) { $tasks += "CheckFragmentation" }
-        if ($chkReindex.Checked) { $tasks += "Reindex" }
-        if ($chkShrink.Checked) { $tasks += "ShrinkDB" }
-        if ($chkBackup.Checked) { $tasks += "BackupDB" }
+            $tasks = @()
+            if ($chkDeclineUnapproved.Checked) { $tasks += "DeclineUnapproved" }
+            if ($chkDeclineExpired.Checked) { $tasks += "DeclineExpired" }
+            if ($chkDeclineSuperseded.Checked) { $tasks += "DeclineSuperseded" }
+            if ($chkRemoveClassifications.Checked) { $tasks += "RemoveClassifications" }
+            if ($chkUnusedUpdates.Checked -or $chkObsoleteComputers.Checked -or $chkUnneededFiles.Checked -or $chkExpiredUpdates.Checked -or $chkSupersededUpdates.Checked) { $tasks += "WSUSCleanup" }
+            if ($chkCheckDB.Checked) { $tasks += "CheckDB" }
+            if ($chkCheckFragmentation.Checked) { $tasks += "CheckFragmentation" }
+            if ($chkReindex.Checked) { $tasks += "Reindex" }
+            if ($chkShrink.Checked) { $tasks += "ShrinkDB" }
+            if ($chkBackup.Checked) { $tasks += "BackupDB" }
 
-        $totalTasks = $tasks.Count
-        if ($totalTasks -eq 0) {
-            Log-Message "No tasks selected." -MessageType WARNING
-            $statusBar.Text = "No tasks selected."
-            [System.Windows.Forms.MessageBox]::Show("Please select at least one maintenance task.", "Warning", 'OK', 'Warning')
-            return
-        }
-
-        $progress.Maximum = $totalTasks * 100
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $csvFile = Join-Path $Config.CsvDir "$scriptName-Declined-$timestamp.csv"
-        $declined = @()
-
-        $runspace = [PowerShell]::Create().AddScript({
-            param($Tasks, $SelectedServer, $Port, $ChkDeclineUnapproved, $ChkDeclineExpired, $ChkDeclineSuperseded, $ChkRemoveClassifications, $ChkUnusedUpdates, $ChkObsoleteComputers, $ChkUnneededFiles, $ChkExpiredUpdates, $ChkSupersededUpdates, $ChkCheckDB, $ChkCheckFragmentation, $ChkReindex, $ChkShrink, $ChkBackup, $CsvFile, $LogPath, $BackupDir, $SqlScriptDir, $SqlcmdPath, $WsusUtilPath, $WsusAssemblyPath)
-
-            $ErrorActionPreference = 'Stop'
-
-            function Log-Message {
-                param ([string]$Message, [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")][string]$MessageType = "INFO")
-                $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-                $entry = "[$stamp] [$MessageType] $Message"
-                Add-Content -Path $LogPath -Value $entry -Encoding UTF8
+            $totalTasks = $tasks.Count
+            if ($totalTasks -eq 0) {
+                Log-Message "No tasks selected." -MessageType WARNING
+                $statusBar.Text = "No tasks selected."
+                [System.Windows.Forms.MessageBox]::Show("Please select at least one maintenance task.", "Warning", 'OK', 'Warning')
+                return
             }
 
-            function Test-WSUSConnection {
-                param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
-                try {
-                    $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($ServerName, $UseSSL, $Port)
-                    Log-Message "Successfully connected to WSUS server: $ServerName" -MessageType INFO
-                    return $wsus
-                } catch {
-                    Log-Message "Failed to connect to WSUS server ($ServerName): $_" -MessageType ERROR
-                    throw
-                }
-            }
-
-            function Decline-Updates {
-                param ([string]$Type, [scriptblock]$Filter, [string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
-                try {
-                    $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
-                    $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
-                    $scope.FromCreationDate = (Get-Date).AddDays(-365)
-                    $updates = $wsus.SearchUpdates($scope) | Where-Object $Filter
-                    if ($updates.Count -eq 0) { return @() }
-                    Log-Message "$Type updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
-                    $log = @()
-                    foreach ($update in $updates) {
-                        try {
-                            $update.Decline()
-                            Log-Message "Declined $Type update: $($update.Title)" -MessageType INFO
-                            $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = $Type; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
-                        } catch {
-                            Log-Message "Failed to decline $Type update: $($update.Title) - $_" -MessageType ERROR
-                        }
-                    }
-                    return $log
-                } catch {
-                    Log-Message "Error in Decline-Updates ($Type): $_" -MessageType ERROR
-                    throw
-                }
-            }
-
-            function Decline-ByClassification {
-                param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
-                try {
-                    $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
-                    $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
-                    $scope.FromCreationDate = (Get-Date).AddDays(-365)
-                    $classifications = @("Itanium", "Windows XP")
-                    $updates = $wsus.SearchUpdates($scope) | Where-Object { $_.IsDeclined -eq $false -and ($_.Title -match ($classifications -join "|") -or $_.Description -match ($classifications -join "|")) }
-                    if ($updates.Count -eq 0) { return @() }
-                    Log-Message "Classification-based updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
-                    $log = @()
-                    foreach ($update in $updates) {
-                        try {
-                            $update.Decline()
-                            Log-Message "Declined classification-based update: $($update.Title)" -MessageType INFO
-                            $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = "Classification"; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
-                        } catch {
-                            Log-Message "Failed to decline classification-based update: $($update.Title) - $_" -MessageType ERROR
-                        }
-                    }
-                    return $log
-                } catch {
-                    Log-Message "Error in Decline-ByClassification: $_" -MessageType ERROR
-                    throw
-                }
-            }
-
-            function Run-WSUSCleanup {
-                param (
-                    [bool]$IncludeUnusedUpdates,
-                    [bool]$IncludeObsoleteComputers,
-                    [bool]$IncludeUnneededFiles,
-                    [bool]$IncludeExpiredUpdates,
-                    [bool]$IncludeSupersededUpdates,
-                    [string]$ServerName,
-                    [int]$Port = 8530,
-                    [bool]$UseSSL = $false
-                )
-                try {
-                    $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
-                    $cleanup = $wsus.GetCleanupManager()
-                    $steps = @()
-                    if ($IncludeUnusedUpdates) {
-                        $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::UnusedUpdatesAndUpdatesRevisions
-                        Log-Message "Cleaning Unused Updates and Revisions (older than 30 days)..." -MessageType INFO
-                    }
-                    if ($IncludeObsoleteComputers) {
-                        $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteComputers
-                        Log-Message "Cleaning Obsolete Computers (not contacted in 30+ days)..." -MessageType INFO
-                    }
-                    if ($IncludeUnneededFiles) {
-                        $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::UnneededUpdateFiles
-                        Log-Message "Cleaning Unneeded Update Files..." -MessageType INFO
-                    }
-                    if ($IncludeExpiredUpdates) {
-                        $updates = $wsus.SearchUpdates((New-Object Microsoft.UpdateServices.Administration.UpdateScope)) | Where-Object { $_.IsExpired -and -not $_.IsDeclined -and -not $_.IsApproved }
-                        if ($updates.Count -gt 0) {
-                            foreach ($update in $updates) {
-                                try {
-                                    $update.Decline()
-                                    Log-Message "Declined Expired Update: $($update.Title)" -MessageType INFO
-                                } catch {
-                                    Log-Message "Failed to decline Expired Update: $($update.Title) - $_" -MessageType ERROR
-                                }
-                            }
-                        }
-                        Log-Message "Checked for Expired Updates (declined if unapproved)..." -MessageType INFO
-                    }
-                    if ($IncludeSupersededUpdates) {
-                        $updates = $wsus.SearchUpdates((New-Object Microsoft.UpdateServices.Administration.UpdateScope)) | Where-Object { $_.IsSuperseded -and -not $_.IsDeclined -and -not $_.IsApproved -and $_.CreationDate -lt (Get-Date).AddDays(-30) }
-                        if ($updates.Count -gt 0) {
-                            foreach ($update in $updates) {
-                                try {
-                                    $update.Decline()
-                                    Log-Message "Declined Superseded Update: $($update.Title)" -MessageType INFO
-                                } catch {
-                                    Log-Message "Failed to decline Superseded Update: $($update.Title) - $_" -MessageType ERROR
-                                }
-                            }
-                        }
-                        Log-Message "Checked for Superseded Updates (declined if unapproved for 30+ days)..." -MessageType INFO
-                    }
-                    if ($steps.Count -gt 0) {
-                        $success = $false
-                        foreach ($step in $steps) {
-                            try {
-                                Log-Message "Running Cleanup Step: $step" -MessageType INFO
-                                $cleanup.PerformCleanup($step)
-                                Log-Message "Cleanup Step '$step' completed." -MessageType INFO
-                                $success = $true
-                            } catch {
-                                Log-Message "Cleanup Step '$step' failed with assembly method: $_" -MessageType WARNING
-                            }
-                        }
-                        if (-not $success -and (Test-Path $WsusUtilPath)) {
-                            Log-Message "Falling back to wsusutil.exe for cleanup..." -MessageType INFO
-                            $output = & $WsusUtilPath deleteunneededrevisions 2>&1
-                            Log-Message "wsusutil.exe deleteunneededrevisions output: $output" -MessageType INFO
-                            if ($IncludeUnneededFiles) {
-                                $output = & $WsusUtilPath compress 2>&1
-                                Log-Message "wsusutil.exe compress output: $output" -MessageType INFO
-                            }
-                            Log-Message "WSUS Cleanup completed using wsusutil.exe." -MessageType INFO
-                        } elseif (-not $success) {
-                            Log-Message "Error: No cleanup method succeeded and wsusutil.exe not found at $WsusUtilPath" -MessageType ERROR
-                            throw "Cleanup failed"
-                        }
-                    }
-                } catch {
-                    Log-Message "Error in Run-WSUSCleanup: $_" -MessageType ERROR
-                    throw
-                }
-            }
-
-            function Run-WIDMaintenance {
-                param ([bool]$DoCheckDB, [bool]$DoCheckFragmentation, [bool]$DoReindex, [bool]$DoShrink, [bool]$DoBackup)
-                try {
-                    $widPipe = "np:\\.\pipe\MICROSOFT##WID\tsql\query"
-                    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-                    if ($DoBackup) {
-                        $backupFile = Join-Path $BackupDir "SUSDB-Backup-$timestamp.bak"
-                        Log-Message "Backing up SUSDB to $backupFile..." -MessageType INFO
-                        $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "BACKUP DATABASE SUSDB TO DISK = '$backupFile' WITH INIT")
-                        $output = & $SqlcmdPath $args 2>&1
-                        Log-Message "Backup output: $output" -MessageType INFO
-                    }
-                    if ($DoCheckDB) {
-                        Log-Message "Running DBCC CHECKDB..." -MessageType INFO
-                        $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC CHECKDB")
-                        $output = & $SqlcmdPath $args 2>&1
-                        Log-Message "DBCC CHECKDB output: $output" -MessageType INFO
-                    }
-                    if ($DoCheckFragmentation) {
-                        $fragmentationScript = Join-Path $SqlScriptDir "wsus-verify-fragmentation.sql"
-                        if (Test-Path $fragmentationScript) {
-                            Log-Message "Checking Index Fragmentation with $fragmentationScript..." -MessageType INFO
-                            $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$fragmentationScript`"")
-                            $output = & $SqlcmdPath $args 2>&1
-                            Log-Message "Fragmentation Check output: $output" -MessageType INFO
-                        } else {
-                            Log-Message "Fragmentation script not found at $fragmentationScript" -MessageType WARNING
-                        }
-                    }
-                    if ($DoReindex) {
-                        $reindexScript = Join-Path $SqlScriptDir "wsus-reindex.sql"
-                        if (Test-Path $reindexScript) {
-                            Log-Message "Reindexing with $reindexScript..." -MessageType INFO
-                            $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$reindexScript`"")
-                            $output = & $SqlcmdPath $args 2>&1
-                            Log-Message "Reindex output: $output" -MessageType INFO
-                        } else {
-                            Log-Message "Reindex script not found at $reindexScript" -MessageType WARNING
-                        }
-                    }
-                    if ($DoShrink) {
-                        Log-Message "Shrinking SUSDB..." -MessageType INFO
-                        $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC SHRINKDATABASE (SUSDB, 10)")
-                        $output = & $SqlcmdPath $args 2>&1
-                        Log-Message "Shrink Database output: $output" -MessageType INFO
-                    }
-                } catch {
-                    Log-Message "Error in Run-WIDMaintenance: $_" -MessageType ERROR
-                    throw
-                }
-            }
-
+            $progress.Maximum = $totalTasks * 100
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            $csvFile = Join-Path $Config.CsvDir "$scriptName-Declined-$timestamp.csv"
             $declined = @()
-            Log-Message "Runspace started for tasks: $($Tasks -join ', ')" -MessageType INFO
-            foreach ($task in $Tasks) {
-                Log-Message "Executing Task: $task" -MessageType INFO
-                switch ($task) {
-                    "DeclineUnapproved" { $declined += Decline-Updates -Type "Unapproved" -Filter { -not $_.IsApproved -and -not $_.IsDeclined -and $_.CreationDate -lt (Get-Date).AddDays(-30) } -ServerName $SelectedServer -Port $Port }
-                    "DeclineExpired" { $declined += Decline-Updates -Type "Expired" -Filter { $_.IsExpired -and -not $_.IsDeclined } -ServerName $SelectedServer -Port $Port }
-                    "DeclineSuperseded" { $declined += Decline-Updates -Type "Superseded" -Filter { $_.IsSuperseded -and -not $_.IsDeclined } -ServerName $SelectedServer -Port $Port }
-                    "RemoveClassifications" { $declined += Decline-ByClassification -ServerName $SelectedServer -Port $Port }
-                    "WSUSCleanup" { Run-WSUSCleanup -IncludeUnusedUpdates $ChkUnusedUpdates -IncludeObsoleteComputers $ChkObsoleteComputers -IncludeUnneededFiles $ChkUnneededFiles -IncludeExpiredUpdates $ChkExpiredUpdates -IncludeSupersededUpdates $ChkSupersededUpdates -ServerName $SelectedServer -Port $Port }
-                    { $_ -in @("CheckDB", "CheckFragmentation", "Reindex", "ShrinkDB", "BackupDB") } {
-                        Run-WIDMaintenance -DoCheckDB ($task -eq "CheckDB" -and $ChkCheckDB) -DoCheckFragmentation ($task -eq "CheckFragmentation" -and $ChkCheckFragmentation) -DoReindex ($task -eq "Reindex" -and $ChkReindex) -DoShrink ($task -eq "ShrinkDB" -and $ChkShrink) -DoBackup ($task -eq "BackupDB" -and $ChkBackup)
+
+            $runspace = [PowerShell]::Create().AddScript({
+                    param($Tasks, $SelectedServer, $Port, $ChkDeclineUnapproved, $ChkDeclineExpired, $ChkDeclineSuperseded, $ChkRemoveClassifications, $ChkUnusedUpdates, $ChkObsoleteComputers, $ChkUnneededFiles, $ChkExpiredUpdates, $ChkSupersededUpdates, $ChkCheckDB, $ChkCheckFragmentation, $ChkReindex, $ChkShrink, $ChkBackup, $CsvFile, $LogPath, $BackupDir, $SqlScriptDir, $SqlcmdPath, $WsusUtilPath, $WsusAssemblyPath)
+
+                    $ErrorActionPreference = 'Stop'
+
+                    function Log-Message {
+                        param ([string]$Message, [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")][string]$MessageType = "INFO")
+                        $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                        $entry = "[$stamp] [$MessageType] $Message"
+                        Add-Content -Path $LogPath -Value $entry -Encoding UTF8
                     }
-                }
+
+                    function Test-WSUSConnection {
+                        param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
+                        try {
+                            $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($ServerName, $UseSSL, $Port)
+                            Log-Message "Successfully connected to WSUS server: $ServerName" -MessageType INFO
+                            return $wsus
+                        } catch {
+                            Log-Message "Failed to connect to WSUS server ($ServerName): $_" -MessageType ERROR
+                            throw
+                        }
+                    }
+
+                    function Decline-Updates {
+                        param ([string]$Type, [scriptblock]$Filter, [string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
+                        try {
+                            $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
+                            $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
+                            $scope.FromCreationDate = (Get-Date).AddDays(-365)
+                            $updates = $wsus.SearchUpdates($scope) | Where-Object $Filter
+                            if ($updates.Count -eq 0) { return @() }
+                            Log-Message "$Type updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
+                            $log = @()
+                            foreach ($update in $updates) {
+                                try {
+                                    $update.Decline()
+                                    Log-Message "Declined $Type update: $($update.Title)" -MessageType INFO
+                                    $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = $Type; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
+                                } catch {
+                                    Log-Message "Failed to decline $Type update: $($update.Title) - $_" -MessageType ERROR
+                                }
+                            }
+                            return $log
+                        } catch {
+                            Log-Message "Error in Decline-Updates ($Type): $_" -MessageType ERROR
+                            throw
+                        }
+                    }
+
+                    function Decline-ByClassification {
+                        param ([string]$ServerName, [int]$Port = 8530, [bool]$UseSSL = $false)
+                        try {
+                            $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
+                            $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
+                            $scope.FromCreationDate = (Get-Date).AddDays(-365)
+                            $classifications = @("Itanium", "Windows XP")
+                            $updates = $wsus.SearchUpdates($scope) | Where-Object { $_.IsDeclined -eq $false -and ($_.Title -match ($classifications -join "|") -or $_.Description -match ($classifications -join "|")) }
+                            if ($updates.Count -eq 0) { return @() }
+                            Log-Message "Classification-based updates: Found $($updates.Count) updates. Declining..." -MessageType INFO
+                            $log = @()
+                            foreach ($update in $updates) {
+                                try {
+                                    $update.Decline()
+                                    Log-Message "Declined classification-based update: $($update.Title)" -MessageType INFO
+                                    $log += [PSCustomObject]@{ KB = $update.KnowledgeBaseArticles -join ","; Title = $update.Title; Type = "Classification"; Date = $update.CreationDate; DeclinedOn = Get-Date; Server = $ServerName }
+                                } catch {
+                                    Log-Message "Failed to decline classification-based update: $($update.Title) - $_" -MessageType ERROR
+                                }
+                            }
+                            return $log
+                        } catch {
+                            Log-Message "Error in Decline-ByClassification: $_" -MessageType ERROR
+                            throw
+                        }
+                    }
+
+                    function Run-WSUSCleanup {
+                        param (
+                            [bool]$IncludeUnusedUpdates,
+                            [bool]$IncludeObsoleteComputers,
+                            [bool]$IncludeUnneededFiles,
+                            [bool]$IncludeExpiredUpdates,
+                            [bool]$IncludeSupersededUpdates,
+                            [string]$ServerName,
+                            [int]$Port = 8530,
+                            [bool]$UseSSL = $false
+                        )
+                        try {
+                            $wsus = Test-WSUSConnection -ServerName $ServerName -Port $Port -UseSSL $UseSSL
+                            $cleanup = $wsus.GetCleanupManager()
+                            $steps = @()
+                            if ($IncludeUnusedUpdates) {
+                                $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::UnusedUpdatesAndUpdatesRevisions
+                                Log-Message "Cleaning Unused Updates and Revisions (older than 30 days)..." -MessageType INFO
+                            }
+                            if ($IncludeObsoleteComputers) {
+                                $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::ObsoleteComputers
+                                Log-Message "Cleaning Obsolete Computers (not contacted in 30+ days)..." -MessageType INFO
+                            }
+                            if ($IncludeUnneededFiles) {
+                                $steps += [Microsoft.UpdateServices.Administration.CleanupScope]::UnneededUpdateFiles
+                                Log-Message "Cleaning Unneeded Update Files..." -MessageType INFO
+                            }
+                            if ($IncludeExpiredUpdates) {
+                                $updates = $wsus.SearchUpdates((New-Object Microsoft.UpdateServices.Administration.UpdateScope)) | Where-Object { $_.IsExpired -and -not $_.IsDeclined -and -not $_.IsApproved }
+                                if ($updates.Count -gt 0) {
+                                    foreach ($update in $updates) {
+                                        try {
+                                            $update.Decline()
+                                            Log-Message "Declined Expired Update: $($update.Title)" -MessageType INFO
+                                        } catch {
+                                            Log-Message "Failed to decline Expired Update: $($update.Title) - $_" -MessageType ERROR
+                                        }
+                                    }
+                                }
+                                Log-Message "Checked for Expired Updates (declined if unapproved)..." -MessageType INFO
+                            }
+                            if ($IncludeSupersededUpdates) {
+                                $updates = $wsus.SearchUpdates((New-Object Microsoft.UpdateServices.Administration.UpdateScope)) | Where-Object { $_.IsSuperseded -and -not $_.IsDeclined -and -not $_.IsApproved -and $_.CreationDate -lt (Get-Date).AddDays(-30) }
+                                if ($updates.Count -gt 0) {
+                                    foreach ($update in $updates) {
+                                        try {
+                                            $update.Decline()
+                                            Log-Message "Declined Superseded Update: $($update.Title)" -MessageType INFO
+                                        } catch {
+                                            Log-Message "Failed to decline Superseded Update: $($update.Title) - $_" -MessageType ERROR
+                                        }
+                                    }
+                                }
+                                Log-Message "Checked for Superseded Updates (declined if unapproved for 30+ days)..." -MessageType INFO
+                            }
+                            if ($steps.Count -gt 0) {
+                                $success = $false
+                                foreach ($step in $steps) {
+                                    try {
+                                        Log-Message "Running Cleanup Step: $step" -MessageType INFO
+                                        $cleanup.PerformCleanup($step)
+                                        Log-Message "Cleanup Step '$step' completed." -MessageType INFO
+                                        $success = $true
+                                    } catch {
+                                        Log-Message "Cleanup Step '$step' failed with assembly method: $_" -MessageType WARNING
+                                    }
+                                }
+                                if (-not $success -and (Test-Path $WsusUtilPath)) {
+                                    Log-Message "Falling back to wsusutil.exe for cleanup..." -MessageType INFO
+                                    $output = & $WsusUtilPath deleteunneededrevisions 2>&1
+                                    Log-Message "wsusutil.exe deleteunneededrevisions output: $output" -MessageType INFO
+                                    if ($IncludeUnneededFiles) {
+                                        $output = & $WsusUtilPath compress 2>&1
+                                        Log-Message "wsusutil.exe compress output: $output" -MessageType INFO
+                                    }
+                                    Log-Message "WSUS Cleanup completed using wsusutil.exe." -MessageType INFO
+                                } elseif (-not $success) {
+                                    Log-Message "Error: No cleanup method succeeded and wsusutil.exe not found at $WsusUtilPath" -MessageType ERROR
+                                    throw "Cleanup failed"
+                                }
+                            }
+                        } catch {
+                            Log-Message "Error in Run-WSUSCleanup: $_" -MessageType ERROR
+                            throw
+                        }
+                    }
+
+                    function Run-WIDMaintenance {
+                        param ([bool]$DoCheckDB, [bool]$DoCheckFragmentation, [bool]$DoReindex, [bool]$DoShrink, [bool]$DoBackup)
+                        try {
+                            $widPipe = "np:\\.\pipe\MICROSOFT##WID\tsql\query"
+                            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+                            if ($DoBackup) {
+                                $backupFile = Join-Path $BackupDir "SUSDB-Backup-$timestamp.bak"
+                                Log-Message "Backing up SUSDB to $backupFile..." -MessageType INFO
+                                $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "BACKUP DATABASE SUSDB TO DISK = '$backupFile' WITH INIT")
+                                $output = & $SqlcmdPath $args 2>&1
+                                Log-Message "Backup output: $output" -MessageType INFO
+                            }
+                            if ($DoCheckDB) {
+                                Log-Message "Running DBCC CHECKDB..." -MessageType INFO
+                                $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC CHECKDB")
+                                $output = & $SqlcmdPath $args 2>&1
+                                Log-Message "DBCC CHECKDB output: $output" -MessageType INFO
+                            }
+                            if ($DoCheckFragmentation) {
+                                $fragmentationScript = Join-Path $SqlScriptDir "wsus-verify-fragmentation.sql"
+                                if (Test-Path $fragmentationScript) {
+                                    Log-Message "Checking Index Fragmentation with $fragmentationScript..." -MessageType INFO
+                                    $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$fragmentationScript`"")
+                                    $output = & $SqlcmdPath $args 2>&1
+                                    Log-Message "Fragmentation Check output: $output" -MessageType INFO
+                                } else {
+                                    Log-Message "Fragmentation script not found at $fragmentationScript" -MessageType WARNING
+                                }
+                            }
+                            if ($DoReindex) {
+                                $reindexScript = Join-Path $SqlScriptDir "wsus-reindex.sql"
+                                if (Test-Path $reindexScript) {
+                                    Log-Message "Reindexing with $reindexScript..." -MessageType INFO
+                                    $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-i", "`"$reindexScript`"")
+                                    $output = & $SqlcmdPath $args 2>&1
+                                    Log-Message "Reindex output: $output" -MessageType INFO
+                                } else {
+                                    Log-Message "Reindex script not found at $reindexScript" -MessageType WARNING
+                                }
+                            }
+                            if ($DoShrink) {
+                                Log-Message "Shrinking SUSDB..." -MessageType INFO
+                                $args = @("-S", $widPipe, "-E", "-d", "SUSDB", "-Q", "DBCC SHRINKDATABASE (SUSDB, 10)")
+                                $output = & $SqlcmdPath $args 2>&1
+                                Log-Message "Shrink Database output: $output" -MessageType INFO
+                            }
+                        } catch {
+                            Log-Message "Error in Run-WIDMaintenance: $_" -MessageType ERROR
+                            throw
+                        }
+                    }
+
+                    $declined = @()
+                    Log-Message "Runspace started for tasks: $($Tasks -join ', ')" -MessageType INFO
+                    foreach ($task in $Tasks) {
+                        Log-Message "Executing Task: $task" -MessageType INFO
+                        switch ($task) {
+                            "DeclineUnapproved" { $declined += Decline-Updates -Type "Unapproved" -Filter { -not $_.IsApproved -and -not $_.IsDeclined -and $_.CreationDate -lt (Get-Date).AddDays(-30) } -ServerName $SelectedServer -Port $Port }
+                            "DeclineExpired" { $declined += Decline-Updates -Type "Expired" -Filter { $_.IsExpired -and -not $_.IsDeclined } -ServerName $SelectedServer -Port $Port }
+                            "DeclineSuperseded" { $declined += Decline-Updates -Type "Superseded" -Filter { $_.IsSuperseded -and -not $_.IsDeclined } -ServerName $SelectedServer -Port $Port }
+                            "RemoveClassifications" { $declined += Decline-ByClassification -ServerName $SelectedServer -Port $Port }
+                            "WSUSCleanup" { Run-WSUSCleanup -IncludeUnusedUpdates $ChkUnusedUpdates -IncludeObsoleteComputers $ChkObsoleteComputers -IncludeUnneededFiles $ChkUnneededFiles -IncludeExpiredUpdates $ChkExpiredUpdates -IncludeSupersededUpdates $ChkSupersededUpdates -ServerName $SelectedServer -Port $Port }
+                            { $_ -in @("CheckDB", "CheckFragmentation", "Reindex", "ShrinkDB", "BackupDB") } {
+                                Run-WIDMaintenance -DoCheckDB ($task -eq "CheckDB" -and $ChkCheckDB) -DoCheckFragmentation ($task -eq "CheckFragmentation" -and $ChkCheckFragmentation) -DoReindex ($task -eq "Reindex" -and $ChkReindex) -DoShrink ($task -eq "ShrinkDB" -and $ChkShrink) -DoBackup ($task -eq "BackupDB" -and $ChkBackup)
+                            }
+                        }
+                    }
+                    if ($declined.Count -gt 0) {
+                        $declined | Export-Csv -Path $CsvFile -NoTypeInformation -Encoding UTF8
+                        Log-Message "Declined updates exported to $CsvFile" -MessageType INFO
+                    }
+                    Log-Message "Runspace execution completed." -MessageType INFO
+                    return $declined
+                }).AddArgument($tasks).AddArgument($selectedServer).AddArgument($port).AddArgument($chkDeclineUnapproved.Checked).AddArgument($chkDeclineExpired.Checked).AddArgument($chkDeclineSuperseded.Checked).AddArgument($chkRemoveClassifications.Checked).AddArgument($chkUnusedUpdates.Checked).AddArgument($chkObsoleteComputers.Checked).AddArgument($chkUnneededFiles.Checked).AddArgument($chkExpiredUpdates.Checked).AddArgument($chkSupersededUpdates.Checked).AddArgument($chkCheckDB.Checked).AddArgument($chkCheckFragmentation.Checked).AddArgument($chkReindex.Checked).AddArgument($chkShrink.Checked).AddArgument($chkBackup.Checked).AddArgument($csvFile).AddArgument($logPath).AddArgument($Config.BackupDir).AddArgument($Config.SqlScriptDir).AddArgument($sqlcmdPath).AddArgument($Config.WsusUtilPath).AddArgument($Config.WsusAssemblyPath)
+            $runspace.RunspacePool = $runspacePool
+            $handle = $runspace.BeginInvoke()
+
+            $taskDurations = @{
+                "DeclineUnapproved" = 10; "DeclineExpired" = 10; "DeclineSuperseded" = 10; "RemoveClassifications" = 10
+                "WSUSCleanup" = 20; "CheckDB" = 20; "CheckFragmentation" = 15; "Reindex" = 25; "ShrinkDB" = 20; "BackupDB" = 30
             }
-            if ($declined.Count -gt 0) {
-                $declined | Export-Csv -Path $CsvFile -NoTypeInformation -Encoding UTF8
-                Log-Message "Declined updates exported to $CsvFile" -MessageType INFO
+            $totalDuration = ($tasks | ForEach-Object { $taskDurations[$_] } | Measure-Object -Sum).Sum
+            $progressStep = 100 / $totalDuration
+            $currentTime = 0
+
+            while (-not $handle.IsCompleted) {
+                Start-Sleep -Milliseconds 500
+                $currentTime += 0.5
+                $progress.Value = [Math]::Min([int]($currentTime * $progressStep), $progress.Maximum)
+                $statusBar.Text = "Running Task $currentTime seconds..."
+                [System.Windows.Forms.Application]::DoEvents()
             }
-            Log-Message "Runspace execution completed." -MessageType INFO
-            return $declined
-        }).AddArgument($tasks).AddArgument($selectedServer).AddArgument($port).AddArgument($chkDeclineUnapproved.Checked).AddArgument($chkDeclineExpired.Checked).AddArgument($chkDeclineSuperseded.Checked).AddArgument($chkRemoveClassifications.Checked).AddArgument($chkUnusedUpdates.Checked).AddArgument($chkObsoleteComputers.Checked).AddArgument($chkUnneededFiles.Checked).AddArgument($chkExpiredUpdates.Checked).AddArgument($chkSupersededUpdates.Checked).AddArgument($chkCheckDB.Checked).AddArgument($chkCheckFragmentation.Checked).AddArgument($chkReindex.Checked).AddArgument($chkShrink.Checked).AddArgument($chkBackup.Checked).AddArgument($csvFile).AddArgument($logPath).AddArgument($Config.BackupDir).AddArgument($Config.SqlScriptDir).AddArgument($sqlcmdPath).AddArgument($Config.WsusUtilPath).AddArgument($Config.WsusAssemblyPath)
-        $runspace.RunspacePool = $runspacePool
-        $handle = $runspace.BeginInvoke()
 
-        $taskDurations = @{
-            "DeclineUnapproved" = 10; "DeclineExpired" = 10; "DeclineSuperseded" = 10; "RemoveClassifications" = 10
-            "WSUSCleanup" = 20; "CheckDB" = 20; "CheckFragmentation" = 15; "Reindex" = 25; "ShrinkDB" = 20; "BackupDB" = 30
+            $result = $runspace.EndInvoke($handle)
+            $runspace.Dispose()
+
+            $progress.Value = $progress.Maximum
+            $statusBar.Text = "Maintenance Complete. Log: $logPath"
+            Log-Message "Maintenance complete." -MessageType INFO
+            [System.Windows.Forms.MessageBox]::Show("Maintenance completed successfully.`nLog: $logPath`nCSV: $csvFile", "Complete", 'OK', 'Information')
+        } catch {
+            Log-Message "Execution failed: $_" -MessageType ERROR
+            $statusBar.Text = "Maintenance Failed. Check log: $logPath"
+            [System.Windows.Forms.MessageBox]::Show("Maintenance failed: $_`nLog: $logPath", "Error", 'OK', 'Error')
+        } finally {
+            $btnRun.Enabled = $true
+            $btnCancel.Enabled = $true
+            $btnHelp.Enabled = $true
+            $btnClose.Enabled = $true
         }
-        $totalDuration = ($tasks | ForEach-Object { $taskDurations[$_] } | Measure-Object -Sum).Sum
-        $progressStep = 100 / $totalDuration
-        $currentTime = 0
+    })
 
-        while (-not $handle.IsCompleted) {
-            Start-Sleep -Milliseconds 500
-            $currentTime += 0.5
-            $progress.Value = [Math]::Min([int]($currentTime * $progressStep), $progress.Maximum)
-            $statusBar.Text = "Running Task $currentTime seconds..."
-            [System.Windows.Forms.Application]::DoEvents()
+$btnCancel.Add_Click({
+        $statusBar.Text = "Operation Canceled."
+        Log-Message "Operation canceled by user." -MessageType WARNING
+        if ($runspace) {
+            $runspace.Stop()
+            $runspace.Dispose()
         }
-
-        $result = $runspace.EndInvoke($handle)
-        $runspace.Dispose()
-
-        $progress.Value = $progress.Maximum
-        $statusBar.Text = "Maintenance Complete. Log: $logPath"
-        Log-Message "Maintenance complete." -MessageType INFO
-        [System.Windows.Forms.MessageBox]::Show("Maintenance completed successfully.`nLog: $logPath`nCSV: $csvFile", "Complete", 'OK', 'Information')
-    } catch {
-        Log-Message "Execution failed: $_" -MessageType ERROR
-        $statusBar.Text = "Maintenance Failed. Check log: $logPath"
-        [System.Windows.Forms.MessageBox]::Show("Maintenance failed: $_`nLog: $logPath", "Error", 'OK', 'Error')
-    } finally {
+        $progress.Value = 0
         $btnRun.Enabled = $true
         $btnCancel.Enabled = $true
         $btnHelp.Enabled = $true
         $btnClose.Enabled = $true
-    }
-})
-
-$btnCancel.Add_Click({
-    $statusBar.Text = "Operation Canceled."
-    Log-Message "Operation canceled by user." -MessageType WARNING
-    if ($runspace) {
-        $runspace.Stop()
-        $runspace.Dispose()
-    }
-    $progress.Value = 0
-    $btnRun.Enabled = $true
-    $btnCancel.Enabled = $true
-    $btnHelp.Enabled = $true
-    $btnClose.Enabled = $true
-})
+    })
 
 $btnHelp.Add_Click({
-    [System.Windows.Forms.MessageBox]::Show("Help content goes here. Contact support for assistance.", "Help", 'OK', 'Information')
-    Log-Message "Help button clicked." -MessageType INFO
-})
+        [System.Windows.Forms.MessageBox]::Show("Help content goes here. Contact support for assistance.", "Help", 'OK', 'Information')
+        Log-Message "Help button clicked." -MessageType INFO
+    })
 
 $btnClose.Add_Click({
-    Save-Settings
-    $form.Close()
-})
+        Save-Settings
+        $form.Close()
+    })
 
 try {
     Load-Settings

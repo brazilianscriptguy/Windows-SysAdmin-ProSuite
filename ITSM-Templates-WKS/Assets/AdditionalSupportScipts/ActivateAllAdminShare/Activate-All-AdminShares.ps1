@@ -115,11 +115,11 @@ try {
 
 # Final status
 $finalMessage = "Execution complete. All configuration tasks were applied successfully:`n`n" +
-                "- Admin Shares Activated`n" +
-                "- RDP Enabled`n" +
-                "- Firewall Disabled`n" +
-                "- Defender Disabled`n`n" +
-                "You can check the full log here:`n$logPath"
+"- Admin Shares Activated`n" +
+"- RDP Enabled`n" +
+"- Firewall Disabled`n" +
+"- Defender Disabled`n`n" +
+"You can check the full log here:`n$logPath"
 
 Write-Log "===== Script Execution Completed ====="
 Write-Log "Final Summary: All features applied as expected."

@@ -92,9 +92,9 @@ $form.Controls.Add($txtNTP)
 # Toggle field based on selection
 $rbDomain.Add_CheckedChanged({ $txtNTP.Enabled = $false })
 $rbCustom.Add_CheckedChanged({ 
-    $txtNTP.Enabled = $true
-    $txtNTP.Focus()
-})
+        $txtNTP.Enabled = $true
+        $txtNTP.Focus()
+    })
 
 # Apply & Sync Button
 $btnSync = New-Object System.Windows.Forms.Button
@@ -114,45 +114,45 @@ $form.Controls.Add($btnExit)
 
 # Button Click Logic
 $btnSync.Add_Click({
-    $selected = $comboZone.SelectedItem
-    if (-not $selected) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a time zone.", "Missing Input", 'OK', 'Warning')
-        return
-    }
+        $selected = $comboZone.SelectedItem
+        if (-not $selected) {
+            [System.Windows.Forms.MessageBox]::Show("Please select a time zone.", "Missing Input", 'OK', 'Warning')
+            return
+        }
 
-    if ($selected -match "\[ID: (.+?)\]") {
-        $tzId = $Matches[1]
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("Invalid time zone selection format.", "Error", 'OK', 'Error')
-        return
-    }
+        if ($selected -match "\[ID: (.+?)\]") {
+            $tzId = $Matches[1]
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Invalid time zone selection format.", "Error", 'OK', 'Error')
+            return
+        }
 
-    try {
-        tzutil /s $tzId
-        Write-Log "Time zone set to $tzId"
-    } catch {
-        Write-Log "Failed to set time zone: $_" "ERROR"
-        [System.Windows.Forms.MessageBox]::Show("Failed to apply time zone: $tzId", "Error", 'OK', 'Error')
-        return
-    }
+        try {
+            tzutil /s $tzId
+            Write-Log "Time zone set to $tzId"
+        } catch {
+            Write-Log "Failed to set time zone: $_" "ERROR"
+            [System.Windows.Forms.MessageBox]::Show("Failed to apply time zone: $tzId", "Error", 'OK', 'Error')
+            return
+        }
 
-    if ($rbCustom.Checked -and [string]::IsNullOrWhiteSpace($txtNTP.Text)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter a valid custom time server.", "Missing Input", 'OK', 'Warning')
-        return
-    }
+        if ($rbCustom.Checked -and [string]::IsNullOrWhiteSpace($txtNTP.Text)) {
+            [System.Windows.Forms.MessageBox]::Show("Please enter a valid custom time server.", "Missing Input", 'OK', 'Warning')
+            return
+        }
 
-    $ntpServer = if ($rbDomain.Checked) { $env:USERDNSDOMAIN } else { $txtNTP.Text.Trim() }
+        $ntpServer = if ($rbDomain.Checked) { $env:USERDNSDOMAIN } else { $txtNTP.Text.Trim() }
 
-    try {
-        w32tm /config /manualpeerlist:$ntpServer /syncfromflags:manual /reliable:yes /update | Out-Null
-        w32tm /resync /rediscover | Out-Null
-        Write-Log "Time synced successfully using: $ntpServer"
-        [System.Windows.Forms.MessageBox]::Show("Time has been synchronized with: $ntpServer", "Success", 'OK', 'Information')
-    } catch {
-        Write-Log "Time sync failed with: $ntpServer - $_" "ERROR"
-        [System.Windows.Forms.MessageBox]::Show("Failed to sync with $ntpServer", "Error", 'OK', 'Error')
-    }
-})
+        try {
+            w32tm /config /manualpeerlist:$ntpServer /syncfromflags:manual /reliable:yes /update | Out-Null
+            w32tm /resync /rediscover | Out-Null
+            Write-Log "Time synced successfully using: $ntpServer"
+            [System.Windows.Forms.MessageBox]::Show("Time has been synchronized with: $ntpServer", "Success", 'OK', 'Information')
+        } catch {
+            Write-Log "Time sync failed with: $ntpServer - $_" "ERROR"
+            [System.Windows.Forms.MessageBox]::Show("Failed to sync with $ntpServer", "Error", 'OK', 'Error')
+        }
+    })
 
 $form.Add_Shown({ $form.Activate() })
 $form.ShowDialog() | Out-Null

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Managing Expired and Expiring Certificates.
 
@@ -128,9 +128,9 @@ function List-ExpiringCertificates {
             $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList $file
             if ($certificate.NotAfter -gt (Get-Date) -and $certificate.NotAfter -le $cutoffDate) {
                 $expiringCertificates += [PSCustomObject]@{
-                    FilePath    = $file
-                    Subject     = $certificate.Subject
-                    NotAfter    = $certificate.NotAfter
+                    FilePath = $file
+                    Subject = $certificate.Subject
+                    NotAfter = $certificate.NotAfter
                 }
             }
         } catch {
@@ -219,9 +219,9 @@ $browseButton.Text = "Browse"
 $browseButton.Location = New-Object System.Drawing.Point(430, 50)
 $browseButton.Size = New-Object System.Drawing.Size(120, 30)
 $browseButton.Add_Click({
-    $selectedPath = Browse-Folder
-    if ($selectedPath) { $textBox.Text = $selectedPath }
-})
+        $selectedPath = Browse-Folder
+        if ($selectedPath) { $textBox.Text = $selectedPath }
+    })
 $form.Controls.Add($browseButton)
 
 $monthsLabel = New-Object System.Windows.Forms.Label
@@ -243,26 +243,26 @@ $executeButton.Text = "Cleanup Repository"
 $executeButton.Location = New-Object System.Drawing.Point(20, 150)
 $executeButton.Size = New-Object System.Drawing.Size(250, 30)
 $executeButton.Add_Click({
-    # Validate if the path is provided
-    if ([string]::IsNullOrWhiteSpace($textBox.Text)) {
-        Show-Message -Message "The path cannot be empty. Please provide a valid directory." -Type "Error"
-        return
-    }
+        # Validate if the path is provided
+        if ([string]::IsNullOrWhiteSpace($textBox.Text)) {
+            Show-Message -Message "The path cannot be empty. Please provide a valid directory." -Type "Error"
+            return
+        }
 
-    # Validate if the path exists
-    if (!(Test-Path $textBox.Text)) {
-        Show-Message -Message "Invalid path provided. Please select a valid directory." -Type "Error"
-        return
-    }
+        # Validate if the path exists
+        if (!(Test-Path $textBox.Text)) {
+            Show-Message -Message "Invalid path provided. Please select a valid directory." -Type "Error"
+            return
+        }
 
-    try {
-        # Call the Cleanup-Certificates function with the validated path
-        Cleanup-Certificates -Path $textBox.Text
-    } catch {
-        Write-Log -Message "Error during cleanup: $_" -Level "ERROR"
-        Show-Message -Message "An unexpected error occurred during cleanup: $_" -Type "Error"
-    }
-})
+        try {
+            # Call the Cleanup-Certificates function with the validated path
+            Cleanup-Certificates -Path $textBox.Text
+        } catch {
+            Write-Log -Message "Error during cleanup: $_" -Level "ERROR"
+            Show-Message -Message "An unexpected error occurred during cleanup: $_" -Type "Error"
+        }
+    })
 $form.Controls.Add($executeButton)
 
 $listExpiringButton = New-Object System.Windows.Forms.Button
@@ -270,31 +270,31 @@ $listExpiringButton.Text = "List Expiring Certificates"
 $listExpiringButton.Location = New-Object System.Drawing.Point(300, 150)
 $listExpiringButton.Size = New-Object System.Drawing.Size(250, 30)
 $listExpiringButton.Add_Click({
-    # Validate if the path is provided
-    if ([string]::IsNullOrWhiteSpace($textBox.Text)) {
-        Show-Message -Message "The path cannot be empty. Please provide a valid directory." -Type "Error"
-        return
-    }
-    
-    # Validate if the path exists
-    if (!(Test-Path $textBox.Text)) {
-        Show-Message -Message "Invalid path provided. Please select a valid directory." -Type "Error"
-        return
-    }
-    
-    try {
-        $files = Get-CertificateFiles -Directories @($textBox.Text)
-        if ($files.Count -eq 0) {
-            Show-Message -Message "No certificate files found in the specified directory." -Type "Information"
+        # Validate if the path is provided
+        if ([string]::IsNullOrWhiteSpace($textBox.Text)) {
+            Show-Message -Message "The path cannot be empty. Please provide a valid directory." -Type "Error"
             return
         }
+    
+        # Validate if the path exists
+        if (!(Test-Path $textBox.Text)) {
+            Show-Message -Message "Invalid path provided. Please select a valid directory." -Type "Error"
+            return
+        }
+    
+        try {
+            $files = Get-CertificateFiles -Directories @($textBox.Text)
+            if ($files.Count -eq 0) {
+                Show-Message -Message "No certificate files found in the specified directory." -Type "Information"
+                return
+            }
 
-        List-ExpiringCertificates -Files $files.FullName -Months $monthsBox.Value
-    } catch {
-        Write-Log -Message "Error during processing: $_" -Level "ERROR"
-        Show-Message -Message "An unexpected error occurred: $_" -Type "Error"
-    }
-})
+            List-ExpiringCertificates -Files $files.FullName -Months $monthsBox.Value
+        } catch {
+            Write-Log -Message "Error during processing: $_" -Level "ERROR"
+            Show-Message -Message "An unexpected error occurred: $_" -Type "Error"
+        }
+    })
 $form.Controls.Add($listExpiringButton)
 
 $logBox = New-Object System.Windows.Forms.ListBox

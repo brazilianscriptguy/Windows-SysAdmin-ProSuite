@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Updating AD Computer Descriptions via GUI.
 
@@ -66,10 +66,10 @@ $CancelRequested = $false
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -114,7 +114,7 @@ function Get-Workstations {
     
     try {
         # Filters workstations based on OperatingSystem containing "Windows 10" or "Windows 11"
-        $workstations = Get-ADComputer -Server $Domain -Filter {OperatingSystem -like "*Windows 10*" -or OperatingSystem -like "*Windows 11*"} -Properties OperatingSystem
+        $workstations = Get-ADComputer -Server $Domain -Filter { OperatingSystem -like "*Windows 10*" -or OperatingSystem -like "*Windows 11*" } -Properties OperatingSystem
         return $workstations
     } catch {
         Show-ErrorMessage "Failed to retrieve workstations from domain ${Domain}: ${_}"
@@ -156,7 +156,7 @@ function Update-WorkstationDescriptionsAndSite {
             $WorkstationName = $Workstation
             try {
                 # Replace 'Info' with 'physicalDeliveryOfficeName' or any other appropriate attribute if needed
-                Set-ADComputer -Server $DC -Identity $WorkstationName -Description $DefaultDesc -Replace @{Info=$Site} -Credential $Credential -ErrorAction Stop
+                Set-ADComputer -Server $DC -Identity $WorkstationName -Description $DefaultDesc -Replace @{Info = $Site } -Credential $Credential -ErrorAction Stop
                 Log-Message "Updated ${WorkstationName} with description '${DefaultDesc}' and site '${Site}'"
             } catch {
                 Show-ErrorMessage "Failed to update ${WorkstationName}: ${_}"
@@ -261,18 +261,18 @@ $form.Controls.Add($chkSelectAll)
 
 # Function to handle Select All checkbox with optimization to prevent freezing
 $chkSelectAll.Add_CheckedChanged({
-    $listBoxWorkstations.BeginUpdate()
-    if ($chkSelectAll.Checked) {
-        for ($i = 0; $i -lt $listBoxWorkstations.Items.Count; $i++) {
-            $listBoxWorkstations.SetItemChecked($i, $true)
+        $listBoxWorkstations.BeginUpdate()
+        if ($chkSelectAll.Checked) {
+            for ($i = 0; $i -lt $listBoxWorkstations.Items.Count; $i++) {
+                $listBoxWorkstations.SetItemChecked($i, $true)
+            }
+        } else {
+            for ($i = 0; $i -lt $listBoxWorkstations.Items.Count; $i++) {
+                $listBoxWorkstations.SetItemChecked($i, $false)
+            }
         }
-    } else {
-        for ($i = 0; $i -lt $listBoxWorkstations.Items.Count; $i++) {
-            $listBoxWorkstations.SetItemChecked($i, $false)
-        }
-    }
-    $listBoxWorkstations.EndUpdate()
-})
+        $listBoxWorkstations.EndUpdate()
+    })
 
 # Panel to hold buttons at the bottom
 $panelButtons = New-Object System.Windows.Forms.Panel
@@ -287,28 +287,28 @@ $buttonSearchWorkstations.Text = 'Search Workstations'
 $buttonSearchWorkstations.Size = New-Object System.Drawing.Size(150, 30)
 $buttonSearchWorkstations.Location = New-Object System.Drawing.Point(20, 15)
 $buttonSearchWorkstations.Add_Click({
-    $selectedDomain = $comboBoxDomain.SelectedItem
-    if (-not $selectedDomain) {
-        Show-ErrorMessage "Please select a domain."
-        return
-    }
-
-    $workstations = Get-Workstations -Domain $selectedDomain
-    $listBoxWorkstations.Items.Clear()
-
-    if ($workstations.Count -gt 0) {
-        $listBoxWorkstations.BeginUpdate()
-        foreach ($workstation in $workstations) {
-            $listBoxWorkstations.Items.Add($workstation.Name)
+        $selectedDomain = $comboBoxDomain.SelectedItem
+        if (-not $selectedDomain) {
+            Show-ErrorMessage "Please select a domain."
+            return
         }
-        $listBoxWorkstations.EndUpdate()
-        Show-InfoMessage "$($workstations.Count) workstations found."
-        $executeButton.Enabled = $true
-    } else {
-        Show-InfoMessage "No workstations found in the domain ${selectedDomain}."
-        $executeButton.Enabled = $false
-    }
-})
+
+        $workstations = Get-Workstations -Domain $selectedDomain
+        $listBoxWorkstations.Items.Clear()
+
+        if ($workstations.Count -gt 0) {
+            $listBoxWorkstations.BeginUpdate()
+            foreach ($workstation in $workstations) {
+                $listBoxWorkstations.Items.Add($workstation.Name)
+            }
+            $listBoxWorkstations.EndUpdate()
+            Show-InfoMessage "$($workstations.Count) workstations found."
+            $executeButton.Enabled = $true
+        } else {
+            Show-InfoMessage "No workstations found in the domain ${selectedDomain}."
+            $executeButton.Enabled = $false
+        }
+    })
 $panelButtons.Controls.Add($buttonSearchWorkstations)
 
 # Execute button
@@ -318,46 +318,46 @@ $executeButton.Size = New-Object System.Drawing.Size(100, 30)
 $executeButton.Location = New-Object System.Drawing.Point(200, 15)
 $executeButton.Enabled = $false
 $executeButton.Add_Click({
-    $selectedDomain = $comboBoxDomain.SelectedItem
-    $defaultDesc = $textBoxDesc.Text.Trim()
-    $siteInfo = $textBoxSite.Text.Trim()
-    $selectedWorkstations = $listBoxWorkstations.CheckedItems
+        $selectedDomain = $comboBoxDomain.SelectedItem
+        $defaultDesc = $textBoxDesc.Text.Trim()
+        $siteInfo = $textBoxSite.Text.Trim()
+        $selectedWorkstations = $listBoxWorkstations.CheckedItems
 
-    # Input validation
-    if (-not $selectedDomain) {
-        Show-ErrorMessage "Please select a domain."
-        return
-    }
+        # Input validation
+        if (-not $selectedDomain) {
+            Show-ErrorMessage "Please select a domain."
+            return
+        }
 
-    if ([string]::IsNullOrWhiteSpace($defaultDesc)) {
-        Show-ErrorMessage "Please enter a default workstation description."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($defaultDesc)) {
+            Show-ErrorMessage "Please enter a default workstation description."
+            return
+        }
 
-    if ([string]::IsNullOrWhiteSpace($siteInfo)) {
-        Show-ErrorMessage "Please enter site information."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($siteInfo)) {
+            Show-ErrorMessage "Please enter site information."
+            return
+        }
 
-    if ($selectedWorkstations.Count -eq 0) {
-        Show-ErrorMessage "Please select at least one workstation to update."
-        return
-    }
+        if ($selectedWorkstations.Count -eq 0) {
+            Show-ErrorMessage "Please select at least one workstation to update."
+            return
+        }
 
-    $executeButton.Enabled = $false
-    $cancelButton.Enabled = $true
-    $CancelRequested = $false
+        $executeButton.Enabled = $false
+        $cancelButton.Enabled = $true
+        $CancelRequested = $false
 
-    Update-WorkstationDescriptionsAndSite -DC $selectedDomain `
-                                          -DefaultDesc $defaultDesc `
-                                          -Site $siteInfo `
-                                          -Workstations $listBoxWorkstations `
-                                          -ProgressBar $progressBar `
-                                          -StatusLabel $statusLabel `
-                                          -ExecuteButton $executeButton `
-                                          -CancelButton $cancelButton `
-                                          -CancelRequested ([ref]$CancelRequested)
-})
+        Update-WorkstationDescriptionsAndSite -DC $selectedDomain `
+            -DefaultDesc $defaultDesc `
+            -Site $siteInfo `
+            -Workstations $listBoxWorkstations `
+            -ProgressBar $progressBar `
+            -StatusLabel $statusLabel `
+            -ExecuteButton $executeButton `
+            -CancelButton $cancelButton `
+            -CancelRequested ([ref]$CancelRequested)
+    })
 $panelButtons.Controls.Add($executeButton)
 
 # Cancel button
@@ -367,13 +367,13 @@ $cancelButton.Size = New-Object System.Drawing.Size(100, 30)
 $cancelButton.Location = New-Object System.Drawing.Point(320, 15)
 $cancelButton.Enabled = $false
 $cancelButton.Add_Click({
-    $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the update?", "Cancel Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-    if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
-        $CancelRequested.Value = $true
-        Log-Message "User requested to cancel the update."
-        $statusLabel.Text = "Canceling update..."
-    }
-})
+        $confirm = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to cancel the update?", "Cancel Confirmation", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($confirm -eq [System.Windows.Forms.DialogResult]::Yes) {
+            $CancelRequested.Value = $true
+            Log-Message "User requested to cancel the update."
+            $statusLabel.Text = "Canceling update..."
+        }
+    })
 $panelButtons.Controls.Add($cancelButton)
 
 # Close button
@@ -399,19 +399,19 @@ $form.Controls.Add($statusLabel)
 
 # Enable Execute button when workstations are selected
 $listBoxWorkstations.Add_ItemCheck({
-    # Delay the execution to allow the item check to update
-    Start-Sleep -Milliseconds 100
-    if ($listBoxWorkstations.CheckedItems.Count -gt 0) {
-        $executeButton.Enabled = $true
-    } else {
-        $executeButton.Enabled = $false
-    }
-})
+        # Delay the execution to allow the item check to update
+        Start-Sleep -Milliseconds 100
+        if ($listBoxWorkstations.CheckedItems.Count -gt 0) {
+            $executeButton.Enabled = $true
+        } else {
+            $executeButton.Enabled = $false
+        }
+    })
 
 # Show the form
 $form.Add_Shown({
-    $form.Activate()
-})
+        $form.Activate()
+    })
 
 [void]$form.ShowDialog()
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Bulk Deleting Files Based on Extension. 
 
@@ -61,7 +61,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -186,13 +186,13 @@ $buttonSelectDir.Location = New-Object System.Drawing.Point(50, 45)
 $buttonSelectDir.Size = New-Object System.Drawing.Size(300, 30)
 $buttonSelectDir.Text = '1. Select Directory'
 $buttonSelectDir.Add_Click({
-    $global:directory = Select-Directory
-    if ($global:directory) {
-        $labelSelectedDir.Text = "Selected Directory: $global:directory"
-    } else {
-        $labelSelectedDir.Text = "Selected Directory: Not Selected"
-    }
-})
+        $global:directory = Select-Directory
+        if ($global:directory) {
+            $labelSelectedDir.Text = "Selected Directory: $global:directory"
+        } else {
+            $labelSelectedDir.Text = "Selected Directory: Not Selected"
+        }
+    })
 $form.Controls.Add($buttonSelectDir)
 
 $labelSelectedExt = New-Object System.Windows.Forms.Label
@@ -206,13 +206,13 @@ $buttonSelectExt.Location = New-Object System.Drawing.Point(50, 110)
 $buttonSelectExt.Size = New-Object System.Drawing.Size(300, 30)
 $buttonSelectExt.Text = '2. Select Extension File'
 $buttonSelectExt.Add_Click({
-    $global:extensionFile = Select-ExtensionFile
-    if ($global:extensionFile) {
-        $labelSelectedExt.Text = "Selected Extension File: $global:extensionFile"
-    } else {
-        $labelSelectedExt.Text = "Selected Extension File: Not Selected"
-    }
-})
+        $global:extensionFile = Select-ExtensionFile
+        if ($global:extensionFile) {
+            $labelSelectedExt.Text = "Selected Extension File: $global:extensionFile"
+        } else {
+            $labelSelectedExt.Text = "Selected Extension File: Not Selected"
+        }
+    })
 $form.Controls.Add($buttonSelectExt)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
@@ -227,19 +227,19 @@ $buttonDeleteFiles.Location = New-Object System.Drawing.Point(50, 180)
 $buttonDeleteFiles.Size = New-Object System.Drawing.Size(300, 30)
 $buttonDeleteFiles.Text = '3. Delete Files'
 $buttonDeleteFiles.Add_Click({
-    if ($global:directory -and $global:extensionFile) {
-        $extensions = Get-FileExtensions $global:extensionFile
-        if ($extensions) {
-            $progressBar.Value = 0
-            Delete-Files $global:directory $extensions
-            Show-InfoMessage "Files deleted successfully"
+        if ($global:directory -and $global:extensionFile) {
+            $extensions = Get-FileExtensions $global:extensionFile
+            if ($extensions) {
+                $progressBar.Value = 0
+                Delete-Files $global:directory $extensions
+                Show-InfoMessage "Files deleted successfully"
+            } else {
+                Show-ErrorMessage "Failed to load extensions."
+            }
         } else {
-            Show-ErrorMessage "Failed to load extensions."
+            Show-ErrorMessage "Please select a directory and an extension file"
         }
-    } else {
-        Show-ErrorMessage "Please select a directory and an extension file"
-    }
-})
+    })
 $form.Controls.Add($buttonDeleteFiles)
 
 # Show the form

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Counting EventID Occurrences in EVTX Files using Log Parser. 
 
@@ -194,151 +194,151 @@ function Count-EventIDs {
 
 #region GUI Setup
 $form = New-Object System.Windows.Forms.Form -Property @{
-    Text          = 'Event ID Counter (EVTX Files)'
-    Size          = [System.Drawing.Size]::new(450, 300)
+    Text = 'Event ID Counter (EVTX Files)'
+    Size = [System.Drawing.Size]::new(450, 300)
     StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedSingle'
-    MaximizeBox     = $false
+    MaximizeBox = $false
 }
 
 # Log Directory
 $labelLogDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Log Directory:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Log Directory:"
 }
 $form.Controls.Add($labelLogDir)
 
 $textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 20)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $logDir
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $logDir
 }
 $form.Controls.Add($textBoxLogDir)
 
 $buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseLogDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxLogDir.Text = $folder 
-        Write-Log "Log Directory updated to: '$folder' via browse"
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxLogDir.Text = $folder 
+            Write-Log "Log Directory updated to: '$folder' via browse"
+        }
+    })
 $form.Controls.Add($buttonBrowseLogDir)
 
 # Output Folder
 $labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 50)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Output Folder:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Output Folder:"
 }
 $form.Controls.Add($labelOutputDir)
 
 $textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 50)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $outputFolder
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $outputFolder
 }
 $form.Controls.Add($textBoxOutputDir)
 
 $buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 50)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseOutputDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxOutputDir.Text = $folder 
-        Write-Log "Output Folder updated to: '$folder' via browse"
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxOutputDir.Text = $folder 
+            Write-Log "Output Folder updated to: '$folder' via browse"
+        }
+    })
 $form.Controls.Add($buttonBrowseOutputDir)
 
 # EVTX Folder
 $labelBrowse = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 80)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "EVTX Folder:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "EVTX Folder:"
 }
 $form.Controls.Add($labelBrowse)
 
 $textBoxEvtxFolder = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 80)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = ""
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = ""
 }
 $form.Controls.Add($textBoxEvtxFolder)
 
 $buttonBrowseEvtx = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 80)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseEvtx.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxEvtxFolder.Text = $folder 
-        $script:buttonStartAnalysis.Enabled = $true
-        Write-Log "Selected EVTX folder: '$folder'"
-    } else {
-        $textBoxEvtxFolder.Text = ""
-        $script:buttonStartAnalysis.Enabled = $false
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxEvtxFolder.Text = $folder 
+            $script:buttonStartAnalysis.Enabled = $true
+            Write-Log "Selected EVTX folder: '$folder'"
+        } else {
+            $textBoxEvtxFolder.Text = ""
+            $script:buttonStartAnalysis.Enabled = $false
+        }
+    })
 $form.Controls.Add($buttonBrowseEvtx)
 
 # Status Label
 $statusLabel = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 110)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Text     = "Ready"
+    Size = [System.Drawing.Size]::new(430, 20)
+    Text = "Ready"
 }
 $form.Controls.Add($statusLabel)
 
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
     Location = [System.Drawing.Point]::new(10, 140)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Minimum  = 0
-    Maximum  = 100
+    Size = [System.Drawing.Size]::new(430, 20)
+    Minimum = 0
+    Maximum = 100
 }
 $form.Controls.Add($progressBar)
 
 # Start Button
 $buttonStartAnalysis = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(10, 170)
-    Size     = [System.Drawing.Size]::new(100, 30)
-    Text     = "Start Analysis"
-    Enabled  = $false
+    Size = [System.Drawing.Size]::new(100, 30)
+    Text = "Start Analysis"
+    Enabled = $false
 }
 $buttonStartAnalysis.Add_Click({
-    $script:logDir = $textBoxLogDir.Text
-    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
-    $outputFolder = $textBoxOutputDir.Text
-    $evtxFolder = $textBoxEvtxFolder.Text
+        $script:logDir = $textBoxLogDir.Text
+        $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+        $outputFolder = $textBoxOutputDir.Text
+        $evtxFolder = $textBoxEvtxFolder.Text
 
-    if (-not (Test-Path $script:logDir)) {
-        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
-    }
+        if (-not (Test-Path $script:logDir)) {
+            New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+        }
 
-    if (-not $evtxFolder) {
-        Show-MessageBox -Message "Please select a folder containing EVTX files." -Title "Input Required" -Icon Warning
+        if (-not $evtxFolder) {
+            Show-MessageBox -Message "Please select a folder containing EVTX files." -Title "Input Required" -Icon Warning
+            $script:statusLabel.Text = "Ready"
+            return
+        }
+
+        Write-Log "Starting Event ID analysis in folder '$evtxFolder'"
+        $script:statusLabel.Text = "Processing..."
+        $script:form.Refresh()
+
+        Count-EventIDs -LogFolderPath $evtxFolder -OutputFolder $outputFolder
         $script:statusLabel.Text = "Ready"
-        return
-    }
-
-    Write-Log "Starting Event ID analysis in folder '$evtxFolder'"
-    $script:statusLabel.Text = "Processing..."
-    $script:form.Refresh()
-
-    Count-EventIDs -LogFolderPath $evtxFolder -OutputFolder $outputFolder
-    $script:statusLabel.Text = "Ready"
-})
+    })
 $form.Controls.Add($buttonStartAnalysis)
 
 # Script scope variables

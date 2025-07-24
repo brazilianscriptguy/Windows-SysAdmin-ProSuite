@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Uninstalling Selected Applications from Workstations.
 
@@ -60,9 +60,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Write-Log {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -89,18 +89,18 @@ function Get-GUIDFromPath {
 function Get-InstalledPrograms {
     Write-Log -Message "Retrieving list of installed programs"
     $installedPrograms64Bit = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
-                              Where-Object { $_.DisplayName } |
-                              Select-Object DisplayName, DisplayVersion, 
-                                            @{Name="IdentifyingNumber"; Expression={Get-GUIDFromPath $_.PSPath}},
-                                            @{Name="UninstallString"; Expression={$_.UninstallString}},
-                                            @{Name="Architecture"; Expression={"64-bit"}}
+        Where-Object { $_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion, 
+        @{Name = "IdentifyingNumber"; Expression = { Get-GUIDFromPath $_.PSPath } },
+        @{Name = "UninstallString"; Expression = { $_.UninstallString } },
+        @{Name = "Architecture"; Expression = { "64-bit" } }
 
     $installedPrograms32Bit = Get-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' |
-                              Where-Object { $_.DisplayName } |
-                              Select-Object DisplayName, DisplayVersion, 
-                                            @{Name="IdentifyingNumber"; Expression={Get-GUIDFromPath $_.PSPath}},
-                                            @{Name="UninstallString"; Expression={$_.UninstallString}},
-                                            @{Name="Architecture"; Expression={"32-bit"}}
+        Where-Object { $_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion, 
+        @{Name = "IdentifyingNumber"; Expression = { Get-GUIDFromPath $_.PSPath } },
+        @{Name = "UninstallString"; Expression = { $_.UninstallString } },
+        @{Name = "Architecture"; Expression = { "32-bit" } }
 
     return $installedPrograms64Bit + $installedPrograms32Bit
 }
@@ -108,7 +108,7 @@ function Get-InstalledPrograms {
 # Function to uninstall a selected application
 function Uninstall-Application {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SelectedAppName
     )
     $application = Get-InstalledPrograms | Where-Object { $_.DisplayName -eq $SelectedAppName }
@@ -172,12 +172,12 @@ function Create-GUI {
     $searchButton.Size = New-Object System.Drawing.Size(100, 30)
     $searchButton.Text = 'Search'
     $searchButton.Add_Click({
-        $listBoxApps.Items.Clear()
-        $applications = Get-InstalledPrograms | Where-Object { $_.DisplayName -like "*$($textBoxAppName.Text)*" }
-        foreach ($app in $applications) {
-            $listBoxApps.Items.Add($app.DisplayName)
-        }
-    })
+            $listBoxApps.Items.Clear()
+            $applications = Get-InstalledPrograms | Where-Object { $_.DisplayName -like "*$($textBoxAppName.Text)*" }
+            foreach ($app in $applications) {
+                $listBoxApps.Items.Add($app.DisplayName)
+            }
+        })
     $form.Controls.Add($searchButton)
 
     # Uninstall button
@@ -186,11 +186,11 @@ function Create-GUI {
     $uninstallButton.Size = New-Object System.Drawing.Size(100, 30)
     $uninstallButton.Text = 'Uninstall'
     $uninstallButton.Add_Click({
-        $selectedApp = $listBoxApps.SelectedItem
-        if ($selectedApp -ne $null) {
-            Uninstall-Application -SelectedAppName $selectedApp
-        }
-    })
+            $selectedApp = $listBoxApps.SelectedItem
+            if ($selectedApp -ne $null) {
+                Uninstall-Application -SelectedAppName $selectedApp
+            }
+        })
     $form.Controls.Add($uninstallButton)
 
     # Close button

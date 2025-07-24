@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Analyzing AD Object Changes via Event IDs 5136, 5137, and 5141 using Log Parser.
 
@@ -206,135 +206,135 @@ function Compile-ADObjectChanges {
 
 #region GUI Setup
 $form = New-Object System.Windows.Forms.Form -Property @{
-    Text          = 'AD Object Change Auditor (Event IDs 5136, 5137, 5141)'
-    Size          = [System.Drawing.Size]::new(450, 350)
+    Text = 'AD Object Change Auditor (Event IDs 5136, 5137, 5141)'
+    Size = [System.Drawing.Size]::new(450, 350)
     StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedSingle'
-    MaximizeBox     = $false
+    MaximizeBox = $false
 }
 
 # User Accounts
 $labelUsers = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "User Accounts:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "User Accounts:"
 }
 $form.Controls.Add($labelUsers)
 
 $textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 20)
-    Size     = [System.Drawing.Size]::new(320, 60)
+    Size = [System.Drawing.Size]::new(320, 60)
     Multiline = $true
-    Text     = "user01, user02, user03, user04, user05"
+    Text = "user01, user02, user03, user04, user05"
 }
 $form.Controls.Add($textBoxUsers)
 
 # Log Directory
 $labelLogDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Log Directory:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Log Directory:"
 }
 $form.Controls.Add($labelLogDir)
 
 $textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 90)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $logDir
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $logDir
 }
 $form.Controls.Add($textBoxLogDir)
 
 $buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseLogDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxLogDir.Text = $folder 
-        Write-Log "Log Directory updated to: '$folder' via browse"
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxLogDir.Text = $folder 
+            Write-Log "Log Directory updated to: '$folder' via browse"
+        }
+    })
 $form.Controls.Add($buttonBrowseLogDir)
 
 # Output Folder
 $labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Output Folder:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Output Folder:"
 }
 $form.Controls.Add($labelOutputDir)
 
 $textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 120)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $outputFolderDefault
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $outputFolderDefault
 }
 $form.Controls.Add($textBoxOutputDir)
 
 $buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseOutputDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { 
-        $textBoxOutputDir.Text = $folder 
-        Write-Log "Output Folder updated to: '$folder' via browse"
-    }
-})
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxOutputDir.Text = $folder 
+            Write-Log "Output Folder updated to: '$folder' via browse"
+        }
+    })
 $form.Controls.Add($buttonBrowseOutputDir)
 
 # Status Label
 $labelStatus = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 180)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Text     = "Ready"
+    Size = [System.Drawing.Size]::new(430, 20)
+    Text = "Ready"
 }
 $form.Controls.Add($labelStatus)
 
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
     Location = [System.Drawing.Point]::new(10, 210)
-    Size     = [System.Drawing.Size]::new(430, 20)
+    Size = [System.Drawing.Size]::new(430, 20)
 }
 $form.Controls.Add($progressBar)
 
 # Start Button
 $button = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(10, 240)
-    Size     = [System.Drawing.Size]::new(100, 30)
-    Text     = 'Start Analysis'
+    Size = [System.Drawing.Size]::new(100, 30)
+    Text = 'Start Analysis'
 }
 $button.Add_Click({
-    $script:logDir = $textBoxLogDir.Text
-    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
-    $outputFolder = $textBoxOutputDir.Text
+        $script:logDir = $textBoxLogDir.Text
+        $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+        $outputFolder = $textBoxOutputDir.Text
 
-    if (-not (Test-Path $script:logDir)) {
-        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
-    }
+        if (-not (Test-Path $script:logDir)) {
+            New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+        }
 
-    $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+        $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
 
-    Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
-    $script:labelStatus.Text = "Selecting folder..."
-    $script:form.Refresh()
+        Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+        $script:labelStatus.Text = "Selecting folder..."
+        $script:form.Refresh()
 
-    $evtxFolder = Select-Folder
-    if (-not $evtxFolder) {
-        Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
-        $script:labelStatus.Text = "Ready"
-        return
-    }
+        $evtxFolder = Select-Folder
+        if (-not $evtxFolder) {
+            Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+            $script:labelStatus.Text = "Ready"
+            return
+        }
 
-    $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
-    $script:form.Refresh()
+        $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+        $script:form.Refresh()
 
-    Compile-ADObjectChanges -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
-})
+        Compile-ADObjectChanges -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+    })
 $form.Controls.Add($button)
 
 # Script scope variables

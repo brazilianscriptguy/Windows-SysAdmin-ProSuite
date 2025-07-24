@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI for ReaQta Component Cleanup
 
@@ -149,15 +149,15 @@ function Show-GUI {
     $btnRun.Size = '140,35'
     $btnRun.BackColor = 'LightGreen'
     $btnRun.Add_Click({
-        Remove-ServiceAndFiles
-        if ($cbSFC.Checked) { Run-SFC }
-        if ($cbDISM.Checked) { Run-DISM }
-        $logViewer.Lines = Get-Content -Path $logPath -ErrorAction SilentlyContinue
-        if ($cbReboot.Checked) {
-            [System.Windows.Forms.MessageBox]::Show("System will reboot in 15 seconds.", "Reboot", 'OK', 'Information')
-            Reboot-System
-        }
-    })
+            Remove-ServiceAndFiles
+            if ($cbSFC.Checked) { Run-SFC }
+            if ($cbDISM.Checked) { Run-DISM }
+            $logViewer.Lines = Get-Content -Path $logPath -ErrorAction SilentlyContinue
+            if ($cbReboot.Checked) {
+                [System.Windows.Forms.MessageBox]::Show("System will reboot in 15 seconds.", "Reboot", 'OK', 'Information')
+                Reboot-System
+            }
+        })
     $form.Controls.Add($btnRun)
 
     $btnRefresh = New-Object Windows.Forms.Button
@@ -165,8 +165,8 @@ function Show-GUI {
     $btnRefresh.Location = '180,490'
     $btnRefresh.Size = '140,35'
     $btnRefresh.Add_Click({
-        $logViewer.Lines = Get-Content -Path $logPath -ErrorAction SilentlyContinue
-    })
+            $logViewer.Lines = Get-Content -Path $logPath -ErrorAction SilentlyContinue
+        })
     $form.Controls.Add($btnRefresh)
 
     $btnClose = New-Object Windows.Forms.Button

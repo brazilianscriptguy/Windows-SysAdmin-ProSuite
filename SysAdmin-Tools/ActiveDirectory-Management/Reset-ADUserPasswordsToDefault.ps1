@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Resetting AD User Passwords to a Default Value.
 
@@ -206,8 +206,8 @@ $btnLoadDomains.Text = 'Refresh Domains List'
 $btnLoadDomains.Location = New-Object System.Drawing.Point(10, 80)
 $btnLoadDomains.Size = New-Object System.Drawing.Size(150, 30)
 $btnLoadDomains.Add_Click({
-    Load-Domains
-})
+        Load-Domains
+    })
 $form.Controls.Add($btnLoadDomains)
 
 # Label for OU search
@@ -236,27 +236,27 @@ $btnLoadOUs.Text = 'Refresh OUs List'
 $btnLoadOUs.Location = New-Object System.Drawing.Point(10, 220)
 $btnLoadOUs.Size = New-Object System.Drawing.Size(150, 30)
 $btnLoadOUs.Add_Click({
-    $domainName = $cmbDomains.SelectedItem
-    if ($null -eq $domainName) {
-        Show-ErrorMessage "Please select a domain first."
-        return
-    }
-    Load-OUs -DomainName $domainName
-})
+        $domainName = $cmbDomains.SelectedItem
+        if ($null -eq $domainName) {
+            Show-ErrorMessage "Please select a domain first."
+            return
+        }
+        Load-OUs -DomainName $domainName
+    })
 $form.Controls.Add($btnLoadOUs)
 
 # Search functionality for OUs
 $txtOUSearch.Add_TextChanged({
-    $searchText = $txtOUSearch.Text
-    $filteredOUs = $script:allOUs | Where-Object { $_ -like "*$searchText*" }
-    $cmbOUs.Items.Clear()
-    $filteredOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
-    if ($cmbOUs.Items.Count -gt 0) {
-        $cmbOUs.SelectedIndex = 0
-    } else {
-        $cmbOUs.Text = 'No matching OU found'
-    }
-})
+        $searchText = $txtOUSearch.Text
+        $filteredOUs = $script:allOUs | Where-Object { $_ -like "*$searchText*" }
+        $cmbOUs.Items.Clear()
+        $filteredOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
+        if ($cmbOUs.Items.Count -gt 0) {
+            $cmbOUs.SelectedIndex = 0
+        } else {
+            $cmbOUs.Text = 'No matching OU found'
+        }
+    })
 
 # Label for Default Password
 $labelPassword = New-Object System.Windows.Forms.Label
@@ -278,26 +278,26 @@ $buttonExecute.Text = 'Reset Passwords'
 $buttonExecute.Location = New-Object System.Drawing.Point(10, 330)
 $buttonExecute.Size = New-Object System.Drawing.Size(150, 30)
 $buttonExecute.Add_Click({
-    Log-Message "Reset Passwords button clicked, starting password reset process."
-    $domainName = $cmbDomains.SelectedItem
-    $ou = $cmbOUs.SelectedItem
-    $defaultPassword = $textBoxPassword.Text
+        Log-Message "Reset Passwords button clicked, starting password reset process."
+        $domainName = $cmbDomains.SelectedItem
+        $ou = $cmbOUs.SelectedItem
+        $defaultPassword = $textBoxPassword.Text
 
-    if (![string]::IsNullOrWhiteSpace($domainName) -and ![string]::IsNullOrWhiteSpace($ou) -and ![string]::IsNullOrWhiteSpace($defaultPassword)) {
-        # Convert the plain text password to a secure string
-        $securePassword = ConvertTo-SecureString -String $defaultPassword -AsPlainText -Force
+        if (![string]::IsNullOrWhiteSpace($domainName) -and ![string]::IsNullOrWhiteSpace($ou) -and ![string]::IsNullOrWhiteSpace($defaultPassword)) {
+            # Convert the plain text password to a secure string
+            $securePassword = ConvertTo-SecureString -String $defaultPassword -AsPlainText -Force
 
-        # Confirm action
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to reset passwords for all users in the selected OU?", "Confirm Password Reset", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-            Reset-UserPasswords -DomainName $domainName -OU $ou -DefaultPassword $securePassword
+            # Confirm action
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to reset passwords for all users in the selected OU?", "Confirm Password Reset", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Reset-UserPasswords -DomainName $domainName -OU $ou -DefaultPassword $securePassword
+            } else {
+                Log-Message "Password reset operation cancelled by user."
+            }
         } else {
-            Log-Message "Password reset operation cancelled by user."
+            Show-ErrorMessage "Please select a valid domain, OU, and provide a default password."
         }
-    } else {
-        Show-ErrorMessage "Please select a valid domain, OU, and provide a default password."
-    }
-})
+    })
 $form.Controls.Add($buttonExecute)
 
 # Function to load domains into the ComboBox
@@ -320,16 +320,16 @@ function Load-Domains {
 
 # Event handler for domain selection change
 $cmbDomains.Add_SelectedIndexChanged({
-    $domainName = $cmbDomains.SelectedItem
-    if ($null -ne $domainName) {
-        Load-OUs -DomainName $domainName
-    }
-})
+        $domainName = $cmbDomains.SelectedItem
+        if ($null -ne $domainName) {
+            Load-OUs -DomainName $domainName
+        }
+    })
 
 # Load domains on form load
 $form.Add_Shown({
-    Load-Domains
-})
+        Load-Domains
+    })
 
 # Show the form
 [void]$form.ShowDialog()

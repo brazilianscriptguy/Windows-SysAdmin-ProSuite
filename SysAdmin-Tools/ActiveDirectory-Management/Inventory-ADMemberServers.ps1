@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Generating Reports on AD Member Servers.
 
@@ -131,39 +131,39 @@ $generateButton.Location = New-Object System.Drawing.Point(10, 160)
 $generateButton.Size = New-Object System.Drawing.Size(360, 30)
 $generateButton.Text = 'Generate Report'
 $generateButton.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
+        $domainFQDN = $comboBoxDomain.SelectedItem
 
-    if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
-        $progressBar.Value = 10
-        $statusLabel.Text = "Retrieving server information..."
-        try {
-            $sanitizedDomainFQDN = $domainFQDN -replace "\.", "_"
-            $outputFilePath = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${sanitizedDomainFQDN}_${timestamp}.csv"
+        if (![string]::IsNullOrWhiteSpace($domainFQDN)) {
+            $progressBar.Value = 10
+            $statusLabel.Text = "Retrieving server information..."
+            try {
+                $sanitizedDomainFQDN = $domainFQDN -replace "\.", "_"
+                $outputFilePath = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${sanitizedDomainFQDN}_${timestamp}.csv"
 
-            # Retrieve member servers
-            $progressBar.Value = 50
-            $servers = Get-ADComputer -Filter { OperatingSystem -Like '*Server*' } -Server $domainFQDN -Properties Name, IPv4Address, OperatingSystem, OperatingSystemVersion | Select-Object Name, IPv4Address, OperatingSystem, OperatingSystemVersion
+                # Retrieve member servers
+                $progressBar.Value = 50
+                $servers = Get-ADComputer -Filter { OperatingSystem -Like '*Server*' } -Server $domainFQDN -Properties Name, IPv4Address, OperatingSystem, OperatingSystemVersion | Select-Object Name, IPv4Address, OperatingSystem, OperatingSystemVersion
 
-            # Export results to CSV
-            $progressBar.Value = 90
-            $servers | Export-Csv -Path $outputFilePath -NoTypeInformation -Encoding UTF8
+                # Export results to CSV
+                $progressBar.Value = 90
+                $servers | Export-Csv -Path $outputFilePath -NoTypeInformation -Encoding UTF8
 
-            $progressBar.Value = 100
-            Show-InfoMessage "Report exported successfully to:`n$outputFilePath"
-            $statusLabel.Text = "Report generated successfully."
-            Log-Message -Message "Report generated and exported to $outputFilePath" -MessageType "INFO"
-        } catch {
-            Show-ErrorMessage "Error querying Active Directory: $_"
-            Log-Message -Message "Error querying Active Directory: $_" -MessageType "ERROR"
-            $progressBar.Value = 0
-            $statusLabel.Text = "Error occurred during report generation."
+                $progressBar.Value = 100
+                Show-InfoMessage "Report exported successfully to:`n$outputFilePath"
+                $statusLabel.Text = "Report generated successfully."
+                Log-Message -Message "Report generated and exported to $outputFilePath" -MessageType "INFO"
+            } catch {
+                Show-ErrorMessage "Error querying Active Directory: $_"
+                Log-Message -Message "Error querying Active Directory: $_" -MessageType "ERROR"
+                $progressBar.Value = 0
+                $statusLabel.Text = "Error occurred during report generation."
+            }
+        } else {
+            Show-ErrorMessage 'Please select a valid FQDN of the Domain.'
+            $statusLabel.Text = 'Input Error.'
+            Log-Message -Message "Invalid FQDN input by user." -MessageType "ERROR"
         }
-    } else {
-        Show-ErrorMessage 'Please select a valid FQDN of the Domain.'
-        $statusLabel.Text = 'Input Error.'
-        Log-Message -Message "Invalid FQDN input by user." -MessageType "ERROR"
-    }
-})
+    })
 $form.Controls.Add($generateButton)
 
 # Close button
@@ -172,8 +172,8 @@ $closeButton.Location = New-Object System.Drawing.Point(10, 200)
 $closeButton.Size = New-Object System.Drawing.Size(360, 30)
 $closeButton.Text = 'Close'
 $closeButton.Add_Click({
-    $form.Close()
-})
+        $form.Close()
+    })
 $form.Controls.Add($closeButton)
 
 $form.Add_Shown({ $form.Activate() })

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     GUI Tool to Clear Print Queue, Reset Spooler, and Remove Printer Drivers.
 
@@ -117,17 +117,17 @@ function Remove-PrinterDrivers {
     $btnRemove.Location = '120,320'
     $btnRemove.Size = '140,40'
     $btnRemove.Add_Click({
-        foreach ($item in $listBox.CheckedItems) {
-            try {
-                Remove-PrinterDriver -Name $item -ErrorAction Stop
-                Write-Log "Removed driver: ${item}"
-            } catch {
-                Show-Error "Failed to remove ${item}: ${_}"
+            foreach ($item in $listBox.CheckedItems) {
+                try {
+                    Remove-PrinterDriver -Name $item -ErrorAction Stop
+                    Write-Log "Removed driver: ${item}"
+                } catch {
+                    Show-Error "Failed to remove ${item}: ${_}"
+                }
             }
-        }
-        [System.Windows.Forms.MessageBox]::Show("Selected drivers removed.", "Done", 'OK', 'Information')
-        $formDrivers.Close()
-    })
+            [System.Windows.Forms.MessageBox]::Show("Selected drivers removed.", "Done", 'OK', 'Information')
+            $formDrivers.Close()
+        })
     $formDrivers.Controls.Add($btnRemove)
 
     $form.TopMost = $false

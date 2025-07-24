@@ -78,19 +78,19 @@ function Get-SystemInfo {
         $mac = $nic.MACAddress
 
         $obj = [pscustomobject]@{
-            Timestamp     = Get-Date
-            Hostname      = $hostname
-            SerialNumber  = $serial
-            Manufacturer  = $manufacturer
-            Model         = $model
-            MemorySizeGB  = $mem
-            Processor     = $cpu
-            IPv4Address   = $ipv4
+            Timestamp = Get-Date
+            Hostname = $hostname
+            SerialNumber = $serial
+            Manufacturer = $manufacturer
+            Model = $model
+            MemorySizeGB = $mem
+            Processor = $cpu
+            IPv4Address = $ipv4
             IPv6Addresses = $ipv6
-            SubnetMask    = $subnet
-            DNSServer     = $dns
-            MACAddress    = $mac
-            Domain        = $domain
+            SubnetMask = $subnet
+            DNSServer = $dns
+            MACAddress = $mac
+            Domain = $domain
         }
 
         if (-not (Test-Path $csvPath)) {
@@ -135,10 +135,10 @@ $btn.Text = "Run Collection"
 $btn.Location = '150,170'
 $btn.Size = '180,40'
 $btn.Add_Click({
-    Write-Log "System collection started"
-    Get-SystemInfo
-    Write-Log "System collection finished"
-})
+        Write-Log "System collection started"
+        Get-SystemInfo
+        Write-Log "System collection finished"
+    })
 $form.Controls.Add($btn)
 
 $form.ShowDialog()

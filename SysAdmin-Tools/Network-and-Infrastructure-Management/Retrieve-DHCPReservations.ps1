@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Retrieving DHCP Reservations.
 
@@ -48,10 +48,10 @@ Add-Type -AssemblyName System.Drawing
 # Enhanced logging function with error handling and validation
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO"
     )
@@ -362,96 +362,96 @@ function Create-GUI {
 
     # Event handler for when a domain is selected
     $comboBoxDomain.Add_SelectedIndexChanged({
-        $selectedDomain = $comboBoxDomain.SelectedItem
-        if ($selectedDomain) {
-            $checkedListDhcpServers.Items.Clear()
-            $dhcpServersList = Get-DHCPServerFromDomain -domain $selectedDomain
-            if ($dhcpServersList.Count -gt 0) {
-                foreach ($server in $dhcpServersList) {
-                    [void]$checkedListDhcpServers.Items.Add($server)
+            $selectedDomain = $comboBoxDomain.SelectedItem
+            if ($selectedDomain) {
+                $checkedListDhcpServers.Items.Clear()
+                $dhcpServersList = Get-DHCPServerFromDomain -domain $selectedDomain
+                if ($dhcpServersList.Count -gt 0) {
+                    foreach ($server in $dhcpServersList) {
+                        [void]$checkedListDhcpServers.Items.Add($server)
+                    }
+                    Log-Message -Message "DHCP servers for domain '$selectedDomain' loaded." -MessageType "INFO"
+                } else {
+                    Handle-Error "No DHCP servers found for domain '$selectedDomain'."
                 }
-                Log-Message -Message "DHCP servers for domain '$selectedDomain' loaded." -MessageType "INFO"
-            } else {
-                Handle-Error "No DHCP servers found for domain '$selectedDomain'."
             }
-        }
-    })
+        })
 
     # Define the button click event for Get Reservations
     $buttonGetReservations.Add_Click({
-        # Clear previous data
-        $dataGridView.Rows.Clear()
-        $dataGridView.Columns.Clear()
-        $global:allReservations = @()
-        $global:filteredReservations = @()
-        $buttonExportCSV.Enabled = $false  # Disable export button until data is loaded
+            # Clear previous data
+            $dataGridView.Rows.Clear()
+            $dataGridView.Columns.Clear()
+            $global:allReservations = @()
+            $global:filteredReservations = @()
+            $buttonExportCSV.Enabled = $false  # Disable export button until data is loaded
 
-        try {
-            # Get the selected DHCP servers from the CheckedListBox
-            $checkedItems = $checkedListDhcpServers.CheckedItems
-            if ($checkedItems.Count -eq 0) {
-                Handle-Error "Please select at least one DHCP server."
-                return
-            } else {
-                $dhcpServers = $checkedItems
-                Log-Message -Message "Using selected DHCP servers: $($dhcpServers -join ', ')" -MessageType "INFO"
-            }
-
-            # Get filters
-            $filterTextName = $textNameFilter.Text.Trim()
-            $filterTextDescription = $textDescriptionFilter.Text.Trim()
-
-            # Retrieve reservations
-            $reservations = Retrieve-DhcpReservations -Servers $dhcpServers -NameFilter $filterTextName -DescriptionFilter $filterTextDescription
-
-            if ($reservations) {
-                # Prepare the DataGridView columns
-                $columns = @("DHCPServer", "ScopeId", "IPAddress", "ClientId", "Description", "Name")
-                foreach ($col in $columns) {
-                    $dataGridView.Columns.Add($col, $col)
+            try {
+                # Get the selected DHCP servers from the CheckedListBox
+                $checkedItems = $checkedListDhcpServers.CheckedItems
+                if ($checkedItems.Count -eq 0) {
+                    Handle-Error "Please select at least one DHCP server."
+                    return
+                } else {
+                    $dhcpServers = $checkedItems
+                    Log-Message -Message "Using selected DHCP servers: $($dhcpServers -join ', ')" -MessageType "INFO"
                 }
 
-                # Populate the DataGridView with reservation data
-                foreach ($reservation in $reservations) {
-                    $row = $dataGridView.Rows.Add()
-                    $dataGridView.Rows[$row].Cells["DHCPServer"].Value = $reservation.DHCPServer
-                    $dataGridView.Rows[$row].Cells["ScopeId"].Value = $reservation.ScopeId
-                    $dataGridView.Rows[$row].Cells["IPAddress"].Value = $reservation.IPAddress
-                    $dataGridView.Rows[$row].Cells["ClientId"].Value = $reservation.ClientId
-                    $dataGridView.Rows[$row].Cells["Description"].Value = $reservation.Description
-                    $dataGridView.Rows[$row].Cells["Name"].Value = $reservation.Name
+                # Get filters
+                $filterTextName = $textNameFilter.Text.Trim()
+                $filterTextDescription = $textDescriptionFilter.Text.Trim()
+
+                # Retrieve reservations
+                $reservations = Retrieve-DhcpReservations -Servers $dhcpServers -NameFilter $filterTextName -DescriptionFilter $filterTextDescription
+
+                if ($reservations) {
+                    # Prepare the DataGridView columns
+                    $columns = @("DHCPServer", "ScopeId", "IPAddress", "ClientId", "Description", "Name")
+                    foreach ($col in $columns) {
+                        $dataGridView.Columns.Add($col, $col)
+                    }
+
+                    # Populate the DataGridView with reservation data
+                    foreach ($reservation in $reservations) {
+                        $row = $dataGridView.Rows.Add()
+                        $dataGridView.Rows[$row].Cells["DHCPServer"].Value = $reservation.DHCPServer
+                        $dataGridView.Rows[$row].Cells["ScopeId"].Value = $reservation.ScopeId
+                        $dataGridView.Rows[$row].Cells["IPAddress"].Value = $reservation.IPAddress
+                        $dataGridView.Rows[$row].Cells["ClientId"].Value = $reservation.ClientId
+                        $dataGridView.Rows[$row].Cells["Description"].Value = $reservation.Description
+                        $dataGridView.Rows[$row].Cells["Name"].Value = $reservation.Name
+                    }
+
+                    $buttonExportCSV.Enabled = $true  # Enable export button now that data is loaded
+
+                    Log-Message -Message "Successfully retrieved and displayed reservations." -MessageType "INFO"
                 }
-
-                $buttonExportCSV.Enabled = $true  # Enable export button now that data is loaded
-
-                Log-Message -Message "Successfully retrieved and displayed reservations." -MessageType "INFO"
+            } catch {
+                Handle-Error "An error occurred while retrieving reservations: $($_.Exception.Message)"
             }
-        } catch {
-            Handle-Error "An error occurred while retrieving reservations: $($_.Exception.Message)"
-        }
-    })
+        })
 
     # Define the button click event for Export to CSV
     $buttonExportCSV.Add_Click({
-        try {
-            # Create a SaveFileDialog
-            $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-            $saveFileDialog.Filter = "CSV Files (*.csv)|*.csv"
-            $saveFileDialog.Title = "Save DHCP Reservations"
-            $saveFileDialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
-            $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-            $saveFileDialog.FileName = "DhcpReservations_$timestamp.csv"
+            try {
+                # Create a SaveFileDialog
+                $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+                $saveFileDialog.Filter = "CSV Files (*.csv)|*.csv"
+                $saveFileDialog.Title = "Save DHCP Reservations"
+                $saveFileDialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+                $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+                $saveFileDialog.FileName = "DhcpReservations_$timestamp.csv"
 
-            if ($saveFileDialog.ShowDialog() -eq 'OK') {
-                $csvPath = $saveFileDialog.FileName
+                if ($saveFileDialog.ShowDialog() -eq 'OK') {
+                    $csvPath = $saveFileDialog.FileName
 
-                # Export reservations to CSV
-                Export-ReservationsToCSV -Reservations $global:filteredReservations -FilePath $csvPath
+                    # Export reservations to CSV
+                    Export-ReservationsToCSV -Reservations $global:filteredReservations -FilePath $csvPath
+                }
+            } catch {
+                Handle-Error "An error occurred during export: $($_.Exception.Message)"
             }
-        } catch {
-            Handle-Error "An error occurred during export: $($_.Exception.Message)"
-        }
-    })
+        })
 
     # Run the form
     [void]$form.ShowDialog()

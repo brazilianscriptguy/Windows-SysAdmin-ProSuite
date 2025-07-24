@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Tool for Installing and Configuring KMS Licensing Server on Windows Server Forest Environment.
 
@@ -58,9 +58,9 @@ if (-not (Test-Path $logDir)) {
 # Function to Log Messages
 function Write-Log {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO"
     )
@@ -109,7 +109,7 @@ Import-RequiredModule -ModuleName 'ActiveDirectory'
 # Check if a KMS server already exists in the AD forest
 function Verify-KMSServer {
     try {
-        $existingKMS = Get-ADObject -Filter {servicePrincipalName -like "VAMT/KMS"} -SearchBase (Get-ADForest).RootDomain -ErrorAction Stop
+        $existingKMS = Get-ADObject -Filter { servicePrincipalName -like "VAMT/KMS" } -SearchBase (Get-ADForest).RootDomain -ErrorAction Stop
         if ($existingKMS) {
             Write-Log "An existing KMS server was found in the forest. Aborting installation." -MessageType "WARNING"
             [System.Windows.Forms.MessageBox]::Show("A KMS server already exists in the AD forest. Installation is disabled.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
@@ -167,14 +167,14 @@ function Create-KMSGUI {
     # Create the form
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "KMS Server Installation Tool"
-    $form.Size = New-Object System.Drawing.Size(800,500)
+    $form.Size = New-Object System.Drawing.Size(800, 500)
     $form.StartPosition = "CenterScreen"
 
     # Input for KMS Key
     $labelKey = New-Object System.Windows.Forms.Label
     $labelKey.Text = "Enter KMS Key:"
     $labelKey.Location = New-Object System.Drawing.Point(10, 20)
-    $labelKey.Size = New-Object System.Drawing.Size(120,20)
+    $labelKey.Size = New-Object System.Drawing.Size(120, 20)
     $form.Controls.Add($labelKey)
 
     $textBoxKey = New-Object System.Windows.Forms.TextBox
@@ -186,14 +186,14 @@ function Create-KMSGUI {
     # Button to verify KMS Server
     $buttonVerify = New-Object System.Windows.Forms.Button
     $buttonVerify.Text = "Verify KMS Server"
-    $buttonVerify.Size = New-Object System.Drawing.Size(150,30)
+    $buttonVerify.Size = New-Object System.Drawing.Size(150, 30)
     $buttonVerify.Location = New-Object System.Drawing.Point(10, 60)
     $form.Controls.Add($buttonVerify)
 
     # Button to start installation
     $buttonStart = New-Object System.Windows.Forms.Button
     $buttonStart.Text = "Start Installation"
-    $buttonStart.Size = New-Object System.Drawing.Size(150,30)
+    $buttonStart.Size = New-Object System.Drawing.Size(150, 30)
     $buttonStart.Location = New-Object System.Drawing.Point(170, 60)
     $buttonStart.Enabled = $false
     $form.Controls.Add($buttonStart)
@@ -206,20 +206,20 @@ function Create-KMSGUI {
 
     # Event handler for Verify KMS Server button
     $buttonVerify.Add_Click({
-        if (Verify-KMSServer) {
-            $buttonStart.Enabled = $false
-        } else {
-            $buttonStart.Enabled = $true
-        }
-    })
+            if (Verify-KMSServer) {
+                $buttonStart.Enabled = $false
+            } else {
+                $buttonStart.Enabled = $true
+            }
+        })
 
     # Event handler for Start Installation button
     $buttonStart.Add_Click({
-        $KMSKey = $textBoxKey.Text
-        $buttonStart.Enabled = $false
-        Install-KMS
-        $buttonStart.Enabled = $true
-    })
+            $KMSKey = $textBoxKey.Text
+            $buttonStart.Enabled = $false
+            Install-KMS
+            $buttonStart.Enabled = $true
+        })
 
     # Show the form
     $form.ShowDialog()

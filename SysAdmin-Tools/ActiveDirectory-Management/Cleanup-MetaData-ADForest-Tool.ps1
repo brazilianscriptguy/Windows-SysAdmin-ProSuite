@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Tool for Cleaning Up Metadata in Active Directory Forest.
 
@@ -442,12 +442,12 @@ $cleanButton.Location = New-Object System.Drawing.Point(50, 620)
 $cleanButton.Size = New-Object System.Drawing.Size(150, 50)
 $cleanButton.Text = "Clean Environment"
 $cleanButton.Add_Click({
-    $global:domainToRemove = $domainInput.Text
-    $global:dcToRemove = $dcInput.Text
-    $global:forestRootDomain = $forestInput.Text
+        $global:domainToRemove = $domainInput.Text
+        $global:dcToRemove = $dcInput.Text
+        $global:forestRootDomain = $forestInput.Text
 
-    Clean-Environment
-})
+        Clean-Environment
+    })
 $tabSync.Controls.Add($cleanButton)
 
 # Sync Button
@@ -456,12 +456,12 @@ $syncButton.Location = New-Object System.Drawing.Point(250, 620)
 $syncButton.Size = New-Object System.Drawing.Size(150, 50)
 $syncButton.Text = "Sync DCs"
 $syncButton.Add_Click({
-    $global:domainToRemove = $domainInput.Text
-    $global:dcToRemove = $dcInput.Text
-    $global:forestRootDomain = $forestInput.Text
+        $global:domainToRemove = $domainInput.Text
+        $global:dcToRemove = $dcInput.Text
+        $global:forestRootDomain = $forestInput.Text
 
-    Sync-AllDCs
-})
+        Sync-AllDCs
+    })
 $tabSync.Controls.Add($syncButton)
 
 # Tab 2: Remove CN
@@ -481,14 +481,14 @@ $removeCNButton.Location = New-Object System.Drawing.Point(10, 40)
 $removeCNButton.Size = New-Object System.Drawing.Size(150, 30)
 $removeCNButton.Text = "Remove CN"
 $removeCNButton.Add_Click({
-    # Convert the DN from the user input format (e.g., bossalesoffice.scriptguy.hq) to the required AD format (DC=scriptguy,DC=hq)
-    $domainFormatDN = Convert-ToDCFormat -domainName $dnInput.Text
-    if (-not [string]::IsNullOrWhiteSpace($domainFormatDN)) {
-        Remove-CN -distinguishedName $domainFormatDN
-    } else {
-        Handle-Error "Please enter a valid Distinguished Name."
-    }
-})
+        # Convert the DN from the user input format (e.g., bossalesoffice.scriptguy.hq) to the required AD format (DC=scriptguy,DC=hq)
+        $domainFormatDN = Convert-ToDCFormat -domainName $dnInput.Text
+        if (-not [string]::IsNullOrWhiteSpace($domainFormatDN)) {
+            Remove-CN -distinguishedName $domainFormatDN
+        } else {
+            Handle-Error "Please enter a valid Distinguished Name."
+        }
+    })
 $tabRemoveCN.Controls.Add($removeCNButton)
 
 # Tab 3: Remove Orphaned Domain
@@ -508,13 +508,13 @@ $removeOrphanedDomainButton.Location = New-Object System.Drawing.Point(10, 40)
 $removeOrphanedDomainButton.Size = New-Object System.Drawing.Size(150, 30)
 $removeOrphanedDomainButton.Text = "Remove Orphaned Domain"
 $removeOrphanedDomainButton.Add_Click({
-    $orphanedDomain = $orphanedDomainInput.Text
-    if (-not [string]::IsNullOrWhiteSpace($orphanedDomain)) {
-        Clean-And-SyncOrphanedDomain -orphanedDomain $orphanedDomain
-    } else {
-        Handle-Error "Please enter a valid orphaned domain name."
-    }
-})
+        $orphanedDomain = $orphanedDomainInput.Text
+        if (-not [string]::IsNullOrWhiteSpace($orphanedDomain)) {
+            Clean-And-SyncOrphanedDomain -orphanedDomain $orphanedDomain
+        } else {
+            Handle-Error "Please enter a valid orphaned domain name."
+        }
+    })
 $tabOrphanedDomain.Controls.Add($removeOrphanedDomainButton)
 
 # Tab 4: View Log
@@ -523,12 +523,12 @@ $logButton.Location = New-Object System.Drawing.Point(10, 10)
 $logButton.Size = New-Object System.Drawing.Size(150, 50)
 $logButton.Text = "View Output Log"
 $logButton.Add_Click({
-    Show-Log
-})
+        Show-Log
+    })
 $tabLog.Controls.Add($logButton)
 
 # Show the form
-$form.Add_Shown({$form.Activate()})
+$form.Add_Shown({ $form.Activate() })
 [void] $form.ShowDialog()
 
 # End of script

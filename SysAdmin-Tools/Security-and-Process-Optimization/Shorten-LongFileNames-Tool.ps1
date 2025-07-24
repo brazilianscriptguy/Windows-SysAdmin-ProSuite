@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Automatically Shortening Long File Names.
 
@@ -169,13 +169,13 @@ $buttonSelectDir.Location = New-Object System.Drawing.Point(50, 45)
 $buttonSelectDir.Size = New-Object System.Drawing.Size(300, 30)
 $buttonSelectDir.Text = '1. Select Directory'
 $buttonSelectDir.Add_Click({
-    $global:directory = Select-Directory
-    if ($global:directory) {
-        $labelSelectedDir.Text = "Selected Directory: $global:directory"
-    } else {
-        $labelSelectedDir.Text = "Selected Directory: Not Selected"
-    }
-})
+        $global:directory = Select-Directory
+        if ($global:directory) {
+            $labelSelectedDir.Text = "Selected Directory: $global:directory"
+        } else {
+            $labelSelectedDir.Text = "Selected Directory: Not Selected"
+        }
+    })
 $form.Controls.Add($buttonSelectDir)
 
 $labelMaxLength = New-Object System.Windows.Forms.Label
@@ -189,13 +189,13 @@ $buttonSetMaxLength.Location = New-Object System.Drawing.Point(50, 110)
 $buttonSetMaxLength.Size = New-Object System.Drawing.Size(300, 30)
 $buttonSetMaxLength.Text = '2. Set Maximum Length'
 $buttonSetMaxLength.Add_Click({
-    $global:maxLength = Get-UserInput -message "Please enter the maximum length for file names" -defaultText "25"
-    if ($global:maxLength) {
-        $labelMaxLength.Text = "Maximum File Name Length: $global:maxLength"
-    } else {
-        $labelMaxLength.Text = "Maximum File Name Length: Not Set"
-    }
-})
+        $global:maxLength = Get-UserInput -message "Please enter the maximum length for file names" -defaultText "25"
+        if ($global:maxLength) {
+            $labelMaxLength.Text = "Maximum File Name Length: $global:maxLength"
+        } else {
+            $labelMaxLength.Text = "Maximum File Name Length: Not Set"
+        }
+    })
 $form.Controls.Add($buttonSetMaxLength)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
@@ -210,16 +210,16 @@ $buttonShortenFiles.Location = New-Object System.Drawing.Point(50, 180)
 $buttonShortenFiles.Size = New-Object System.Drawing.Size(300, 30)
 $buttonShortenFiles.Text = '3. Shorten File Names'
 $buttonShortenFiles.Add_Click({
-    if ($global:directory -and $global:maxLength) {
-        $progressBar.Value = 0
-        Log-Message "Script start: Processing files in $global:directory with max length $global:maxLength"
-        Shorten-LongFileNames $global:directory $global:maxLength
-        Log-Message "Script completed. Log file at $logPath"
-        Show-InfoMessage "Script execution completed. Please check the log for details:`nLog file: $logPath"
-    } else {
-        Show-ErrorMessage "Please select a directory and set the maximum length"
-    }
-})
+        if ($global:directory -and $global:maxLength) {
+            $progressBar.Value = 0
+            Log-Message "Script start: Processing files in $global:directory with max length $global:maxLength"
+            Shorten-LongFileNames $global:directory $global:maxLength
+            Log-Message "Script completed. Log file at $logPath"
+            Show-InfoMessage "Script execution completed. Please check the log for details:`nLog file: $logPath"
+        } else {
+            Show-ErrorMessage "Please select a directory and set the maximum length"
+        }
+    })
 $form.Controls.Add($buttonShortenFiles)
 
 # Show the form

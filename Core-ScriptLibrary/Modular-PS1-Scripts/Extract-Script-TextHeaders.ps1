@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Extracting Headers from .ps1 Files into a Single Merged File
 
@@ -47,12 +47,12 @@ Add-Type -AssemblyName System.Drawing
 
 #region --- Initialization & Logging ---
 
-$ScriptPath  = $MyInvocation.MyCommand.Path
-$ScriptName  = [System.IO.Path]::GetFileNameWithoutExtension($ScriptPath)
-$ScriptDir   = if ($ScriptPath) { Split-Path -Parent $ScriptPath } else { [Environment]::CurrentDirectory }
-$Timestamp   = Get-Date -Format 'yyyyMMdd_HHmmss'
-$LogDir      = Join-Path -Path $env:LOCALAPPDATA -ChildPath "HeaderExtractor\Logs"
-$LogPath     = Join-Path -Path $LogDir -ChildPath "$ScriptName-$Timestamp.log"
+$ScriptPath = $MyInvocation.MyCommand.Path
+$ScriptName = [System.IO.Path]::GetFileNameWithoutExtension($ScriptPath)
+$ScriptDir = if ($ScriptPath) { Split-Path -Parent $ScriptPath } else { [Environment]::CurrentDirectory }
+$Timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+$LogDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "HeaderExtractor\Logs"
+$LogPath = Join-Path -Path $LogDir -ChildPath "$ScriptName-$Timestamp.log"
 
 if (-not (Test-Path $LogDir)) {
     New-Item -Path $LogDir -ItemType Directory -Force | Out-Null
@@ -164,11 +164,11 @@ function Show-GUI {
     $Browse.Size = New-Object System.Drawing.Size(75, 23)
     $Browse.Location = New-Object System.Drawing.Point(530, 16)
     $Browse.Add_Click({
-        $Dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-        if ($Dialog.ShowDialog() -eq "OK") {
-            $TextBox.Text = $Dialog.SelectedPath
-        }
-    })
+            $Dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+            if ($Dialog.ShowDialog() -eq "OK") {
+                $TextBox.Text = $Dialog.SelectedPath
+            }
+        })
     $Form.Controls.Add($Browse)
 
     # Run Button
@@ -177,17 +177,17 @@ function Show-GUI {
     $Run.Size = New-Object System.Drawing.Size(100, 30)
     $Run.Location = New-Object System.Drawing.Point(130, 70)
     $Run.Add_Click({
-        $Path = $TextBox.Text.Trim()
-        if (-not (Test-Path $Path)) {
-            Handle-Error "Invalid folder path: $Path"
-            return
-        }
+            $Path = $TextBox.Text.Trim()
+            if (-not (Test-Path $Path)) {
+                Handle-Error "Invalid folder path: $Path"
+                return
+            }
 
-        $Merged = Start-HeaderExtraction -RootFolder $Path
-        if ($Merged) {
-            [System.Windows.Forms.MessageBox]::Show("Headers saved to:`n$Merged", "Success", "OK", "Information") | Out-Null
-        }
-    })
+            $Merged = Start-HeaderExtraction -RootFolder $Path
+            if ($Merged) {
+                [System.Windows.Forms.MessageBox]::Show("Headers saved to:`n$Merged", "Success", "OK", "Information") | Out-Null
+            }
+        })
     $Form.Controls.Add($Run)
 
     # Exit Button

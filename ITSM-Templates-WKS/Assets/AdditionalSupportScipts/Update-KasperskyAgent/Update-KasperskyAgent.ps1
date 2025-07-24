@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     GUI Tool to update Kaspersky Network Agent certificate and assign KES server address.
 
@@ -117,62 +117,62 @@ $form.Controls.Add($btnExecute)
 
 # Action
 $btnExecute.Add_Click({
-    $progressBar.Value = 0
-    $form.Refresh()
-    $statusLabel.Text = "Checking agent path..."
-
-    $KESserver = $textKSC.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($KESserver)) {
-        Show-Error "Please enter a valid KES server name."
-        return
-    }
-
-    if (Test-Path $agentPath) {
-        Set-Location -Path $agentPath
-        $progressBar.Value = 20
+        $progressBar.Value = 0
         $form.Refresh()
-        Start-Sleep -Milliseconds 300
+        $statusLabel.Text = "Checking agent path..."
 
-        try {
-            $statusLabel.Text = "Reassigning Kaspersky Agent..."
-            $form.Refresh()
-            Write-Log "Executing: klmover -address $KESserver"
-            & ".\klmover.exe" -address $KESserver | Out-Null
-            $progressBar.Value = 50
-            Start-Sleep -Milliseconds 400
-
-            $statusLabel.Text = "Running agent integrity check..."
-            $form.Refresh()
-            Write-Log "Executing: klnagchk"
-            & ".\klnagchk.exe" | Out-Null
-            $progressBar.Value = 80
-            Start-Sleep -Milliseconds 400
-
-            $statusLabel.Text = "Operation completed."
-            $progressBar.Value = 100
-            Write-Log "Agent update and verification completed."
-
-            Show-Info "Kaspersky agent was successfully updated and verified."
-
-            if ($chkReboot.Checked) {
-                Show-Info "System will now restart." "Reboot"
-                Write-Log "Rebooting system as requested by user..."
-                Restart-Computer -Force
-            } else {
-                Write-Log "User chose not to reboot."
-                Show-Info "Update completed. System reboot was skipped."
-            }
-
-        } catch {
-            Show-Error "Execution failed: $($_.Exception.Message)"
+        $KESserver = $textKSC.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($KESserver)) {
+            Show-Error "Please enter a valid KES server name."
+            return
         }
 
-    } else {
-        Show-Error "Kaspersky agent path not found: $agentPath"
-    }
+        if (Test-Path $agentPath) {
+            Set-Location -Path $agentPath
+            $progressBar.Value = 20
+            $form.Refresh()
+            Start-Sleep -Milliseconds 300
 
-    $form.Close()
-})
+            try {
+                $statusLabel.Text = "Reassigning Kaspersky Agent..."
+                $form.Refresh()
+                Write-Log "Executing: klmover -address $KESserver"
+                & ".\klmover.exe" -address $KESserver | Out-Null
+                $progressBar.Value = 50
+                Start-Sleep -Milliseconds 400
+
+                $statusLabel.Text = "Running agent integrity check..."
+                $form.Refresh()
+                Write-Log "Executing: klnagchk"
+                & ".\klnagchk.exe" | Out-Null
+                $progressBar.Value = 80
+                Start-Sleep -Milliseconds 400
+
+                $statusLabel.Text = "Operation completed."
+                $progressBar.Value = 100
+                Write-Log "Agent update and verification completed."
+
+                Show-Info "Kaspersky agent was successfully updated and verified."
+
+                if ($chkReboot.Checked) {
+                    Show-Info "System will now restart." "Reboot"
+                    Write-Log "Rebooting system as requested by user..."
+                    Restart-Computer -Force
+                } else {
+                    Write-Log "User chose not to reboot."
+                    Show-Info "Update completed. System reboot was skipped."
+                }
+
+            } catch {
+                Show-Error "Execution failed: $($_.Exception.Message)"
+            }
+
+        } else {
+            Show-Error "Kaspersky agent path not found: $agentPath"
+        }
+
+        $form.Close()
+    })
 
 # Launch GUI
 Write-Log "===== Kaspersky Agent Update Tool launched ====="

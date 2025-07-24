@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Verifying Service Port Connectivity in Real-Time.
 
@@ -58,9 +58,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -157,19 +157,19 @@ $form.Controls.Add($textboxMachine)
 
 # Event to clear the placeholder when the user starts typing
 $textboxMachine.Add_GotFocus({
-    if ($textboxMachine.ForeColor -eq [System.Drawing.Color]::Gray) {
-        $textboxMachine.Text = ''
-        $textboxMachine.ForeColor = [System.Drawing.Color]::Black
-    }
-})
+        if ($textboxMachine.ForeColor -eq [System.Drawing.Color]::Gray) {
+            $textboxMachine.Text = ''
+            $textboxMachine.ForeColor = [System.Drawing.Color]::Black
+        }
+    })
 
 # Event to restore the placeholder if the textbox is left empty
 $textboxMachine.Add_LostFocus({
-    if ([string]::IsNullOrWhiteSpace($textboxMachine.Text)) {
-        $textboxMachine.Text = 'e.g., 172.16.20.10 or wsus-server.com'
-        $textboxMachine.ForeColor = [System.Drawing.Color]::Gray
-    }
-})
+        if ([string]::IsNullOrWhiteSpace($textboxMachine.Text)) {
+            $textboxMachine.Text = 'e.g., 172.16.20.10 or wsus-server.com'
+            $textboxMachine.ForeColor = [System.Drawing.Color]::Gray
+        }
+    })
 
 # Results textbox
 $textboxResults = New-Object System.Windows.Forms.TextBox
@@ -226,9 +226,9 @@ function Test-PortConnectivity {
 # Function to export results to CSV
 function Export-Results {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Server,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [Array]$Results
     )
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -242,58 +242,58 @@ function Export-Results {
 
 # Test Connectivity Button Click Event
 $buttonTest.Add_Click({
-    $textboxResults.Clear()
-    $global:successfulTests.Clear()
-    $MachineInput = $textboxMachine.Text.Trim()
+        $textboxResults.Clear()
+        $global:successfulTests.Clear()
+        $MachineInput = $textboxMachine.Text.Trim()
 
-    if ([string]::IsNullOrWhiteSpace($MachineInput)) {
-        Show-ErrorMessage "Please enter a machine name or IP address."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($MachineInput)) {
+            Show-ErrorMessage "Please enter a machine name or IP address."
+            return
+        }
 
-    $textboxResults.AppendText("Starting connectivity test for machine: $MachineInput`n`n")
-    foreach ($index in $checkedListBox.CheckedIndices) {
-        $selectedService = $services[$index]
-        $portsToTest = $selectedService.Ports
+        $textboxResults.AppendText("Starting connectivity test for machine: $MachineInput`n`n")
+        foreach ($index in $checkedListBox.CheckedIndices) {
+            $selectedService = $services[$index]
+            $portsToTest = $selectedService.Ports
 
-        foreach ($port in ($portsToTest -split ',')) {
-            $testResult = Test-PortConnectivity -Machine $MachineInput -Port $port
-            if ($testResult) {
-                $resultObj = [PSCustomObject]@{
-                    ServerName   = $MachineInput
-                    ServiceName  = $selectedService.Name
-                    Port         = $port
-                    Result       = "Success"
+            foreach ($port in ($portsToTest -split ',')) {
+                $testResult = Test-PortConnectivity -Machine $MachineInput -Port $port
+                if ($testResult) {
+                    $resultObj = [PSCustomObject]@{
+                        ServerName = $MachineInput
+                        ServiceName = $selectedService.Name
+                        Port = $port
+                        Result = "Success"
+                    }
+                    $global:successfulTests += $resultObj
+                    $textboxResults.AppendText("Success: $($selectedService.Name) on port $port`n")
+                    Log-Message "Success: $($selectedService.Name) on port $port for machine $MachineInput"
+                } else {
+                    $textboxResults.AppendText("Failed: $($selectedService.Name) on port $port`n")
+                    Log-Message "Failed: $($selectedService.Name) on port $port for machine $MachineInput" -MessageType "ERROR"
                 }
-                $global:successfulTests += $resultObj
-                $textboxResults.AppendText("Success: $($selectedService.Name) on port $port`n")
-                Log-Message "Success: $($selectedService.Name) on port $port for machine $MachineInput"
-            } else {
-                $textboxResults.AppendText("Failed: $($selectedService.Name) on port $port`n")
-                Log-Message "Failed: $($selectedService.Name) on port $port for machine $MachineInput" -MessageType "ERROR"
             }
         }
-    }
 
-    if ($global:successfulTests.Count -gt 0) {
-        $textboxResults.AppendText("`nConnectivity tests completed successfully.")
-        $buttonExport.Enabled = $true
-    } else {
-        $textboxResults.AppendText("`nNo successful connections were made.")
-        Log-Message "No successful connections were made." -MessageType "WARNING"
-        $buttonExport.Enabled = $false
-    }
-})
+        if ($global:successfulTests.Count -gt 0) {
+            $textboxResults.AppendText("`nConnectivity tests completed successfully.")
+            $buttonExport.Enabled = $true
+        } else {
+            $textboxResults.AppendText("`nNo successful connections were made.")
+            Log-Message "No successful connections were made." -MessageType "WARNING"
+            $buttonExport.Enabled = $false
+        }
+    })
 
 # Export Results Button Click Event
 $buttonExport.Add_Click({
-    $Machine = $textboxMachine.Text.Trim()
-    if ($global:successfulTests.Count -gt 0) {
-        Export-Results -Server $Machine -Results $global:successfulTests
-    } else {
-        Show-ErrorMessage "No results to export. Log file located at: $logPath"
-    }
-})
+        $Machine = $textboxMachine.Text.Trim()
+        if ($global:successfulTests.Count -gt 0) {
+            Export-Results -Server $Machine -Results $global:successfulTests
+        } else {
+            Show-ErrorMessage "No results to export. Log file located at: $logPath"
+        }
+    })
 
 # Show the form
 $form.ShowDialog()

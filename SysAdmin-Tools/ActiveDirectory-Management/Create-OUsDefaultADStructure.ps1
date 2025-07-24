@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Creating a Default AD OU Structure.
 
@@ -86,16 +86,16 @@ $form.Controls.Add($btnLoadOUs)
 
 # Search functionality
 $txtOUSearch.Add_TextChanged({
-    $searchText = $txtOUSearch.Text
-    $filteredOUs = $global:allOUs | Where-Object { $_ -like "*$searchText*" }
-    $cmbOUs.Items.Clear()
-    $filteredOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
-    if ($cmbOUs.Items.Count -gt 0) {
-        $cmbOUs.SelectedIndex = 0
-    } else {
-        $cmbOUs.Text = 'No matching OU found'
-    }
-})
+        $searchText = $txtOUSearch.Text
+        $filteredOUs = $global:allOUs | Where-Object { $_ -like "*$searchText*" }
+        $cmbOUs.Items.Clear()
+        $filteredOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
+        if ($cmbOUs.Items.Count -gt 0) {
+            $cmbOUs.SelectedIndex = 0
+        } else {
+            $cmbOUs.Text = 'No matching OU found'
+        }
+    })
 
 # Label for Parent OU name
 $labelParentOU = New-Object System.Windows.Forms.Label
@@ -116,21 +116,21 @@ $btnCreateParentOU.Text = 'Create Parent OU'
 $btnCreateParentOU.Location = New-Object System.Drawing.Point(10, 200)
 $btnCreateParentOU.Size = New-Object System.Drawing.Size(150, 23)
 $btnCreateParentOU.Add_Click({
-    $targetOU = $cmbOUs.SelectedItem.ToString()
-    $parentOU = $txtParentOU.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($targetOU) -or [string]::IsNullOrWhiteSpace($parentOU)) {
-        [System.Windows.Forms.MessageBox]::Show("Please select the target OU and enter a valid Parent OU name.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return
-    }
-    try {
-        New-ADOrganizationalUnit -Name $parentOU -Path $targetOU -ProtectedFromAccidentalDeletion $true
-        [System.Windows.Forms.MessageBox]::Show("Parent OU '$parentOU' created successfully in '$targetOU'.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        $global:fullParentPath = "OU=$parentOU,$targetOU"
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Error creating Parent OU '$parentOU': $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return
-    }
-})
+        $targetOU = $cmbOUs.SelectedItem.ToString()
+        $parentOU = $txtParentOU.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($targetOU) -or [string]::IsNullOrWhiteSpace($parentOU)) {
+            [System.Windows.Forms.MessageBox]::Show("Please select the target OU and enter a valid Parent OU name.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+        try {
+            New-ADOrganizationalUnit -Name $parentOU -Path $targetOU -ProtectedFromAccidentalDeletion $true
+            [System.Windows.Forms.MessageBox]::Show("Parent OU '$parentOU' created successfully in '$targetOU'.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            $global:fullParentPath = "OU=$parentOU,$targetOU"
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Error creating Parent OU '$parentOU': $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+    })
 $form.Controls.Add($btnCreateParentOU)
 
 # Button to create standard child OUs
@@ -139,18 +139,18 @@ $btnCreateChildOUs.Text = 'Create Standard Child OUs'
 $btnCreateChildOUs.Location = New-Object System.Drawing.Point(180, 200)
 $btnCreateChildOUs.Size = New-Object System.Drawing.Size(180, 23)
 $btnCreateChildOUs.Add_Click({
-    $targetOU = if ($global:fullParentPath) { $global:fullParentPath } else { $cmbOUs.SelectedItem.ToString() }
-    $standardChildOUs = @("Computers", "Printers", "Groups", "Users")
-    foreach ($childOU in $standardChildOUs) {
-        try {
-            New-ADOrganizationalUnit -Name $childOU -Path $targetOU -ProtectedFromAccidentalDeletion $true
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Error creating Child OU '$childOU': $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
+        $targetOU = if ($global:fullParentPath) { $global:fullParentPath } else { $cmbOUs.SelectedItem.ToString() }
+        $standardChildOUs = @("Computers", "Printers", "Groups", "Users")
+        foreach ($childOU in $standardChildOUs) {
+            try {
+                New-ADOrganizationalUnit -Name $childOU -Path $targetOU -ProtectedFromAccidentalDeletion $true
+            } catch {
+                [System.Windows.Forms.MessageBox]::Show("Error creating Child OU '$childOU': $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                return
+            }
         }
-    }
-    [System.Windows.Forms.MessageBox]::Show("Standard Child OUs created successfully under '$targetOU'.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-})
+        [System.Windows.Forms.MessageBox]::Show("Standard Child OUs created successfully under '$targetOU'.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    })
 $form.Controls.Add($btnCreateChildOUs)
 
 # Load OUs initially

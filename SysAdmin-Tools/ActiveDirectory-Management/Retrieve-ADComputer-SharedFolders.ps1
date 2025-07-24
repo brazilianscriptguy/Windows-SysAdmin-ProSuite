@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Retrieving Shared Folders from AD Computers.
 
@@ -58,7 +58,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         [string]$LogLevel = "INFO"
     )
@@ -119,10 +119,10 @@ function Get-SharedResources {
 
         $resources = @()
         if ($shares) {
-            $resources += $shares | Select-Object @{Name='ComputerName';Expression={$ComputerName}}, Name, Path, Description, Status
+            $resources += $shares | Select-Object @{Name = 'ComputerName'; Expression = { $ComputerName } }, Name, Path, Description, Status
         }
         if ($printers) {
-            $resources += $printers | Select-Object @{Name='ComputerName';Expression={$ComputerName}}, Name, @{Name='Path';Expression={"Printer"}}, Description, @{Name='Status';Expression={"Shared Printer"}}
+            $resources += $printers | Select-Object @{Name = 'ComputerName'; Expression = { $ComputerName } }, Name, @{Name = 'Path'; Expression = { "Printer" } }, Description, @{Name = 'Status'; Expression = { "Shared Printer" } }
         }
 
         return $resources
@@ -196,9 +196,9 @@ $btnSearch.Location = New-Object System.Drawing.Point(370, 10)
 $btnSearch.Size = New-Object System.Drawing.Size(90, 23)
 $btnSearch.Text = 'Search'
 $btnSearch.Add_Click({
-    $domainFQDN = if ($txtDomain.Text) { $txtDomain.Text } else { "YourDomainHere" }
-    Search-SharedResources -listBox $listBox -domainFQDN $domainFQDN
-})
+        $domainFQDN = if ($txtDomain.Text) { $txtDomain.Text } else { "YourDomainHere" }
+        Search-SharedResources -listBox $listBox -domainFQDN $domainFQDN
+    })
 $panelTop.Controls.Add($btnSearch)
 
 # List Box to display results
@@ -219,15 +219,15 @@ $btnExport.Location = New-Object System.Drawing.Point(10, 10)
 $btnExport.Size = New-Object System.Drawing.Size(140, 23)
 $btnExport.Text = 'Export to CSV'
 $btnExport.Add_Click({
-    if ($global:exportData -and $global:exportData.Count -gt 0) {
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $csvPath = [Environment]::GetFolderPath('MyDocuments') + "\${scriptName}_${txtDomain.Text}_$timestamp.csv"
-        $global:exportData | Select-Object ComputerName, Name, Path, Description, Status | Export-Csv -Path $csvPath -NoTypeInformation -Delimiter ';' -Encoding UTF8
-        Show-InfoMessage "Data exported to $csvPath"
-    } else {
-        Show-InfoMessage "No data available to export."
-    }
-})
+        if ($global:exportData -and $global:exportData.Count -gt 0) {
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            $csvPath = [Environment]::GetFolderPath('MyDocuments') + "\${scriptName}_${txtDomain.Text}_$timestamp.csv"
+            $global:exportData | Select-Object ComputerName, Name, Path, Description, Status | Export-Csv -Path $csvPath -NoTypeInformation -Delimiter ';' -Encoding UTF8
+            Show-InfoMessage "Data exported to $csvPath"
+        } else {
+            Show-InfoMessage "No data available to export."
+        }
+    })
 $panelBottom.Controls.Add($btnExport)
 
 # Close Button

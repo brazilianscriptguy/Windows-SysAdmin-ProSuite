@@ -128,86 +128,86 @@ $form.Controls.Add($btnStart)
 
 # --- Maintenance Workflow ---
 $btnStart.Add_Click({
-    $progress.Value = 0
-    $form.Refresh()
-    Write-Log "===== Script Execution Started ====="
+        $progress.Value = 0
+        $form.Refresh()
+        Write-Log "===== Script Execution Started ====="
 
-    # --- SFC ---
-    $statusLabel.Text = "Running SFC scan..."
-    $progress.Value = 10
-    $form.Refresh()
-    Write-Log "Running: sfc /scannow"
-    $sfc = Start-Process -FilePath "sfc.exe" -ArgumentList "/scannow" -Wait -PassThru
-    Write-Log "SFC exit code: $($sfc.ExitCode)"
+        # --- SFC ---
+        $statusLabel.Text = "Running SFC scan..."
+        $progress.Value = 10
+        $form.Refresh()
+        Write-Log "Running: sfc /scannow"
+        $sfc = Start-Process -FilePath "sfc.exe" -ArgumentList "/scannow" -Wait -PassThru
+        Write-Log "SFC exit code: $($sfc.ExitCode)"
 
-    # --- DISM ---
-    $statusLabel.Text = "Running DISM restore..."
-    $progress.Value = 20
-    $form.Refresh()
-    $dism = Start-Process -FilePath "dism.exe" -ArgumentList "/online /cleanup-image /restorehealth" -Wait -PassThru
-    Write-Log "DISM exit code: $($dism.ExitCode)"
+        # --- DISM ---
+        $statusLabel.Text = "Running DISM restore..."
+        $progress.Value = 20
+        $form.Refresh()
+        $dism = Start-Process -FilePath "dism.exe" -ArgumentList "/online /cleanup-image /restorehealth" -Wait -PassThru
+        Write-Log "DISM exit code: $($dism.ExitCode)"
 
-    # --- GPO Reset ---
-    $statusLabel.Text = "Resetting GPO with templates..."
-    $progress.Value = 30
-    $form.Refresh()
-    Start-Process -FilePath "secedit.exe" -ArgumentList "/configure /db reset.sdb /cfg `"%windir%\security\templates\setup security.inf`" /overwrite /quiet" -Wait
-    Start-Process -FilePath "secedit.exe" -ArgumentList "/configure /db reset.sdb /cfg `"%windir%\inf\defltbase.inf`" /areas USER_POLICY,MACHINE_POLICY,SECURITYPOLICY /overwrite /quiet" -Wait
-    Write-Log "GPO templates applied."
+        # --- GPO Reset ---
+        $statusLabel.Text = "Resetting GPO with templates..."
+        $progress.Value = 30
+        $form.Refresh()
+        Start-Process -FilePath "secedit.exe" -ArgumentList "/configure /db reset.sdb /cfg `"%windir%\security\templates\setup security.inf`" /overwrite /quiet" -Wait
+        Start-Process -FilePath "secedit.exe" -ArgumentList "/configure /db reset.sdb /cfg `"%windir%\inf\defltbase.inf`" /areas USER_POLICY,MACHINE_POLICY,SECURITYPOLICY /overwrite /quiet" -Wait
+        Write-Log "GPO templates applied."
 
-    # --- GPO Registry ---
-    $statusLabel.Text = "Cleaning GPO registry..."
-    $progress.Value = 40
-    $form.Refresh()
-    try {
-        Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy" -Recurse -Force -ErrorAction Stop
-        Write-Log "GPO registry key deleted."
-    } catch {
-        Write-Log "Error deleting GPO registry key: $($_.Exception.Message)"
-    }
+        # --- GPO Registry ---
+        $statusLabel.Text = "Cleaning GPO registry..."
+        $progress.Value = 40
+        $form.Refresh()
+        try {
+            Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy" -Recurse -Force -ErrorAction Stop
+            Write-Log "GPO registry key deleted."
+        } catch {
+            Write-Log "Error deleting GPO registry key: $($_.Exception.Message)"
+        }
 
-    # --- GPO Folders ---
-    $statusLabel.Text = "Deleting GPO folders..."
-    $progress.Value = 50
-    $form.Refresh()
-    Remove-GPOFolder "%windir%\System32\GroupPolicy"
-    Remove-GPOFolder "%windir%\System32\GroupPolicyUsers"
-    Remove-GPOFolder "%windir%\SysWOW64\GroupPolicy"
-    Remove-GPOFolder "%windir%\SysWOW64\GroupPolicyUsers"
+        # --- GPO Folders ---
+        $statusLabel.Text = "Deleting GPO folders..."
+        $progress.Value = 50
+        $form.Refresh()
+        Remove-GPOFolder "%windir%\System32\GroupPolicy"
+        Remove-GPOFolder "%windir%\System32\GroupPolicyUsers"
+        Remove-GPOFolder "%windir%\SysWOW64\GroupPolicy"
+        Remove-GPOFolder "%windir%\SysWOW64\GroupPolicyUsers"
 
-    # --- Windows Update Cache ---
-    $statusLabel.Text = "Cleaning Windows Update cache..."
-    $progress.Value = 65
-    $form.Refresh()
-    Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-    Remove-Item "C:\Windows\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
-    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-    Start-Process -FilePath "wuauclt.exe" -ArgumentList "/resetauthorization /detectnow" -WindowStyle Hidden
-    Write-Log "WSUS and Update cache reset completed."
+        # --- Windows Update Cache ---
+        $statusLabel.Text = "Cleaning Windows Update cache..."
+        $progress.Value = 65
+        $form.Refresh()
+        Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+        Remove-Item "C:\Windows\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
+        Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+        Start-Process -FilePath "wuauclt.exe" -ArgumentList "/resetauthorization /detectnow" -WindowStyle Hidden
+        Write-Log "WSUS and Update cache reset completed."
 
-    # --- Avatar Cleanup ---
-    $statusLabel.Text = "Removing .DAT avatar files..."
-    $progress.Value = 80
-    $form.Refresh()
-    Remove-DefaultAvatars
+        # --- Avatar Cleanup ---
+        $statusLabel.Text = "Removing .DAT avatar files..."
+        $progress.Value = 80
+        $form.Refresh()
+        Remove-DefaultAvatars
 
-    # --- Completion ---
-    $statusLabel.Text = "Maintenance complete."
-    $progress.Value = 100
-    Write-Log "All operations completed."
+        # --- Completion ---
+        $statusLabel.Text = "Maintenance complete."
+        $progress.Value = 100
+        Write-Log "All operations completed."
 
-    # --- Reboot Decision ---
-    if ($chkReboot.Checked) {
-        [System.Windows.Forms.MessageBox]::Show("The workstation will now reboot.", "Rebooting", 'OK', 'Information')
-        Write-Log "Initiating reboot by user request."
-        shutdown.exe /r /f /t 60 /c "System maintenance complete. Restarting..."
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("Maintenance complete. Reboot was canceled.", "Finished", 'OK', 'Information')
-        Write-Log "Reboot skipped by user choice."
-    }
+        # --- Reboot Decision ---
+        if ($chkReboot.Checked) {
+            [System.Windows.Forms.MessageBox]::Show("The workstation will now reboot.", "Rebooting", 'OK', 'Information')
+            Write-Log "Initiating reboot by user request."
+            shutdown.exe /r /f /t 60 /c "System maintenance complete. Restarting..."
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Maintenance complete. Reboot was canceled.", "Finished", 'OK', 'Information')
+            Write-Log "Reboot skipped by user choice."
+        }
 
-    $form.Close()
-})
+        $form.Close()
+    })
 
 # --- Show GUI ---
 $form.ShowDialog() | Out-Null

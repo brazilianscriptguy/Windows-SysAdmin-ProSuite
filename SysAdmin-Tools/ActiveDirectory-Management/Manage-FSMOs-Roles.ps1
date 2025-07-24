@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Managing and Transferring FSMO Roles.
 
@@ -58,9 +58,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -220,15 +220,15 @@ $retrieveButton.Location = New-Object System.Drawing.Point(10, 470)
 $retrieveButton.Size = New-Object System.Drawing.Size(150, 30)
 $retrieveButton.Text = "Retrieve FSMO Roles"
 $retrieveButton.Add_Click({
-    $global:retrieveCounter++
-    Log-Message "Retrieval #$global:retrieveCounter"
-    $roles = Get-FSMORoles
-    if ($roles -ne $null) {
-        foreach ($role in $roles.Keys) {
-            Log-Message "${role}: $($roles[$role])"
+        $global:retrieveCounter++
+        Log-Message "Retrieval #$global:retrieveCounter"
+        $roles = Get-FSMORoles
+        if ($roles -ne $null) {
+            foreach ($role in $roles.Keys) {
+                Log-Message "${role}: $($roles[$role])"
+            }
         }
-    }
-})
+    })
 $form.Controls.Add($retrieveButton)
 
 # Add a button to transfer FSMO roles
@@ -237,8 +237,8 @@ $transferButton.Location = New-Object System.Drawing.Point(170, 470)
 $transferButton.Size = New-Object System.Drawing.Size(150, 30)
 $transferButton.Text = "Transfer FSMO Roles"
 $transferButton.Add_Click({
-    Transfer-FSMORoles -schemaMasterTarget $schemaMasterInput.SelectedItem -domainNamingMasterTarget $domainNamingMasterInput.SelectedItem -pdcEmulatorTarget $pdcEmulatorInput.SelectedItem -ridMasterTarget $ridMasterInput.SelectedItem -infrastructureMasterTarget $infrastructureMasterInput.SelectedItem
-})
+        Transfer-FSMORoles -schemaMasterTarget $schemaMasterInput.SelectedItem -domainNamingMasterTarget $domainNamingMasterInput.SelectedItem -pdcEmulatorTarget $pdcEmulatorInput.SelectedItem -ridMasterTarget $ridMasterInput.SelectedItem -infrastructureMasterTarget $infrastructureMasterInput.SelectedItem
+    })
 $form.Controls.Add($transferButton)
 
 # Add a button to view the log
@@ -247,12 +247,12 @@ $logButton.Location = New-Object System.Drawing.Point(330, 470)
 $logButton.Size = New-Object System.Drawing.Size(150, 30)
 $logButton.Text = "View Output Log"
 $logButton.Add_Click({
-    Show-Log
-})
+        Show-Log
+    })
 $form.Controls.Add($logButton)
 
 # Show the form
-$form.Add_Shown({$form.Activate()})
+$form.Add_Shown({ $form.Activate() })
 [void] $form.ShowDialog()
 
 # End of script

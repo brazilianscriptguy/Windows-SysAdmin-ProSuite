@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Managing Disabled and Expired AD User Accounts.
 
@@ -59,9 +59,9 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -113,7 +113,7 @@ function List-ExpiredAccounts {
     $currentDate = Get-Date
 
     # Get expired user accounts
-    $expiredUsers = Get-ADUser -Server $domainFQDN -Filter {Enabled -eq $true -and AccountExpirationDate -lt $currentDate} -Properties SamAccountName, DisplayName, AccountExpirationDate
+    $expiredUsers = Get-ADUser -Server $domainFQDN -Filter { Enabled -eq $true -and AccountExpirationDate -lt $currentDate } -Properties SamAccountName, DisplayName, AccountExpirationDate
 
     # Check if there are expired user accounts
     if ($expiredUsers.Count -eq 0) {
@@ -156,7 +156,7 @@ function Disable-ExpiredAccounts {
     $disabledCount = 0
     foreach ($item in $listView.CheckedItems) {
         $samAccountName = $item.Text
-        $user = Get-ADUser -Server $domainFQDN -Filter {SamAccountName -eq $samAccountName} -Properties AccountExpirationDate
+        $user = Get-ADUser -Server $domainFQDN -Filter { SamAccountName -eq $samAccountName } -Properties AccountExpirationDate
 
         if ($user) {
             $user | Disable-ADAccount
@@ -187,7 +187,7 @@ function List-DisabledAccounts {
     $excludeAccounts = @("Administrator", "Guest", "krbtgt", "DefaultAccount", "WDAGUtilityAccount")
 
     # Get all disabled user accounts in the domain, excluding system and built-in accounts
-    $disabledUsers = Get-ADUser -Server $domainFQDN -Filter {Enabled -eq $false} -Properties SamAccountName, DisplayName, DistinguishedName, whenChanged | Where-Object {
+    $disabledUsers = Get-ADUser -Server $domainFQDN -Filter { Enabled -eq $false } -Properties SamAccountName, DisplayName, DistinguishedName, whenChanged | Where-Object {
         ($excludeAccounts -notcontains $_.SamAccountName) -and
         ($_.DistinguishedName -notmatch "^CN=Users,")
     }
@@ -287,7 +287,7 @@ function Disable-UserAccountsFromList {
 
     foreach ($name in $accountNames) {
         try {
-            $user = Get-ADUser -Server $domainFQDN -Filter {SamAccountName -eq $name}
+            $user = Get-ADUser -Server $domainFQDN -Filter { SamAccountName -eq $name }
             if ($user) {
                 $user | Disable-ADAccount
                 Log-Message -Message "Disabled $name's account."
@@ -384,8 +384,8 @@ function Show-GUI {
     $listExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
     $listExpiredButton.Location = New-Object System.Drawing.Point(10, 50)
     $listExpiredButton.Add_Click({
-        List-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
-    })
+            List-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
+        })
     $tabExpiredUsers.Controls.Add($listExpiredButton)
 
     # Create and configure the "Disable Expired Users" button
@@ -394,8 +394,8 @@ function Show-GUI {
     $disableExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
     $disableExpiredButton.Location = New-Object System.Drawing.Point(200, 50)
     $disableExpiredButton.Add_Click({
-        Disable-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
-    })
+            Disable-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
+        })
     $tabExpiredUsers.Controls.Add($disableExpiredButton)
 
     # Create and configure the "Select All Expired Users" button
@@ -404,8 +404,8 @@ function Show-GUI {
     $selectAllExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
     $selectAllExpiredButton.Location = New-Object System.Drawing.Point(400, 50)
     $selectAllExpiredButton.Add_Click({
-        $expiredListView.Items | ForEach-Object { $_.Checked = $true }
-    })
+            $expiredListView.Items | ForEach-Object { $_.Checked = $true }
+        })
     $tabExpiredUsers.Controls.Add($selectAllExpiredButton)
 
     # Create and configure the expired accounts list view
@@ -427,8 +427,8 @@ function Show-GUI {
     $listDisabledButton.Size = New-Object System.Drawing.Size(180, 30)
     $listDisabledButton.Location = New-Object System.Drawing.Point(10, 50)
     $listDisabledButton.Add_Click({
-        List-DisabledAccounts -domainFQDN $domainComboBoxDisabled.SelectedItem -listView $disabledListView
-    })
+            List-DisabledAccounts -domainFQDN $domainComboBoxDisabled.SelectedItem -listView $disabledListView
+        })
     $tabDisabledUsers.Controls.Add($listDisabledButton)
 
     # Create and configure the "Remove from Groups" button
@@ -437,8 +437,8 @@ function Show-GUI {
     $removeFromGroupsButton.Size = New-Object System.Drawing.Size(180, 30)
     $removeFromGroupsButton.Location = New-Object System.Drawing.Point(200, 50)
     $removeFromGroupsButton.Add_Click({
-        On-RemoveFromGroupsClick -listView $disabledListView -progressBar $progressBar -domainFQDN $domainComboBoxDisabled.SelectedItem
-    })
+            On-RemoveFromGroupsClick -listView $disabledListView -progressBar $progressBar -domainFQDN $domainComboBoxDisabled.SelectedItem
+        })
     $tabDisabledUsers.Controls.Add($removeFromGroupsButton)
 
     # Create and configure the "Select All Disabled Users" button
@@ -447,8 +447,8 @@ function Show-GUI {
     $selectAllDisabledButton.Size = New-Object System.Drawing.Size(180, 30)
     $selectAllDisabledButton.Location = New-Object System.Drawing.Point(400, 50)
     $selectAllDisabledButton.Add_Click({
-        $disabledListView.Items | ForEach-Object { $_.Checked = $true }
-    })
+            $disabledListView.Items | ForEach-Object { $_.Checked = $true }
+        })
     $tabDisabledUsers.Controls.Add($selectAllDisabledButton)
 
     # Create and configure the disabled accounts list view
@@ -470,38 +470,38 @@ function Show-GUI {
     $tabDisabledUsers.Controls.Add($progressBar)
 
     # Create and configure the input text box with example text and button to disable users from a list or file
-$inputTextBox = New-Object System.Windows.Forms.TextBox
-$inputTextBox.Size = New-Object System.Drawing.Size(400, 20)
-$inputTextBox.Location = New-Object System.Drawing.Point(10, 530)
-$inputTextBox.Text = "Type a user account or a .txt file name with full path"  # Example placeholder text
-$inputTextBox.ForeColor = [System.Drawing.Color]::Gray  # Set the placeholder text color
+    $inputTextBox = New-Object System.Windows.Forms.TextBox
+    $inputTextBox.Size = New-Object System.Drawing.Size(400, 20)
+    $inputTextBox.Location = New-Object System.Drawing.Point(10, 530)
+    $inputTextBox.Text = "Type a user account or a .txt file name with full path"  # Example placeholder text
+    $inputTextBox.ForeColor = [System.Drawing.Color]::Gray  # Set the placeholder text color
 
-# Event to clear the placeholder text when the user clicks on the textbox
-$inputTextBox.Add_GotFocus({
-    if ($inputTextBox.Text -eq "Type a user account or a .txt file name with full path") {
-        $inputTextBox.Text = ""
-        $inputTextBox.ForeColor = [System.Drawing.Color]::Black
-    }
-})
+    # Event to clear the placeholder text when the user clicks on the textbox
+    $inputTextBox.Add_GotFocus({
+            if ($inputTextBox.Text -eq "Type a user account or a .txt file name with full path") {
+                $inputTextBox.Text = ""
+                $inputTextBox.ForeColor = [System.Drawing.Color]::Black
+            }
+        })
 
-# Event to restore the placeholder text if the user leaves the textbox empty
-$inputTextBox.Add_LostFocus({
-    if ($inputTextBox.Text.Trim() -eq "") {
-        $inputTextBox.Text = "Type a user account or a .txt file name with full path"
-        $inputTextBox.ForeColor = [System.Drawing.Color]::Gray
-    }
-})
+    # Event to restore the placeholder text if the user leaves the textbox empty
+    $inputTextBox.Add_LostFocus({
+            if ($inputTextBox.Text.Trim() -eq "") {
+                $inputTextBox.Text = "Type a user account or a .txt file name with full path"
+                $inputTextBox.ForeColor = [System.Drawing.Color]::Gray
+            }
+        })
 
-$tabDisabledUsers.Controls.Add($inputTextBox)
+    $tabDisabledUsers.Controls.Add($inputTextBox)
 
-$disableUsersButton = New-Object System.Windows.Forms.Button
-$disableUsersButton.Text = "Disable Users"
-$disableUsersButton.Size = New-Object System.Drawing.Size(180, 30)
-$disableUsersButton.Location = New-Object System.Drawing.Point(420, 525)
-$disableUsersButton.Add_Click({
-    On-DisableUsersClick -inputTextBox $inputTextBox -domainFQDN $domainComboBoxDisabled.SelectedItem
-})
-$tabDisabledUsers.Controls.Add($disableUsersButton)
+    $disableUsersButton = New-Object System.Windows.Forms.Button
+    $disableUsersButton.Text = "Disable Users"
+    $disableUsersButton.Size = New-Object System.Drawing.Size(180, 30)
+    $disableUsersButton.Location = New-Object System.Drawing.Point(420, 525)
+    $disableUsersButton.Add_Click({
+            On-DisableUsersClick -inputTextBox $inputTextBox -domainFQDN $domainComboBoxDisabled.SelectedItem
+        })
+    $tabDisabledUsers.Controls.Add($disableUsersButton)
 
 
     # Add tabs to TabControl

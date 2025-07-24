@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Retrieving Disk Space Usage Data from Servers.
 
@@ -59,7 +59,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -74,7 +74,7 @@ function Log-Message {
 # Create the main form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Disk Space Monitor'
-$form.Size = New-Object System.Drawing.Size(800,630)
+$form.Size = New-Object System.Drawing.Size(800, 630)
 $form.StartPosition = 'CenterScreen'
 
 # Label for server input
@@ -182,7 +182,7 @@ $button.Add_Click({ Update-DiskUsage })
 $form.Controls.Add($button)
 
 # Show the form
-$form.Add_Shown({$form.Activate()})
+$form.Add_Shown({ $form.Activate() })
 [void] $form.ShowDialog()
 
 # End of script

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI for Executing Scripts Organized by Tabs with Real-Time Search.
 
@@ -197,9 +197,9 @@ function Create-GUI {
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $form.BackColor = [System.Drawing.Color]::WhiteSmoke
     $form.Add_Resize({
-        $tabControl.Size = [System.Drawing.Size]::new($form.ClientSize.Width - 40, $form.ClientSize.Height - 150)
-        $executeButton.Location = [System.Drawing.Point]::new(($form.ClientSize.Width - 150) / 2, $form.ClientSize.Height - 80)
-    })
+            $tabControl.Size = [System.Drawing.Size]::new($form.ClientSize.Width - 40, $form.ClientSize.Height - 150)
+            $executeButton.Location = [System.Drawing.Point]::new(($form.ClientSize.Width - 150) / 2, $form.ClientSize.Height - 80)
+        })
 
     # Add TabControl for organizing script categories
     $tabControl = [System.Windows.Forms.TabControl]::new()
@@ -240,20 +240,20 @@ function Create-GUI {
         # Debounced search handler
         $searchTimer = $null
         $searchBox.Add_TextChanged({
-            if ($searchTimer) { $searchTimer.Dispose() }
-            $searchTimer = New-Object System.Timers.Timer -ArgumentList 300
-            $searchTimer.AutoReset = $false
-            $searchTimer.add_Elapsed({
-                Update-ListBox -searchBox $searchBox -listBox $listBox -originalList $scriptsByCategory[$category]
+                if ($searchTimer) { $searchTimer.Dispose() }
+                $searchTimer = New-Object System.Timers.Timer -ArgumentList 300
+                $searchTimer.AutoReset = $false
+                $searchTimer.add_Elapsed({
+                        Update-ListBox -searchBox $searchBox -listBox $listBox -originalList $scriptsByCategory[$category]
+                    })
+                $searchTimer.Start()
             })
-            $searchTimer.Start()
-        })
 
         # Dynamic resize handler for tab page controls
         $tabPage.Add_Resize({
-            $searchBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, 25)
-            $listBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, $tabPage.ClientSize.Height - 60)
-        })
+                $searchBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, 25)
+                $listBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, $tabPage.ClientSize.Height - 60)
+            })
 
         $tabControls[$category] = @{ SearchBox = $searchBox; ListBox = $listBox }
         $tabControl.TabPages.Add($tabPage)
@@ -261,15 +261,15 @@ function Create-GUI {
 
     # Handle tab switch
     $tabControl.Add_SelectedIndexChanged({
-        $selectedTab = $tabControl.SelectedTab
-        if ($selectedTab -ne $null) {
-            $category = $selectedTab.Text
-            if ($tabControls.ContainsKey($category)) {
-                $controls = $tabControls[$category]
-                Update-ListBox -searchBox $controls.SearchBox -listBox $controls.ListBox -originalList $scriptsByCategory[$category]
+            $selectedTab = $tabControl.SelectedTab
+            if ($selectedTab -ne $null) {
+                $category = $selectedTab.Text
+                if ($tabControls.ContainsKey($category)) {
+                    $controls = $tabControls[$category]
+                    Update-ListBox -searchBox $controls.SearchBox -listBox $controls.ListBox -originalList $scriptsByCategory[$category]
+                }
             }
-        }
-    })
+        })
 
     # Add Execute Button with padding
     $executeButton = [System.Windows.Forms.Button]::new()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Tool for Cleaning Web Browsers and System Residual Files.
 
@@ -43,18 +43,18 @@ Add-Type -AssemblyName System.Drawing
 
 # Define Colors for Logging
 $Yellow = "Yellow"
-$Green  = "Green"
-$Cyan   = "Cyan"
+$Green = "Green"
+$Cyan = "Cyan"
 
 # Function to Log Messages with Color
 function Write-Log {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
         [string]$MessageType = "INFO",
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$Color = "White"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -257,102 +257,102 @@ $global:results = @{}
 function Create-GUI {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "Web Browser Cleanup Tool"
-    $form.Size = New-Object System.Drawing.Size(800,600)
+    $form.Size = New-Object System.Drawing.Size(800, 600)
     $form.StartPosition = "CenterScreen"
     $textBox = New-Object System.Windows.Forms.TextBox
     $textBox.Multiline = $true
     $textBox.ScrollBars = "Vertical"
-    $textBox.Size = New-Object System.Drawing.Size(760,300)
-    $textBox.Location = New-Object System.Drawing.Point(10,10)
+    $textBox.Size = New-Object System.Drawing.Size(760, 300)
+    $textBox.Location = New-Object System.Drawing.Point(10, 10)
     $textBox.ReadOnly = $true
     $form.Controls.Add($textBox)
     $instructionLabel = New-Object System.Windows.Forms.Label
     $instructionLabel.Text = "Click 'Start' to begin the cleanup process:"
     $instructionLabel.Location = New-Object System.Drawing.Point(10, 320)
-    $instructionLabel.Size = New-Object System.Drawing.Size(300,20)
+    $instructionLabel.Size = New-Object System.Drawing.Size(300, 20)
     $form.Controls.Add($instructionLabel)
     $global:logBox = New-Object System.Windows.Forms.ListBox
-    $global:logBox.Size = New-Object System.Drawing.Size(760,100)
-    $global:logBox.Location = New-Object System.Drawing.Point(10,385)
+    $global:logBox.Size = New-Object System.Drawing.Size(760, 100)
+    $global:logBox.Location = New-Object System.Drawing.Point(10, 385)
     $form.Controls.Add($global:logBox)
     $buttonStart = New-Object System.Windows.Forms.Button
     $buttonStart.Text = "Start"
-    $buttonStart.Size = New-Object System.Drawing.Size(100,30)
-    $buttonStart.Location = New-Object System.Drawing.Point(10,500)
+    $buttonStart.Size = New-Object System.Drawing.Size(100, 30)
+    $buttonStart.Location = New-Object System.Drawing.Point(10, 500)
     $form.Controls.Add($buttonStart)
     $buttonSave = New-Object System.Windows.Forms.Button
     $buttonSave.Text = "Save to CSV"
-    $buttonSave.Size = New-Object System.Drawing.Size(100,30)
-    $buttonSave.Location = New-Object System.Drawing.Point(120,500)
+    $buttonSave.Size = New-Object System.Drawing.Size(100, 30)
+    $buttonSave.Location = New-Object System.Drawing.Point(120, 500)
     $buttonSave.Enabled = $false
     $form.Controls.Add($buttonSave)
     $buttonClose = New-Object System.Windows.Forms.Button
     $buttonClose.Text = "Close"
-    $buttonClose.Size = New-Object System.Drawing.Size(100,30)
-    $buttonClose.Location = New-Object System.Drawing.Point(230,500)
+    $buttonClose.Size = New-Object System.Drawing.Size(100, 30)
+    $buttonClose.Location = New-Object System.Drawing.Point(230, 500)
     $form.Controls.Add($buttonClose)
     $buttonStart.Add_Click({
-        $buttonStart.Enabled = $false
-        $buttonSave.Enabled = $false
-        $textBox.Clear()
-        $textBox.Text = "Process started, please wait..."
-        try {
-            # Kill browser processes to prevent issues during cleanup
-            Kill-BrowserProcesses -Browsers @("firefox", "chrome", "msedge", "iexplore")
+            $buttonStart.Enabled = $false
+            $buttonSave.Enabled = $false
+            $textBox.Clear()
+            $textBox.Text = "Process started, please wait..."
+            try {
+                # Kill browser processes to prevent issues during cleanup
+                Kill-BrowserProcesses -Browsers @("firefox", "chrome", "msedge", "iexplore")
             
-            # Execute cleanup functions
-            Clear-BrowserData -BrowserName "Mozilla Firefox" -PathsToClear @("cookies.sqlite", "cache2\entries", "places.sqlite", "sessionstore.jsonlz4", "webappsstore.sqlite", "downloads.json", "storage\default", "thumbnails", "cache", "extensions") -UserProfileBasePath "AppData\Local\Mozilla\Firefox\Profiles"
-            Clear-BrowserData -BrowserName "Google Chrome" -PathsToClear @("Cookies", "Cache", "History", "Local Storage", "Sessions") -UserProfileBasePath "AppData\Local\Google\Chrome\User Data\Default"
-            Clear-BrowserData -BrowserName "Microsoft Edge" -PathsToClear @("Cookies", "Cache", "History", "Local Storage", "Sessions") -UserProfileBasePath "AppData\Local\Microsoft\Edge\User Data\Default"
-            Clear-BrowserData -BrowserName "Internet Explorer" -PathsToClear @("INetCache\*", "INetCookies\*", "History\*") -UserProfileBasePath "AppData\Local\Microsoft\Windows"
-            Clear-BrowserHistory -BrowserName "Mozilla Firefox" -HistoryPaths @("places.sqlite*") -UserProfileBasePath "AppData\Local\Mozilla\Firefox\Profiles"
-            Clear-WhatsAppData
-            Clear-SystemTemp
-            Clear-ApplicationData
+                # Execute cleanup functions
+                Clear-BrowserData -BrowserName "Mozilla Firefox" -PathsToClear @("cookies.sqlite", "cache2\entries", "places.sqlite", "sessionstore.jsonlz4", "webappsstore.sqlite", "downloads.json", "storage\default", "thumbnails", "cache", "extensions") -UserProfileBasePath "AppData\Local\Mozilla\Firefox\Profiles"
+                Clear-BrowserData -BrowserName "Google Chrome" -PathsToClear @("Cookies", "Cache", "History", "Local Storage", "Sessions") -UserProfileBasePath "AppData\Local\Google\Chrome\User Data\Default"
+                Clear-BrowserData -BrowserName "Microsoft Edge" -PathsToClear @("Cookies", "Cache", "History", "Local Storage", "Sessions") -UserProfileBasePath "AppData\Local\Microsoft\Edge\User Data\Default"
+                Clear-BrowserData -BrowserName "Internet Explorer" -PathsToClear @("INetCache\*", "INetCookies\*", "History\*") -UserProfileBasePath "AppData\Local\Microsoft\Windows"
+                Clear-BrowserHistory -BrowserName "Mozilla Firefox" -HistoryPaths @("places.sqlite*") -UserProfileBasePath "AppData\Local\Mozilla\Firefox\Profiles"
+                Clear-WhatsAppData
+                Clear-SystemTemp
+                Clear-ApplicationData
 
-            $textBox.Text = "Cleanup process completed successfully."
-            Write-Log -Message "Cleanup process completed successfully." -MessageType "INFO" -Color $Green
+                $textBox.Text = "Cleanup process completed successfully."
+                Write-Log -Message "Cleanup process completed successfully." -MessageType "INFO" -Color $Green
 
-            if ($ShowConsole) {
-                Write-Host "Cleanup process completed successfully." -ForegroundColor Green
-            }
-
-            $buttonSave.Enabled = $true
-        } catch {
-            Handle-Error "An error occurred during the cleanup process: $_"
-            $textBox.Text = "An error occurred. Check the logs for details."
-            if ($ShowConsole) {
-                Write-Host "An error occurred during the cleanup process. Check the logs for details." -ForegroundColor Red
-            }
-        } finally {
-            $buttonStart.Enabled = $true
-        }
-    })
-    $buttonSave.Add_Click({
-        if ($null -eq $global:results -or $global:results.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("No data to save. Please ensure the process has completed successfully.", "No Data", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-        try {
-            $csvData = @()
-            foreach ($category in $global:results.Keys) {
-                $row = New-Object PSObject
-                $row | Add-Member -MemberType NoteProperty -Name "Category" -Value $category
-                foreach ($item in $global:results[$category]) {
-                    $row | Add-Member -MemberType NoteProperty -Name $item -Value ($item -join ', ')
+                if ($ShowConsole) {
+                    Write-Host "Cleanup process completed successfully." -ForegroundColor Green
                 }
-                $csvData += $row
+
+                $buttonSave.Enabled = $true
+            } catch {
+                Handle-Error "An error occurred during the cleanup process: $_"
+                $textBox.Text = "An error occurred. Check the logs for details."
+                if ($ShowConsole) {
+                    Write-Host "An error occurred during the cleanup process. Check the logs for details." -ForegroundColor Red
+                }
+            } finally {
+                $buttonStart.Enabled = $true
             }
-            $csvData | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-            [System.Windows.Forms.MessageBox]::Show("Results saved to " + $csvPath, "Save Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            Write-Log -Message "Results saved to CSV file: $csvPath" -MessageType "INFO" -Color $Green
-        } catch {
-            Handle-Error "Failed to save results to CSV: $_"
-        }
-    })
+        })
+    $buttonSave.Add_Click({
+            if ($null -eq $global:results -or $global:results.Count -eq 0) {
+                [System.Windows.Forms.MessageBox]::Show("No data to save. Please ensure the process has completed successfully.", "No Data", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+                return
+            }
+            try {
+                $csvData = @()
+                foreach ($category in $global:results.Keys) {
+                    $row = New-Object PSObject
+                    $row | Add-Member -MemberType NoteProperty -Name "Category" -Value $category
+                    foreach ($item in $global:results[$category]) {
+                        $row | Add-Member -MemberType NoteProperty -Name $item -Value ($item -join ', ')
+                    }
+                    $csvData += $row
+                }
+                $csvData | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+                [System.Windows.Forms.MessageBox]::Show("Results saved to " + $csvPath, "Save Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                Write-Log -Message "Results saved to CSV file: $csvPath" -MessageType "INFO" -Color $Green
+            } catch {
+                Handle-Error "Failed to save results to CSV: $_"
+            }
+        })
     $buttonClose.Add_Click({
-        $form.Close()
-    })
+            $form.Close()
+        })
     $form.ShowDialog()
 }
 

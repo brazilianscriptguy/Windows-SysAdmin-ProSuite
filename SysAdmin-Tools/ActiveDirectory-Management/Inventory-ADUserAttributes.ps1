@@ -1,4 +1,4 @@
-<##
+﻿<##
 .SYNOPSIS
     PowerShell Script for Retrieving Active Directory User Attributes with Filters for Active, Inactive, and inetOrgPerson Accounts.
 
@@ -127,7 +127,7 @@ function Show-ExportForm {
     $comboBoxStatus = New-Object System.Windows.Forms.ComboBox
     $comboBoxStatus.Location = '10,110'; $comboBoxStatus.Size = '380,20'
     $comboBoxStatus.DropDownStyle = 'DropDownList'
-    $comboBoxStatus.Items.AddRange(@("All","Active","Inactive")); $comboBoxStatus.SelectedIndex = 0
+    $comboBoxStatus.Items.AddRange(@("All", "Active", "Inactive")); $comboBoxStatus.SelectedIndex = 0
     $form.Controls.Add($comboBoxStatus)
 
     $checkBoxInetOrgPerson = New-Object System.Windows.Forms.CheckBox
@@ -136,32 +136,32 @@ function Show-ExportForm {
 
     $listBoxAttributes = New-Object System.Windows.Forms.CheckedListBox
     $listBoxAttributes.Location = '10,200'; $listBoxAttributes.Size = '380,150'
-    $listBoxAttributes.Items.AddRange(@("samAccountName","Name","GivenName","Surname","DisplayName","Mail","Department","Title"))
+    $listBoxAttributes.Items.AddRange(@("samAccountName", "Name", "GivenName", "Surname", "DisplayName", "Mail", "Department", "Title"))
     $form.Controls.Add($listBoxAttributes)
 
     $buttonExport = New-Object System.Windows.Forms.Button
     $buttonExport.Text = 'Export'; $buttonExport.Location = '10,390'; $buttonExport.Size = '180,30'
     $buttonExport.Add_Click({
-        $attrs = $listBoxAttributes.CheckedItems
-        $domain = $comboBoxDomain.SelectedItem
-        $status = $comboBoxStatus.SelectedItem
-        $includeInetOrg = $checkBoxInetOrgPerson.Checked
-        $output = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${domain}_${status}_${timestamp}.csv"
+            $attrs = $listBoxAttributes.CheckedItems
+            $domain = $comboBoxDomain.SelectedItem
+            $status = $comboBoxStatus.SelectedItem
+            $includeInetOrg = $checkBoxInetOrgPerson.Checked
+            $output = "$([Environment]::GetFolderPath('MyDocuments'))\${scriptName}_${domain}_${status}_${timestamp}.csv"
 
-        if ($attrs.Count -eq 0 -or [string]::IsNullOrWhiteSpace($domain)) {
-            [System.Windows.Forms.MessageBox]::Show('Please select attributes and a domain.')
-            Log-Message "Export aborted: missing attribute or domain selection." "WARNING"
-            return
-        }
+            if ($attrs.Count -eq 0 -or [string]::IsNullOrWhiteSpace($domain)) {
+                [System.Windows.Forms.MessageBox]::Show('Please select attributes and a domain.')
+                Log-Message "Export aborted: missing attribute or domain selection." "WARNING"
+                return
+            }
 
-        $exported = Export-ADUserAttributes -Attributes $attrs -DomainFQDN $domain -OutputPath $output -UserStatus $status -IncludeInetOrgPerson $includeInetOrg
+            $exported = Export-ADUserAttributes -Attributes $attrs -DomainFQDN $domain -OutputPath $output -UserStatus $status -IncludeInetOrgPerson $includeInetOrg
 
-        if ($exported) {
-            [System.Windows.Forms.MessageBox]::Show("Export completed:\n$output")
-        } else {
-            [System.Windows.Forms.MessageBox]::Show('Export failed. Check logs.')
-        }
-    })
+            if ($exported) {
+                [System.Windows.Forms.MessageBox]::Show("Export completed:\n$output")
+            } else {
+                [System.Windows.Forms.MessageBox]::Show('Export failed. Check logs.')
+            }
+        })
     $form.Controls.Add($buttonExport)
 
     $buttonClose = New-Object System.Windows.Forms.Button

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Synchronizing Domain Controllers Across an AD Forest. 
 
@@ -42,7 +42,7 @@ if (-not (Test-Path $logDir)) {
 function Log-Message {
     param (
         [Parameter(Mandatory)] [string]$Message,
-        [ValidateSet('INFO','ERROR','WARN')] [string]$Type = 'INFO'
+        [ValidateSet('INFO', 'ERROR', 'WARN')] [string]$Type = 'INFO'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $entry = "[$timestamp] [$Type] $Message"
@@ -52,8 +52,8 @@ function Log-Message {
         $global:logBox.SelectionStart = $global:logBox.TextLength
         $global:logBox.SelectionColor = switch ($Type) {
             'ERROR' { 'Red' }
-            'WARN'  { 'DarkOrange' }
-            'INFO'  { 'Black' }
+            'WARN' { 'DarkOrange' }
+            'INFO' { 'Black' }
         }
         $global:logBox.AppendText("$entry`r`n")
         $global:logBox.ScrollToCaret()
@@ -123,11 +123,11 @@ function Show-ReplSummary {
 #region ── GUI Setup ──
 
 $form = New-Object Windows.Forms.Form -Property @{
-    Text            = "AD Forest Sync Tool"
-    Size            = '800,660'
-    StartPosition   = 'CenterScreen'
+    Text = "AD Forest Sync Tool"
+    Size = '800,660'
+    StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedDialog'
-    MaximizeBox     = $false
+    MaximizeBox = $false
 }
 
 # Status bar
@@ -139,58 +139,58 @@ $form.Controls.Add($statusStrip)
 
 # RichTextBox for logs
 $global:logBox = New-Object Windows.Forms.RichTextBox -Property @{
-    Location   = '10,10'
-    Size       = '760,500'
-    ReadOnly   = $true
-    Font       = New-Object Drawing.Font("Consolas", 9)
-    WordWrap   = $false
+    Location = '10,10'
+    Size = '760,500'
+    ReadOnly = $true
+    Font = New-Object Drawing.Font("Consolas", 9)
+    WordWrap = $false
     ScrollBars = "Vertical"
 }
 $form.Controls.Add($global:logBox)
 
 # Button: Sync
 $syncBtn = New-Object Windows.Forms.Button -Property @{
-    Text     = "Sync All Forest DCs"
+    Text = "Sync All Forest DCs"
     Location = '50,520'
-    Size     = '150,50'
+    Size = '150,50'
 }
 $syncBtn.Add_Click({
-    $syncBtn.Enabled = $false
-    $statusLabel.Text = "Syncing domain controllers..."
-    try {
-        Sync-AllDCs
-        $statusLabel.Text = "Sync completed"
-    } finally {
-        $syncBtn.Enabled = $true
-    }
-})
+        $syncBtn.Enabled = $false
+        $statusLabel.Text = "Syncing domain controllers..."
+        try {
+            Sync-AllDCs
+            $statusLabel.Text = "Sync completed"
+        } finally {
+            $syncBtn.Enabled = $true
+        }
+    })
 $form.Controls.Add($syncBtn)
 
 # Button: View Logs
 $logBtn = New-Object Windows.Forms.Button -Property @{
-    Text     = "View Output Logs"
+    Text = "View Output Logs"
     Location = '250,520'
-    Size     = '150,50'
+    Size = '150,50'
 }
 $logBtn.Add_Click({ Show-Log })
 $form.Controls.Add($logBtn)
 
 # Button: Show Replication Summary
 $replBtn = New-Object Windows.Forms.Button -Property @{
-    Text     = "Show Replication Summary"
+    Text = "Show Replication Summary"
     Location = '450,520'
-    Size     = '250,50'
+    Size = '250,50'
 }
 $replBtn.Add_Click({
-    $replBtn.Enabled = $false
-    $statusLabel.Text = "Running replication summary..."
-    try {
-        Show-ReplSummary
-        $statusLabel.Text = "Replication summary complete"
-    } finally {
-        $replBtn.Enabled = $true
-    }
-})
+        $replBtn.Enabled = $false
+        $statusLabel.Text = "Running replication summary..."
+        try {
+            Show-ReplSummary
+            $statusLabel.Text = "Replication summary complete"
+        } finally {
+            $replBtn.Enabled = $true
+        }
+    })
 $form.Controls.Add($replBtn)
 
 $form.Add_Shown({ $form.Activate() })

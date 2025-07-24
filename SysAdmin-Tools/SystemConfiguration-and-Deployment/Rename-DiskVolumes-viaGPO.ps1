@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Renaming Disk Volumes via GPO.
 
@@ -27,7 +27,7 @@ if (-not (Test-Path $logDir)) {
 # Logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -38,10 +38,10 @@ function Log-Message {
 # Function to rename the volumes of disks C: and D:
 function RenameVolume {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$VolumePath,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$NewName
     )
 

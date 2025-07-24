@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Creating InetOrgPerson Entries in Active Directory.
 
@@ -48,9 +48,9 @@ if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Forc
 # Logging function
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("INFO", "ERROR", "WARNING")]
         [string]$MessageType = "INFO"
     )
@@ -72,15 +72,15 @@ function Export-ToCSV {
         [datetime]$Timestamp
     )
     $userDetails = [PSCustomObject]@{
-        Timestamp      = $Timestamp
-        Domain         = $Domain
-        OU             = $OU
-        GivenName      = $GivenName
-        Surname        = $Surname
-        DisplayName    = $DisplayName
-        EmailAddress   = $EmailAddress
+        Timestamp = $Timestamp
+        Domain = $Domain
+        OU = $OU
+        GivenName = $GivenName
+        Surname = $Surname
+        DisplayName = $DisplayName
+        EmailAddress = $EmailAddress
         SamAccountName = $SamAccountName
-        UserGroup      = $UserGroup
+        UserGroup = $UserGroup
     }
     $userDetails | Export-Csv -Path $csvFilePath -NoTypeInformation -Append -Force
 }
@@ -165,21 +165,21 @@ function Create-InetOrgPerson {
         $changePasswordAtLogon = -not $NoExpiration
 
         New-ADUser -Server $Domain `
-                   -Name "$GivenName $Surname" `
-                   -GivenName $GivenName `
-                   -Surname $Surname `
-                   -DisplayName $DisplayName `
-                   -Description $Description `
-                   -OfficePhone $PhoneNumber `
-                   -EmailAddress $EmailAddress `
-                   -SamAccountName $SamAccountName `
-                   -UserPrincipalName "$SamAccountName@$upnSuffix" `
-                   -Path $OU `
-                   -AccountPassword (ConvertTo-SecureString $Password -AsPlainText -Force) `
-                   -ChangePasswordAtLogon $changePasswordAtLogon `
-                   -Enabled $true `
-                   -PasswordNeverExpires $NoExpiration `
-                   -OtherAttributes @{objectClass = 'inetOrgPerson'}
+            -Name "$GivenName $Surname" `
+            -GivenName $GivenName `
+            -Surname $Surname `
+            -DisplayName $DisplayName `
+            -Description $Description `
+            -OfficePhone $PhoneNumber `
+            -EmailAddress $EmailAddress `
+            -SamAccountName $SamAccountName `
+            -UserPrincipalName "$SamAccountName@$upnSuffix" `
+            -Path $OU `
+            -AccountPassword (ConvertTo-SecureString $Password -AsPlainText -Force) `
+            -ChangePasswordAtLogon $changePasswordAtLogon `
+            -Enabled $true `
+            -PasswordNeverExpires $NoExpiration `
+            -OtherAttributes @{objectClass = 'inetOrgPerson' }
 
         if ($expiration) {
             Set-ADUser -Identity $SamAccountName -AccountExpirationDate $expiration -Server $Domain
@@ -195,14 +195,14 @@ function Create-InetOrgPerson {
         }
 
         Export-ToCSV -Domain $Domain `
-                     -OU $OU `
-                     -GivenName $GivenName `
-                     -Surname $Surname `
-                     -DisplayName $DisplayName `
-                     -EmailAddress $EmailAddress `
-                     -SamAccountName $SamAccountName `
-                     -UserGroup $UserGroup `
-                     -Timestamp (Get-Date)
+            -OU $OU `
+            -GivenName $GivenName `
+            -Surname $Surname `
+            -DisplayName $DisplayName `
+            -EmailAddress $EmailAddress `
+            -SamAccountName $SamAccountName `
+            -UserGroup $UserGroup `
+            -Timestamp (Get-Date)
         return $true
     } catch {
         Show-ErrorMessage "Failed to create InetOrgPerson ${GivenName} ${Surname}: $_"
@@ -371,70 +371,70 @@ function Show-Form {
 
     # Event handlers
     $txtGivenName.Add_TextChanged({ 
-        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
-        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
-        $txtDisplayName.Text = "$firstName $lastName".Trim()
-    })
+            $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+            $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+            $txtDisplayName.Text = "$firstName $lastName".Trim()
+        })
     $txtSurname.Add_TextChanged({ 
-        $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
-        $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
-        $txtDisplayName.Text = "$firstName $lastName".Trim()
-    })
+            $firstName = if ($txtGivenName.Text) { $txtGivenName.Text.Split()[0] } else { "" }
+            $lastName = if ($txtSurname.Text) { $txtSurname.Text.Split()[-1] } else { "" }
+            $txtDisplayName.Text = "$firstName $lastName".Trim()
+        })
 
     $btnCreate.Add_Click({
-        $statusLabel.Text = "Creating user..."
-        $requiredFields = @($txtGivenName, $txtSurname, $txtLoginID, $txtEmail, $txtPassword)
-        if ($requiredFields | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }) {
-            Show-ErrorMessage "Please fill in all required fields."
-            $statusLabel.Text = "Creation failed: Missing required fields"
-            return
-        }
-        if (-not $cmbOU.SelectedItem) {
-            Show-ErrorMessage "Please select an Organizational Unit."
-            $statusLabel.Text = "Creation failed: No OU selected"
-            return
-        }
-        if (-not $chkNoGroupMembership.Checked -and -not $cmbGroup.SelectedItem) {
-            Show-ErrorMessage "Please select a User Group or check 'No Group Membership'."
-            $statusLabel.Text = "Creation failed: No User Group selected"
-            return
-        }
+            $statusLabel.Text = "Creating user..."
+            $requiredFields = @($txtGivenName, $txtSurname, $txtLoginID, $txtEmail, $txtPassword)
+            if ($requiredFields | Where-Object { [string]::IsNullOrWhiteSpace($_.Text) }) {
+                Show-ErrorMessage "Please fill in all required fields."
+                $statusLabel.Text = "Creation failed: Missing required fields"
+                return
+            }
+            if (-not $cmbOU.SelectedItem) {
+                Show-ErrorMessage "Please select an Organizational Unit."
+                $statusLabel.Text = "Creation failed: No OU selected"
+                return
+            }
+            if (-not $chkNoGroupMembership.Checked -and -not $cmbGroup.SelectedItem) {
+                Show-ErrorMessage "Please select a User Group or check 'No Group Membership'."
+                $statusLabel.Text = "Creation failed: No User Group selected"
+                return
+            }
 
-        $success = Create-InetOrgPerson -Domain $cmbDomain.SelectedItem `
-                                       -OU $cmbOU.SelectedItem `
-                                       -GivenName $txtGivenName.Text `
-                                       -Surname $txtSurname.Text `
-                                       -DisplayName $txtDisplayName.Text `
-                                       -Description $cmbDescription.SelectedItem `
-                                       -PhoneNumber $txtPhone.Text `
-                                       -EmailAddress $txtEmail.Text `
-                                       -Password $txtPassword.Text `
-                                       -SamAccountName $txtLoginID.Text `
-                                       -AccountExpirationDate $dateTimePicker.Value `
-                                       -NoExpiration $chkNoExpiration.Checked `
-                                       -UserGroup $cmbGroup.SelectedItem `
-                                       -NoGroupMembership $chkNoGroupMembership.Checked
+            $success = Create-InetOrgPerson -Domain $cmbDomain.SelectedItem `
+                -OU $cmbOU.SelectedItem `
+                -GivenName $txtGivenName.Text `
+                -Surname $txtSurname.Text `
+                -DisplayName $txtDisplayName.Text `
+                -Description $cmbDescription.SelectedItem `
+                -PhoneNumber $txtPhone.Text `
+                -EmailAddress $txtEmail.Text `
+                -Password $txtPassword.Text `
+                -SamAccountName $txtLoginID.Text `
+                -AccountExpirationDate $dateTimePicker.Value `
+                -NoExpiration $chkNoExpiration.Checked `
+                -UserGroup $cmbGroup.SelectedItem `
+                -NoGroupMembership $chkNoGroupMembership.Checked
         
-        $statusLabel.Text = if ($success) { "User created successfully" } else { "User creation failed" }
-        if ($success) {
+            $statusLabel.Text = if ($success) { "User created successfully" } else { "User creation failed" }
+            if ($success) {
+                $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
+                $cmbDescription.SelectedIndex = 0; $txtPhone.Text = "+55(96)98115-5265"
+                $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
+                $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
+                $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
+                $chkNoGroupMembership.Checked = $false
+            }
+        })
+
+    $btnClear.Add_Click({
             $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
             $cmbDescription.SelectedIndex = 0; $txtPhone.Text = "+55(96)98115-5265"
             $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
             $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
             $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
             $chkNoGroupMembership.Checked = $false
-        }
-    })
-
-    $btnClear.Add_Click({
-        $txtGivenName.Clear(); $txtSurname.Clear(); $txtDisplayName.Clear(); $txtLoginID.Clear()
-        $cmbDescription.SelectedIndex = 0; $txtPhone.Text = "+55(96)98115-5265"
-        $txtEmail.Text = "@scriptguy.com"; $txtPassword.Text = "#TempPass@2025"
-        $dateTimePicker.Value = (Get-Date).AddYears(1); $chkNoExpiration.Checked = $false
-        $txtOUSearch.Text = ""; $txtGroupSearch.Text = ""; Update-OU; Update-Group
-        $chkNoGroupMembership.Checked = $false
-        $statusLabel.Text = "Form cleared"
-    })
+            $statusLabel.Text = "Form cleared"
+        })
 
     # Show form
     $form.ShowDialog()

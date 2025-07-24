@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Retrieving Last Logon Times of AD Users.
 
@@ -162,23 +162,23 @@ $buttonGenerate.Text = 'Generate Report'
 $buttonGenerate.Location = New-Object System.Drawing.Point(10, 180)
 $buttonGenerate.Size = New-Object System.Drawing.Size(180, 30)
 $buttonGenerate.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
-    $days = $null
-    $isValidDays = [int]::TryParse($textBoxDays.Text, [ref]$days)
+        $domainFQDN = $comboBoxDomain.SelectedItem
+        $days = $null
+        $isValidDays = [int]::TryParse($textBoxDays.Text, [ref]$days)
 
-    if (![string]::IsNullOrWhiteSpace($domainFQDN) -and $isValidDays -and $days -gt 0) {
-        $progressBar.Value = 50
-        $reportPath = Generate-ADUserLastLogonReport -DomainFQDN $domainFQDN -Days $days
+        if (![string]::IsNullOrWhiteSpace($domainFQDN) -and $isValidDays -and $days -gt 0) {
+            $progressBar.Value = 50
+            $reportPath = Generate-ADUserLastLogonReport -DomainFQDN $domainFQDN -Days $days
 
-        if ($reportPath) {
-            $progressBar.Value = 100
+            if ($reportPath) {
+                $progressBar.Value = 100
+            } else {
+                $progressBar.Value = 0
+            }
         } else {
-            $progressBar.Value = 0
+            Show-ErrorMessage -Message 'Please provide a valid domain and number of days.'
         }
-    } else {
-        Show-ErrorMessage -Message 'Please provide a valid domain and number of days.'
-    }
-})
+    })
 $form.Controls.Add($buttonGenerate)
 
 $buttonClose = New-Object System.Windows.Forms.Button

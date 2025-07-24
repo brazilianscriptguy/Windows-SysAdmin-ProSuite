@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Removing Expired Certificate Authorities (CAs) via Group Policy.
 
@@ -52,11 +52,11 @@ function Get-ExpiredCertificates {
     )
     try {
         $certificates = Get-ChildItem -Path "Cert:\$StoreLocation" -Recurse |
-                        Where-Object { 
-                            ($_ -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) -and 
-                            ($_.NotAfter -lt (Get-Date)) -and 
-                            (Test-Path $_.PSPath)
-                        }
+            Where-Object { 
+                ($_ -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) -and 
+                ($_.NotAfter -lt (Get-Date)) -and 
+                (Test-Path $_.PSPath)
+            }
         if ($certificates.Count -eq 0) {
             Write-Log -Message "No expired certificates found in '$StoreLocation' store." -Level "INFO"
         } else {
@@ -108,7 +108,7 @@ function Remove-CertificatesByThumbprint {
     }
 
     Write-Log -Message "Certificate removal completed: $removedCount removed, $failedCount failed." -Level "INFO"
-    return @{Removed = $removedCount; Failed = $failedCount}
+    return @{Removed = $removedCount; Failed = $failedCount }
 }
 
 # Execution

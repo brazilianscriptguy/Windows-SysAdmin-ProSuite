@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Moving AD Computer Accounts Between OUs.
 
@@ -322,12 +322,12 @@ function Show-MoveComputersForm {
     $buttonBrowseTXT.Location = New-Object System.Drawing.Point(470, 193)
     $buttonBrowseTXT.Size = New-Object System.Drawing.Size(90, 25)
     $buttonBrowseTXT.Add_Click({
-        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $openFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
-        if ($openFileDialog.ShowDialog() -eq 'OK') {
-            $textBoxComputerListTXT.Text = $openFileDialog.FileName
-        }
-    })
+            $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+            $openFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
+            if ($openFileDialog.ShowDialog() -eq 'OK') {
+                $textBoxComputerListTXT.Text = $openFileDialog.FileName
+            }
+        })
     $tabPageTXT.Controls.Add($buttonBrowseTXT)
 
     # Progress bar for TXT file move
@@ -342,37 +342,37 @@ function Show-MoveComputersForm {
     $buttonExecuteTXT.Location = New-Object System.Drawing.Point(10, 270)
     $buttonExecuteTXT.Size = New-Object System.Drawing.Size(550, 30)
     $buttonExecuteTXT.Add_Click({
-        $domain = $comboBoxDomainTXT.SelectedItem
-        $targetOU = $comboBoxTargetOU_TXT.SelectedItem
-        $filePath = $textBoxComputerListTXT.Text
+            $domain = $comboBoxDomainTXT.SelectedItem
+            $targetOU = $comboBoxTargetOU_TXT.SelectedItem
+            $filePath = $textBoxComputerListTXT.Text
 
-        if ([string]::IsNullOrWhiteSpace($domain) -or [string]::IsNullOrWhiteSpace($targetOU) -or [string]::IsNullOrWhiteSpace($filePath)) {
-            Show-ErrorMessage "Please provide all required inputs in 'Move from TXT file' tab."
-            return
-        }
+            if ([string]::IsNullOrWhiteSpace($domain) -or [string]::IsNullOrWhiteSpace($targetOU) -or [string]::IsNullOrWhiteSpace($filePath)) {
+                Show-ErrorMessage "Please provide all required inputs in 'Move from TXT file' tab."
+                return
+            }
 
-        if (-not (Test-Path $filePath)) {
-            Show-ErrorMessage "Computer list file not found: $filePath"
-            return
-        }
+            if (-not (Test-Path $filePath)) {
+                Show-ErrorMessage "Computer list file not found: $filePath"
+                return
+            }
 
-        # Confirm action
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to move the specified computers to the target OU?", "Confirm Move", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
-            Log-Message "Move operation cancelled by user in 'Move from TXT file' tab."
-            return
-        }
+            # Confirm action
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to move the specified computers to the target OU?", "Confirm Move", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
+                Log-Message "Move operation cancelled by user in 'Move from TXT file' tab."
+                return
+            }
 
-        Log-Message "Starting move operation from TXT file to '$targetOU' in domain '$domain'."
+            Log-Message "Starting move operation from TXT file to '$targetOU' in domain '$domain'."
 
-        # Disable the execute button to prevent multiple clicks
-        $buttonExecuteTXT.Enabled = $false
+            # Disable the execute button to prevent multiple clicks
+            $buttonExecuteTXT.Enabled = $false
 
-        Move-ComputersFromTXT -TargetOU $targetOU -DomainFQDN $domain -ComputerListFile $filePath -ProgressBar $progressBarTXT
+            Move-ComputersFromTXT -TargetOU $targetOU -DomainFQDN $domain -ComputerListFile $filePath -ProgressBar $progressBarTXT
 
-        # Re-enable the execute button
-        $buttonExecuteTXT.Enabled = $true
-    })
+            # Re-enable the execute button
+            $buttonExecuteTXT.Enabled = $true
+        })
     $tabPageTXT.Controls.Add($buttonExecuteTXT)
 
     ##############################
@@ -443,32 +443,32 @@ function Show-MoveComputersForm {
     $buttonExecuteOU.Location = New-Object System.Drawing.Point(10, 300)
     $buttonExecuteOU.Size = New-Object System.Drawing.Size(550, 30)
     $buttonExecuteOU.Add_Click({
-        $domain = $comboBoxDomainOU.SelectedItem
-        $sourceOU = $comboBoxSourceOU_OU.SelectedItem
-        $targetOU = $comboBoxTargetOU_OU.SelectedItem
+            $domain = $comboBoxDomainOU.SelectedItem
+            $sourceOU = $comboBoxSourceOU_OU.SelectedItem
+            $targetOU = $comboBoxTargetOU_OU.SelectedItem
 
-        if ([string]::IsNullOrWhiteSpace($domain) -or [string]::IsNullOrWhiteSpace($sourceOU) -or [string]::IsNullOrWhiteSpace($targetOU)) {
-            Show-ErrorMessage "Please provide all required inputs in 'Move OU to OU' tab."
-            return
-        }
+            if ([string]::IsNullOrWhiteSpace($domain) -or [string]::IsNullOrWhiteSpace($sourceOU) -or [string]::IsNullOrWhiteSpace($targetOU)) {
+                Show-ErrorMessage "Please provide all required inputs in 'Move OU to OU' tab."
+                return
+            }
 
-        # Confirm action
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to move all computers from the source OU to the target OU?", "Confirm Move", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
-            Log-Message "Move operation cancelled by user in 'Move OU to OU' tab."
-            return
-        }
+            # Confirm action
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to move all computers from the source OU to the target OU?", "Confirm Move", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
+                Log-Message "Move operation cancelled by user in 'Move OU to OU' tab."
+                return
+            }
 
-        Log-Message "Starting move operation from '$sourceOU' to '$targetOU' in domain '$domain'."
+            Log-Message "Starting move operation from '$sourceOU' to '$targetOU' in domain '$domain'."
 
-        # Disable the execute button to prevent multiple clicks
-        $buttonExecuteOU.Enabled = $false
+            # Disable the execute button to prevent multiple clicks
+            $buttonExecuteOU.Enabled = $false
 
-        Move-ComputersFromOUToOU -SourceOU $sourceOU -TargetOU $targetOU -DomainFQDN $domain -ProgressBar $progressBarOU
+            Move-ComputersFromOUToOU -SourceOU $sourceOU -TargetOU $targetOU -DomainFQDN $domain -ProgressBar $progressBarOU
 
-        # Re-enable the execute button
-        $buttonExecuteOU.Enabled = $true
-    })
+            # Re-enable the execute button
+            $buttonExecuteOU.Enabled = $true
+        })
     $tabPageOU.Controls.Add($buttonExecuteOU)
 
     # Variables to store OUs
@@ -488,37 +488,37 @@ function Show-MoveComputersForm {
 
     # Event handler for domain selection change in TXT tab
     $comboBoxDomainTXT.Add_SelectedIndexChanged({
-        $selectedDomain = $comboBoxDomainTXT.SelectedItem
-        if ($null -ne $selectedDomain) {
-            $script:allOUs_TXT = Get-OUsForDomain -DomainFQDN $selectedDomain
-            Update-OUComboBox -SearchText $textBoxTargetOUSearchTXT.Text -ComboBox $comboBoxTargetOU_TXT -OUs $script:allOUs_TXT
-        }
-    })
+            $selectedDomain = $comboBoxDomainTXT.SelectedItem
+            if ($null -ne $selectedDomain) {
+                $script:allOUs_TXT = Get-OUsForDomain -DomainFQDN $selectedDomain
+                Update-OUComboBox -SearchText $textBoxTargetOUSearchTXT.Text -ComboBox $comboBoxTargetOU_TXT -OUs $script:allOUs_TXT
+            }
+        })
 
     # Event handler for domain selection change in OU to OU tab
     $comboBoxDomainOU.Add_SelectedIndexChanged({
-        $selectedDomain = $comboBoxDomainOU.SelectedItem
-        if ($null -ne $selectedDomain) {
-            $script:allOUs_OU = Get-OUsForDomain -DomainFQDN $selectedDomain
-            Update-OUComboBox -SearchText $textBoxSourceOUSearchOU.Text -ComboBox $comboBoxSourceOU_OU -OUs $script:allOUs_OU
-            Update-OUComboBox -SearchText $textBoxTargetOUSearchOU.Text -ComboBox $comboBoxTargetOU_OU -OUs $script:allOUs_OU
-        }
-    })
+            $selectedDomain = $comboBoxDomainOU.SelectedItem
+            if ($null -ne $selectedDomain) {
+                $script:allOUs_OU = Get-OUsForDomain -DomainFQDN $selectedDomain
+                Update-OUComboBox -SearchText $textBoxSourceOUSearchOU.Text -ComboBox $comboBoxSourceOU_OU -OUs $script:allOUs_OU
+                Update-OUComboBox -SearchText $textBoxTargetOUSearchOU.Text -ComboBox $comboBoxTargetOU_OU -OUs $script:allOUs_OU
+            }
+        })
 
     # Real-time OU filtering for Target OU in TXT tab
     $textBoxTargetOUSearchTXT.Add_TextChanged({
-        Update-OUComboBox -SearchText $textBoxTargetOUSearchTXT.Text -ComboBox $comboBoxTargetOU_TXT -OUs $script:allOUs_TXT
-    })
+            Update-OUComboBox -SearchText $textBoxTargetOUSearchTXT.Text -ComboBox $comboBoxTargetOU_TXT -OUs $script:allOUs_TXT
+        })
 
     # Real-time OU filtering for Source OU in OU to OU tab
     $textBoxSourceOUSearchOU.Add_TextChanged({
-        Update-OUComboBox -SearchText $textBoxSourceOUSearchOU.Text -ComboBox $comboBoxSourceOU_OU -OUs $script:allOUs_OU
-    })
+            Update-OUComboBox -SearchText $textBoxSourceOUSearchOU.Text -ComboBox $comboBoxSourceOU_OU -OUs $script:allOUs_OU
+        })
 
     # Real-time OU filtering for Target OU in OU to OU tab
     $textBoxTargetOUSearchOU.Add_TextChanged({
-        Update-OUComboBox -SearchText $textBoxTargetOUSearchOU.Text -ComboBox $comboBoxTargetOU_OU -OUs $script:allOUs_OU
-    })
+            Update-OUComboBox -SearchText $textBoxTargetOUSearchOU.Text -ComboBox $comboBoxTargetOU_OU -OUs $script:allOUs_OU
+        })
 
     # Show the form
     [void]$form.ShowDialog()

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Moves all Windows Event Log (.evtx) files from the default folder to a new target folder and updates registry paths.
 
@@ -66,10 +66,10 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # --- Enhanced Logging Configuration ---
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir      = 'C:\Logs-TEMP'
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir = 'C:\Logs-TEMP'
 $logFileName = "${scriptName}_$(Get-Date -Format 'yyyyMMddHHmmss').log"
-$logPath     = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir $logFileName
 
 if (-not (Test-Path $logDir)) {
     try {
@@ -84,7 +84,7 @@ function Write-Log {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter()][ValidateSet('INFO','ERROR')] [string]$Level = 'INFO'
+        [Parameter()][ValidateSet('INFO', 'ERROR')] [string]$Level = 'INFO'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
@@ -184,9 +184,9 @@ function Move-EventLogs {
         return
     }
     # Initialize the progress bar on the UI thread.
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Minimum = 0 })
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Maximum = $logFiles.Count })
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Value   = 0 })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Minimum = 0 })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Maximum = $logFiles.Count })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Value = 0 })
     $i = 0
     foreach ($logFile in $logFiles) {
         try {
@@ -237,7 +237,7 @@ function Move-EventLogs {
         }
         finally {
             # Update the progress bar value on the UI thread.
-            $ProgressBar.Invoke([System.Action]{ $ProgressBar.Value = $i })
+            $ProgressBar.Invoke([System.Action] { $ProgressBar.Value = $i })
             $i++
         }
     }
@@ -311,24 +311,24 @@ function Setup-GUI {
     $button.Text = "Move Logs"
     $button.Location = New-Object System.Drawing.Point(200, 130)
     $button.Add_Click({
-        $targetFolder = $textBox.Text.Trim()
-        if ([string]::IsNullOrWhiteSpace($targetFolder)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            Log-Message -Message "Error: Target root folder not entered." -Type "ERROR"
-            return
-        }
-        try {
-            Stop-Start-Services -Action "Stop"
-            Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
-            Update-RegistryPaths -NewPath $targetFolder
-            Stop-Start-Services -Action "Start"
-            [System.Windows.Forms.MessageBox]::Show("Event logs have been moved to '$targetFolder'.`nA reboot may be required for changes to take effect.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            Log-Message -Message "Event logs successfully moved to $targetFolder." -Type "INFO"
-        }
-        catch {
-            Handle-Error -Message "An error occurred during the log moving process." -Exception $_
-        }
-    })
+            $targetFolder = $textBox.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($targetFolder)) {
+                [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                Log-Message -Message "Error: Target root folder not entered." -Type "ERROR"
+                return
+            }
+            try {
+                Stop-Start-Services -Action "Stop"
+                Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
+                Update-RegistryPaths -NewPath $targetFolder
+                Stop-Start-Services -Action "Start"
+                [System.Windows.Forms.MessageBox]::Show("Event logs have been moved to '$targetFolder'.`nA reboot may be required for changes to take effect.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                Log-Message -Message "Event logs successfully moved to $targetFolder." -Type "INFO"
+            }
+            catch {
+                Handle-Error -Message "An error occurred during the log moving process." -Exception $_
+            }
+        })
     $form.Controls.Add($button)
     
     $form.ShowDialog() | Out-Null

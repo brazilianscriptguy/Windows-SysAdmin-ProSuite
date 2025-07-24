@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Tracking Object Deletions via Event ID 4663 (Access Mask 0x10000) using Log Parser.
 
@@ -266,9 +266,9 @@ $buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
     Text = 'Browse'
 }
 $buttonBrowseLogDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { $textBoxLogDir.Text = $folder }
-})
+        $folder = Select-Folder
+        if ($folder) { $textBoxLogDir.Text = $folder }
+    })
 $form.Controls.Add($buttonBrowseLogDir)
 
 $labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
@@ -291,9 +291,9 @@ $buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
     Text = 'Browse'
 }
 $buttonBrowseOutputDir.Add_Click({
-    $folder = Select-Folder
-    if ($folder) { $textBoxOutputDir.Text = $folder }
-})
+        $folder = Select-Folder
+        if ($folder) { $textBoxOutputDir.Text = $folder }
+    })
 $form.Controls.Add($buttonBrowseOutputDir)
 
 $labelStatus = New-Object System.Windows.Forms.Label -Property @{
@@ -315,29 +315,29 @@ $button = New-Object System.Windows.Forms.Button -Property @{
     Text = 'Start Analysis'
 }
 $button.Add_Click({
-    $script:logDir = $textBoxLogDir.Text
-    $script:logPath = Join-Path $script:logDir "${scriptName}.log"
-    $outputFolder = $textBoxOutputDir.Text
-    if (-not (Test-Path $script:logDir)) {
-        New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
-    }
-    $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+        $script:logDir = $textBoxLogDir.Text
+        $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+        $outputFolder = $textBoxOutputDir.Text
+        if (-not (Test-Path $script:logDir)) {
+            New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+        }
+        $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
 
-    Write-Log "Analysis started for users: $($userAccounts -join ', ')"
-    $script:labelStatus.Text = "Selecting folder..."
-    $script:form.Refresh()
+        Write-Log "Analysis started for users: $($userAccounts -join ', ')"
+        $script:labelStatus.Text = "Selecting folder..."
+        $script:form.Refresh()
 
-    $evtxFolder = Select-Folder
-    if (-not $evtxFolder) {
-        Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
-        $script:labelStatus.Text = "Ready"
-        return
-    }
+        $evtxFolder = Select-Folder
+        if (-not $evtxFolder) {
+            Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+            $script:labelStatus.Text = "Ready"
+            return
+        }
 
-    $script:labelStatus.Text = "Processing files..."
-    $script:form.Refresh()
-    Get-ObjectDeletionEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
-})
+        $script:labelStatus.Text = "Processing files..."
+        $script:form.Refresh()
+        Get-ObjectDeletionEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+    })
 $form.Controls.Add($button)
 
 $script:form = $form

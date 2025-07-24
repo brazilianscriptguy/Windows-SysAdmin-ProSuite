@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Restoring SMB Share Access for AD Users.
 
@@ -61,7 +61,7 @@ if (-not (Test-Path $logDir)) {
 # Logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -190,17 +190,17 @@ $tabPage2.Text = "User Permissions"
 $dfsShares = Get-DFSNamespaces
 
 # --- Tab 1: Manage Locked Users ---
-$tabPage1.Controls.Add((Create-Control -type 'Label' -text 'Select the DFS Share:' -location @(10,20) -size @(440,20)))
-$comboBox_share = Create-Control -type 'ComboBox' -location @(10,50) -size @(440,20) -items $dfsShares
+$tabPage1.Controls.Add((Create-Control -type 'Label' -text 'Select the DFS Share:' -location @(10, 20) -size @(440, 20)))
+$comboBox_share = Create-Control -type 'ComboBox' -location @(10, 50) -size @(440, 20) -items $dfsShares
 $tabPage1.Controls.Add($comboBox_share)
 
 # Locked users CheckedListBox
-$tabPage1.Controls.Add((Create-Control -type 'Label' -text 'Locked Users:' -location @(10,90) -size @(440,20)))
-$checkedListBox_lockedUsers = CreateCheckedListBox @(10,120) @(440,120)
+$tabPage1.Controls.Add((Create-Control -type 'Label' -text 'Locked Users:' -location @(10, 90) -size @(440, 20)))
+$checkedListBox_lockedUsers = CreateCheckedListBox @(10, 120) @(440, 120)
 $tabPage1.Controls.Add($checkedListBox_lockedUsers)
 
 # Button to load locked users into CheckedListBox
-$load_button = Create-Control -type 'Button' -text 'Load Locked Users' -location @(10,260) -size @(440,30) -onClick {
+$load_button = Create-Control -type 'Button' -text 'Load Locked Users' -location @(10, 260) -size @(440, 30) -onClick {
     $shareName = $comboBox_share.SelectedItem
     if ([string]::IsNullOrWhiteSpace($shareName)) {
         Show-ErrorMessage 'Please select a DFS Share.'
@@ -222,7 +222,7 @@ $load_button = Create-Control -type 'Button' -text 'Load Locked Users' -location
 $tabPage1.Controls.Add($load_button)
 
 # Unlock Users Button
-$unblock_button = Create-Control -type 'Button' -text 'Unlock Selected Users' -location @(10,300) -size @(440,30) -onClick {
+$unblock_button = Create-Control -type 'Button' -text 'Unlock Selected Users' -location @(10, 300) -size @(440, 30) -onClick {
     $shareName = $comboBox_share.SelectedItem
     $selectedUsers = $checkedListBox_lockedUsers.CheckedItems
     Unlock-Users -shareName $shareName -selectedUsers $selectedUsers
@@ -230,21 +230,21 @@ $unblock_button = Create-Control -type 'Button' -text 'Unlock Selected Users' -l
 $tabPage1.Controls.Add($unblock_button)
 
 # --- Tab 2: User Permissions ---
-$tabPage2.Controls.Add((Create-Control -type 'Label' -text 'Enter User to Manage Permissions:' -location @(10,20) -size @(440,20)))
+$tabPage2.Controls.Add((Create-Control -type 'Label' -text 'Enter User to Manage Permissions:' -location @(10, 20) -size @(440, 20)))
 $textbox_user = New-Object System.Windows.Forms.TextBox
-$textbox_user.Location = New-Object System.Drawing.Point(10,50)
-$textbox_user.Size = New-Object System.Drawing.Size(440,20)
+$textbox_user.Location = New-Object System.Drawing.Point(10, 50)
+$textbox_user.Size = New-Object System.Drawing.Size(440, 20)
 $tabPage2.Controls.Add($textbox_user)
 
 # ListBox to show all DFS permissions of the specified user
-$tabPage2.Controls.Add((Create-Control -type 'Label' -text 'User Permissions on DFS Shares:' -location @(10,80) -size @(440,20)))
+$tabPage2.Controls.Add((Create-Control -type 'Label' -text 'User Permissions on DFS Shares:' -location @(10, 80) -size @(440, 20)))
 $listbox_permissions = New-Object System.Windows.Forms.ListBox
-$listbox_permissions.Location = New-Object System.Drawing.Point(10,110)
-$listbox_permissions.Size = New-Object System.Drawing.Size(440,120)
+$listbox_permissions.Location = New-Object System.Drawing.Point(10, 110)
+$listbox_permissions.Size = New-Object System.Drawing.Size(440, 120)
 $tabPage2.Controls.Add($listbox_permissions)
 
 # Button to load all permissions for the specified user
-$load_permissions_button = Create-Control -type 'Button' -text 'Load User Permissions' -location @(10,250) -size @(440,30) -onClick {
+$load_permissions_button = Create-Control -type 'Button' -text 'Load User Permissions' -location @(10, 250) -size @(440, 30) -onClick {
     $username = $textbox_user.Text
     if ([string]::IsNullOrWhiteSpace($username)) {
         Show-ErrorMessage 'Please enter a username to load permissions.'
@@ -271,7 +271,7 @@ $tabControl.Controls.Add($tabPage2)
 $main_form.Controls.Add($tabControl)
 
 # Close Button
-$close_button = Create-Control -type 'Button' -text 'Close' -location @(10,430) -size @(460,30) -onClick {
+$close_button = Create-Control -type 'Button' -text 'Close' -location @(10, 430) -size @(460, 30) -onClick {
     $main_form.Close()
 }
 $main_form.Controls.Add($close_button)

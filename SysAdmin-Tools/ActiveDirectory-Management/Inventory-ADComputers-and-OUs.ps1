@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     GUI Script to Export AD Computer Names and Their OU Paths from All Domains in the Forest
 
@@ -39,8 +39,8 @@ Add-Type -AssemblyName System.Drawing
 
 # Setup Logging
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir     = 'C:\Logs-TEMP'
-$logPath    = Join-Path $logDir "$scriptName.log"
+$logDir = 'C:\Logs-TEMP'
+$logPath = Join-Path $logDir "$scriptName.log"
 
 if (-not (Test-Path $logDir)) {
     New-Item -Path $logDir -ItemType Directory | Out-Null
@@ -83,8 +83,8 @@ function Export-ComputersFromDomain {
         # Apply OS filter
         $filteredComputers = switch ($ComputerTypeFilter) {
             "Workstations" { $computers | Where-Object { $_.OperatingSystem -match "Windows (XP|Vista|7|8|10|11)(\s|$)" } }
-            "Servers"      { $computers | Where-Object { $_.OperatingSystem -match "Windows.*Server" } }
-            "All"          { $computers }
+            "Servers" { $computers | Where-Object { $_.OperatingSystem -match "Windows.*Server" } }
+            "All" { $computers }
         }
 
         if ($filteredComputers.Count -eq 0) {
@@ -93,10 +93,10 @@ function Export-ComputersFromDomain {
         }
 
         $data = $filteredComputers | Select-Object `
-            @{Name = "ComputerName";     Expression = { $_.Name }},
-            @{Name = "OUPath";           Expression = { $_.DistinguishedName }},
-            @{Name = "OperatingSystem";  Expression = { $_.OperatingSystem }},
-            @{Name = "Domain";           Expression = { $DomainFQDN }}
+        @{Name = "ComputerName"; Expression = { $_.Name } },
+        @{Name = "OUPath"; Expression = { $_.DistinguishedName } },
+        @{Name = "OperatingSystem"; Expression = { $_.OperatingSystem } },
+        @{Name = "Domain"; Expression = { $DomainFQDN } }
 
         $data | Export-Csv -Path $OutputPath -Append -NoTypeInformation -Encoding UTF8
 
@@ -159,35 +159,35 @@ function Show-ComputerExportForm {
     $buttonExport.Text = 'Export Computers'
     $buttonExport.Location = '10,210'; $buttonExport.Size = '180,30'
     $buttonExport.Add_Click({
-        $selectedDomain = $comboBoxDomain.SelectedItem
-        $selectedType = $comboBoxType.SelectedItem
-        $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-        $output = "$([Environment]::GetFolderPath('MyDocuments'))\ComputersWithOU_${timestamp}_${selectedType}.csv"
+            $selectedDomain = $comboBoxDomain.SelectedItem
+            $selectedType = $comboBoxType.SelectedItem
+            $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+            $output = "$([Environment]::GetFolderPath('MyDocuments'))\ComputersWithOU_${timestamp}_${selectedType}.csv"
 
-        $domainsToQuery = if ($selectedDomain -eq "ALL DOMAINS") { Get-AllDomainFQDNs } else { @($selectedDomain) }
+            $domainsToQuery = if ($selectedDomain -eq "ALL DOMAINS") { Get-AllDomainFQDNs } else { @($selectedDomain) }
 
-        $progressBar.Maximum = $domainsToQuery.Count
-        $progressBar.Value = 0
+            $progressBar.Maximum = $domainsToQuery.Count
+            $progressBar.Value = 0
 
-        $success = $false
-        foreach ($domain in $domainsToQuery) {
-            $labelProgress.Text = "Processing: $domain"
-            $form.Refresh()
+            $success = $false
+            foreach ($domain in $domainsToQuery) {
+                $labelProgress.Text = "Processing: $domain"
+                $form.Refresh()
 
-            $exported = Export-ComputersFromDomain -DomainFQDN $domain -OutputPath $output -ComputerTypeFilter $selectedType
-            if ($exported) { $success = $true }
+                $exported = Export-ComputersFromDomain -DomainFQDN $domain -OutputPath $output -ComputerTypeFilter $selectedType
+                if ($exported) { $success = $true }
 
-            $progressBar.PerformStep()
-        }
+                $progressBar.PerformStep()
+            }
 
-        $labelProgress.Text = "Completed!"
+            $labelProgress.Text = "Completed!"
 
-        if ($success) {
-            [System.Windows.Forms.MessageBox]::Show("Export completed successfully.`nSaved to: $output")
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("No computers exported. Check log for details.")
-        }
-    })
+            if ($success) {
+                [System.Windows.Forms.MessageBox]::Show("Export completed successfully.`nSaved to: $output")
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("No computers exported. Check log for details.")
+            }
+        })
     $form.Controls.Add($buttonExport)
 
     # Close button

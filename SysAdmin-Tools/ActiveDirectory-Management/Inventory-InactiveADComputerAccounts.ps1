@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Identifying Inactive AD Computer Accounts.
 
@@ -135,49 +135,49 @@ $generateButton.Location = New-Object System.Drawing.Point(10, 180)
 $generateButton.Size = New-Object System.Drawing.Size(360, 30)
 $generateButton.Text = "Generate Report"
 $generateButton.Add_Click({
-    $domainFQDN = $comboBoxDomain.SelectedItem
-    $days = $null
-    $isValidDays = [int]::TryParse($textboxDays.Text, [ref]$days)
+        $domainFQDN = $comboBoxDomain.SelectedItem
+        $days = $null
+        $isValidDays = [int]::TryParse($textboxDays.Text, [ref]$days)
 
-    if (![string]::IsNullOrWhiteSpace($domainFQDN) -and $isValidDays -and $days -gt 0) {
-        $progressBar.Value = 10
-        $form.Refresh()
+        if (![string]::IsNullOrWhiteSpace($domainFQDN) -and $isValidDays -and $days -gt 0) {
+            $progressBar.Value = 10
+            $form.Refresh()
 
-        $currentDateTime = Get-Date -Format "yyyyMMdd_HHmmss"
-        $exportPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "${scriptName}_$domainFQDN-${days}_$currentDateTime.csv"
+            $currentDateTime = Get-Date -Format "yyyyMMdd_HHmmss"
+            $exportPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "${scriptName}_$domainFQDN-${days}_$currentDateTime.csv"
 
-        try {
-            $inactiveComputers = Search-ADAccount -ComputersOnly -AccountInactive -TimeSpan ([timespan]::FromDays($days)) -Server $domainFQDN
-            $progressBar.Value = 60
-            $inactiveComputers | Select-Object Name, DNSHostName, LastLogonDate | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
-            $progressBar.Value = 100
+            try {
+                $inactiveComputers = Search-ADAccount -ComputersOnly -AccountInactive -TimeSpan ([timespan]::FromDays($days)) -Server $domainFQDN
+                $progressBar.Value = 60
+                $inactiveComputers | Select-Object Name, DNSHostName, LastLogonDate | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
+                $progressBar.Value = 100
 
-            Log-Message -Message "Report generated successfully: $exportPath" -MessageType "INFO"
+                Log-Message -Message "Report generated successfully: $exportPath" -MessageType "INFO"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Report generated successfully:`n$exportPath",
+                    "Report Successful",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+            } catch {
+                Log-Message -Message "Error generating report: $_" -MessageType "ERROR"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "An error occurred: $_",
+                    "Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+            }
+        } else {
+            Log-Message -Message "Input Error: Invalid domain FQDN or inactivity days." -MessageType "WARNING"
             [System.Windows.Forms.MessageBox]::Show(
-                "Report generated successfully:`n$exportPath",
-                "Report Successful",
+                "Please select a valid domain and number of inactivity days.",
+                "Input Error",
                 [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-        } catch {
-            Log-Message -Message "Error generating report: $_" -MessageType "ERROR"
-            [System.Windows.Forms.MessageBox]::Show(
-                "An error occurred: $_",
-                "Error",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Error
+                [System.Windows.Forms.MessageBoxIcon]::Warning
             )
         }
-    } else {
-        Log-Message -Message "Input Error: Invalid domain FQDN or inactivity days." -MessageType "WARNING"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Please select a valid domain and number of inactivity days.",
-            "Input Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Warning
-        )
-    }
-})
+    })
 $form.Controls.Add($generateButton)
 
 # Close button

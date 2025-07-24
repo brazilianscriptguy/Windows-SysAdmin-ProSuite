@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Adjusting Expiration Dates of AD User Accounts.
 
@@ -70,9 +70,9 @@ function Show-InfoMessage {
 # Function to log messages
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$MessageType = "INFO"
     )
     $logDir = 'C:\Logs-TEMP'
@@ -134,7 +134,7 @@ function Update-ADUsers {
     foreach ($item in $listView.CheckedItems) {
         $samAccountName = $item.Text
         try {
-            $user = Get-ADUser -Server $fqdn -Filter {SamAccountName -eq $samAccountName} -Properties Description, AccountExpirationDate
+            $user = Get-ADUser -Server $fqdn -Filter { SamAccountName -eq $samAccountName } -Properties Description, AccountExpirationDate
             Set-ADUser -Identity $user -AccountExpirationDate $expirationDate
             $logMessage = "Updated User: $($user.SamAccountName) - New Expiration Date: $expirationDate"
             Log-Message -Message $logMessage
@@ -217,21 +217,21 @@ $buttonListUsers.Location = New-Object System.Drawing.Point(10, 320)
 $buttonListUsers.Size = New-Object System.Drawing.Size(120, 30)
 $buttonListUsers.Text = "List Users"
 $buttonListUsers.Add_Click({
-    $fqdn = $comboBoxDomain.SelectedItem.ToString()
-    $description = $textboxDescription.Text.Trim()
+        $fqdn = $comboBoxDomain.SelectedItem.ToString()
+        $description = $textboxDescription.Text.Trim()
 
-    if ([string]::IsNullOrWhiteSpace($fqdn)) {
-        Show-ErrorMessage "Please select a domain."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($fqdn)) {
+            Show-ErrorMessage "Please select a domain."
+            return
+        }
 
-    if ([string]::IsNullOrWhiteSpace($description)) {
-        Show-ErrorMessage "Please enter a description."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($description)) {
+            Show-ErrorMessage "Please enter a description."
+            return
+        }
 
-    List-ADUsers -fqdn $fqdn -description $description -listView $listViewUsers
-})
+        List-ADUsers -fqdn $fqdn -description $description -listView $listViewUsers
+    })
 $form.Controls.Add($buttonListUsers)
 
 # Create a button to select all users
@@ -240,10 +240,10 @@ $buttonSelectAll.Location = New-Object System.Drawing.Point(140, 320)
 $buttonSelectAll.Size = New-Object System.Drawing.Size(120, 30)
 $buttonSelectAll.Text = "Select All"
 $buttonSelectAll.Add_Click({
-    foreach ($item in $listViewUsers.Items) {
-        $item.Checked = $true
-    }
-})
+        foreach ($item in $listViewUsers.Items) {
+            $item.Checked = $true
+        }
+    })
 $form.Controls.Add($buttonSelectAll)
 
 # Create a button to update selected users
@@ -252,23 +252,23 @@ $buttonUpdateUsers.Location = New-Object System.Drawing.Point(270, 320)
 $buttonUpdateUsers.Size = New-Object System.Drawing.Size(120, 30)
 $buttonUpdateUsers.Text = "Update Users"
 $buttonUpdateUsers.Add_Click({
-    $fqdn = $comboBoxDomain.SelectedItem.ToString()
-    $expirationDateText = $textboxExpirationDate.Text.Trim()
+        $fqdn = $comboBoxDomain.SelectedItem.ToString()
+        $expirationDateText = $textboxExpirationDate.Text.Trim()
 
-    if ([string]::IsNullOrWhiteSpace($fqdn)) {
-        Show-ErrorMessage "Please select a domain."
-        return
-    }
+        if ([string]::IsNullOrWhiteSpace($fqdn)) {
+            Show-ErrorMessage "Please select a domain."
+            return
+        }
 
-    try {
-        $expirationDate = [datetime]::ParseExact($expirationDateText, "yyyy-MM-dd", $null)
-    } catch {
-        Show-ErrorMessage "Invalid date format. Please enter the date as yyyy-MM-dd."
-        return
-    }
+        try {
+            $expirationDate = [datetime]::ParseExact($expirationDateText, "yyyy-MM-dd", $null)
+        } catch {
+            Show-ErrorMessage "Invalid date format. Please enter the date as yyyy-MM-dd."
+            return
+        }
 
-    Update-ADUsers -fqdn $fqdn -expirationDate $expirationDate -listView $listViewUsers
-})
+        Update-ADUsers -fqdn $fqdn -expirationDate $expirationDate -listView $listViewUsers
+    })
 $form.Controls.Add($buttonUpdateUsers)
 
 # Create a button to close the window
@@ -277,8 +277,8 @@ $buttonClose.Location = New-Object System.Drawing.Point(450, 320)
 $buttonClose.Size = New-Object System.Drawing.Size(120, 30)
 $buttonClose.Text = "Close"
 $buttonClose.Add_Click({
-    $form.Close()
-})
+        $form.Close()
+    })
 $form.Controls.Add($buttonClose)
 
 # Show the form

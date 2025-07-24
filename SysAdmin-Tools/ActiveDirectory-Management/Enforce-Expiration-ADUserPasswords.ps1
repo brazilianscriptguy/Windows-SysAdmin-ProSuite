@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for Enforcing Password Expiration in AD Users.
 
@@ -73,7 +73,7 @@ if (-not (Test-Path $logDir)) {
 # Enhanced logging function with error handling
 function Log-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         [string]$LogLevel = "INFO"
     )
@@ -149,17 +149,17 @@ $txtOUSearch.Size = New-Object System.Drawing.Size(450, 20)
 $txtOUSearch.Text = "Search OU..."
 $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
 $txtOUSearch.Add_Enter({
-    if ($txtOUSearch.Text -eq "Search OU...") {
-        $txtOUSearch.Text = ''
-        $txtOUSearch.ForeColor = [System.Drawing.Color]::Black
-    }
-})
+        if ($txtOUSearch.Text -eq "Search OU...") {
+            $txtOUSearch.Text = ''
+            $txtOUSearch.ForeColor = [System.Drawing.Color]::Black
+        }
+    })
 $txtOUSearch.Add_Leave({
-    if ($txtOUSearch.Text -eq '') {
-        $txtOUSearch.Text = "Search OU..."
-        $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
-    }
-})
+        if ($txtOUSearch.Text -eq '') {
+            $txtOUSearch.Text = "Search OU..."
+            $txtOUSearch.ForeColor = [System.Drawing.Color]::Gray
+        }
+    })
 $form.Controls.Add($txtOUSearch)
 
 # ComboBox for OU selection
@@ -202,8 +202,8 @@ Populate-OUComboBox -comboBox $cmbOU
 
 # Add search filter event
 $txtOUSearch.Add_TextChanged({
-    Populate-OUComboBox -comboBox $cmbOU -filter $txtOUSearch.Text
-})
+        Populate-OUComboBox -comboBox $cmbOU -filter $txtOUSearch.Text
+    })
 
 # Create OK button
 $okButton = New-Object System.Windows.Forms.Button
