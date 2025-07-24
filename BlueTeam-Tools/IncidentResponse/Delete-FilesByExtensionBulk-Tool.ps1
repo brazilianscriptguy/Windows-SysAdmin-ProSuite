@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Bulk Deleting Files Based on Extension.  
+    PowerShell Script for Bulk Deleting Files Based on Extension. 
 
 .DESCRIPTION
     This script performs a bulk deletion of files based on specified extensions, helping 
