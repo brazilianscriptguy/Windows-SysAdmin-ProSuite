@@ -203,7 +203,7 @@ Add-Type -AssemblyName System.Drawing
 
 function Show-GUI {
     $form = New-Object Windows.Forms.Form -Property @{
-        Text = "DHCP Scope Transfer Tool v3.5"
+        Text = "DHCP Scope Transfer Tool v4.5"
         Size = '720,460'
         StartPosition = 'CenterScreen'
     }
