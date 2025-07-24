@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    v3.5 – July 23, 2025
+    v4.5 – July 23, 2025
 #>
 
 #region --- Hide Console ---
@@ -150,17 +150,41 @@ function Import-DhcpScope {
     )
     try {
         $ProgressBar.Value = 10
+
         if (-not (Test-Path $ImportFilePath)) {
             throw "Import file not found: $ImportFilePath"
+        }
+
+        [xml]$xmlContent = Get-Content $ImportFilePath
+        $existingScopes = Get-DhcpServerv4Scope -ComputerName $Server -ErrorAction Stop | Select-Object -ExpandProperty ScopeId
+
+        $xmlScopeNodes = $xmlContent.DHCPServer.IPv4.Scopes.Scope
+        $scopesToImport = @()
+
+        foreach ($scopeNode in $xmlScopeNodes) {
+            $scopeId = $scopeNode.ScopeId
+            if ($existingScopes -contains $scopeId) {
+                Write-Log "Skipping import of scope $scopeId – already exists on $Server" -Level "WARNING"
+            } else {
+                $scopesToImport += $scopeId
+            }
+        }
+
+        if ($scopesToImport.Count -eq 0) {
+            Write-Log "All scopes in $ImportFilePath already exist on $Server. No import performed." -Level "INFO"
+            [Windows.Forms.MessageBox]::Show("All scopes already exist on $Server.`nNothing was imported.", "Info", "OK", "Information")
+            $ProgressBar.Value = 100
+            return $true
         }
 
         Import-DhcpServer -ComputerName $Server -File $ImportFilePath -Leases -BackupPath $global:ExportDir -ErrorAction Stop
         Write-Log "Imported scopes from $ImportFilePath to $Server"
 
-        if ($InactivateAfter -and ($ImportFilePath -match "Export-Scope_([\d\.]+)_")) {
-            $scopeId = $matches[1]
-            Set-DhcpServerv4Scope -ComputerName $Server -ScopeId $scopeId -State Inactive
-            Write-Log "Inactivated scope $scopeId after import"
+        if ($InactivateAfter) {
+            foreach ($newScopeId in $scopesToImport) {
+                Set-DhcpServerv4Scope -ComputerName $Server -ScopeId $newScopeId -State Inactive -ErrorAction Stop
+                Write-Log "Inactivated scope $newScopeId after import"
+            }
         }
 
         $ProgressBar.Value = 100
@@ -330,26 +354,30 @@ function Show-GUI {
     })
 
     $btnImport.Add_Click({
-        $barImport.Value = 0
-        $lblStatusImport.Text = "Validating inputs..."
-        if (-not $txtImpServer.Text -or -not $txtImpFile.Text) {
-            [Windows.Forms.MessageBox]::Show("Specify server and import file", "Error", "OK", "Error")
-            $lblStatusImport.Text = "Import failed: Missing inputs"
-            return
-        }
+    $barImport.Value = 0
+    $lblStatusImport.Text = "Validating inputs..."
 
-        $lblStatusImport.Text = "Importing scope..."
-        $success = Import-DhcpScope -Server $txtImpServer.Text -ImportFilePath $txtImpFile.Text `
-            -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
+    $serverName = $txtImpServer.Text.Trim()
+    $importFile = $txtImpFile.Text.Trim()
 
-        if ($success) {
-            [Windows.Forms.MessageBox]::Show("Scope imported to $txtImpServer.Text", "Success", "OK", "Information")
-            $lblStatusImport.Text = "Import completed"
-        } else {
-            [Windows.Forms.MessageBox]::Show("Import failed. Check log.", "Error", "OK", "Error")
-            $lblStatusImport.Text = "Import failed"
-        }
-    })
+    if (-not $serverName -or -not $importFile) {
+        [Windows.Forms.MessageBox]::Show("Specify both server and import file.", "Error", "OK", "Error")
+        $lblStatusImport.Text = "Import failed: Missing inputs"
+        return
+    }
+
+    $lblStatusImport.Text = "Importing scope..."
+    $success = Import-DhcpScope -Server $serverName -ImportFilePath $importFile `
+        -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
+
+    if ($success) {
+        [Windows.Forms.MessageBox]::Show("Scope import process completed on server:`n$serverName", "Success", "OK", "Information")
+        $lblStatusImport.Text = "Import completed"
+    } else {
+        [Windows.Forms.MessageBox]::Show("Import failed. Check log for details.", "Error", "OK", "Error")
+        $lblStatusImport.Text = "Import failed"
+    }
+})
 
     # Initial button state
     $btnExport.Enabled = $false
