@@ -172,8 +172,8 @@ function Import-DhcpScope {
 
         if ($scopesToImport.Count -eq 0) {
             Write-Log "All scopes in $ImportFilePath already exist on $Server. No import performed." -Level "INFO"
-            [Windows.Forms.MessageBox]::Show("All scopes already exist on $Server.`nNothing was imported.", "Info", "OK", "Information")
             $ProgressBar.Value = 100
+            $null = [Windows.Forms.MessageBox]::Show("All scopes already exist on $Server.`nNothing was imported.", "Info", "OK", "Information")
             return "Skipped"
         }
 
@@ -284,15 +284,19 @@ function Show-GUI {
     }
 
     $cmbDomain.Add_SelectedIndexChanged({
-        $cmbScope.Items.Clear()
-        $txtServer.Text = Get-DHCPServerFromDomain $cmbDomain.SelectedItem
-        if ($txtServer.Text) {
-            Get-DhcpServerv4Scope -ComputerName $txtServer.Text | ForEach-Object {
-                $cmbScope.Items.Add($_.ScopeId) | Out-Null
-            }
+    $cmbScope.Items.Clear()
+    $txtServer.Text = Get-DHCPServerFromDomain $cmbDomain.SelectedItem
+    if ($txtServer.Text) {
+        Get-DhcpServerv4Scope -ComputerName $txtServer.Text | ForEach-Object {
+            $cmbScope.Items.Add($_.ScopeId) | Out-Null
         }
-        $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
-    })
+    }
+    $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
+})
+
+$cmbScope.Add_SelectedIndexChanged({
+    $btnExport.Enabled = $txtServer.Text -and $cmbScope.Text
+})
 
     $cmbImpDomain.Add_SelectedIndexChanged({
         $txtImpServer.Text = Get-DHCPServerFromDomain $cmbImpDomain.SelectedItem
