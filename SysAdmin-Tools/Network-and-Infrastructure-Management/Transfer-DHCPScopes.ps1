@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    v4.5 – July 23, 2025
+    v3.5 – July 23, 2025
 #>
 
 #region --- Hide Console ---
@@ -174,7 +174,7 @@ function Import-DhcpScope {
             Write-Log "All scopes in $ImportFilePath already exist on $Server. No import performed." -Level "INFO"
             [Windows.Forms.MessageBox]::Show("All scopes already exist on $Server.`nNothing was imported.", "Info", "OK", "Information")
             $ProgressBar.Value = 100
-            return $true
+            return "Skipped"
         }
 
         Import-DhcpServer -ComputerName $Server -File $ImportFilePath -Leases -BackupPath $global:ExportDir -ErrorAction Stop
@@ -188,11 +188,11 @@ function Import-DhcpScope {
         }
 
         $ProgressBar.Value = 100
-        return $true
+        return "Imported"
     } catch {
         Write-Log "Import failed: $_" -Level "ERROR"
         $ProgressBar.Value = 0
-        return $false
+        return "Failed"
     }
 }
 #endregion
@@ -203,7 +203,7 @@ Add-Type -AssemblyName System.Drawing
 
 function Show-GUI {
     $form = New-Object Windows.Forms.Form -Property @{
-        Text = "DHCP Scope Transfer Tool v4.5"
+        Text = "DHCP Scope Transfer Tool v3.5"
         Size = '720,460'
         StartPosition = 'CenterScreen'
     }
@@ -367,15 +367,25 @@ function Show-GUI {
     }
 
     $lblStatusImport.Text = "Importing scope..."
-    $success = Import-DhcpScope -Server $serverName -ImportFilePath $importFile `
+    $result = Import-DhcpScope -Server $serverName -ImportFilePath $importFile `
         -InactivateAfter:$chkInactivateImp.Checked -ProgressBar $barImport
 
-    if ($success) {
-        [Windows.Forms.MessageBox]::Show("Scope import process completed on server:`n$serverName", "Success", "OK", "Information")
-        $lblStatusImport.Text = "Import completed"
-    } else {
-        [Windows.Forms.MessageBox]::Show("Import failed. Check log for details.", "Error", "OK", "Error")
-        $lblStatusImport.Text = "Import failed"
+    switch ($result) {
+        "Imported" {
+            [Windows.Forms.MessageBox]::Show("Scope import process completed on server:`n$serverName", "Success", "OK", "Information")
+            $lblStatusImport.Text = "Import completed"
+        }
+        "Skipped" {
+            $lblStatusImport.Text = "Nothing was imported"
+        }
+        "Failed" {
+            [Windows.Forms.MessageBox]::Show("Import failed. Check log for details.", "Error", "OK", "Error")
+            $lblStatusImport.Text = "Import failed"
+        }
+        default {
+            [Windows.Forms.MessageBox]::Show("Unexpected result: $result", "Error", "OK", "Error")
+            $lblStatusImport.Text = "Import failed"
+        }
     }
 })
 
