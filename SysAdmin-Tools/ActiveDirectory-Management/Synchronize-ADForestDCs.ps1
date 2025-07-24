@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Synchronizing Domain Controllers Across an AD Forest.
+    PowerShell Script for Synchronizing Domain Controllers Across an AD Forest. 
 
 .DESCRIPTION
     Automates the synchronization of all Domain Controllers (DCs) across an Active Directory (AD) forest.
