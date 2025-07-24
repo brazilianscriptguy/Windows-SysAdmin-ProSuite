@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    v3.5 – July 23, 2025
+    v3.5 – July 24, 2025
 #>
 
 #region --- Hide Console ---
@@ -132,6 +132,32 @@ function Export-DhcpScope {
             Write-Log "Removed scope $ScopeId from $Server"
         }
 
+        # Wait for the file to be fully released
+        $maxWait = 5
+        $waited = 0
+        while ($waited -lt $maxWait -and -not (Test-Path $exportFile)) {
+            Start-Sleep -Seconds 1
+            $waited++
+        }
+
+        # Optional: confirm file is no longer locked
+        $unlocked = $false
+        for ($i = 0; $i -lt 5; $i++) {
+            try {
+                $stream = [System.IO.File]::Open($exportFile, 'Open', 'Read', 'None')
+                $stream.Close()
+                $unlocked = $true
+                break
+            } catch {
+                Start-Sleep -Milliseconds 500
+            }
+        }
+
+        if (-not $unlocked) {
+            throw "Export file is still locked after multiple attempts: $exportFile"
+        }
+
+        Write-Log "Export file is ready and unlocked: $exportFile"
         $ProgressBar.Value = 100
         return $true
     } catch {
@@ -155,8 +181,10 @@ function Import-DhcpScope {
             throw "Import file not found: $ImportFilePath"
         }
 
-        [xml]$xmlContent = Get-Content $ImportFilePath
-        $existingScopes = Get-DhcpServerv4Scope -ComputerName $Server -ErrorAction Stop | Select-Object -ExpandProperty ScopeId
+        # Load and parse XML
+        [xml]$xmlContent = [xml](Get-Content -Path $ImportFilePath -Raw -ErrorAction Stop)
+        $existingScopes = Get-DhcpServerv4Scope -ComputerName $Server -ErrorAction Stop |
+                          Select-Object -ExpandProperty ScopeId
 
         $xmlScopeNodes = $xmlContent.DHCPServer.IPv4.Scopes.Scope
         $scopesToImport = @()
@@ -174,9 +202,13 @@ function Import-DhcpScope {
             Write-Log "All scopes in $ImportFilePath already exist on $Server. No import performed." -Level "INFO"
             $ProgressBar.Value = 100
             $null = [Windows.Forms.MessageBox]::Show("All scopes already exist on $Server.`nNothing was imported.", "Info", "OK", "Information")
+            # Cleanup object before exit
+            Remove-Variable -Name xmlContent -Force -ErrorAction SilentlyContinue
+            [System.GC]::Collect()
             return "Skipped"
         }
 
+        # Proceed with import
         Import-DhcpServer -ComputerName $Server -File $ImportFilePath -Leases -BackupPath $global:ExportDir -ErrorAction Stop
         Write-Log "Imported scopes from $ImportFilePath to $Server"
 
@@ -186,6 +218,10 @@ function Import-DhcpScope {
                 Write-Log "Inactivated scope $newScopeId after import"
             }
         }
+
+        # Cleanup and return
+        Remove-Variable -Name xmlContent -Force -ErrorAction SilentlyContinue
+        [System.GC]::Collect()
 
         $ProgressBar.Value = 100
         return "Imported"
