@@ -49,14 +49,15 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $sarifFile = "${{ github.workspace }}/psscriptanalyzer-results.sarif"
+          $sarifFile = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
           Write-Output "Target SARIF file path: $sarifFile"
           Write-Output "Checking PowerShell version:"
           $PSVersionTable | Format-Table -AutoSize | Out-String | Write-Output
           try {
             Write-Output "Installing PSScriptAnalyzer"
             Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -MinimumVersion 1.22.0 -ErrorAction Stop
-            Write-Output "PSScriptAnalyzer version: $(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)"
+            $version = (Get-Module -ListAvailable PSScriptAnalyzer)[0].Version.ToString()
+            Write-Output "PSScriptAnalyzer version: $version"
             $scriptFiles = Get-ChildItem -Path . -Recurse -Include *.ps1
             if ($scriptFiles) {
               Write-Output "Found $($scriptFiles.Count) PowerShell scripts"
@@ -101,7 +102,9 @@ jobs:
                     locations = @(
                       @{
                         physicalLocation = @{
-                          artifactLocation = @{ uri = $_.ScriptPath.Replace(${{ github.workspace }} + '/', '') }
+                          artifactLocation = @{
+                            uri = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '')
+                          }
                           region = @{
                             startLine = $_.Line
                             startColumn = $_.Column
@@ -116,7 +119,12 @@ jobs:
                   version = '2.1.0'
                   runs = @(
                     @{
-                      tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = "$(Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -ExpandProperty Version)" } }
+                      tool = @{
+                        driver = @{
+                          name = 'PSScriptAnalyzer'
+                          version = $version
+                        }
+                      }
                       results = $sarifResults
                     }
                   )
