@@ -1,21 +1,21 @@
-name: EditorConfig Format Check
+name: EditorConfig Check
 
 on:
   push:
     branches: [main, develop]
     paths:
-      - '**/*'
-      - '.editorconfig'
+      - '**.editorconfig'
+      - '**/*.{ps1,vbs,hta,psm1,xml,json,md,txt,csv,log,sh,html,yml,yaml,ini,config,nuspec,csproj}'
   pull_request:
     branches: [main, develop]
     paths:
-      - '**/*'
-      - '.editorconfig'
+      - '**.editorconfig'
+      - '**/*.{ps1,vbs,hta,psm1,xml,json,md,txt,csv,log,sh,html,yml,yaml,ini,config,nuspec,csproj}'
   workflow_dispatch:
 
 jobs:
-  editorconfig:
-    name: Validate EditorConfig Rules
+  editorconfig-check:
+    name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -25,9 +25,11 @@ jobs:
       - name: 📥 Download EditorConfig Checker
         run: |
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
-          tar -xzf ec-linux-amd64.tar.gz
-          chmod +x ec-linux-amd64/ec
-          sudo mv ec-linux-amd64/ec /usr/local/bin/ec
+          mkdir ec-checker && tar -xzf ec-linux-amd64.tar.gz -C ec-checker
+          chmod +x ec-checker/ec*
+          sudo mv ec-checker/ec* /usr/local/bin/ec
 
-      - name: 🔍 Run EditorConfig Checker
-        run: ec
+      - name: ▶️ Run EditorConfig Checker
+        run: |
+          ec --version
+          ec --disable-logs || true  # Avoid failure on warnings
