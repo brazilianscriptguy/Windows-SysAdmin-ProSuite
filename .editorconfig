@@ -15,34 +15,62 @@ trim_trailing_whitespace = true
 # ⚙️ Scripting Languages
 #########################
 
-[*.ps1]
+[*.{ps1,psm1,vbs}]
 indent_style = space
 indent_size = 4
 charset = utf-8-bom
 
-[*.vbs]
-indent_style = space
-indent_size = 4
-charset = utf-8-bom
+#########################
+# 🌐 HTA: HTML Applications
+#########################
 
 [*.hta]
 indent_style = space
-indent_size = 4
-charset = utf-8-bom
+indent_size = 2
+charset = utf-8
 
 #########################
 # 🧱 Structured Data
 #########################
 
-[*.{yaml,yml,json}]
+[*.{yaml,yml,json,toml}]
 indent_style = space
 indent_size = 2
 
 #########################
-# 📝 Markdown
+# 🧪 Config / Linter / RC Files
+#########################
+
+[.*rc]
+indent_style = space
+indent_size = 2
+
+[.editorconfig]
+indent_style = space
+indent_size = 2
+
+[.eslintrc.json]
+indent_style = space
+indent_size = 2
+
+[.prettierrc]
+indent_style = space
+indent_size = 2
+
+[*.lock]
+indent_style = space
+indent_size = 2
+
+#########################
+# 📝 Markdown / ReStructuredText
 #########################
 
 [*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
+
+[*.rst]
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = false
@@ -54,6 +82,29 @@ trim_trailing_whitespace = false
 [*.txt]
 indent_style = space
 indent_size = 2
+
+[*.env]
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+
+#########################
+# 📑 Logs & Data Exports
+#########################
+
+[*.{log,csv}]
+end_of_line = lf
+charset = utf-8
+
+#########################
+# 🧰 Registry Scripts
+#########################
+
+[*.reg]
+indent_style = space
+indent_size = 4
+charset = utf-16le
+end_of_line = crlf
 
 #########################
 # 🌐 Web & XML Files
@@ -83,11 +134,16 @@ indent_size = 2
 indent_style = space
 indent_size = 4
 
+[*.psd1]
+indent_style = space
+indent_size = 4
+charset = utf-8
+
 #########################
 # 🐚 Shell & INI Configs
 #########################
 
-[*.{sh,bash}]
+[*.{sh,bash,bat,cmd}]
 indent_style = space
 indent_size = 4
 
@@ -96,7 +152,21 @@ indent_style = space
 indent_size = 4
 
 #########################
-# 🧱 Binary & Artifacts
+# 🧾 Git Metadata
+#########################
+
+[.gitignore]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+[.gitattributes]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+#########################
+# 📦 Binary & Artifacts
 #########################
 
 [*.{exe,pdf,zip,tar,gz,7z,iso,nupkg,bak,png}]
