@@ -49,56 +49,33 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 ````
 
-1. **Explore folders and toolsets:**
+1. **Explore folders and toolsets:**  
    Navigate through the structured directories to access categorized tools:
 
-   * `BlueTeam-Tools/`
-
-     * `EventLogMonitoring/`: Automated Event Log parsing for incident detection
-     * `IncidentResponse/`: Forensic triage, file tracing, and threat diagnostics
-
-   * `Core-ScriptLibrary/`
-
-     * `Modular-PS1-Scripts/`: Functions for script reusability and logic abstraction
-     * `Nuget-Package-Publisher/`: NuSpec-based packaging and GitHub Actions automation
-
-   * `ITSM-Templates-SVR/`
-
-     * Server compliance templates for AD CS, DNS, DHCP, WSUS, GPOs, IIS
-
-   * `ITSM-Templates-WKS/`
-
-     * `BeforeJoinDomain/`: Executes 20 pre-domain compliance configurations
-     * `AfterJoinDomain/`: Post-domain join cleanup and integration
-     * `Assets/Certificates/`: Internal CA certificates for ADCS, WSUS, RDS
-     * `Assets/ModifyReg/`: Themes, backgrounds, registry configs, lock screen
-     * `Assets/AdditionalSupportScripts/`: System maintenance, SID, Kaspersky, unjoin tools
-     * `MainDocs/`: Full guide (`JUNE-19-2025-ITSM-Templates.pdf`) and editable checklist
-
-   * `SysAdmin-Tools/`
-
-     * GUI-driven automation categorized into 7 folders:
-
-       * ActiveDirectory-Management
-       * GroupPolicyObjects-Templates
-       * Network-and-Infrastructure-Management
-       * Security-and-Process-Optimization
-       * SystemConfiguration-and-Deployment
-       * WSUS-Management-Tools
-       * ActiveDirectory-SSO-Integrations
+| Folder | Description |
+|--------|-------------|
+| `BlueTeam-Tools/` | Tools for digital forensics, log monitoring, and incident response across Windows environments. |
+| `Core-ScriptLibrary/` | Reusable script modules and NuGet publishing logic for cross-toolset automation and CI/CD integration. |
+| `ITSM-Templates-SVR/` | Templates for hardening and configuring Windows Server 2019/2022: DNS, DHCP, GPOs, WSUS, IIS, AD CS. |
+| `ITSM-Templates-WKS/` | Standardization toolkit for Windows 10/11: domain join automation, registry configs, theme assets, compliance routines. |
+| `SysAdmin-Tools/` | GUI-based scripts and command-line tools for AD, GPO, WSUS, CA, DNS, DHCP, and infrastructure services — organized into 7 domains. |
 
 2. **Run scripts:**
 
-   * `.ps1` → Right-click → “Run with PowerShell”
-   * `.vbs` → Right-click → “Open with Command Prompt”
-   * `.hta` → Double-click with admin rights
+| File Type | Execution Method |
+|-----------|------------------|
+| `.ps1`    | Right-click → “Run with PowerShell” |
+| `.vbs`    | Right-click → “Open with Command Prompt” |
+| `.hta`    | Double-click (run as administrator) |
 
 3. **View logs and reports:**
 
-   * `C:\ITSM-Logs-WKS\` → Workstation actions
-   * `C:\ITSM-Logs-SVR\` → Server-specific operations
-   * `C:\Scripts-LOGS\` → GPO sync, antivirus installs, printers, agents
-   * `C:\Logs-TEMP\` → Standalone tools and test outputs
+| Path | Purpose |
+|------|---------|
+| `C:\ITSM-Logs-WKS\` | Workstation automation logs |
+| `C:\ITSM-Logs-SVR\` | Server-side script execution logs |
+| `C:\Scripts-LOGS\`  | GPO sync, agent deployment, antivirus logs |
+| `C:\Logs-TEMP\`     | General-purpose and legacy script output |
 
 ---
 
