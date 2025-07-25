@@ -5,7 +5,7 @@
 - ➕ Added ready-to-use integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
 - 🔐 Introduced environment-based credential storage and bind authentication options.
 - ⚙️ Implemented modular and cross-platform architecture with fallback strategies.
-- 📦 Prepared `.nupkg` packaging with platform-specific tags and enriched metadata. 
+- 📦 Prepared `.nupkg` packaging with platform-specific tags and enriched metadata.
 
 ## 🧳 All-Repository-Files
 - 📦 Created a unified ZIP archive bundling all repository components.
