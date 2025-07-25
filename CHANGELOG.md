@@ -81,3 +81,4 @@
 - 🖥️ All major tools include GUI with logging, error handling, and retry logic.
 - 📜 Embedded version control and script metadata extraction helpers.
 - 🧾 `.nuspec` generation and README synchronization integrated into CI flow.
+  
