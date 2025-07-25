@@ -98,12 +98,11 @@ jobs:
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
           mkdir ec-checker
           tar -xzf ec-linux-amd64.tar.gz -C ec-checker
-          chmod +x ec-checker/ec || chmod +x ec-checker/ec-linux-amd64 || true
 
-          if [ -f ec-checker/ec ]; then
-            sudo mv ec-checker/ec /usr/local/bin/ec
-          elif [ -f ec-checker/ec-linux-amd64 ]; then
-            sudo mv ec-checker/ec-linux-amd64 /usr/local/bin/ec
+          BIN=$(find ec-checker -type f -executable -name "ec*" | head -n 1)
+          if [ -n "$BIN" ]; then
+            chmod +x "$BIN"
+            sudo mv "$BIN" /usr/local/bin/ec
           else
             echo "❌ Error: ec binary not found after extraction"
             exit 1
