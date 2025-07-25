@@ -33,3 +33,4 @@ jobs:
         run: |
           ec --version
           ec --disable-logs || true  # Avoid failure on warnings
+          
