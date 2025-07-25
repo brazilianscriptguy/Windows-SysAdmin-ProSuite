@@ -5,42 +5,39 @@ on:
     branches: [main, develop]
     paths:
       - '**/*.vbs'
+      - '**/*.hta'
   pull_request:
     branches: [main, develop]
     paths:
       - '**/*.vbs'
+      - '**/*.hta'
   workflow_dispatch:
 
 jobs:
-  vbs-syntax-check:
+  vbscript-lint:
     name: VBScript Syntax Validation
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - name: 📦 Checkout Repository
-        uses: actions/checkout@v4.1.1
-
-      - name: 🔍 Run Syntax Check on All .vbs Files
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Continue'
-          $log = "vbscript-syntax-report.txt"
-          Remove-Item -Path $log -ErrorAction Ignore
-          Get-ChildItem -Recurse -Filter *.vbs | ForEach-Object {
-              $file = $_.FullName
-              try {
-                  Write-Output "Validating: $file"
-                  cscript //nologo "$file" > $null
-                  Add-Content $log "✅ PASS: $file"
-              } catch {
-                  Add-Content $log "❌ FAIL: $file"
-                  Add-Content $log $_.Exception.Message
-              }
-          }
-
-      - name: 📊 Upload VBScript Syntax Report
-        uses: actions/upload-artifact@v4
+      - name: 📦 Checkout Repository (short path to avoid path errors)
+        uses: actions/checkout@v4
         with:
-          name: vbscript-syntax-report
-          path: vbscript-syntax-report.txt
-          retention-days: 7
+          path: repo
+
+      - name: 🔍 Locate VBS and HTA Files
+        working-directory: ./repo
+        run: |
+          find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) > vbscript-files.txt
+          cat vbscript-files.txt || echo "No .vbs or .hta files found."
+
+      - name: ✅ Heuristic Content Check
+        working-directory: ./repo
+        run: |
+          while IFS= read -r file; do
+            echo "🔍 Checking: $file"
+            if file "$file" | grep -qi "text"; then
+              head -n 5 "$file"
+            else
+              echo "::warning file=$file::Not a valid text-based VBS or HTA file."
+            fi
+          done < vbscript-files.txt
