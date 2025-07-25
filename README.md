@@ -49,33 +49,32 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 ````
 
-1. **Explore folders and toolsets:**  
-   Navigate through the structured directories to access categorized tools:
+### 1. Explore folders and toolsets
 
-| Folder | Description |
-|--------|-------------|
-| `BlueTeam-Tools/` | Tools for digital forensics, log monitoring, and incident response across Windows environments. |
-| `Core-ScriptLibrary/` | Reusable script modules and NuGet publishing logic for cross-toolset automation and CI/CD integration. |
-| `ITSM-Templates-SVR/` | Templates for hardening and configuring Windows Server 2019/2022: DNS, DHCP, GPOs, WSUS, IIS, AD CS. |
-| `ITSM-Templates-WKS/` | Standardization toolkit for Windows 10/11: domain join automation, registry configs, theme assets, compliance routines. |
-| `SysAdmin-Tools/` | GUI-based scripts and command-line tools for AD, GPO, WSUS, CA, DNS, DHCP, and infrastructure services — organized into 7 domains. |
+| Folder                | Description                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `BlueTeam-Tools/`     | Forensics and incident response: Event Log parsing, credential tracing, breach diagnostics.                      |
+| `Core-ScriptLibrary/` | Reusable modules, CI logic, and NuSpec automation for GitHub/NuGet pipelines.                                    |
+| `ITSM-Templates-SVR/` | Templates for ADCS, GPOs, WSUS, IIS, DNS, DHCP hardening and compliance.                                         |
+| `ITSM-Templates-WKS/` | Domain join tools, layout config, theme automation, compliance registries, and checklists.                       |
+| `SysAdmin-Tools/`     | GUI automation tools grouped into: ActiveDirectory, GPOs, Network, Security, Deployment, WSUS, SSO Integrations. |
 
-2. **Run scripts:**
+### 2. Run scripts
 
-| File Type | Execution Method |
-|-----------|------------------|
-| `.ps1`    | Right-click → “Run with PowerShell” |
-| `.vbs`    | Right-click → “Open with Command Prompt” |
-| `.hta`    | Double-click (run as administrator) |
+| Script Type | Execution                                |
+| ----------- | ---------------------------------------- |
+| `.ps1`      | Right-click → “Run with PowerShell”      |
+| `.vbs`      | Right-click → “Open with Command Prompt” |
+| `.hta`      | Double-click (Run as Administrator)      |
 
-3. **View logs and reports:**
+### 3. View logs and reports
 
-| Path | Purpose |
-|------|---------|
-| `C:\ITSM-Logs-WKS\` | Workstation automation logs |
-| `C:\ITSM-Logs-SVR\` | Server-side script execution logs |
-| `C:\Scripts-LOGS\`  | GPO sync, agent deployment, antivirus logs |
-| `C:\Logs-TEMP\`     | General-purpose and legacy script output |
+| Log Path            | Description                               |
+| ------------------- | ----------------------------------------- |
+| `C:\ITSM-Logs-WKS\` | Logs related to workstation automation    |
+| `C:\ITSM-Logs-SVR\` | Logs for server-side execution            |
+| `C:\Scripts-LOGS\`  | Antivirus, agent deployments, GPO syncing |
+| `C:\Logs-TEMP\`     | Miscellaneous logs from portable tools    |
 
 ---
 
