@@ -1,0 +1,34 @@
+name: EditorConfig Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/*'
+      - '.editorconfig'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**/*'
+      - '.editorconfig'
+  workflow_dispatch:
+
+jobs:
+  editorconfig:
+    name: Validate .editorconfig rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Install EditorConfig Checker
+        run: |
+          wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
+          tar -xzf ec-linux-amd64.tar.gz
+          sudo mv ec-linux-amd64/ec /usr/local/bin/ec
+          ec --version
+
+      - name: 🔍 Run EditorConfig check
+        run: |
+          ec -config .editorconfig
