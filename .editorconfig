@@ -33,7 +33,7 @@ charset = utf-8
 # 🧱 Structured Data
 #########################
 
-[*.{yaml,yml,json,toml}]
+[*.{yaml,yml,json,jsonc,toml}]
 indent_style = space
 indent_size = 2
 
@@ -49,11 +49,23 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
+[.eslintrc]
+indent_style = space
+indent_size = 2
+
 [.eslintrc.json]
 indent_style = space
 indent_size = 2
 
+[.stylelintrc]
+indent_style = space
+indent_size = 2
+
 [.prettierrc]
+indent_style = space
+indent_size = 2
+
+[.prettierrc.json]
 indent_style = space
 indent_size = 2
 
@@ -76,7 +88,7 @@ indent_size = 2
 trim_trailing_whitespace = false
 
 #########################
-# 📄 Plain Text
+# 📄 Plain Text & Env
 #########################
 
 [*.txt]
@@ -92,9 +104,15 @@ insert_final_newline = true
 # 📑 Logs & Data Exports
 #########################
 
-[*.{log,csv}]
+[*.csv]
 end_of_line = lf
 charset = utf-8
+insert_final_newline = true
+
+[*.log]
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = false
 
 #########################
 # 🧰 Registry Scripts
