@@ -1,0 +1,46 @@
+name: VBScript Syntax Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/*.vbs'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**/*.vbs'
+  workflow_dispatch:
+
+jobs:
+  vbs-syntax-check:
+    name: VBScript Syntax Validation
+    runs-on: windows-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4.1.1
+
+      - name: 🔍 Run Syntax Check on All .vbs Files
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $log = "vbscript-syntax-report.txt"
+          Remove-Item -Path $log -ErrorAction Ignore
+          Get-ChildItem -Recurse -Filter *.vbs | ForEach-Object {
+              $file = $_.FullName
+              try {
+                  Write-Output "Validating: $file"
+                  cscript //nologo "$file" > $null
+                  Add-Content $log "✅ PASS: $file"
+              } catch {
+                  Add-Content $log "❌ FAIL: $file"
+                  Add-Content $log $_.Exception.Message
+              }
+          }
+
+      - name: 📊 Upload VBScript Syntax Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vbscript-syntax-report
+          path: vbscript-syntax-report.txt
+          retention-days: 7
