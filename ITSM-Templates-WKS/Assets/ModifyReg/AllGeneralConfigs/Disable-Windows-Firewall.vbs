@@ -1,5 +1,5 @@
 ' Author: @brazilianscriptguy
-' Updated: June 19, 2025.
+' Updated: June 19, 2025
 ' Script for: DISABLING THE OPERATING SYSTEM FIREWALL AND LEAVING CONTROL WITH THE MANAGEMENT OF CORPORATE ANTIVIRUS
 
 ' Script testing section for debugging with and without execution errors
