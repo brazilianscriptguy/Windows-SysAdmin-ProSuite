@@ -4,13 +4,17 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - '.editorconfig'
       - '**/.editorconfig'
       - '**/*.{ps1,vbs,hta,psm1,xml,json,md,txt,csv,log,sh,html,yml,yaml,ini,config,nuspec,csproj}'
+
   pull_request:
     branches: [main, develop]
     paths:
+      - '.editorconfig'
       - '**/.editorconfig'
       - '**/*.{ps1,vbs,hta,psm1,xml,json,md,txt,csv,log,sh,html,yml,yaml,ini,config,nuspec,csproj}'
+
   workflow_dispatch:
 
 jobs:
@@ -27,10 +31,11 @@ jobs:
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
           mkdir ec-checker
           tar -xzf ec-linux-amd64.tar.gz -C ec-checker
-          chmod +x ec-checker/ec-linux-amd64
-          sudo mv ec-checker/ec-linux-amd64 /usr/local/bin/ec
+          mv ec-checker/ec-linux-amd64 ec
+          chmod +x ec
+          sudo mv ec /usr/local/bin/ec
 
       - name: ▶️ Run EditorConfig Checker
         run: |
           ec --version
-          ec --disable-logs || true
+          ec --disable-logs || true  # Avoid failing on stylistic warnings
