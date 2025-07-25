@@ -26,8 +26,8 @@ jobs:
         run: |
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
           tar -xzf ec-linux-amd64.tar.gz
-          chmod +x ec
-          sudo mv ec /usr/local/bin/ec
+          chmod +x ec-linux-amd64/ec
+          sudo mv ec-linux-amd64/ec /usr/local/bin/ec
 
       - name: 🔍 Run EditorConfig Checker
         run: ec
