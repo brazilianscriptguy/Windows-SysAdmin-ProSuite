@@ -24,34 +24,35 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 ## 💻 Core Features
 
-- 🧪 **Forensic Readiness:** Artifacts, Event Log parsing, breach detection.  
-- ⚡ **PowerShell-Driven Automation:** Secure scripting with reusability and CI support.  
-- 🔐 **Server & Workstation Hardening:** Enforces institutional configurations and firewall, DNS, and GPO policies.  
-- 👤 **IAM & Domain Prep:** Tools for AD objects, logon behavior, SID tracking, and offline login caching.  
-- 📋 **Registry + GPO Integration:** Uses native Windows `.reg`, `.vbs`, and `.hta` to maintain compliance.  
+- 🧪 **Forensic Readiness:** Artifacts, Event Log parsing, breach detection  
+- ⚡ **PowerShell-Driven Automation:** Secure scripting with reusability and CI support  
+- 🔐 **Server & Workstation Hardening:** Enforces institutional configurations and firewall, DNS, and GPO policies  
+- 👤 **IAM & Domain Prep:** Tools for AD objects, logon behavior, SID tracking, and offline login caching  
+- 📋 **Registry + GPO Integration:** Uses native Windows `.reg`, `.vbs`, and `.hta` to maintain compliance  
 
 ---
 
 ## 🌟 Key Highlights & Core Competencies
 
-- 🖼️ **GUI-Driven Interfaces:** Interactive scripts with guided automation.  
-- 📝 **Standardized Logging:** Detailed `.log` outputs in structured directories.  
-- 📊 **CSV Audit Reports:** BIOS, SID, OS state, update status, software inventory.  
-- 🧩 **Modular Design:** All scripts are reusable, adaptable, and parameterized.  
-- 🔁 **Release Automation:** GitHub Actions for linting, packaging, NuGet publishing.  
-- 🛡️ **Zero Third-Party Binaries:** 100% native to Windows OS ecosystem.  
+- 🖼️ **GUI-Driven Interfaces:** Interactive scripts with guided automation  
+- 📝 **Standardized Logging:** Detailed `.log` outputs in structured directories  
+- 📊 **CSV Audit Reports:** BIOS, SID, OS state, update status, software inventory  
+- 🧩 **Modular Design:** All scripts are reusable, adaptable, and parameterized  
+- 🔁 **Release Automation:** GitHub Actions for linting, packaging, NuGet publishing  
+- 🛡️ **Zero Third-Party Binaries:** 100% native to Windows OS ecosystem  
 
 ---
 
-## 📁 Explore the Repository Structure
+## ⚙️ Requirements & Environment Setup
 
-| Folder | Subdirectories | Key Functions |
-|--------|----------------|---------------|
-| `BlueTeam-Tools/` | `EventLogMonitoring/`, `IncidentResponse/` | Breach analysis, event log forensics, credential tracing |
-| `Core-ScriptLibrary/` | `Modular-PS1-Scripts/`, `Nuget-Package-Publisher/` | Helper modules, reusable logic blocks, NuSpec-based packaging |
-| `ITSM-Templates-SVR/` | — | Server compliance templates: AD CS, DHCP, GPO, DNS, WSUS |
-| `ITSM-Templates-WKS/` | `BeforeJoinDomain/`, `AfterJoinDomain/`, `Assets/`, `MainDocs/` | Workstation automation: pre/post domain join, reg tweaks, branding |
-| `SysAdmin-Tools/` | `ActiveDirectory-Management/`, `GroupPolicyObjects-Templates/`, `Network-and-Infrastructure-Management/`, `Security-and-Process-Optimization/`, `SystemConfiguration-and-Deployment/`, `WSUS-Management-Tools/`, `ActiveDirectory-SSO-Integrations/` | Full orchestration toolkit for identity, infrastructure, and services |
+| **Requirement** | Minimum Version / Notes |
+|-------------|--------------------------|
+| **PowerShell** | 5.1 (Windows built-in) or 7.x for cross-platform CLI |
+| **Operating System** | Windows 10/11 (Workstation), Windows Server 2019/2022 |
+| **Execution Policy** | Scripts require `RemoteSigned` or `Unrestricted` |
+| **Administrator Rights** | Required for most `.ps1`, `.hta`, and registry-modifying `.vbs` files |
+| **.NET Framework** | 4.7.2 or later (some GUIs depend on WPF/.NET UI elements) |
+| **Optional Tools** | Git (for `git clone`), Notepad++ or VSCode for editing, Task Scheduler for automation |
 
 ---
 
@@ -59,7 +60,7 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 ### Run scripts:
 
-| File Type | Execution Method |
+| **File Type** | Execution Method |
 |-----------|------------------|
 | `.ps1`    | Right-click → “Run with PowerShell” |
 | `.vbs`    | Right-click → “Open with Command Prompt” |
@@ -67,7 +68,7 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 ### View logs and reports:
 
-| Path | Purpose |
+| **Path** | Purpose |
 |------|---------|
 | `C:\ITSM-Logs-WKS\` | Workstation automation logs |
 | `C:\ITSM-Logs-SVR\` | Server-side script execution logs |
