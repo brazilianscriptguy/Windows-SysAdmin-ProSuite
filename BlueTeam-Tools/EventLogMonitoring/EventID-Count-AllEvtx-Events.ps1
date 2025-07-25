@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    PowerShell Script for Counting EventID Occurrences in EVTX Files using Log Parser. 
+    PowerShell Script for Counting EventID Occurrences in EVTX Files using Log Parser.
 
 .DESCRIPTION
     This script counts occurrences of each EventID in EVTX files within a selected folder using 
@@ -352,4 +352,3 @@ $form.Add_Shown({ $form.Activate() })
 #endregion
 
 # End of script
-
