@@ -40,17 +40,17 @@ jobs:
         uses: actions/setup-node@v4.0.3
         with:
           node-version: '20'
-          cache: 'false' # no lock file, so disable caching
+          cache: 'npm'
 
-      - name: 📦 Install Prettier
-        run: npm install --global prettier
+      - name: 📦 Install Dependencies (npm ci)
+        run: npm ci
 
       - name: 🔍 Run Prettier Check
         id: prettier
         run: |
-          prettier --check . > prettier-report.txt || true
+          npx prettier --check . > prettier-report.txt || true
 
-      - name: 📊 Upload Prettier Report
+      - name: 📊 Upload Prettier Report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
