@@ -6,14 +6,80 @@ on:
     paths:
       - '.editorconfig'
       - '**/.editorconfig'
-      - '**/*.{ps1,psm1,psd1,vbs,hta,xml,json,jsonc,yaml,yml,toml,md,rst,txt,csv,log,env,reg,html,config,nuspec,csproj,ini,conf,sh,bash,bat,cmd,eslintrc,eslintrc.json,stylelintrc,prettierrc,prettierrc.json,lock}'
+      - '**/*.ps1'
+      - '**/*.psm1'
+      - '**/*.psd1'
+      - '**/*.vbs'
+      - '**/*.hta'
+      - '**/*.xml'
+      - '**/*.json'
+      - '**/*.jsonc'
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.txt'
+      - '**/*.csv'
+      - '**/*.log'
+      - '**/*.sh'
+      - '**/*.bash'
+      - '**/*.bat'
+      - '**/*.cmd'
+      - '**/*.html'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.toml'
+      - '**/*.ini'
+      - '**/*.conf'
+      - '**/*.config'
+      - '**/*.nuspec'
+      - '**/*.csproj'
+      - '**/*.reg'
+      - '**/*.env'
+      - '**/.eslintrc'
+      - '**/.eslintrc.json'
+      - '**/.stylelintrc'
+      - '**/.prettierrc'
+      - '**/.prettierrc.json'
+      - '**/*.lock'
 
   pull_request:
     branches: [main, develop]
     paths:
       - '.editorconfig'
       - '**/.editorconfig'
-      - '**/*.{ps1,psm1,psd1,vbs,hta,xml,json,jsonc,yaml,yml,toml,md,rst,txt,csv,log,env,reg,html,config,nuspec,csproj,ini,conf,sh,bash,bat,cmd,eslintrc,eslintrc.json,stylelintrc,prettierrc,prettierrc.json,lock}'
+      - '**/*.ps1'
+      - '**/*.psm1'
+      - '**/*.psd1'
+      - '**/*.vbs'
+      - '**/*.hta'
+      - '**/*.xml'
+      - '**/*.json'
+      - '**/*.jsonc'
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.txt'
+      - '**/*.csv'
+      - '**/*.log'
+      - '**/*.sh'
+      - '**/*.bash'
+      - '**/*.bat'
+      - '**/*.cmd'
+      - '**/*.html'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.toml'
+      - '**/*.ini'
+      - '**/*.conf'
+      - '**/*.config'
+      - '**/*.nuspec'
+      - '**/*.csproj'
+      - '**/*.reg'
+      - '**/*.env'
+      - '**/.eslintrc'
+      - '**/.eslintrc.json'
+      - '**/.stylelintrc'
+      - '**/.prettierrc'
+      - '**/.prettierrc.json'
+      - '**/*.lock'
 
   workflow_dispatch:
 
@@ -27,11 +93,13 @@ jobs:
         uses: actions/checkout@v4.1.1
 
       - name: 📥 Download EditorConfig Checker
+        shell: bash
         run: |
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
-          mkdir -p ec-checker
+          mkdir ec-checker
           tar -xzf ec-linux-amd64.tar.gz -C ec-checker
           chmod +x ec-checker/ec || chmod +x ec-checker/ec-linux-amd64 || true
+
           if [ -f ec-checker/ec ]; then
             sudo mv ec-checker/ec /usr/local/bin/ec
           elif [ -f ec-checker/ec-linux-amd64 ]; then
@@ -44,4 +112,4 @@ jobs:
       - name: ▶️ Run EditorConfig Checker
         run: |
           ec --version
-          ec --disable-logs || true  # Do not fail if stylistic violations exist
+          ec --disable-logs || true  # Avoid failure on style warnings
