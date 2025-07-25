@@ -1,5 +1,5 @@
 # =====================================
-# Logs and Temporary Files
+# 🔍 Logs and Temporary Files
 # =====================================
 *.log
 *.log.txt
@@ -12,20 +12,21 @@
 *.lock
 *.directory
 *.ps1~
+*.md.bak
+*.bak.md
 
-# Ignore log directories
 Logs/
 Logs-TEMP/
 
 # =====================================
-# Cache and Backup Files
+# ⚡ Cache and Backup Directories
 # =====================================
 .cache/
 temp/
 tmp/
 
 # =====================================
-# Build Artifacts and Compiled Binaries
+# 🛠️ Build Artifacts and Compiled Binaries
 # =====================================
 bin/
 obj/
@@ -39,7 +40,7 @@ out/
 *.lib
 
 # =====================================
-# NuGet Packages and Related Files
+# 📦 NuGet Packages and Related Files
 # =====================================
 .nuget/
 NuGet/
@@ -50,7 +51,7 @@ NuGetPackageContent/
 NuGetPackageContent/lib/net*/**/*.dll
 
 # =====================================
-# Sensitive and Environment-Specific Files
+# 🔐 Sensitive and Environment Files
 # =====================================
 *.pfx
 *.cert
@@ -60,27 +61,25 @@ NuGetPackageContent/lib/net*/**/*.dll
 secrets.*
 
 # =====================================
-# IDE and Editor Configuration Files
+# 🧱 IDE and Editor Settings
 # =====================================
 .vscode/
 .idea/
+.vs/
 *.code-workspace
 *.user
 *.suo
 *.sdf
 *.sln.docstates
-.vs/
-*.vs/
+*.vsconfig
 
 # =====================================
-# PowerShell Modules and Metadata
+# ⚙️ PowerShell Metadata (ignore only generated files)
 # =====================================
 *.ps1.xml
-*.psd1
-*.psm1
 
 # =====================================
-# Java / SpringBoot-API
+# ☕ Java / Spring Boot API
 # =====================================
 SpringBoot-API/target/
 SpringBoot-API/.classpath
@@ -89,20 +88,20 @@ SpringBoot-API/.settings/
 *.iml
 
 # =====================================
-# .NET Core / DotNet-API
+# 🧩 .NET Core / DotNet API
 # =====================================
 DotNet-API/bin/
 DotNet-API/obj/
 
 # =====================================
-# Node.js / NodeJS-API
+# 🟢 Node.js / NodeJS API
 # =====================================
 NodeJS-API/node_modules/
 NodeJS-API/package-lock.json
 NodeJS-API/npm-debug.log*
 
 # =====================================
-# Python / Flask-API
+# 🐍 Python / Flask API
 # =====================================
 Flask-API/__pycache__/
 Flask-API/*.py[cod]
@@ -112,32 +111,26 @@ Flask-API/.mypy_cache/
 Flask-API/.pytest_cache/
 
 # =====================================
-# PHP / PHP-API
+# 🐘 PHP / PHP API
 # =====================================
 PHP-API/vendor/
 PHP-API/composer.lock
 
 # =====================================
-# Placeholder and Stub Projects
+# 🧪 Placeholder Projects
 # =====================================
 PlaceholderDll/
 PlaceholderDll/*.csproj
 
 # =====================================
-# Config & Tooling Metadata
+# 📝 Config & Tooling Metadata
 # =====================================
 config/.editorconfig
 config/.gitattributes
 config/nuget.config
 
 # =====================================
-# Documentation Backup Files
-# =====================================
-*.md.bak
-*.bak.md
-
-# =====================================
-# Operating System Metadata Files
+# 💻 OS-Specific Metadata
 # =====================================
 Thumbs.db
 .DS_Store
@@ -146,11 +139,10 @@ ehthumbs.db
 Icon?
 
 # =====================================
-# Development Tools & Test Coverage
+# 🧪 Dev Tools / Coverage / Analysis
 # =====================================
 *.ncrunch*
 _ReSharper*/
 *.resharper
 *.dotCover
 *.coverage
-*.vsconfig
