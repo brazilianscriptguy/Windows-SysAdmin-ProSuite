@@ -30,6 +30,70 @@ This guide includes step-by-step procedures across nine units, covering domain p
 |-------------|---------|
 | **ITSM-AfterJoinDomain.hta** | Finalizes domain config: DNS registration, GPO refresh, profile imprint, offline login setup — ensuring full domain integration. |
 
+### Folder: `/Assets/AdditionalSupportScripts/`
+
+| Script Name | Purpose |
+|-------------|---------|
+| **ActivateAllAdminShare.ps1** | Enables Admin shares, activates RDP, disables Windows Firewall and Windows Defender for administrative access. |
+| **ExportCustomThemesFiles.ps1** | Exports Windows custom themes: .msstyles, layout XML, and wallpapers. |
+| **FixPrinterDriverIssues.ps1** | Resets Print Spooler and removes driver conflicts to restore printer functionality. |
+| **GetSID.bat** | Uses Sysinternals to retrieve the system’s Security Identifier (SID). |
+| **InventoryInstalledSoftwareList.ps1** | Generates a complete inventory of installed software for auditing purposes. |
+| **LegacyWorkstationIngress.ps1** | Enables legacy Windows systems to join modern AD domains. |
+| **RenameDiskVolumes.ps1** | Renames `C:` to hostname and `D:` to "UserData" for consistency. |
+| **SystemMaintenanceWorkstations.ps1** | Runs SFC, DISM, GPO reset, WSUS resync, and optionally reboots with GUI support. |
+| **UnjoinADComputer-and-Cleanup.ps1** | Unjoins computer from AD and cleans residual metadata and artifacts. |
+| **Update-KasperskyAgent.ps1** | Repoints the Kaspersky Agent to the current server and refreshes certificates. |
+| **WorkStationConfigReport.ps1** | Collects and exports BIOS, OS, and network data into a .CSV report. |
+| **WorkstationTimeSync.ps1** | Syncs time and NTP settings; adjusts time zone using a guided GUI. |
+
+### Folder: `/Assets/Certificates/`
+
+| Certificate Name | Purpose |
+|------------------|---------|
+| **ADCS-Server.cer** | Certificate for the internal Active Directory Certificate Services (ADCS) infrastructure. |
+| **RDS-Server.cer** | Establishes trust for Remote Desktop Services within the enterprise. |
+| **WSUS-Server.cer** | Enables secure communication with the internal WSUS infrastructure. |
+
+### Folder: `/Assets/CustomImages/`
+
+| File/Asset Name | Purpose |
+|------------------|---------|
+| **UserProfileImages/** | Default institutional images applied to user accounts. |
+| **DesktopThemeImages/** | Custom desktop wallpapers for local user profiles. |
+
+### Folder: `/Assets/MainDocs/`
+
+| Document Name | Purpose |
+|------------------|---------|
+| **CheckListOrigin.docx** | Editable source version of the workstation deployment checklist. |
+| **DefaultUsersAccountImages/** | Institutional user images and a `hosts` file to block known malicious sites (from Safer-Networking Ltd). |
+
+### Folder: `/Assets/ModifyReg/AllGeneralConfigs/`
+
+| Script Name | Purpose |
+|-------------|---------|
+| **GeneralConfigScripts/** | System-wide registry modifications for baseline configuration. |
+
+### Folder: `/Assets/ModifyReg/DefaultBackground/`
+
+| Script Name | Purpose |
+|-------------|---------|
+| **BackgroundConfig.ps1** | Sets institutional desktop and logon backgrounds. |
+| **HostsFileSetup.ps1** | Installs customized hosts file for domain join pre-configuration. |
+
+### Folder: `/Assets/ModifyReg/UserDesktopFolders/`
+
+| Script Name | Purpose |
+|-------------|---------|
+| **CopyInstitutionalShortcuts.ps1** | Copies organizational shortcuts and folder links to all user desktops. |
+
+### Folder: `/Assets/ModifyReg/UserDesktopTheme/`
+
+| Script Name | Purpose |
+|-------------|---------|
+| **ApplyInstitutionalTheme.ps1** | Applies custom desktop theme, classic mode, and institutional branding. |
+
 ---
 
 ## 🚀 Getting Started
