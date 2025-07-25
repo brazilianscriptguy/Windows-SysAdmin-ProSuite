@@ -42,7 +42,7 @@
 - 🛠️ Introduced server provisioning, hardening, and compliance scripts.
 - 🌐 Tools for automated DNS, DHCP, AD CS, and server roles deployment.
 - 🧱 Templates enforce institutional baselines, GPO resets, and security hardening.
-- 🪟 Supports both GUI-based and Server Core environments with adaptive logic.
+- 🖥️ Supports both GUI-based and Server Core environments with adaptive logic.
 - 💼 Included `.log` and `.csv` outputs for provisioning validation.
 
 ## 💻 ITSM-Templates-WKS
