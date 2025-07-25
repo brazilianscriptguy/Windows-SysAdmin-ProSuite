@@ -42,7 +42,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: 📦 Install Dependencies (npm ci)
+      - name: 📦 Install Dependencies from Lockfile
         run: npm ci
 
       - name: 🔍 Run Prettier Check
@@ -50,7 +50,7 @@ jobs:
         run: |
           npx prettier --check . > prettier-report.txt || true
 
-      - name: 📊 Upload Prettier Report (on failure)
+      - name: 📊 Upload Prettier Report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
