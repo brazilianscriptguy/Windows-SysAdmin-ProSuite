@@ -23,6 +23,14 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
+      - name: 🕒 Capture Metadata
+        id: metadata
+        shell: bash
+        run: |
+          echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "commit_msg=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+
       - name: 🔍 Check for PowerShell Files
         id: check-ps1
         shell: bash
@@ -175,29 +183,30 @@ jobs:
         run: |
           $summaryPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-summary.md"
           $sarifPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
-          $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-          $commit = "${{ github.sha }}"
+          $timestamp = '${{ steps.metadata.outputs.timestamp }}'
+          $commit = '${{ steps.metadata.outputs.commit_sha }}'
+          $commitMsg = '${{ steps.metadata.outputs.commit_msg }}'
           $repo = "${{ github.repository }}"
-          $summary = "### 🧪 PowerShell Lint Summary  
-Run Timestamp: $timestamp  
-Commit: [$commit](https://github.com/$repo/commit/$commit)  
-Repository: [$repo](https://github.com/$repo)  
-"
+          $summary = "### 🧪 PowerShell Lint Summary`n"
+          $summary += "- 🕒 Timestamp: $timestamp`n"
+          $summary += "- 🔗 Commit: [$commit](https://github.com/$repo/commit/$commit)`n"
+          $summary += "- 📝 Message: $commitMsg`n"
+          $summary += "- 📦 Repository: [$repo](https://github.com/$repo)`n`n"
 
           if (Test-Path $sarifPath) {
             $sarif = Get-Content $sarifPath -Raw | ConvertFrom-Json
             $issues = $sarif.runs[0].results
             if ($issues.Count -gt 0) {
-              $summary += "\n**Detected $($issues.Count) issue(s):**\n"
+              $summary += "**Detected $($issues.Count) issue(s):**`n"
               foreach ($i in $issues | Select-Object -First 10) {
                 $link = "https://github.com/$repo/blob/$commit/$($i.locations[0].physicalLocation.artifactLocation.uri)#L$($i.locations[0].physicalLocation.region.startLine)"
-                $summary += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))\n"
+                $summary += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))`n"
               }
             } else {
-              $summary += "\n✅ No issues found."
+              $summary += "`n✅ No issues found."
             }
           } else {
-            $summary += "\n❗ SARIF results not found."
+            $summary += "`n❗ SARIF results not found."
           }
 
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
