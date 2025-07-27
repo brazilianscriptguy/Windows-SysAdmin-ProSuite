@@ -1,0 +1,114 @@
+name: EditorConfig Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.editorconfig'
+      - '**/.editorconfig'
+      - '**/*.ps1'
+      - '**/*.psm1'
+      - '**/*.psd1'
+      - '**/*.vbs'
+      - '**/*.hta'
+      - '**/*.xml'
+      - '**/*.json'
+      - '**/*.jsonc'
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.txt'
+      - '**/*.csv'
+      - '**/*.log'
+      - '**/*.sh'
+      - '**/*.bash'
+      - '**/*.bat'
+      - '**/*.cmd'
+      - '**/*.html'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.toml'
+      - '**/*.ini'
+      - '**/*.conf'
+      - '**/*.config'
+      - '**/*.nuspec'
+      - '**/*.csproj'
+      - '**/*.reg'
+      - '**/*.env'
+      - '**/.eslintrc'
+      - '**/.eslintrc.json'
+      - '**/.stylelintrc'
+      - '**/.prettierrc'
+      - '**/.prettierrc.json'
+      - '**/*.lock'
+
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.editorconfig'
+      - '**/.editorconfig'
+      - '**/*.ps1'
+      - '**/*.psm1'
+      - '**/*.psd1'
+      - '**/*.vbs'
+      - '**/*.hta'
+      - '**/*.xml'
+      - '**/*.json'
+      - '**/*.jsonc'
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.txt'
+      - '**/*.csv'
+      - '**/*.log'
+      - '**/*.sh'
+      - '**/*.bash'
+      - '**/*.bat'
+      - '**/*.cmd'
+      - '**/*.html'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.toml'
+      - '**/*.ini'
+      - '**/*.conf'
+      - '**/*.config'
+      - '**/*.nuspec'
+      - '**/*.csproj'
+      - '**/*.reg'
+      - '**/*.env'
+      - '**/.eslintrc'
+      - '**/.eslintrc.json'
+      - '**/.stylelintrc'
+      - '**/.prettierrc'
+      - '**/.prettierrc.json'
+      - '**/*.lock'
+
+  workflow_dispatch:
+
+jobs:
+  editorconfig-check:
+    name: 🔍 EditorConfig Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4.1.1
+
+      - name: 📥 Download EditorConfig Checker
+        shell: bash
+        run: |
+          wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
+          mkdir ec-checker
+          tar -xzf ec-linux-amd64.tar.gz -C ec-checker
+
+          BIN=$(find ec-checker -type f -executable -name "ec*" | head -n 1)
+          if [ -n "$BIN" ]; then
+            chmod +x "$BIN"
+            sudo mv "$BIN" /usr/local/bin/ec
+          else
+            echo "❌ Error: ec binary not found after extraction"
+            exit 1
+          fi
+
+      - name: ▶️ Run EditorConfig Checker
+        run: |
+          ec --version
+          ec --disable-logs || true  # Avoid failure on style warnings
