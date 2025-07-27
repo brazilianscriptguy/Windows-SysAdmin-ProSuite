@@ -87,6 +87,8 @@ jobs:
   editorconfig-check:
     name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
+    env:
+      ALLOW_WARNINGS: false
 
     steps:
       - name: 📦 Checkout Repository
@@ -98,7 +100,6 @@ jobs:
           wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
           mkdir ec-checker
           tar -xzf ec-linux-amd64.tar.gz -C ec-checker
-
           BIN=$(find ec-checker -type f -executable -name "ec*" | head -n 1)
           if [ -n "$BIN" ]; then
             chmod +x "$BIN"
@@ -109,6 +110,38 @@ jobs:
           fi
 
       - name: ▶️ Run EditorConfig Checker
+        id: ec-check
+        shell: bash
         run: |
+          echo "🔍 Running EditorConfig Checker..."
           ec --version
-          ec --disable-logs || true  # Avoid failure on style warnings
+          if ec --disable-logs > ec-output.txt 2>&1; then
+            echo "✅ No violations found."
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Violations found."
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📝 Generate GitHub Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### 🧾 EditorConfig Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f ec-output.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -n 100 ec-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No output file found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 🚫 Fail if Violations Exist and Not Allowed
+        if: steps.ec-check.outputs.passed == 'false' && env.ALLOW_WARNINGS != 'true'
+        run: |
+          echo "❌ Failing the job due to EditorConfig violations."
+          exit 1
