@@ -1,0 +1,107 @@
+name: VBScript Syntax Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/*.vbs'
+      - '**/*.hta'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**/*.vbs'
+      - '**/*.hta'
+  workflow_dispatch:
+
+jobs:
+  vbscript-syntax-check:
+    name: 🔍 VBScript Lint with Line Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout repository (short path to avoid filename issues)
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: 🍷 Setup Wine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wine64
+
+      - name: 🔎 Locate .vbs and .hta Files
+        working-directory: ./repo
+        run: |
+          find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) > vbscript-files.txt
+          cat vbscript-files.txt || echo "No .vbs or .hta files found."
+
+      - name: 🧪 VBScript Syntax Validation with SARIF
+        working-directory: ./repo
+        run: |
+          echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"VBScript Syntax Check","informationUri":"https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)","rules":[]}},"results":[' > vbscript-results.sarif
+
+          exit_code=0
+          first=true
+
+          while IFS= read -r file; do
+            echo "🔍 Checking: $file"
+
+            # Skip HTA files that start with HTML or lack VBScript blocks
+            if [[ "$file" == *.hta ]]; then
+              if grep -iqE '^\s*<(html|!doctype)' "$file"; then
+                echo "::notice file=$file::Skipped HTA (HTML content)"
+                continue
+              fi
+              if ! grep -iq '<script[^>]*language=["'\''"]vbscript["'\''"]' "$file"; then
+                echo "::notice file=$file::Skipped HTA (no VBScript block)"
+                continue
+              fi
+            fi
+
+            # Run VBScript under Wine
+            if ! wine cscript.exe //nologo "$file" 2> error.log; then
+              echo "::error file=$file::Syntax error in VBScript."
+              [[ "$first" == false ]] && echo "," >> vbscript-results.sarif
+              first=false
+
+              # Extract first useful line number using grep -n
+              match_line=$(grep -in "Error" error.log | head -n 1)
+              line_number=$(echo "$match_line" | cut -d: -f1)
+              message=$(echo "$match_line" | cut -d: -f2- | sed 's/"/'\''/g')
+
+              # fallback if grep fails
+              if [[ -z "$line_number" ]]; then
+                line_number=1
+                message="Syntax error in VBScript"
+              fi
+
+              echo "❌ Line $line_number: $message"
+
+              echo '{' >> vbscript-results.sarif
+              echo '  "level": "error",' >> vbscript-results.sarif
+              echo '  "message": { "text": "'"${message}"'" },' >> vbscript-results.sarif
+              echo '  "locations": [{' >> vbscript-results.sarif
+              echo '    "physicalLocation": {' >> vbscript-results.sarif
+              echo '      "artifactLocation": { "uri": "'"${file#./}"'" },' >> vbscript-results.sarif
+              echo '      "region": { "startLine": '"$line_number"' }' >> vbscript-results.sarif
+              echo '    }' >> vbscript-results.sarif
+              echo '  }]' >> vbscript-results.sarif
+              echo '}' >> vbscript-results.sarif
+
+              exit_code=1
+            fi
+          done < vbscript-files.txt
+
+          echo ']}]}' >> vbscript-results.sarif
+          exit $exit_code
+
+      - name: 📁 Upload SARIF Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vbscript-lint-report
+          path: repo/vbscript-results.sarif
+
+      - name: 🛰️ Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: repo/vbscript-results.sarif
