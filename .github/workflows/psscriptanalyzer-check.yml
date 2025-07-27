@@ -134,13 +134,8 @@ jobs:
                 locations = @(
                   @{
                     physicalLocation = @{
-                      artifactLocation = @{
-                        uri = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '')
-                      }
-                      region = @{
-                        startLine = $_.Line
-                        startColumn = $_.Column
-                      }
+                      artifactLocation = @{ uri = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '') }
+                      region = @{ startLine = $_.Line; startColumn = $_.Column }
                     }
                   }
                 )
@@ -149,17 +144,7 @@ jobs:
             $sarif = @{
               '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
               version = '2.1.0'
-              runs = @(
-                @{
-                  tool = @{
-                    driver = @{
-                      name = 'PSScriptAnalyzer'
-                      version = $version
-                    }
-                  }
-                  results = $sarifResults
-                }
-              )
+              runs = @(@{ tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }; results = $sarifResults })
             }
             $sarif | ConvertTo-Json -Depth 10 | Out-File -FilePath $sarifFile -Encoding utf8
             Write-Output "SARIF file generated: $sarifFile"
@@ -176,7 +161,7 @@ jobs:
           path: ${{ github.workspace }}/psscriptanalyzer-results.sarif
           retention-days: 30
 
-      - name: 📤 Upload SARIF to GitHub
+      - name: 📄 Upload SARIF to GitHub
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
@@ -184,24 +169,44 @@ jobs:
           checkout_path: ${{ github.workspace }}
           wait-for-processing: true
 
-      - name: 📝 Generate Markdown Summary
+      - name: 📅 Generate Markdown Summary
         if: always()
         shell: pwsh
         run: |
-          $summary = "### 🧪 PowerShell Lint Summary`n"
+          $summaryPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-summary.md"
           $sarifPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
+          $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+          $commit = "${{ github.sha }}"
+          $repo = "${{ github.repository }}"
+          $summary = "### 🧪 PowerShell Lint Summary  
+Run Timestamp: $timestamp  
+Commit: [$commit](https://github.com/$repo/commit/$commit)  
+Repository: [$repo](https://github.com/$repo)  
+"
+
           if (Test-Path $sarifPath) {
             $sarif = Get-Content $sarifPath -Raw | ConvertFrom-Json
             $issues = $sarif.runs[0].results
             if ($issues.Count -gt 0) {
-              $summary += "`n**Detected $($issues.Count) issue(s):**`n"
+              $summary += "\n**Detected $($issues.Count) issue(s):**\n"
               foreach ($i in $issues | Select-Object -First 10) {
-                $summary += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text)`n"
+                $link = "https://github.com/$repo/blob/$commit/$($i.locations[0].physicalLocation.artifactLocation.uri)#L$($i.locations[0].physicalLocation.region.startLine)"
+                $summary += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))\n"
               }
             } else {
-              $summary += "`n✅ No issues found."
+              $summary += "\n✅ No issues found."
             }
           } else {
-            $summary += "`n❗ SARIF results not found."
+            $summary += "\n❗ SARIF results not found."
           }
+
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          $summary | Out-File -FilePath $summaryPath -Encoding utf8
+
+      - name: 🗂️ Upload Markdown Summary Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psscriptanalyzer-markdown-summary
+          path: ${{ github.workspace }}/psscriptanalyzer-summary.md
+          retention-days: 30
