@@ -6,81 +6,13 @@ on:
     paths:
       - '.editorconfig'
       - '**/.editorconfig'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.vbs'
-      - '**/*.hta'
-      - '**/*.xml'
-      - '**/*.json'
-      - '**/*.jsonc'
-      - '**/*.md'
-      - '**/*.rst'
-      - '**/*.txt'
-      - '**/*.csv'
-      - '**/*.log'
-      - '**/*.sh'
-      - '**/*.bash'
-      - '**/*.bat'
-      - '**/*.cmd'
-      - '**/*.html'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - '**/*.toml'
-      - '**/*.ini'
-      - '**/*.conf'
-      - '**/*.config'
-      - '**/*.nuspec'
-      - '**/*.csproj'
-      - '**/*.reg'
-      - '**/*.env'
-      - '**/.eslintrc'
-      - '**/.eslintrc.json'
-      - '**/.stylelintrc'
-      - '**/.prettierrc'
-      - '**/.prettierrc.json'
-      - '**/*.lock'
-
+      - '**/*'
   pull_request:
     branches: [main, develop]
     paths:
       - '.editorconfig'
       - '**/.editorconfig'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.vbs'
-      - '**/*.hta'
-      - '**/*.xml'
-      - '**/*.json'
-      - '**/*.jsonc'
-      - '**/*.md'
-      - '**/*.rst'
-      - '**/*.txt'
-      - '**/*.csv'
-      - '**/*.log'
-      - '**/*.sh'
-      - '**/*.bash'
-      - '**/*.bat'
-      - '**/*.cmd'
-      - '**/*.html'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - '**/*.toml'
-      - '**/*.ini'
-      - '**/*.conf'
-      - '**/*.config'
-      - '**/*.nuspec'
-      - '**/*.csproj'
-      - '**/*.reg'
-      - '**/*.env'
-      - '**/.eslintrc'
-      - '**/.eslintrc.json'
-      - '**/.stylelintrc'
-      - '**/.prettierrc'
-      - '**/.prettierrc.json'
-      - '**/*.lock'
-
+      - '**/*'
   workflow_dispatch:
 
 jobs:
@@ -92,7 +24,7 @@ jobs:
 
     steps:
       - name: 📦 Checkout Repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
       - name: 📥 Download EditorConfig Checker
         shell: bash
@@ -110,38 +42,39 @@ jobs:
           fi
 
       - name: ▶️ Run EditorConfig Checker
-        id: ec-check
-        shell: bash
         run: |
-          echo "🔍 Running EditorConfig Checker..."
           ec --version
-          if ec --disable-logs > ec-output.txt 2>&1; then
-            echo "✅ No violations found."
-            echo "passed=true" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Violations found."
-            echo "passed=false" >> $GITHUB_OUTPUT
-          fi
+          ec --disable-logs 2>&1 | tee ec-output.txt || true
 
-      - name: 📝 Generate GitHub Summary
+      - name: 📋 Generate Markdown Summary
         if: always()
         shell: bash
         run: |
-          echo "### 🧾 EditorConfig Check Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Commit: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
-          echo "- Branch: `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -f ec-output.txt ]; then
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            head -n 100 ec-output.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 EditorConfig Check Summary" > ec-summary.md
+          if grep -q "^\[" ec-output.txt; then
+            echo "**Violations found:**" >> ec-summary.md
+            head -n 20 ec-output.txt >> ec-summary.md
+            echo "\n...output truncated..." >> ec-summary.md
           else
-            echo "No output file found." >> $GITHUB_STEP_SUMMARY
+            echo "✅ No violations detected." >> ec-summary.md
           fi
+          cat ec-summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: 📂 Upload Lint Results as Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorconfig-lint-results
+          path: |
+            ec-output.txt
+            ec-summary.md
+          retention-days: 30
 
       - name: 🚫 Fail if Violations Exist and Not Allowed
-        if: steps.ec-check.outputs.passed == 'false' && env.ALLOW_WARNINGS != 'true'
+        if: always()
+        shell: bash
         run: |
-          echo "❌ Failing the job due to EditorConfig violations."
-          exit 1
+          if [ "$ALLOW_WARNINGS" != "true" ] && grep -q "^\[" ec-output.txt; then
+            echo "❌ Failing the job due to EditorConfig violations."
+            exit 1
+          fi
