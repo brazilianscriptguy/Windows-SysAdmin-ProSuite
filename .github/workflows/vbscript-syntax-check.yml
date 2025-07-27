@@ -1,4 +1,4 @@
-name: VBScript Syntax Check with SARIF
+name: VBScript Syntax Check
 
 on:
   push:
@@ -6,11 +6,13 @@ on:
     paths:
       - '**/*.vbs'
       - '**/*.hta'
+
   pull_request:
     branches: [main, develop]
     paths:
       - '**/*.vbs'
       - '**/*.hta'
+
   workflow_dispatch:
 
 jobs:
@@ -18,50 +20,58 @@ jobs:
     name: VBScript Syntax Validation
     runs-on: ubuntu-latest
 
-    outputs:
-      sarif-report-path: ${{ steps.sarif-output.outputs.sarif-path }}
-
     steps:
       - name: 📦 Checkout Repository (short path to avoid path errors)
         uses: actions/checkout@v4
         with:
           path: repo
 
-      - name: 🔍 Locate VBS and HTA Files
-        id: locate-files
+      - name: 🔍 Locate .vbs and .hta Files
         working-directory: ./repo
         run: |
           find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) > vbscript-files.txt
           cat vbscript-files.txt || echo "No .vbs or .hta files found."
 
-      - name: ✅ Heuristic Content Check
-        id: heuristic-check
+      - name: ✅ Heuristic Check and SARIF Generation
         working-directory: ./repo
         run: |
           mkdir -p sarif-output
-          echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"VBScript Syntax Check","informationUri":"https://docs.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)","rules":[]}},"results":[]}]}' > sarif-output/vbscript-syntax-check.sarif
+          echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"VBScript Syntax Check","informationUri":"https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)","rules":[]}},"results":[' > sarif-output/vbscript-results.sarif
 
+          first=true
           while IFS= read -r file; do
-            echo "🔍 Checking: $file"
-            if file "$file" | grep -qi "text"; then
-              head -n 5 "$file"
-            else
-              echo "::warning file=$file::Not a valid text-based VBS or HTA file."
-              jq \
-                --arg uri "$file" \
-                '.runs[0].results += [{"ruleId": "vbscript-text-check", "message": {"text": "Not a valid text-based file"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": $uri}}]}]' \
-                sarif-output/vbscript-syntax-check.sarif > temp.sarif && mv temp.sarif sarif-output/vbscript-syntax-check.sarif
+            if [ -f "$file" ]; then
+              echo "🔍 Checking: $file"
+              if file "$file" | grep -qi "text"; then
+                echo "✔️ Valid text file: $file"
+              else
+                echo "::warning file=$file::Not a valid text-based VBScript or HTA file."
+                if [ "$first" = false ]; then echo "," >> sarif-output/vbscript-results.sarif; fi
+                echo "{
+                  \"ruleId\": \"non-text-vbs\",
+                  \"level\": \"warning\",
+                  \"message\": {\"text\": \"File is not a valid text-based VBScript or HTA file.\"},
+                  \"locations\": [{
+                    \"physicalLocation\": {
+                      \"artifactLocation\": {\"uri\": \"${file#./}\"},
+                      \"region\": {\"startLine\": 1}
+                    }
+                  }]
+                }" >> sarif-output/vbscript-results.sarif
+                first=false
+              fi
             fi
           done < vbscript-files.txt
 
-      - name: 📤 Upload SARIF Output
-        id: sarif-output
+          echo "]}]}" >> sarif-output/vbscript-results.sarif
+
+      - name: 📤 Upload SARIF Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vbscript-syntax-check-sarif
-          path: repo/sarif-output/vbscript-syntax-check.sarif
+          name: vbscript-sarif-results
+          path: repo/sarif-output/vbscript-results.sarif
 
-      - name: 📊 Upload SARIF to GitHub Code Scanning (optional)
-        uses: github/codeql-action/upload-sarif@v3
+      - name: 📡 Publish SARIF to GitHub Code Scanning Alerts
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: repo/sarif-output/vbscript-syntax-check.sarif
+          sarif_file: repo/sarif-output/vbscript-results.sarif
