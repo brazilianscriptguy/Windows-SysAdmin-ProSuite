@@ -29,32 +29,52 @@ on:
 
 jobs:
   prettier:
-    name: Prettier Code Format Validation
+    name: 💅 Prettier Code Format Validation
     runs-on: ubuntu-latest
 
     steps:
       - name: 📦 Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.1.1
 
       - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4.0.3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: 📦 Install Dependencies from Lockfile
+      - name: 📥 Install Dependencies from Lockfile
         run: npm ci
 
       - name: 🔍 Run Prettier Check
         id: prettier
         run: |
-          npx prettier --check . > prettier-report.txt || true
+          echo "Running Prettier..."
+          npx prettier --check . > prettier-report.txt 2>&1 || true
 
-      - name: 📊 Upload Prettier Report
-        if: failure()
+      - name: 📄 Generate GitHub Job Summary
+        shell: bash
+        run: |
+          if grep -q "Code style issues found" prettier-report.txt; then
+            echo "### 💅 Prettier Format Summary" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Code style issues detected. See artifact report for details." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 💅 Prettier Format Summary" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No formatting issues found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📊 Upload Prettier Report Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: prettier-report
+          name: prettier-format-report
           path: prettier-report.txt
           retention-days: 7
-          
+
+      - name: 💥 Fail if Prettier Violations Exist
+        shell: bash
+        run: |
+          if grep -q "Code style issues found" prettier-report.txt; then
+            echo "❌ Failing due to Prettier formatting violations."
+            exit 1
+          else
+            echo "✅ No formatting issues. Passing."
+          fi
