@@ -18,52 +18,91 @@ on:
 jobs:
   vbscript-lint:
     name: VBScript Syntax Validation
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-      - name: 📦 Checkout Repository (short path to avoid path errors)
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
           path: repo
 
-      - name: 🔍 Locate .vbs and .hta Files
+      - name: 🔍 Locate VBS and HTA Files (with filtering)
         working-directory: ./repo
+        shell: pwsh
         run: |
-          find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) > vbscript-files.txt
-          cat vbscript-files.txt || echo "No .vbs or .hta files found."
+          Get-ChildItem -Recurse -Include *.vbs,*.hta | ForEach-Object {
+            if ($_.Extension -eq ".hta") {
+              $content = Get-Content $_.FullName -Raw
+              if ($content -match '<script\s+language=["'']?VBScript["'']?' -or $content -match '<script\s+type=["'']?text/vbscript["'']?') {
+                $_.FullName
+              }
+            }
+            elseif ($_.Extension -eq ".vbs") {
+              $_.FullName
+            }
+          } > vbscript-files.txt
 
-      - name: ✅ Heuristic Check and SARIF Generation
+      - name: ✅ Run cscript Syntax Validation and Generate SARIF
         working-directory: ./repo
+        shell: pwsh
         run: |
-          mkdir -p sarif-output
-          echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"VBScript Syntax Check","informationUri":"https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)","rules":[]}},"results":[' > sarif-output/vbscript-results.sarif
+          $sarifPath = "sarif-output"
+          New-Item -ItemType Directory -Path $sarifPath -Force | Out-Null
+          $sarif = @{
+            version = "2.1.0"
+            runs = @(@{
+              tool = @{
+                driver = @{
+                  name = "cscript.exe VBScript Syntax Checker"
+                  informationUri = "https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)"
+                  rules = @()
+                }
+              }
+              results = @()
+            })
+          }
 
-          first=true
-          while IFS= read -r file; do
-            if [ -f "$file" ]; then
-              echo "🔍 Checking: $file"
-              if file "$file" | grep -qi "text"; then
-                echo "✔️ Valid text file: $file"
-              else
-                echo "::warning file=$file::Not a valid text-based VBScript or HTA file."
-                if [ "$first" = false ]; then echo "," >> sarif-output/vbscript-results.sarif; fi
-                echo "{
-                  \"ruleId\": \"non-text-vbs\",
-                  \"level\": \"warning\",
-                  \"message\": {\"text\": \"File is not a valid text-based VBScript or HTA file.\"},
-                  \"locations\": [{
-                    \"physicalLocation\": {
-                      \"artifactLocation\": {\"uri\": \"${file#./}\"},
-                      \"region\": {\"startLine\": 1}
-                    }
-                  }]
-                }" >> sarif-output/vbscript-results.sarif
-                first=false
-              fi
-            fi
-          done < vbscript-files.txt
+          $files = Get-Content vbscript-files.txt | Where-Object { Test-Path $_ }
 
-          echo "]}]}" >> sarif-output/vbscript-results.sarif
+          foreach ($file in $files) {
+            Write-Host "🔍 Checking: $file"
+
+            $output = cmd /c "cscript.exe //nologo `"$file`"" 2>&1
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -ne 0) {
+              Write-Warning "❌ Syntax Error in $file"
+
+              # Attempt to extract line number
+              $lineNum = 1
+              if ($output -match "line (\d+)" -or $output -match "Line:(\d+)") {
+                $lineNum = [int]($matches[1])
+              }
+
+              # Heuristic severity
+              $severity = if ($output -match "Expected|Syntax error|Invalid") {
+                "error"
+              } elseif ($output -match "unterminated|not defined") {
+                "warning"
+              } else {
+                "note"
+              }
+
+              $sarif.runs[0].results += @{
+                ruleId = "vbscript-syntax-error"
+                level = $severity
+                message = @{ text = $output.Trim() }
+                locations = @(@{
+                  physicalLocation = @{
+                    artifactLocation = @{ uri = $file.Replace('\','/') }
+                    region = @{ startLine = $lineNum }
+                  }
+                })
+              }
+            }
+          }
+
+          $sarif | ConvertTo-Json -Depth 10 | Set-Content "$sarifPath/vbscript-results.sarif" -Encoding UTF8
 
       - name: 📤 Upload SARIF Artifact
         uses: actions/upload-artifact@v4
@@ -71,7 +110,7 @@ jobs:
           name: vbscript-sarif-results
           path: repo/sarif-output/vbscript-results.sarif
 
-      - name: 📡 Publish SARIF to GitHub Code Scanning Alerts
-        uses: github/codeql-action/upload-sarif@v2
+      - name: 📡 Publish SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: repo/sarif-output/vbscript-results.sarif
