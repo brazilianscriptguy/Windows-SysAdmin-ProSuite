@@ -150,9 +150,13 @@ jobs:
             /^## / && found {exit}
             found {print}
           ' CHANGELOG.md)
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-          echo "${body:-No changelog available.}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+
+          # Correctly export multiline body to environment
+          {
+            echo "RELEASE_BODY<<EOF"
+            echo "${body:-No changelog available.}"
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Create GitHub Release
         id: create_release
