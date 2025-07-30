@@ -1,6 +1,6 @@
 # 📦 Changelog
 
-## 🔗 AD-SSO-APIs-Integration
+## AD-SSO-APIs-Integration
 
 - ✅ Created secure LDAP and SSO authentication templates.
 - ➕ Added ready-to-use integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
@@ -8,7 +8,7 @@
 - ⚙️ Implemented modular and cross-platform architecture with fallback strategies.
 - 📦 Prepared `.nupkg` packaging with platform-specific tags and enriched metadata. 
 
-## 🧳 All-Repository-Files
+## All-Repository-Files
 
 - 📦 Created a unified ZIP archive bundling all repository components.
 - 🗂️ Included full directories: `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-WKS`,
@@ -17,7 +17,7 @@
 - 🚀 Enabled offline-ready deployment and portable usage model.
 - 🧱 Synchronized with staging directory structure used in automated release workflows.
 
-## 🕵️ BlueTeam-Tools
+## BlueTeam-Tools
 
 - 🧪 Developed PowerShell-based forensic utilities for threat detection and DFIR.
 - 📈 Added event log analyzers for Event IDs: 4624, 4625, 4663, and 4720–4756.
@@ -27,7 +27,7 @@
 - 🖥️ Enhanced GUI interfaces with improved responsiveness and exception handling.
 - 🧾 Folder-specific `README.md` documentation included.
 
-## 🧰 Core-ScriptLibrary
+## Core-ScriptLibrary
 
 - 🧩 Built a library of modular helper functions and shared logic blocks in PowerShell.
 - 📦 Introduced NuGet `.nuspec` definitions and packaging automation.
@@ -36,7 +36,7 @@
 - 🧱 Clean folder separation for consumption in other repositories.
 - 🧾 Automatic generation of `README.md` and `.nuspec` files with full metadata support.
 
-## 🏛️ GPOs-Templates
+## GPOs-Templates
 
 - 🏗️ Delivered baseline GPO templates for greenfield deployments and migrations.
 - 🔁 Enabled automated GPO export/import via PowerShell.
@@ -44,7 +44,7 @@
 - 🧹 Extracted and centralized GPO tools previously located in `SysAdmin-Tools`.
 - 📘 Detailed Markdown documentation per GPO policy and implementation guide.
 
-## 🖥️ ITSM-Templates-SVR
+## ITSM-Templates-SVR
 
 - 🛠️ Introduced server provisioning, hardening, and compliance scripts.
 - 🌐 Tools for automated DNS, DHCP, AD CS, and server roles deployment.
@@ -52,7 +52,7 @@
 - 🖥️ Supports both GUI-based and Server Core environments with adaptive logic.
 - 💼 Included `.log` and `.csv` outputs for provisioning validation.
 
-## 💻 ITSM-Templates-WKS
+## ITSM-Templates-WKS
 
 - 💼 Developed onboarding toolkit for Windows 10/11 ITSM environments.
 - 🧹 Tools included for cleanup of user profiles, printer queues, and network settings.
@@ -61,7 +61,7 @@
 - 📝 Implemented standardized logging, export, and domain prep workflows.
 - 🧾 Markdown documentation and HTA sample templates embedded.
 
-## 📄 READMEs-Files-Package
+## READMEs-Files-Package
 
 - 📄 Extracted every `README.md` file from all top-level and subfolders.
 - 📘 Created centralized `main-README.md` with index and usage instructions.
@@ -69,7 +69,7 @@
 - 📦 Packaged into `READMEs-Files-Package.zip` for offline documentation use.
 - 🔄 All Markdown files updated to reflect new unified documentation structure.
 
-## 🧭 SysAdmin-Tools
+## SysAdmin-Tools
 
 - 🧰 Built comprehensive PowerShell tools for infrastructure administration.
 - 👥 AD scripts support lifecycle of users, groups, OUs, and password policies.
