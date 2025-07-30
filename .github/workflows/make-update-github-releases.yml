@@ -145,18 +145,15 @@ jobs:
         id: extract_notes
         run: |
           tag="## ${{ matrix.release_name }}"
-          body=$(awk -v tag="$tag" '
+          awk -v tag="$tag" '
             $0 == tag {found=1; next}
             /^## / && found {exit}
             found {print}
-          ' CHANGELOG.md)
+          ' CHANGELOG.md > extracted-changelog.md
 
-          # Correctly export multiline body to environment
-          {
-            echo "RELEASE_BODY<<EOF"
-            echo "${body:-No changelog available.}"
-            echo "EOF"
-          } >> $GITHUB_ENV
+          if [ ! -s extracted-changelog.md ]; then
+            echo "No changelog available." > extracted-changelog.md
+          fi
 
       - name: Create GitHub Release
         id: create_release
@@ -164,7 +161,7 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_TAG }}
           release_name: ${{ env.VERSION_TAG }}
-          body: ${{ env.RELEASE_BODY }}
+          body_path: extracted-changelog.md
           draft: false
           prerelease: false
         env:
