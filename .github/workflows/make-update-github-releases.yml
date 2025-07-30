@@ -155,22 +155,26 @@ jobs:
             echo "No changelog available." > extracted-changelog.md
           fi
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1.1.0
-        with:
-          tag_name: ${{ env.VERSION_TAG }}
-          release_name: ${{ env.VERSION_TAG }}
-          body_path: extracted-changelog.md
-          draft: false
-          prerelease: false
+      - name: Create GitHub Release via CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$VERSION_TAG" \
+            --title "$VERSION_TAG" \
+            --notes-file extracted-changelog.md \
+            --target "$GITHUB_SHA" \
+            --latest
+
+      - name: Fetch Release Upload URL
+        id: fetch_url
+        run: |
+          url=$(gh api repos/${{ github.repository }}/releases/tags/$VERSION_TAG --jq '.upload_url')
+          echo "upload_url=$url" >> $GITHUB_OUTPUT
 
       - name: Upload Release Zip
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.fetch_url.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.zip
           asset_name: ${{ matrix.release_name }}.zip
           asset_content_type: application/zip
@@ -180,7 +184,7 @@ jobs:
       - name: Upload SHA256 Checksum
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.fetch_url.outputs.upload_url }}
           asset_path: artifacts/${{ matrix.release_name }}.sha256.txt
           asset_name: ${{ matrix.release_name }}.sha256.txt
           asset_content_type: text/plain
