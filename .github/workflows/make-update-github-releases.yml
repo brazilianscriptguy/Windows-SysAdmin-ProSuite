@@ -141,9 +141,12 @@ jobs:
       - name: Generate SHA256 Signature
         run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.sha256.txt"
 
-      - name: Extract Release Notes from CHANGELOG.md
-        id: extract_notes
+      - name: Extract Release Notes and Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
+
           tag="## ${{ matrix.release_name }}"
           awk -v tag="$tag" '
             $0 == tag {found=1; next}
@@ -155,10 +158,10 @@ jobs:
             echo "No changelog available." > extracted-changelog.md
           fi
 
-      - name: Create GitHub Release via CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
+          echo "--- Extracted Notes ---"
+          cat extracted-changelog.md
+          echo "-----------------------"
+
           gh release create "$VERSION_TAG" \
             --title "$VERSION_TAG" \
             --notes-file extracted-changelog.md \
