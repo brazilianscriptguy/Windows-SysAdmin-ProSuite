@@ -1,4 +1,4 @@
-# 📦 Changelog
+# Changelog
 
 ## AD-SSO-APIs-Integration
 
