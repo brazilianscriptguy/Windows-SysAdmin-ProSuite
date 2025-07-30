@@ -1,36 +1,42 @@
-<!-- HTA file defining the display of the .png image for the logon message -->
-<!-- Author: Luiz Hamilton Silva - @brazilianscriptguy -->
-<!-- Update: May 9, 2024 -->
+<!--
+HTA that displays a 600x800 PNG for the logon message.
+Shows exactly the image with no extra borders; the window is centered and
+closes automatically after 25 seconds.
+
+Author: Luiz Hamilton Silva - @brazilianscriptguy
+Updated: July 30, 2025
+-->
 
 <html>
-    <hta:application id="oHTA"
-        border="none"
-        caption="no"
-        contextmenu="no"
-        innerborder="no"
-        scroll="no"
-        showintaskbar="no"
-    />
-    <script language="VBScript">
-        Sub Window_OnLoad
-            ' Resize and position the .PNG image
-            width = 600 : height = 800
-            window.resizeTo width, height
-            window.moveTo screen.availWidth\2 - width\2, screen.availHeight\2 - height\2
-            
-			' Close the warning window automatically after 05 seconds
-            idTimer = window.setTimeout("vbscript:window.close", 25000)
-        End Sub
-    </script>
-<body>
-    <table border=0 width="100%" height="100%">
-        <tr>
-            <td align="center" valign="middle">
-            ' Image to open as logon message
-                <img src="broadcast-userlogonmessage.png"/>
-            </td>
-        </tr>
-    </table>
-</body>
+<hta:application id="oHTA"
+    border="none"
+    caption="no"
+    contextmenu="no"
+    innerborder="no"
+    scroll="no"
+    showintaskbar="no"
+/>
 
+<script language="VBScript">
+    Sub Window_OnLoad
+        ' Resize and center the window to match the image size
+        width = 600 : height = 800
+        window.resizeTo width, height
+        window.moveTo screen.availWidth\2 - width\2, screen.availHeight\2 - height\2
+
+        ' Auto-close after 25 seconds
+        idTimer = window.setTimeout("vbscript:window.close", 25000)
+    End Sub
+</script>
+
+<!-- No margins, no borders, no visible background outside the image -->
+<body style="margin:0; border:none; background:transparent; overflow:hidden;">
+    <!-- 600x800 container centered in the window -->
+    <div style="position:absolute; top:50%; left:50%; width:600px; height:800px;
+                margin-left:-300px; margin-top:-400px;">
+        <!-- The image is already 600x800; no scaling is applied -->
+        <img src="broadcast-userlogonmessage.png" width="600" height="800"
+             style="display:block; border:none; padding:0; margin:0;" />
+    </div>
+</body>
 </html>
