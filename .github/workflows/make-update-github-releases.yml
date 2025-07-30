@@ -167,6 +167,8 @@ jobs:
 
       - name: Fetch Release Upload URL
         id: fetch_url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           url=$(gh api repos/${{ github.repository }}/releases/tags/$VERSION_TAG --jq '.upload_url')
           echo "upload_url=$url" >> $GITHUB_OUTPUT
