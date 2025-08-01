@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Interactive PowerShell GUI to Collect System, Network, and User Information from Remote Workstations.
 
@@ -104,34 +104,34 @@ function Collect-Inventory {
                 }
 
                 $Results += [PSCustomObject]@{
-                    Hostname         = $Computer
-                    LoggedUser       = $User.UserName
-                    OperatingSystem  = $OS.Caption
-                    OSVersion        = $OS.Version
-                    LastBootTime     = ([Management.ManagementDateTimeConverter]::ToDateTime($OS.LastBootUpTime))
-                    IPAddress        = $Net.IPAddress -join ', '
-                    MACAddress       = $Net.MACAddress
-                    DefaultGateway   = $Net.DefaultIPGateway -join ', '
-                    AdapterName      = $Net.Description
-                    Domain           = $User.Domain
+                    Hostname = $Computer
+                    LoggedUser = $User.UserName
+                    OperatingSystem = $OS.Caption
+                    OSVersion = $OS.Version
+                    LastBootTime = ([Management.ManagementDateTimeConverter]::ToDateTime($OS.LastBootUpTime))
+                    IPAddress = $Net.IPAddress -join ', '
+                    MACAddress = $Net.MACAddress
+                    DefaultGateway = $Net.DefaultIPGateway -join ', '
+                    AdapterName = $Net.Description
+                    Domain = $User.Domain
                     BIOSManufacturer = $BIOS.Manufacturer
-                    SerialNumber     = $BIOS.SerialNumber
+                    SerialNumber = $BIOS.SerialNumber
                 }
             } else {
                 Log-Message -Message "$Computer is unreachable." -Type "WARNING"
                 $Results += [PSCustomObject]@{
-                    Hostname         = $Computer
-                    LoggedUser       = "Unavailable"
-                    OperatingSystem  = "Unreachable"
-                    OSVersion        = "N/A"
-                    LastBootTime     = "N/A"
-                    IPAddress        = "N/A"
-                    MACAddress       = "N/A"
-                    DefaultGateway   = "N/A"
-                    AdapterName      = "N/A"
-                    Domain           = "N/A"
+                    Hostname = $Computer
+                    LoggedUser = "Unavailable"
+                    OperatingSystem = "Unreachable"
+                    OSVersion = "N/A"
+                    LastBootTime = "N/A"
+                    IPAddress = "N/A"
+                    MACAddress = "N/A"
+                    DefaultGateway = "N/A"
+                    AdapterName = "N/A"
+                    Domain = "N/A"
                     BIOSManufacturer = "N/A"
-                    SerialNumber     = "N/A"
+                    SerialNumber = "N/A"
                 }
             }
         } catch {
@@ -179,14 +179,14 @@ $buttonRun.Text = "Run Inventory"
 $buttonRun.Location = '10,310'
 $buttonRun.Size = '220,40'
 $buttonRun.Add_Click({
-    $computers = Get-ComputerListFromText -inputText $textBox.Text
-    if ($computers.Count -gt 0) {
-        $progressBar.Value = 0
-        Collect-Inventory -Computers $computers -ProgressBar $progressBar
-    } else {
-        Show-ErrorMessage -Message "Please provide at least one valid hostname or IP."
-    }
-})
+        $computers = Get-ComputerListFromText -inputText $textBox.Text
+        if ($computers.Count -gt 0) {
+            $progressBar.Value = 0
+            Collect-Inventory -Computers $computers -ProgressBar $progressBar
+        } else {
+            Show-ErrorMessage -Message "Please provide at least one valid hostname or IP."
+        }
+    })
 $form.Controls.Add($buttonRun)
 
 $buttonClose = New-Object System.Windows.Forms.Button
