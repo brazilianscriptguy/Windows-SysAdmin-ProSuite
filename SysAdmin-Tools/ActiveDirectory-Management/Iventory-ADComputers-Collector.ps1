@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Interactive PowerShell GUI to Collect System, Network, and User Information from Remote Workstations. 
+    Interactive PowerShell GUI to Collect System, Network, and User Information from Remote Workstations.
 
 .DESCRIPTION
     This script uses CIM (or fallback to WMI) to collect OS, BIOS, user, and network details
