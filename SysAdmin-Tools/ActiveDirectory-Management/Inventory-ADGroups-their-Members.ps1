@@ -1,11 +1,12 @@
-﻿<#
+<#
 .SYNOPSIS
-    PowerShell Script for Retrieving Information on AD Groups and Their Members.
+    GUI-based PowerShell tool to retrieve and export Active Directory group membership details.
 
 .DESCRIPTION
-    This script retrieves detailed information about Active Directory (AD) groups and their members 
-    from a selected domain, allowing users to choose specific groups or all groups via a GUI with 
-    checkbox selection, exporting results to a single CSV.
+    This script provides a user-friendly graphical interface for querying Active Directory (AD) groups
+    from a selected domain. Users can filter, select, and export group membership information with
+    customizable attributes to a CSV file. The tool supports multi-group selection, real-time search,
+    structured logging, and progress tracking, ensuring flexibility and auditability for IT administrators.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
