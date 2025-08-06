@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell script to synchronize folders from a network share to Active Directory computers via GPO.
 
@@ -48,9 +48,9 @@ function Write-Log {
 }
 
 # === PATH SETUP ===
-$sourceFolderPath     = "\\forest-logonserver-name\NETLOGON\Source-Folder-Name"
-$adminProfilePath     = "$env:SystemDrive\Users\Administrator"
-$adminDesktopPath     = Join-Path $adminProfilePath "Desktop"
+$sourceFolderPath = "\\forest-logonserver-name\NETLOGON\Source-Folder-Name"
+$adminProfilePath = "$env:SystemDrive\Users\Administrator"
+$adminDesktopPath = Join-Path $adminProfilePath "Desktop"
 $destinationFolderPath = Join-Path $adminDesktopPath "Destination-Folder-Name"
 
 if (-not (Test-Path $adminDesktopPath)) {
