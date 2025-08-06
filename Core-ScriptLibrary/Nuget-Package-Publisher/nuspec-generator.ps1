@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Generates a NuSpec (.nuspec) file for NuGet packaging automation.
 
@@ -34,10 +34,10 @@ function Write-Log {
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $color = switch ($Level) {
-        "ERROR"   { "Red" }
-        "WARN"    { "DarkYellow" }
+        "ERROR" { "Red" }
+        "WARN" { "DarkYellow" }
         "SUCCESS" { "Green" }
-        default   { "White" }
+        default { "White" }
     }
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
