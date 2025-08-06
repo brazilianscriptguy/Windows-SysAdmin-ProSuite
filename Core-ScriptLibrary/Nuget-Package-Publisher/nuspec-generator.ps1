@@ -27,14 +27,38 @@ param (
     [string]$OutputPath
 )
 
+function Write-Log {
+    param (
+        [Parameter(Mandatory)][string]$Message,
+        [ValidateSet("INFO", "ERROR", "SUCCESS", "WARN")][string]$Level = "INFO"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $color = switch ($Level) {
+        "ERROR"   { "Red" }
+        "WARN"    { "DarkYellow" }
+        "SUCCESS" { "Green" }
+        default   { "White" }
+    }
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
 # --- Input Validation ---
 if (-not (Test-Path $ZipPath)) {
-    Write-Error "❌ ZipPath '$ZipPath' not found."
+    Write-Log "ZipPath '$ZipPath' not found." -Level "ERROR"
     exit 1
 }
 if (-not (Test-Path $ReleaseNotesPath)) {
-    Write-Error "❌ Release notes file '$ReleaseNotesPath' not found."
+    Write-Log "Release notes file '$ReleaseNotesPath' not found." -Level "ERROR"
     exit 1
+}
+if (-not (Test-Path $OutputPath)) {
+    try {
+        New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+        Write-Log "Created output directory: $OutputPath" -Level "SUCCESS"
+    } catch {
+        Write-Log "Failed to create output directory '$OutputPath'. $_" -Level "ERROR"
+        exit 1
+    }
 }
 
 # --- Prepare Values ---
@@ -70,6 +94,10 @@ $nuspecContent = @"
 "@
 
 # --- Write .nuspec File ---
-$nuspecContent | Set-Content -Path $nuspecFile -Encoding UTF8
-
-Write-Host "✔ .nuspec file generated at: $nuspecFile"
+try {
+    $nuspecContent | Set-Content -Path $nuspecFile -Encoding UTF8 -Force
+    Write-Log ".nuspec file generated at: $nuspecFile" -Level "SUCCESS"
+} catch {
+    Write-Log "Failed to generate .nuspec file. $_" -Level "ERROR"
+    exit 1
+}
