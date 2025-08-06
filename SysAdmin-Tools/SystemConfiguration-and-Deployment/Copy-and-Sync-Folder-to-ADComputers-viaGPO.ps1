@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    PowerShell script to synchronize folders from a network share to Active Directory computers via GPO.
+    PowerShell script to synchronize folders from a network share to Active Directory computers via GPO. 
 
 .DESCRIPTION
     This script synchronizes a folder from a network location (e.g. NETLOGON share)
