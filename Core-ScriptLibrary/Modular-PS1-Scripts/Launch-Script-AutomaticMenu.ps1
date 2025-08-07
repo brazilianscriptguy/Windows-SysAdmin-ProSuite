@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI for Executing Scripts Organized by Tabs with Real-Time Search.
 
@@ -179,8 +179,8 @@ function Create-GUI {
         Update-ListBox -SearchBox $searchBox -ListBox $listBox -ScriptFiles $scriptsByCategory[$category]
 
         $searchBox.Add_TextChanged({
-            Update-ListBox -SearchBox $searchBox -ListBox $listBox -ScriptFiles $scriptsByCategory[$category]
-        })
+                Update-ListBox -SearchBox $searchBox -ListBox $listBox -ScriptFiles $scriptsByCategory[$category]
+            })
     }
 
     $btnExecute = New-Object Windows.Forms.Button -Property @{
