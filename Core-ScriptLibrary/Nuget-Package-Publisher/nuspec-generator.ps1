@@ -101,3 +101,5 @@ try {
     Write-Log "Failed to generate .nuspec file. $_" -Level "ERROR"
     exit 1
 }
+
+# End of script
