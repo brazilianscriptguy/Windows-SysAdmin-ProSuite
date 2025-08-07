@@ -82,3 +82,4 @@ The **WSUS Management Tools** repository provides a curated set of **PowerShell 
 - **Centralize Logging**: Update `$logDir` in scripts to store logs on a network share  
 - **Adapt Paths Per Environment**: Customize variables like `$sqlcmd`, `$namedPipe`, and folder paths  
 - **Use Staging First**: Test WSUS maintenance tasks in a lab before production
+- 
