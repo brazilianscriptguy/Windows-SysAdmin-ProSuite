@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     PowerShell GUI for Executing Scripts Organized by Tabs with Real-Time Search.
 
@@ -11,284 +11,193 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Updated: July 17, 2025
-    Version: 2.2 (Fixed GUI layout issues)
+    Updated: August 6, 2025
+    Version: 2.3 (Fixed GUI layout, inline search, logging compliance)
 #>
 
 #region --- Initialization and Configuration
 
 # Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
+if (-not ([System.Management.Automation.PSTypeName]'Window').Type) {
+    Add-Type @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class Window {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        public static void Hide() {
+            var handle = GetConsoleWindow();
+            ShowWindow(handle, 0); // 0 = SW_HIDE
+        }
+        public static void Show() {
+            var handle = GetConsoleWindow();
+            ShowWindow(handle, 5); // 5 = SW_SHOW
+        }
     }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
-}
 "@
+}
 [Window]::Hide()
 
-# Import necessary assemblies for Windows Forms and Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Get the current script directory
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
-Write-Host "Current Script Directory: $scriptDirectory" -ForegroundColor Cyan
 
-# Logging function
-function Log-Message {
+function Write-Log {
     param (
         [Parameter(Mandatory = $true)][string]$Message,
         [ValidateSet("INFO", "WARN", "ERROR")][string]$MessageType = "INFO"
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
     $logPath = Join-Path $scriptDirectory "SysAdminToolSet.log"
+    $entry = "[$timestamp] [$MessageType] $Message"
     try {
-        if (-not (Test-Path (Split-Path $logPath))) {
-            New-Item -Path (Split-Path $logPath) -ItemType Directory -Force | Out-Null
+        if (-not (Test-Path $logPath)) {
+            $null = New-Item -Path $logPath -ItemType File -Force
         }
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        Add-Content -Path $logPath -Value $entry
     } catch {
-        Write-Warning "Failed to write to log: $_"
+        Write-Warning "Failed to log message: $_"
     }
 }
-
-Log-Message "Starting Launch Script Automatic Menu execution."
 
 #endregion
 
 #region --- Core Functions
 
-# Function to generate a dictionary of script filenames and paths from all subdirectories
 function Get-ScriptDictionaries {
     try {
         $directories = Get-ChildItem -Path $scriptDirectory -Directory -Recurse -ErrorAction Stop
         $scriptsByCategory = @{}
-
         foreach ($dir in $directories) {
-            $scriptFiles = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -File -ErrorAction Stop
-            if ($scriptFiles.Count -gt 0) {
-                $category = $dir.Name
-                $scriptsByCategory[$category] = $scriptFiles | Sort-Object -Property Name
-                Log-Message "Loaded $category category with $($scriptFiles.Count) scripts"
+            $scripts = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -File -ErrorAction Stop
+            if ($scripts.Count -gt 0) {
+                $scriptsByCategory[$dir.Name] = $scripts | Sort-Object Name
+                Write-Log "Loaded $($dir.Name) with $($scripts.Count) scripts"
             }
-        }
-        if ($scriptsByCategory.Count -eq 0) {
-            Log-Message "No script categories found" -MessageType "WARN"
         }
         return $scriptsByCategory
     } catch {
-        Log-Message "Failed to load script dictionaries: $_" -MessageType "ERROR"
+        Write-Log "Script dictionary load failed: $_" "ERROR"
         return @{}
     }
 }
 
-# Function to update listbox items based on the search text with debouncing
 function Update-ListBox {
     param (
-        [System.Windows.Forms.TextBox]$searchBox,
-        [System.Windows.Forms.CheckedListBox]$listBox,
-        [System.Collections.ObjectModel.Collection[System.IO.FileInfo]]$originalList
+        [System.Windows.Forms.TextBox]$SearchBox,
+        [System.Windows.Forms.CheckedListBox]$ListBox,
+        [System.IO.FileInfo[]]$ScriptFiles
     )
-
-    $searchText = $searchBox.Text.Trim().ToLower()
-    $listBox.BeginUpdate()
-    $listBox.Items.Clear()
-
-    if ([string]::IsNullOrEmpty($searchText)) {
-        foreach ($file in $originalList) {
-            $listBox.Items.Add($file.Name, $false)
-        }
-    } else {
-        foreach ($file in $originalList) {
-            if ($file.Name.ToLower().Contains($searchText)) {
-                $listBox.Items.Add($file.Name, $false)
-            }
+    $searchText = $SearchBox.Text.Trim().ToLowerInvariant()
+    $ListBox.BeginUpdate()
+    $ListBox.Items.Clear()
+    foreach ($script in $ScriptFiles) {
+        if ($searchText -eq "" -or $script.Name.ToLowerInvariant().Contains($searchText)) {
+            $ListBox.Items.Add($script.Name, $false)
         }
     }
-
-    if ($listBox.Items.Count -eq 0) {
-        $listBox.Items.Add("<No matching scripts found>", $false)
+    if ($ListBox.Items.Count -eq 0) {
+        $ListBox.Items.Add("<No matching scripts found>", $false)
     }
-
-    $listBox.EndUpdate()
+    $ListBox.EndUpdate()
 }
 
-# Function to execute selected scripts
 function Execute-Scripts {
-    param ([System.Windows.Forms.TabControl]$tabControl)
-    $anyExecuted = $false
-
-    foreach ($tabPage in $tabControl.TabPages) {
-        $listBox = $tabPage.Controls | Where-Object { $_ -is [System.Windows.Forms.CheckedListBox] }
-        if ($listBox) {
-            foreach ($script in $listBox.CheckedItems) {
-                if ($script -eq "<No matching scripts found>") { continue }
-
-                $scriptPath = $scriptsByCategory[$tabPage.Text] | Where-Object { $_.Name -eq $script } | Select-Object -ExpandProperty FullName
-                if (Test-Path $scriptPath) {
-                    try {
-                        $psi = New-Object System.Diagnostics.ProcessStartInfo
-                        $psi.FileName = "powershell.exe"
-                        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-                        $psi.UseShellExecute = $false
-                        $psi.RedirectStandardOutput = $true
-                        $psi.RedirectStandardError = $true
-                        $process = [System.Diagnostics.Process]::Start($psi)
-                        $output = $process.StandardOutput.ReadToEnd()
-                        $errorOutput = $process.StandardError.ReadToEnd()
-                        $process.WaitForExit()
-                        if ($process.ExitCode -eq 0) {
-                            Log-Message "Successfully executed: $scriptPath"
-                            Write-Host "Executed: $scriptPath`nOutput: $output" -ForegroundColor Green
-                        } else {
-                            $errorMessage = "Execution failed for ${scriptPath}: ${errorOutput}"
-                            Log-Message $errorMessage -MessageType "ERROR"
-                            [System.Windows.Forms.MessageBox]::Show("Error executing ${script}: ${errorOutput}", "Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                        }
-                        $anyExecuted = $true
-                    } catch {
-                        $errorMessage = "Failed to execute ${scriptPath}: $_"
-                        Log-Message $errorMessage -MessageType "ERROR"
-                        [System.Windows.Forms.MessageBox]::Show("Failed to execute ${script}: $_", "Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                    }
-                } else {
-                    Log-Message "Script not found: $scriptPath" -MessageType "ERROR"
-                    [System.Windows.Forms.MessageBox]::Show("Script not found: $scriptPath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    param ([System.Windows.Forms.TabControl]$TabControl)
+    $executed = $false
+    foreach ($tab in $TabControl.TabPages) {
+        $listBox = $tab.Controls | Where-Object { $_ -is [System.Windows.Forms.CheckedListBox] }
+        foreach ($item in $listBox.CheckedItems) {
+            if ($item -eq "<No matching scripts found>") { continue }
+            $scriptPath = ($scriptsByCategory[$tab.Text] | Where-Object { $_.Name -eq $item }).FullName
+            if (-not (Test-Path $scriptPath)) {
+                Write-Log "Script not found: $scriptPath" "ERROR"
+                continue
+            }
+            try {
+                $psi = New-Object System.Diagnostics.ProcessStartInfo -Property @{
+                    FileName = "powershell.exe"
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+                    UseShellExecute = $false
+                    RedirectStandardOutput = $true
+                    RedirectStandardError = $true
                 }
+                $process = [System.Diagnostics.Process]::Start($psi)
+                $output = $process.StandardOutput.ReadToEnd()
+                $errors = $process.StandardError.ReadToEnd()
+                $process.WaitForExit()
+                if ($process.ExitCode -eq 0) {
+                    Write-Log "Executed successfully: $scriptPath"
+                } else {
+                    Write-Log "Execution failed: $scriptPath - Error: $errors" "ERROR"
+                }
+                $executed = $true
+            } catch {
+                Write-Log "Exception while executing ${scriptPath}: $_" "ERROR"
             }
         }
     }
-
-    if (-not $anyExecuted) {
-        [System.Windows.Forms.MessageBox]::Show("No scripts selected for execution.", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    if (-not $executed) {
+        [System.Windows.Forms.MessageBox]::Show("No scripts selected.", "Info")
     }
 }
 
 #endregion
 
-#region --- GUI Implementation
+#region --- GUI Builder
 
 function Create-GUI {
-    # Generate script dictionaries
-    $scriptsByCategory = Get-ScriptDictionaries
+    $global:scriptsByCategory = Get-ScriptDictionaries
     if ($scriptsByCategory.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("No scripts found in $scriptDirectory or its subdirectories.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        [System.Windows.Forms.MessageBox]::Show("No scripts found.", "Error")
         return
     }
 
-    # Initialize the Form
-    $form = [System.Windows.Forms.Form]::new()
-    $form.Text = 'Lauch Script Automatic Menu'
-    $form.Size = [System.Drawing.Size]::new(1200, 900)
-    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-    $form.BackColor = [System.Drawing.Color]::WhiteSmoke
-    $form.Add_Resize({
-            $tabControl.Size = [System.Drawing.Size]::new($form.ClientSize.Width - 40, $form.ClientSize.Height - 150)
-            $executeButton.Location = [System.Drawing.Point]::new(($form.ClientSize.Width - 150) / 2, $form.ClientSize.Height - 80)
-        })
-
-    # Add TabControl for organizing script categories
-    $tabControl = [System.Windows.Forms.TabControl]::new()
-    $tabControl.Size = [System.Drawing.Size]::new($form.ClientSize.Width - 40, $form.ClientSize.Height - 150)
-    $tabControl.Location = [System.Drawing.Point]::new(10, 10)
-    $tabControl.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
-    $form.Controls.Add($tabControl)
-
-    # Store references to controls
-    $tabControls = @{}
-
-    # Add Tabs for each category with debounced search
-    foreach ($category in $scriptsByCategory.Keys) {
-        $tabPage = [System.Windows.Forms.TabPage]::new()
-        $tabPage.Text = $category
-        $tabPage.AutoScroll = $true
-
-        # Add Search Box
-        $searchBox = [System.Windows.Forms.TextBox]::new()
-        $searchBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, 25)
-        $searchBox.Location = [System.Drawing.Point]::new(10, 10)
-        $searchBox.Font = [System.Drawing.Font]::new("Arial", 10)
-        $searchBox.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
-        $tabPage.Controls.Add($searchBox)
-
-        # Add ListBox
-        $listBox = [System.Windows.Forms.CheckedListBox]::new()
-        $listBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, $tabPage.ClientSize.Height - 60)
-        $listBox.Location = [System.Drawing.Point]::new(10, 40)
-        $listBox.Font = [System.Drawing.Font]::new("Arial", 9)
-        $listBox.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
-        $listBox.ScrollAlwaysVisible = $true
-        $tabPage.Controls.Add($listBox)
-
-        # Initial population
-        Update-ListBox -searchBox $searchBox -listBox $listBox -originalList $scriptsByCategory[$category]
-
-        # Debounced search handler
-        $searchTimer = $null
-        $searchBox.Add_TextChanged({
-                if ($searchTimer) { $searchTimer.Dispose() }
-                $searchTimer = New-Object System.Timers.Timer -ArgumentList 300
-                $searchTimer.AutoReset = $false
-                $searchTimer.add_Elapsed({
-                        Update-ListBox -searchBox $searchBox -listBox $listBox -originalList $scriptsByCategory[$category]
-                    })
-                $searchTimer.Start()
-            })
-
-        # Dynamic resize handler for tab page controls
-        $tabPage.Add_Resize({
-                $searchBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, 25)
-                $listBox.Size = [System.Drawing.Size]::new($tabPage.ClientSize.Width - 20, $tabPage.ClientSize.Height - 60)
-            })
-
-        $tabControls[$category] = @{ SearchBox = $searchBox; ListBox = $listBox }
-        $tabControl.TabPages.Add($tabPage)
+    $form = New-Object Windows.Forms.Form -Property @{
+        Text = "Launch Script Menu"
+        Size = New-Object Drawing.Size(1100, 800)
+        StartPosition = "CenterScreen"
+        BackColor = "WhiteSmoke"
     }
 
-    # Handle tab switch
-    $tabControl.Add_SelectedIndexChanged({
-            $selectedTab = $tabControl.SelectedTab
-            if ($selectedTab -ne $null) {
-                $category = $selectedTab.Text
-                if ($tabControls.ContainsKey($category)) {
-                    $controls = $tabControls[$category]
-                    Update-ListBox -searchBox $controls.SearchBox -listBox $controls.ListBox -originalList $scriptsByCategory[$category]
-                }
-            }
+    $tabControl = New-Object Windows.Forms.TabControl -Property @{
+        Dock = "Fill"
+    }
+    $form.Controls.Add($tabControl)
+
+    foreach ($category in $scriptsByCategory.Keys) {
+        $tab = New-Object Windows.Forms.TabPage -Property @{ Text = $category; AutoScroll = $true }
+        $searchBox = New-Object Windows.Forms.TextBox -Property @{ Location = '10,10'; Size = '1050,25' }
+        $listBox = New-Object Windows.Forms.CheckedListBox -Property @{ Location = '10,45'; Size = '1050,650' }
+        $tab.Controls.AddRange(@($searchBox, $listBox))
+        $tabControl.TabPages.Add($tab)
+        
+        Update-ListBox -SearchBox $searchBox -ListBox $listBox -ScriptFiles $scriptsByCategory[$category]
+
+        $searchBox.Add_TextChanged({
+            Update-ListBox -SearchBox $searchBox -ListBox $listBox -ScriptFiles $scriptsByCategory[$category]
         })
+    }
 
-    # Add Execute Button with padding
-    $executeButton = [System.Windows.Forms.Button]::new()
-    $executeButton.Text = 'Execute'
-    $executeButton.Size = [System.Drawing.Size]::new(150, 40)
-    $executeButton.Location = [System.Drawing.Point]::new(($form.ClientSize.Width - 150) / 2, $form.ClientSize.Height - 100) # Adjusted for padding
-    $executeButton.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom
-    $executeButton.BackColor = [System.Drawing.Color]::LightSkyBlue
-    $executeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $executeButton.Add_Click({ Execute-Scripts -tabControl $tabControl })
-    $form.Controls.Add($executeButton)
+    $btnExecute = New-Object Windows.Forms.Button -Property @{
+        Text = "Execute Selected"
+        Size = '200,30'
+        Location = New-Object Drawing.Point(440, 700)
+        BackColor = 'LightSkyBlue'
+    }
+    $btnExecute.Add_Click({ Execute-Scripts -TabControl $tabControl })
+    $form.Controls.Add($btnExecute)
 
-    # Show the Form
-    [void] $form.ShowDialog()
+    $form.ShowDialog() | Out-Null
 }
 
 #endregion
 
-# Call the function to create the GUI
+# Entry Point
 Create-GUI
 
 # End of script
