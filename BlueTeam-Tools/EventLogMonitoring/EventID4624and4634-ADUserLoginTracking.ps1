@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     PowerShell Script for Tracking User Logon (Event ID 4624) and Logoff (Event ID 4634) Activities using Log Parser.
 
