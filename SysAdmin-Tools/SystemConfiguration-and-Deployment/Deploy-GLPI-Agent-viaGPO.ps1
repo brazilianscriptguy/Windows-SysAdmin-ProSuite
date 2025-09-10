@@ -1,179 +1,188 @@
-﻿<#
+<#
 .SYNOPSIS
-    PowerShell Script for Deploying GLPI Agent via GPO.
+  Deploy/upgrade GLPI Agent via GPO without blocking startup.
 
 .DESCRIPTION
-    This script installs and configures the GLPI Agent on workstations using Group Policy (GPO).
-    It ensures seamless inventory management and reporting within an enterprise environment.
-    The script also retrieves the %USERDOMAIN% environment variable and sends it as a TAG to the GLPI server.
+  - Detects installed GLPI Agent version from registry (and falls back to the EXE file version).
+  - If the same major/minor version is already installed, it skips installation (idempotent).
+  - If different/not found, runs MSI with silent parameters and logs to C:\Scripts-LOGS.
+  - Avoids uninstalling older versions; relies on MSI’s built-in upgrade/replace logic.
+  - Detects GPO Startup context and does NOT wait on msiexec in that path (prevents boot hang).
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy
+  Luiz Hamilton Silva (@brazilianscriptguy) – adapted for GPO-safe, idempotent flow.
 
 .VERSION
-    Last Updated: February 14, 2025
+  Last Updated: 2025-09-10
 #>
 
-param (
-    # Path to the GLPI Agent MSI installer (desired version)
-    [string]$GLPIAgentMSI = "\\headq.scriptguy\netlogon\glpi-agent112-install.msi",
-    # Directory where logs will be recorded
-    [string]$GLPILogDir = "C:\Logs-TEMP",
-    # Expected version after installation
-    [string]$ExpectedVersion = "1.12"
+param(
+  # Path to the GLPI Agent MSI installer (desired version)
+  [string]$GLPIAgentMSI    = "\\headq.scriptguy\netlogon\glpi-agent115-install.msi",
+  # Directory where logs will be recorded
+  [string]$GLPILogDir      = "C:\Logs-TEMP",
+  # Target version string to compare (prefix match, e.g. '1.15')
+  [string]$ExpectedVersion = "1.15",
+  # GLPI server URL and TAG to write during MSI install
+  [string]$ServerUrl       = "http://cmdb.headq.scriptguy/front/inventory.php",
+  [string]$TagOverride     = $null
 )
 
-# Immediately stop execution in case of an error
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-# Define log file name and path
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $GLPILogDir $logFileName
+# ------------------------ Logging ------------------------
+$scriptName  = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logFileName = "$scriptName.log"
+$logPath     = Join-Path $GLPILogDir $logFileName
 
-# Get the user’s domain from the environment variable; if not set, use a default value.
-$userDomain = $env:USERDOMAIN
-if (-not $userDomain) {
-    $userDomain = "UNKNOWN_DOMAIN"
-}
-
-###############################################################################
-# FUNCTION: Log-Message
-# Logs messages to the log file. In case of an error, also logs to the EventLog.
-###############################################################################
 function Log-Message {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-        [string]$Severity = "INFO"
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$Severity] [$timestamp] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    }
-    catch {
-        Write-EventLog -LogName Application -Source "GLPI-Agent-Install" -EntryType Error -EventId 1 -Message "Failed to write to log at $logPath. Error: $_"
-    }
+  param(
+    [Parameter(Mandatory=$true)][string]$Message,
+    [ValidateSet('INFO','WARNING','ERROR')][string]$Level='INFO'
+  )
+  $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+  $line = "[$ts] [$Level] $Message"
+  try { Add-Content -Path $logPath -Value $line -ErrorAction Stop } catch { Write-Host $line }
 }
 
-# Ensure the log directory exists
-if (-not (Test-Path $GLPILogDir)) {
-    New-Item -Path $GLPILogDir -ItemType Directory -Force | Out-Null
-    Log-Message "Log directory $GLPILogDir created."
+# Ensure log directory
+if (-not (Test-Path -Path $GLPILogDir)) {
+  try { New-Item -Path $GLPILogDir -ItemType Directory -Force | Out-Null } catch {}
 }
 
-###############################################################################
-# FUNCTION: Uninstall-GLPIAgent
-# Uninstalls the current installation of GLPI Agent using the Registry value.
-###############################################################################
-function Uninstall-GLPIAgent {
-    param (
-        [string]$RegistryKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\GLPI-Agent"
-    )
-    Log-Message "Checking for GLPI Agent in the registry..."
-    try {
-        $key = Get-ItemProperty -Path $RegistryKey -ErrorAction SilentlyContinue
-        if ($key) {
-            $uninstallString = $key.UninstallString
-            if ($uninstallString) {
-                Log-Message "Removing installed version of GLPI Agent..."
-                # Execute the uninstallation command silently
-                Start-Process -FilePath "cmdbexe" -ArgumentList "/c $uninstallString /quiet /norestart" -Wait -NoNewWindow
-                Log-Message "GLPI Agent successfully removed."
-            } else {
-                Log-Message "Key found, but UninstallString is empty." -Severity "WARNING"
-            }
-        } else {
-            Log-Message "GLPI Agent not found in the registry."
-        }
-    }
-    catch {
-        Log-Message "Error while uninstalling GLPI Agent: $_" -Severity "WARNING"
-    }
+# -------------------- Context detection --------------------
+function Get-IsGpoStartup {
+  try {
+    $isSystem  = ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq 'S-1-5-18')
+    $session0  = ([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0)
+    $pp        = Get-CimInstance Win32_Process -Filter "ProcessId=$pid"
+    $parent    = if ($pp.ParentProcessId) { Get-Process -Id $pp.ParentProcessId -ErrorAction SilentlyContinue }
+    $pname     = ($parent.Name -replace '\.exe$','').ToLower()
+    $gpParents = @('gpscript','gpupdate','winlogon','services')
+    return ($isSystem -and $session0 -and $gpParents -contains $pname)
+  } catch { return $false }
 }
 
-###############################################################################
-# FUNCTION: Install-GLPIAgent
-# Installs the GLPI Agent via MSI.
-###############################################################################
-function Install-GLPIAgent {
-    param (
-        [string]$InstallerPath
-    )
-    Log-Message "Starting installation of GLPI Agent version $ExpectedVersion..."
-    # Define installation parameters: /quiet, RUNNOW=1, SERVER, and TAG
-    $installArgs = "/quiet RUNNOW=1 SERVER='http://cmdb.headq.scriptguy/front/inventory.php' TAG='$userDomain'"
-    try {
-        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$InstallerPath`" $installArgs" -Wait -NoNewWindow -ErrorAction Stop
-        Log-Message "GLPI Agent version $ExpectedVersion installed successfully."
-    }
-    catch {
-        Log-Message "Error while installing GLPI Agent: $_" -Severity "WARNING"
-        exit 1
-    }
-}
+$IsGpoStartup = Get-IsGpoStartup
+Log-Message "GPO Startup context: $IsGpoStartup"
 
-###############################################################################
-# FUNCTION: Get-GLPIAgentPath
-# Returns the path of the GLPI Agent executable, checking known locations.
-###############################################################################
+# -------------------- Utilities --------------------
 function Get-GLPIAgentPath {
-    $possiblePaths = @(
-        "C:\Program Files\GLPI-Agent\glpi-agent.exe",
-        "C:\Program Files (x86)\GLPI-Agent\glpi-agent.exe",
-        "C:\Program Files\GLPI-Agent\perl\bin\glpi-agent.exe"
-    )
-    
-    foreach ($path in $possiblePaths) {
-        if (Test-Path $path) {
-            return $path
+  $candidates = @(
+    "C:\Program Files\GLPI-Agent\glpi-agent.exe",
+    "C:\Program Files (x86)\GLPI-Agent\glpi-agent.exe",
+    "C:\Program Files\GLPI-Agent\perl\bin\glpi-agent.exe"
+  )
+  foreach ($p in $candidates) { if (Test-Path $p) { return $p } }
+  return $null
+}
+
+function Get-InstalledGLPIInfo {
+  $roots = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+    "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+  )
+  foreach ($r in $roots) {
+    Get-ChildItem $r -ErrorAction SilentlyContinue | ForEach-Object {
+      $it = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+      if ($it -and $it.DisplayName -and ($it.DisplayName -like "*GLPI Agent*")) {
+        [PSCustomObject]@{
+          DisplayName     = $it.DisplayName
+          DisplayVersion  = $it.DisplayVersion
+          UninstallString = $it.UninstallString
+          InstallLocation = $it.InstallLocation
+          RegistryKey     = $_.PSChildName
         }
+      }
     }
-    return $null
+  }
 }
 
-###############################################################################
-# FUNCTION: Configure-GLPIAgent
-# Applies configuration to the GLPI Agent by calling the executable with parameters.
-###############################################################################
-function Configure-GLPIAgent {
-    param (
-        [string]$AgentPath
-    )
-    Log-Message "Configuring GLPI Agent for domain: $userDomain..."
-    $configArgs = "--server=http://cmdb.headq.scriptguy/front/inventory.php --tag='$userDomain' --debug"
-    try {
-        Start-Process -FilePath $AgentPath -ArgumentList $configArgs -Wait -NoNewWindow -ErrorAction Stop
-        Log-Message "GLPI Agent configuration successfully applied."
-    }
-    catch {
-        Log-Message "Error while configuring GLPI Agent: $_" -Severity "WARNING"
-        exit 1
-    }
+# Resolve domain/TAG
+$domainTag = if ($TagOverride) { $TagOverride } elseif ($env:USERDOMAIN) { $env:USERDOMAIN } else {
+  try { (Get-CimInstance Win32_ComputerSystem).Domain } catch { 'UNKNOWN' }
 }
 
-###############################################################################
-# MAIN SCRIPT FLOW
-###############################################################################
+# -------------------- Pre-checks --------------------
+if (-not (Test-Path $GLPIAgentMSI)) { Log-Message "MSI not found: $GLPIAgentMSI" 'ERROR'; exit 1 }
 
-# Always perform a clean installation: uninstall any existing version
-Uninstall-GLPIAgent
-
-# Install the GLPI Agent (even if no previous version exists)
-Install-GLPIAgent -InstallerPath $GLPIAgentMSI
-
-# Try to locate the installed executable
-$glpiAgentPath = Get-GLPIAgentPath
-if (-not $glpiAgentPath) {
-    Log-Message "Error: Could not locate the GLPI Agent executable after installation." -Severity "WARNING"
-    exit 1
+# Installed version?
+$installed = Get-InstalledGLPIInfo | Select-Object -First 1
+if ($installed) {
+  Log-Message "Detected installed GLPI Agent: '$($installed.DisplayName)' version '$($installed.DisplayVersion)'."
 } else {
-    Log-Message "GLPI Agent found at: $glpiAgentPath"
-    # Apply the agent configuration
-    Configure-GLPIAgent -AgentPath $glpiAgentPath
+  # Try fallback by file version
+  $exe = Get-GLPIAgentPath
+  if ($exe) {
+    try {
+      $fv = (Get-Item $exe).VersionInfo.ProductVersion
+      if ($fv) {
+        $installed = [PSCustomObject]@{ DisplayName='GLPI Agent (file)'; DisplayVersion=$fv; UninstallString=$null; InstallLocation=(Split-Path $exe -Parent); RegistryKey='(file)' }
+        Log-Message "Detected GLPI Agent by executable: '$exe' (file version: $fv)."
+      }
+    } catch {}
+  }
 }
 
+# -------------------- Idempotent decision --------------------
+$needInstall = $true
+if ($installed -and $installed.DisplayVersion) {
+  if ($installed.DisplayVersion -like "$ExpectedVersion*") {
+    $needInstall = $false
+    Log-Message "Same version '$ExpectedVersion' already installed; skipping installation (idempotent)."
+  } else {
+    Log-Message "Installed version '$($installed.DisplayVersion)' differs from target '$ExpectedVersion'; will run MSI."
+  }
+} else {
+  Log-Message "GLPI Agent not found; will run MSI."
+}
+
+# -------------------- Install (no uninstall) --------------------
+if ($needInstall) {
+  # Build MSI arguments. We log MSI to a separate file for troubleshooting.
+  $msiLog = Join-Path $GLPILogDir 'glpi-install.log'
+  $installArgs = @(
+    '/i', "`"$GLPIAgentMSI`"",
+    '/qn', '/norestart', 'REBOOT=ReallySuppress',
+    '/l*v', "`"$msiLog`"",
+    "RUNNOW=1",
+    "SERVER=`"$ServerUrl`"",
+    "TAG=`"$domainTag`""
+  ) -join ' '
+
+  Log-Message "Executing: msiexec.exe $installArgs"
+
+  try {
+    # IMPORTANT: Do not block in GPO Startup. We omit -NoNewWindow to avoid conflicts with -WindowStyle.
+    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList $installArgs `
+            -WindowStyle Hidden -PassThru -Wait:(!$IsGpoStartup) -ErrorAction Stop
+
+    # If we did not wait (GPO Startup), $proc may be $null; log accordingly.
+    if ($proc) {
+      Log-Message "msiexec exited with code: $($proc.ExitCode)"
+      if ($proc.ExitCode -ne 0) { Log-Message "MSI returned non-zero exit code. See $msiLog" 'WARNING' }
+    } else {
+      Log-Message "Started msiexec in background (GPO Startup); see $msiLog for progress."
+    }
+  }
+  catch {
+    Log-Message "Failed to launch msiexec. Error: $_" 'ERROR'
+    exit 1
+  }
+} else {
+  # Optionally ensure service is running, but do not block.
+  try {
+    $svc = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name -like '*glpi*agent*' -or $_.DisplayName -like '*GLPI*Agent*'
+    } | Select-Object -First 1
+    if ($svc -and $svc.Status -ne 'Running') {
+      Start-Service -Name $svc.Name -ErrorAction SilentlyContinue
+      Log-Message "Started service '$($svc.Name)'."
+    }
+  } catch {}
+}
+
+# -------------------- End --------------------
 Log-Message "End of script."
 exit 0
 
