@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Build a smart WSUS index maintenance script (wsus-reindex-smart.sql) for SUSDB (WID).
 
@@ -51,7 +51,7 @@ function Show-InputForm {
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
     $form.MinimizeBox = $false
-    $form.Width  = 520
+    $form.Width = 520
     $form.Height = 260
 
     $font = New-Object System.Drawing.Font("Segoe UI", 9)
@@ -99,16 +99,16 @@ function Show-InputForm {
     $form.AcceptButton = $btnOk
 
     $form.Controls.AddRange(@(
-        $lblMinPages,$txtMinPages,
-        $lblReorg,$txtReorg,
-        $lblRebuild,$txtRebuild,
-        $hint,$btnOk
-    ))
+            $lblMinPages, $txtMinPages,
+            $lblReorg, $txtReorg,
+            $lblRebuild, $txtRebuild,
+            $hint, $btnOk
+        ))
 
     if ($form.ShowDialog() -eq 'OK') {
         return @{
-            MinPages   = [int]$txtMinPages.Text
-            ReorgPct   = [double]$txtReorg.Text
+            MinPages = [int]$txtMinPages.Text
+            ReorgPct = [double]$txtReorg.Text
             RebuildPct = [double]$txtRebuild.Text
         }
     }
@@ -140,7 +140,7 @@ function Build-ReindexSqlText {
         [Parameter(Mandatory)] [double] $ReorgPct,
         [Parameter(Mandatory)] [double] $RebuildPct
     )
-@"
+    @"
 -- wsus-reindex-smart.sql
 -- Purpose: Rebuild or reorganize fragmented indexes in SUSDB (WID-safe).
 -- Notes:
@@ -254,21 +254,21 @@ PRINT 'Timestamp (UTC): ' + CONVERT(varchar(19), @t1, 120);
 # -------- Main flow --------
 try {
     $input = Show-InputForm
-    if (-not $input) { [System.Windows.Forms.MessageBox]::Show("Operation canceled.","WSUS Reindex (Smart)",'OK','Information') | Out-Null; exit }
+    if (-not $input) { [System.Windows.Forms.MessageBox]::Show("Operation canceled.", "WSUS Reindex (Smart)", 'OK', 'Information') | Out-Null; exit }
 
     # Validate thresholds
     if ($input.ReorgPct -lt 0 -or $input.RebuildPct -lt 0 -or $input.RebuildPct -le $input.ReorgPct) {
-        [System.Windows.Forms.MessageBox]::Show("Invalid thresholds. Ensure: 0 <= Reorganize% < Rebuild%.","Validation",'OK','Error') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("Invalid thresholds. Ensure: 0 <= Reorganize% < Rebuild%.", "Validation", 'OK', 'Error') | Out-Null
         exit 1
     }
     if ($input.MinPages -lt 1) {
-        [System.Windows.Forms.MessageBox]::Show("Minimum page count must be at least 1.","Validation",'OK','Error') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("Minimum page count must be at least 1.", "Validation", 'OK', 'Error') | Out-Null
         exit 1
     }
 
     $defaultOut = "C:\Logs-TEMP\WSUS-GUI\Scripts\wsus-reindex-smart.sql"
     $outFile = Get-OutputPath -DefaultPath $defaultOut
-    if (-not $outFile) { [System.Windows.Forms.MessageBox]::Show("No file selected. Nothing was written.","WSUS Reindex (Smart)",'OK','Information') | Out-Null; exit }
+    if (-not $outFile) { [System.Windows.Forms.MessageBox]::Show("No file selected. Nothing was written.", "WSUS Reindex (Smart)", 'OK', 'Information') | Out-Null; exit }
 
     $sqlText = Build-ReindexSqlText -MinPages $input.MinPages -ReorgPct $input.ReorgPct -RebuildPct $input.RebuildPct
 
@@ -278,10 +278,10 @@ try {
     # UTF8 without BOM is fine; BOM also fine for sqlcmd — choose plain UTF8
     Set-Content -Path $outFile -Value $sqlText -Encoding UTF8
 
-    [System.Windows.Forms.MessageBox]::Show("Script generated:`r`n$outFile","Success",'OK','Information') | Out-Null
+    [System.Windows.Forms.MessageBox]::Show("Script generated:`r`n$outFile", "Success", 'OK', 'Information') | Out-Null
 }
 catch {
-    [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)","Error",'OK','Error') | Out-Null
+    [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)", "Error", 'OK', 'Error') | Out-Null
     exit 1
 }
 
