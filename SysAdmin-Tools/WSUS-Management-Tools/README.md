@@ -71,7 +71,7 @@ The **WSUS Management Tools** repository provides a curated set of **PowerShell 
 
 ## 📁 Complementary Files
 
-- **wsus-reindex-EXAMPLE.sql**: Example SQL script created by **Generate-WSUSReindexScript.ps1**  
+- **wsus-reindex-smart.sql**: Example SQL script created by **Generate-WSUSReindexScript.ps1**  
 - **wsus-verify-fragmentation.sql**: SQL query for analyzing index fragmentation in SUSDB
 
 ---
