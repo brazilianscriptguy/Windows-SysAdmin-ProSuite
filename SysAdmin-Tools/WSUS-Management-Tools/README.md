@@ -8,7 +8,6 @@ These tools are designed for **Active Directory** and **standalone** environment
 
 ## ✅ Key Features
 - **Graphical Interface**: Run maintenance tasks via GUI (no command line required)  
-- **FQDN-Aware**: Automatically detects and uses the server **FQDN** if none is provided in the GUI/JSON  
 - **Index Optimization**: Reports fragmentation and generates **smart reindex scripts** for SUSDB  
 - **Assembly Detection**: Validates and loads WSUS Admin assemblies from the GAC or known paths  
 - **Centralized Logging**: `.log` and `.csv` outputs with structured, timestamped entries  
@@ -55,8 +54,8 @@ These tools are designed for **Active Directory** and **standalone** environment
 | Script | Function |
 |--------|----------|
 | **Check-WSUS-AdminAssembly.ps1** | Detects/loads `Microsoft.UpdateServices.Administration.dll`; guides installation if missing |
+| **Generate-WSUSReindexScript.ps1** | Prompts thresholds and generates `wsus-reindex-smart.sql` for SUSDB index maintenance |
 | **Maintenance-WSUS-Admin-Tool.ps1** | GUI: decline updates (expired, superseded, unapproved), cleanup obsolete files/computers, SUSDB tasks (CHECKDB, shrink, reindex, backup) |
-| **RebuildWSUS-Classifications.ps1** | Resets WSUS **Classifications** when MMC fails to show all categories (local execution recommended) |
 
 ---
 
@@ -68,12 +67,18 @@ These tools are designed for **Active Directory** and **standalone** environment
 3. Select maintenance tasks (check boxes)  
 4. Run and monitor execution in the status window and log  
 
-### Classifications Reset
-Run directly **on the WSUS server** if MMC classifications are incomplete:
+### Index Reindex Script
+Generate a smart T-SQL script:
 ```powershell
-.\RebuildWSUS-Classifications.ps1 -ServerName "wsusn01-tjap.sede.tjap" -Port 8530 -UseSSL:$false
+.\Generate-WSUSReindexScript.ps1
 ```
-After running, reopen **WSUS MMC → Options → Products and Classifications → Classifications**.
+The script creates `wsus-reindex-smart.sql` with logic to reorganize or rebuild indexes based on thresholds.
+
+### Assembly Validation
+Check if the WSUS Administration assembly is installed and loadable:
+```powershell
+.\Check-WSUS-AdminAssembly.ps1
+```
 
 ---
 
@@ -106,7 +111,6 @@ After running, reopen **WSUS MMC → Options → Products and Classifications �
 
 - **`sqlcmd.exe` not found** → Install SQL Server Command Line Utilities and add to PATH  
 - **`Get-WsusServer failed`** → Ensure WSUS Admin Console is installed and run PowerShell as Admin  
-- **MMC missing classifications** → Run `RebuildWSUS-Classifications.ps1` locally on the WSUS server  
 - **WinRM errors in remote mode** → Enable remoting with:  
   ```powershell
   Enable-PSRemoting -Force
@@ -117,4 +121,5 @@ After running, reopen **WSUS MMC → Options → Products and Classifications �
 ## 🔒 Scheduling & Security
 - Use **Task Scheduler** or **GPO** for recurring maintenance (overnight)  
 - Centralize logs by redirecting `$LogDir` to a UNC path  
-- Always run as a **WSUS Administrator** account (least privilege recommended)  
+- Always run as a **WSUS Administrator** account (least privilege recommended)
+  
