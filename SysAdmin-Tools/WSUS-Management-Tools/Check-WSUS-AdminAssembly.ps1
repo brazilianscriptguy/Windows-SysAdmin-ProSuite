@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Validates and loads Microsoft.UpdateServices.Administration.dll (WSUS Admin API).
 
@@ -39,7 +39,7 @@ Add-Type -AssemblyName System.Windows.Forms
 function Write-Log {
     param(
         [Parameter(Mandatory)][string]$Message,
-        [ValidateSet("INFO","WARNING","ERROR")] [string]$Level = "INFO"
+        [ValidateSet("INFO", "WARNING", "ERROR")] [string]$Level = "INFO"
     )
     $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Output "[$stamp] [$Level] $Message"
