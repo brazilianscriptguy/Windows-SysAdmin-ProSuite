@@ -83,9 +83,9 @@ Check if the WSUS Administration assembly is installed and loadable:
 ---
 
 ## 📁 Complementary Files
-- `wsus-verify-fragmentation.sql` → SUSDB fragmentation sql call for defragmentation verify  
-- `wsus-reindex-smart.sql` → Smart reindex logic (skip low pages, reorganize vs rebuild)  
-- `settings.json` → GUI persistence file  
+- `wsus-verify-fragmentation.sql` → SUSDB fragmentation sql call for defragmentation verify  - you must copy this file from this repository to the your local folder  `C:\Logs-TEMP\WSUS-GUI\Scripts\`  
+- `wsus-reindex-smart.sql` → Smart reindex logic (skip low pages, reorganize vs rebuild)  - you must copy this file from this repository to the your local folder  `C:\Logs-TEMP\WSUS-GUI\Scripts\`  
+- `settings.json` → GUI persistence file that will be created at the first `Maintenance-WSUS-Admin-Tool.ps1` execution
 - `Logs\` → Example: `Maintenance-WSUS-Admin-Tool-20250915-095431.log`
 
 ---
