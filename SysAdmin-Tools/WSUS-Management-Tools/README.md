@@ -8,9 +8,10 @@ These tools are designed for **Active Directory** and **standalone** environment
 
 ## ✅ Key Features
 - **Graphical Interface**: Run maintenance tasks via GUI (no command line required)  
-- **Index Optimization**: Reports fragmentation and generates **smart reindex scripts** for SUSDB  
+- **Index Optimization**: Reports fragmentation and executes **smart reindex logic** for SUSDB  
 - **Assembly Detection**: Validates and loads WSUS Admin assemblies from the GAC or known paths  
 - **Centralized Logging**: `.log` and `.csv` outputs with structured, timestamped entries  
+- **Progress Tracker**: Real progress bar bounded at 100%, with weighted phases (declines, cleanup, DB tasks)  
 - **Modular Design**: Scripts can run standalone or be scheduled with Task Scheduler/GPO  
 
 ---
@@ -21,40 +22,46 @@ These tools are designed for **Active Directory** and **standalone** environment
    - Requires **Windows PowerShell 5.1+**  
    ```powershell
    $PSVersionTable.PSVersion
-   ```
+   ````
 
-2. **Administrator Privileges**  
-   - Must be run **elevated** to access WSUS APIs and SUSDB
+2. **Administrator Privileges**
 
-3. **Required Modules**  
-   - `UpdateServices` (included with the WSUS Administration Console / Tools)  
-   - `ActiveDirectory` *(optional, for WSUS server discovery)*
+   * Must be run **elevated** to access WSUS APIs and SUSDB
 
-4. **SQLCMD Tools**  
-   - Required to execute SQL scripts on SUSDB (via named pipe: `np:\\.\pipe\MICROSOFT##WID\tsql\query`)  
-   - Ensure **`sqlcmd.exe`** is installed and on your `PATH`
+3. **Required Modules**
 
-5. **Execution Policy**  
+   * `UpdateServices` (included with the WSUS Administration Console / Tools)
+   * `ActiveDirectory` *(optional, for WSUS server discovery)*
+
+4. **SQLCMD Tools**
+
+   * Required to execute SQL scripts on SUSDB (via named pipe: `np:\\.\pipe\MICROSOFT##WID\tsql\query`)
+   * Ensure **`sqlcmd.exe`** is installed and on your `PATH`
+
+5. **Execution Policy**
+
    ```powershell
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
    ```
 
-6. **SQL Script Files** (copy into `C:\Logs-TEMP\WSUS-GUI\Scripts`)  
-   - `wsus-verify-fragmentation.sql`  
-   - `wsus-reindex-smart.sql`
+6. **SQL Script Files** (must exist in `C:\Logs-TEMP\WSUS-GUI\Scripts`)
 
-7. **WSUS Admin Assembly**  
-   - Ensure `Microsoft.UpdateServices.Administration.dll` is available in the **GAC**  
-   - Validate with **Check-WSUS-AdminAssembly.ps1**
+   * `wsus-verify-fragmentation.sql` → Reports index fragmentation (CHECK/VERIFY step)
+   * `wsus-reindex-smart.sql` → Smart reindex logic (REORGANIZE vs REBUILD + UPDATE STATISTICS)
+
+7. **WSUS Admin Assembly**
+
+   * Ensure `Microsoft.UpdateServices.Administration.dll` is available in the **GAC**
+   * Validate with **Check-WSUS-AdminAssembly.ps1**
 
 ---
 
 ## 📜 Script Descriptions
 
-| Script | Function |
-|--------|----------|
-| **Check-WSUS-AdminAssembly.ps1** | Detects/loads `Microsoft.UpdateServices.Administration.dll`; guides installation if missing |
-| **Generate-WSUSReindexScript.ps1** | Prompts thresholds and generates `wsus-reindex-smart.sql` for SUSDB index maintenance |
+| Script                              | Function                                                                                                                                 |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Check-WSUS-AdminAssembly.ps1**    | Detects/loads `Microsoft.UpdateServices.Administration.dll`; guides installation if missing                                              |
+| **Generate-WSUSReindexScript.ps1**  | Prompts thresholds and generates `wsus-reindex-smart.sql` for SUSDB index maintenance                                                    |
 | **Maintenance-WSUS-Admin-Tool.ps1** | GUI: decline updates (expired, superseded, unapproved), cleanup obsolete files/computers, SUSDB tasks (CHECKDB, shrink, reindex, backup) |
 
 ---
@@ -62,20 +69,26 @@ These tools are designed for **Active Directory** and **standalone** environment
 ## 🚀 Usage
 
 ### GUI Tool
-1. Right-click **Maintenance-WSUS-Admin-Tool.ps1** → **Run with PowerShell (Admin)**  
-2. Configure WSUS server (defaults to **local FQDN** and port `8530` if missing)  
-3. Select maintenance tasks (check boxes)  
-4. Run and monitor execution in the status window and log  
+
+1. Right-click **Maintenance-WSUS-Admin-Tool.ps1** → **Run with PowerShell (Admin)**
+2. Configure WSUS server (defaults to **local FQDN** and port `8530` if missing)
+3. Select maintenance tasks (check boxes)
+4. Run and monitor execution in the status window, progress bar, and logs
 
 ### Index Reindex Script
+
 Generate a smart T-SQL script:
+
 ```powershell
 .\Generate-WSUSReindexScript.ps1
 ```
+
 The script creates `wsus-reindex-smart.sql` with logic to reorganize or rebuild indexes based on thresholds.
 
 ### Assembly Validation
+
 Check if the WSUS Administration assembly is installed and loadable:
+
 ```powershell
 .\Check-WSUS-AdminAssembly.ps1
 ```
@@ -83,36 +96,49 @@ Check if the WSUS Administration assembly is installed and loadable:
 ---
 
 ## 📁 Complementary Files
-- `wsus-verify-fragmentation.sql` → SUSDB fragmentation sql call for defragmentation verify  - you must copy this file from this repository to the your local folder  `C:\Logs-TEMP\WSUS-GUI\Scripts\`  
-- `wsus-reindex-smart.sql` → Smart reindex logic (skip low pages, reorganize vs rebuild)  - you must copy this file from this repository to the your local folder  `C:\Logs-TEMP\WSUS-GUI\Scripts\`  
-- `settings.json` → GUI persistence file that will be created at the first `Maintenance-WSUS-Admin-Tool.ps1` execution
-- `Logs\` → Example: `Maintenance-WSUS-Admin-Tool-20250915-095431.log`
+
+* `wsus-verify-fragmentation.sql`
+  → **Reports fragmentation** levels per index in SUSDB. Use this to decide whether reindexing is required.
+
+* `wsus-reindex-smart.sql`
+  → **Executes smart reindexing**: skips low-page indexes, reorganizes medium fragmentation, rebuilds high fragmentation, updates statistics.
+
+* `settings.json`
+  → GUI persistence file created at first run of `Maintenance-WSUS-Admin-Tool.ps1`
+
+* `Logs\`
+  → Example: `Maintenance-WSUS-Admin-Tool-20250915-095431.log`
 
 ---
 
 ## 💡 Tips
-- **Logs & Configs**  
-  - Scripts: `C:\Logs-TEMP\WSUS-GUI\Scripts\`  
-  - Logs: `C:\Logs-TEMP\WSUS-GUI\Logs\`  
-  - CSV: `C:\Logs-TEMP\WSUS-GUI\CSV\`  
-  - Backups: `C:\Logs-TEMP\WSUS-GUI\Backups\`  
-  - Settings: `C:\Logs-TEMP\WSUS-GUI\settings.json`
 
-- **Console Visibility**  
-  - GUI hides the console window by default  
-  - Comment out the *Hide Console* block in scripts while debugging
+* **Logs & Configs**
 
-- **Timeout Handling**  
-  - Some WSUS builds lack `DatabaseCommandTimeout`; this is logged as `[DEBUG]`  
-  - **CompressUpdates** may time out — run standalone during off-hours if needed
+  * Scripts: `C:\Logs-TEMP\WSUS-GUI\Scripts\`
+  * Logs: `C:\Logs-TEMP\WSUS-GUI\Logs\`
+  * CSV: `C:\Logs-TEMP\WSUS-GUI\CSV\`
+  * Backups: `C:\Logs-TEMP\WSUS-GUI\Backups\`
+  * Settings: `C:\Logs-TEMP\WSUS-GUI\settings.json`
+
+* **Console Visibility**
+
+  * GUI hides the console window by default
+  * Comment out the *Hide Console* block in scripts while debugging
+
+* **Timeout Handling**
+
+  * Some WSUS builds lack `DatabaseCommandTimeout`; this is logged as `[DEBUG]`
+  * **CompressUpdates** may time out — run standalone during off-hours if needed
 
 ---
 
 ## 🧰 Troubleshooting
 
-- **`sqlcmd.exe` not found** → Install SQL Server Command Line Utilities and add to PATH  
-- **`Get-WsusServer failed`** → Ensure WSUS Admin Console is installed and run PowerShell as Admin  
-- **WinRM errors in remote mode** → Enable remoting with:  
+* **`sqlcmd.exe` not found** → Install SQL Server Command Line Utilities and add to PATH
+* **`Get-WsusServer failed`** → Ensure WSUS Admin Console is installed and run PowerShell as Admin
+* **WinRM errors in remote mode** → Enable remoting with:
+
   ```powershell
   Enable-PSRemoting -Force
   ```
@@ -120,7 +146,7 @@ Check if the WSUS Administration assembly is installed and loadable:
 ---
 
 ## 🔒 Scheduling & Security
-- Use **Task Scheduler** or **GPO** for recurring maintenance (overnight)  
-- Centralize logs by redirecting `$LogDir` to a UNC path  
-- Always run as a **WSUS Administrator** account (least privilege recommended)
-  
+
+* Use **Task Scheduler** or **GPO** for recurring maintenance (overnight)
+* Centralize logs by redirecting `$LogDir` to a UNC path
+* Always run as a **WSUS Administrator** account (least privilege recommended)
