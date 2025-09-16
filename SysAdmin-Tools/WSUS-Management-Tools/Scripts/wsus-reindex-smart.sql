@@ -16,9 +16,9 @@ JOIN sys.indexes  AS i ON ips.object_id = i.object_id AND ips.index_id = i.index
 JOIN sys.tables   AS t ON t.object_id   = i.object_id
 JOIN sys.schemas  AS s ON s.schema_id   = t.schema_id
 WHERE i.name IS NOT NULL
-  AND ips.page_count >= 100       -- evita trabalho inútil
+  AND ips.page_count >= 100       -- avoid unnecessary work
   AND i.is_disabled = 0
-  AND i.type_desc <> 'HEAP'       -- heaps não têm REBUILD
+  AND i.type_desc <> 'HEAP'       -- heaps do not support REBUILD
 ORDER BY ips.avg_fragmentation_in_percent DESC;
 
 OPEN cur;
