@@ -86,7 +86,7 @@ Check if the WSUS Administration assembly is installed and loadable:
 - `wsus-verify-fragmentation.sql` → SUSDB fragmentation report  
 - `wsus-reindex-smart.sql` → Smart reindex logic (skip low pages, reorganize vs rebuild)  
 - `settings.json` → GUI persistence file  
-- `Logs\` → Example: `WSUS-Maintenance-20250915-095431.log`
+- `Logs\` → Example: `Maintenance-WSUS-Admin-Tool-20250915-095431.log`
 
 ---
 
