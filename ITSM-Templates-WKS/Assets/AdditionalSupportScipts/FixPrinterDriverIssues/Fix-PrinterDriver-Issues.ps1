@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Troubleshoots spooler, print queue, printers, drivers and related GPO policies.
 
@@ -30,7 +30,7 @@ if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Forc
 $logPath = Join-Path $logDir "$scriptName.log"
 
 function Write-Log {
-    param([string]$Message, [ValidateSet('INFO','WARN','ERROR')]$Level = 'INFO')
+    param([string]$Message, [ValidateSet('INFO', 'WARN', 'ERROR')]$Level = 'INFO')
     $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     Add-Content -Path $logPath -Value "[$ts] [$Level] $Message"
 }
@@ -54,8 +54,8 @@ public class Win {
 # ==== GUI BASE ====
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-function Show-Info($msg) { [System.Windows.Forms.MessageBox]::Show($msg,'Information','OK','Information') | Out-Null }
-function Show-Error($msg) { [System.Windows.Forms.MessageBox]::Show($msg,'Error','OK','Error') | Out-Null }
+function Show-Info($msg) { [System.Windows.Forms.MessageBox]::Show($msg, 'Information', 'OK', 'Information') | Out-Null }
+function Show-Error($msg) { [System.Windows.Forms.MessageBox]::Show($msg, 'Error', 'OK', 'Error') | Out-Null }
 
 # ==== SERVICES ====
 function Stop-Spooler {
@@ -134,7 +134,7 @@ function Remove-AllPrinters {
                 Write-Log "Trying to remove printer: $name"
 
                 if ($name -match "^\\\\") {
-                    rundll32 printui.dll,PrintUIEntry /dn /n "$name"
+                    rundll32 printui.dll, PrintUIEntry /dn /n "$name"
                     Start-Sleep -Milliseconds 500
                 }
 
@@ -167,36 +167,36 @@ function Remove-PrinterDrivers-Interactive {
 
         $form = New-Object Windows.Forms.Form
         $form.Text = "Remove Printer Drivers"
-        $form.Size = New-Object Drawing.Size(600,500)
+        $form.Size = New-Object Drawing.Size(600, 500)
         $form.StartPosition = 'CenterScreen'
 
         $listBox = New-Object Windows.Forms.CheckedListBox
         $listBox.Location = '10,10'
-        $listBox.Size = New-Object Drawing.Size(560,380)
+        $listBox.Size = New-Object Drawing.Size(560, 380)
         foreach ($d in $drivers) { [void]$listBox.Items.Add($d.Name) }
         $form.Controls.Add($listBox)
 
         $btnRemove = New-Object Windows.Forms.Button
         $btnRemove.Text = "Remove Selected"
-        $btnRemove.Size = New-Object Drawing.Size(180,30)
+        $btnRemove.Size = New-Object Drawing.Size(180, 30)
         $btnRemove.Location = '10,410'
         $btnRemove.Add_Click({
-            foreach ($item in $listBox.CheckedItems) {
-                try {
-                    Write-Log "Removing driver: ${item}"
-                    Remove-PrinterDriver -Name "${item}" -ErrorAction SilentlyContinue
-                } catch {
-                    Write-Log "Error removing driver ${item}: $_" "ERROR"
+                foreach ($item in $listBox.CheckedItems) {
+                    try {
+                        Write-Log "Removing driver: ${item}"
+                        Remove-PrinterDriver -Name "${item}" -ErrorAction SilentlyContinue
+                    } catch {
+                        Write-Log "Error removing driver ${item}: $_" "ERROR"
+                    }
                 }
-            }
-            Show-Info "Driver removal completed."
-            $form.Close()
-        })
+                Show-Info "Driver removal completed."
+                $form.Close()
+            })
         $form.Controls.Add($btnRemove)
 
         $btnCancel = New-Object Windows.Forms.Button
         $btnCancel.Text = "Cancel"
-        $btnCancel.Size = New-Object Drawing.Size(120,30)
+        $btnCancel.Size = New-Object Drawing.Size(120, 30)
         $btnCancel.Location = '420,410'
         $btnCancel.Add_Click({ $form.Close() })
         $form.Controls.Add($btnCancel)
@@ -234,36 +234,36 @@ $formMain.StartPosition = "CenterScreen"
 
 $btn1 = New-Object System.Windows.Forms.Button
 $btn1.Text = "1. Clear Print Queue"
-$btn1.Location = New-Object System.Drawing.Point(20,40)
-$btn1.Size = New-Object System.Drawing.Size(540,40)
+$btn1.Location = New-Object System.Drawing.Point(20, 40)
+$btn1.Size = New-Object System.Drawing.Size(540, 40)
 $btn1.Add_Click({ Clear-PrintQueue })
 $formMain.Controls.Add($btn1)
 
 $btn2 = New-Object System.Windows.Forms.Button
 $btn2.Text = "2. Fix Spooler Dependency"
-$btn2.Location = New-Object System.Drawing.Point(20,90)
-$btn2.Size = New-Object System.Drawing.Size(540,40)
+$btn2.Location = New-Object System.Drawing.Point(20, 90)
+$btn2.Size = New-Object System.Drawing.Size(540, 40)
 $btn2.Add_Click({ Reset-SpoolerDependency })
 $formMain.Controls.Add($btn2)
 
 $btn3 = New-Object System.Windows.Forms.Button
 $btn3.Text = "3. Remove All Printers"
-$btn3.Location = New-Object System.Drawing.Point(20,140)
-$btn3.Size = New-Object System.Drawing.Size(540,40)
+$btn3.Location = New-Object System.Drawing.Point(20, 140)
+$btn3.Size = New-Object System.Drawing.Size(540, 40)
 $btn3.Add_Click({ Remove-AllPrinters })
 $formMain.Controls.Add($btn3)
 
 $btn4 = New-Object System.Windows.Forms.Button
 $btn4.Text = "4. Remove Selected Drivers"
-$btn4.Location = New-Object System.Drawing.Point(20,190)
-$btn4.Size = New-Object System.Drawing.Size(540,40)
+$btn4.Location = New-Object System.Drawing.Point(20, 190)
+$btn4.Size = New-Object System.Drawing.Size(540, 40)
 $btn4.Add_Click({ Remove-PrinterDrivers-Interactive })
 $formMain.Controls.Add($btn4)
 
 $btn5 = New-Object System.Windows.Forms.Button
 $btn5.Text = "5. Reset Printer Policies (PointAndPrint)"
-$btn5.Location = New-Object System.Drawing.Point(20,240)
-$btn5.Size = New-Object System.Drawing.Size(540,40)
+$btn5.Location = New-Object System.Drawing.Point(20, 240)
+$btn5.Size = New-Object System.Drawing.Size(540, 40)
 $btn5.Add_Click({ Reset-PrinterPolicies })
 $formMain.Controls.Add($btn5)
 
