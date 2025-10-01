@@ -1,184 +1,273 @@
-﻿<#
+<#
 .SYNOPSIS
-    GUI Tool to Clear Print Queue, Reset Spooler, and Remove Printer Drivers.
+    Troubleshoots spooler, print queue, printers, drivers and related GPO policies.
 
 .DESCRIPTION
-    - Method 1: Clear print queue
-    - Method 2: Reset spooler dependency
-    - Method 3: List/remove installed printer drivers
-    - Includes GUI feedback and ANSI log output
+    This script performs several actions to restore proper printing system functionality:
+    - Clears the print queue
+    - Fixes the Print Spooler service dependency (RPCSS)
+    - Removes installed printers (local or network)
+    - Provides GUI for selective driver removal
+    - Resets printer policies (PointAndPrint) and forces gpupdate
+    - Generates a full log at C:\Logs-TEMP
+    - Suitable for Startup GPO or technical support use
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy
+     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    1.3.1 - June 20, 2025
+    Last update: 2025-10-01
 #>
 
-# Hide console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0);
-    }
-}
-"@
-[Window]::Hide()
+#Requires -RunAsAdministrator
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-# Load GUI libraries
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Setup log path
+# ==== LOGGING ====
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = "C:\ITSM-Logs-WKS"
+$logDir = 'C:\Logs-TEMP'
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
 $logPath = Join-Path $logDir "$scriptName.log"
-if (-not (Test-Path $logDir)) {
-    New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-}
 
 function Write-Log {
-    param ([string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $logPath -Value "[$timestamp] $Message" -Encoding Default
+    param([string]$Message, [ValidateSet('INFO','WARN','ERROR')]$Level = 'INFO')
+    $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $logPath -Value "[$ts] [$Level] $Message"
 }
 
-function Show-Error {
-    param([string]$msg)
-    Write-Log "ERROR: $msg"
-    [System.Windows.Forms.MessageBox]::Show($msg, "Error", 'OK', 'Error')
+Write-Log "==== Session started ===="
+
+# ==== HIDE CONSOLE ====
+try {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win {
+  [DllImport("kernel32.dll")] static extern IntPtr GetConsoleWindow();
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  public static void Hide() { ShowWindow(GetConsoleWindow(), 0); }
+}
+"@
+    [Win]::Hide()
+} catch {}
+
+# ==== GUI BASE ====
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+function Show-Info($msg) { [System.Windows.Forms.MessageBox]::Show($msg,'Information','OK','Information') | Out-Null }
+function Show-Error($msg) { [System.Windows.Forms.MessageBox]::Show($msg,'Error','OK','Error') | Out-Null }
+
+# ==== SERVICES ====
+function Stop-Spooler {
+    try {
+        Stop-Service -Name Spooler -Force -ErrorAction Stop
+        Write-Log "Print Spooler stopped successfully."
+    } catch {
+        Write-Log "Failed to stop Print Spooler: $_" 'ERROR'
+    }
+}
+function Start-Spooler {
+    try {
+        Start-Service -Name Spooler -ErrorAction Stop
+        Write-Log "Print Spooler started successfully."
+    } catch {
+        Write-Log "Failed to start Print Spooler: $_" 'ERROR'
+    }
+}
+function Ensure-Spooler {
+    try {
+        $svc = Get-Service -Name Spooler -ErrorAction Stop
+        if ($svc.Status -ne 'Running') {
+            Start-Spooler
+            Start-Sleep -Seconds 2
+        }
+    } catch {
+        Write-Log "Failed to ensure Print Spooler: $_" 'ERROR'
+    }
 }
 
-# Method 1
+# ==== CLEAR PRINT QUEUE ====
 function Clear-PrintQueue {
-    $statusLabel.Text = "Clearing print queue..."
-    $form.Refresh()
-    Write-Log "Clearing print queue..."
     try {
-        Stop-Service spooler -Force
-        Remove-Item "$env:SystemRoot\System32\spool\PRINTERS\*" -Force -Recurse
-        Start-Service spooler
-        Write-Log "Print queue cleared."
-        [System.Windows.Forms.MessageBox]::Show("Print queue cleared.", "Success", 'OK', 'Information')
+        Stop-Spooler
+        $path = "$env:SystemRoot\System32\spool\PRINTERS\*"
+        if (Test-Path $path) {
+            Remove-Item $path -Force -Recurse -ErrorAction SilentlyContinue
+            Write-Log "Print queue files deleted."
+        }
+        Start-Spooler
+        Show-Info "Print queue successfully cleared."
     } catch {
-        Show-Error "Failed to clear print queue: ${_}"
+        Write-Log "Error while clearing queue: $_" 'ERROR'
+        Show-Error "Error clearing print queue.`n$_"
     }
-    $statusLabel.Text = ""
 }
 
-# Method 2
+# ==== FIX SPOOLER DEPENDENCY ====
 function Reset-SpoolerDependency {
-    $statusLabel.Text = "Resetting spooler dependency..."
-    $form.Refresh()
-    Write-Log "Resetting spooler dependency..."
     try {
-        Stop-Service spooler -Force
+        Stop-Spooler
         sc.exe config spooler depend= RPCSS | Out-Null
-        Start-Service spooler
-        Write-Log "Spooler dependency reset."
-        [System.Windows.Forms.MessageBox]::Show("Spooler dependency reset.", "Success", 'OK', 'Information')
+        Start-Spooler
+        Write-Log "Spooler dependency reset successfully."
+        Show-Info "Spooler dependency has been reset."
     } catch {
-        Show-Error "Failed to reset spooler dependency: ${_}"
+        Write-Log "Error resetting dependency: $_" 'ERROR'
+        Show-Error "Error resetting spooler dependency.`n$_"
     }
-    $statusLabel.Text = ""
 }
 
-# Method 3
-function Remove-PrinterDrivers {
-    Write-Log "Listing installed printer drivers..."
-    $drivers = Get-PrinterDriver | Select-Object -ExpandProperty Name
-    if (-not $drivers) {
-        [System.Windows.Forms.MessageBox]::Show("No printer drivers found.", "Info", 'OK', 'Information')
-        return
+# ==== REMOVE ALL PRINTERS ====
+function Remove-AllPrinters {
+    try {
+        Ensure-Spooler
+        $printers = Get-CimInstance -Class Win32_Printer
+
+        if (-not $printers) {
+            Show-Info "No printers found."
+            return
+        }
+
+        foreach ($printer in $printers) {
+            $name = $printer.Name
+            try {
+                Write-Log "Trying to remove printer: $name"
+
+                if ($name -match "^\\\\") {
+                    rundll32 printui.dll,PrintUIEntry /dn /n "$name"
+                    Start-Sleep -Milliseconds 500
+                }
+
+                Remove-Printer -Name "$name" -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 500
+
+                $stillExists = Get-CimInstance -Class Win32_Printer -Filter "Name='$name'" -ErrorAction SilentlyContinue
+                if ($null -eq $stillExists) {
+                    Write-Log "Printer removed: $name"
+                } else {
+                    Write-Log "Printer still present after removal attempt: $name" 'WARN'
+                }
+            } catch {
+                Write-Log "Error removing printer ${name}: $_" 'ERROR'
+            }
+        }
+        Show-Info "Printer removal completed. Check the log for details."
+    } catch {
+        Write-Log "General failure removing printers: $_" 'ERROR'
+        Show-Error "Error removing printers.`n$_"
     }
+}
 
-    $formDrivers = New-Object System.Windows.Forms.Form
-    $formDrivers.Text = "Remove Printer Drivers"
-    $formDrivers.Size = New-Object System.Drawing.Size(400, 420)
-    $formDrivers.StartPosition = 'CenterScreen'
-    $formDrivers.TopMost = $true
+# ==== REMOVE DRIVERS ====
+function Remove-PrinterDrivers-Interactive {
+    try {
+        Ensure-Spooler
+        $drivers = Get-PrinterDriver | Sort-Object Name
+        if (-not $drivers) { Show-Info "No printer drivers found."; return }
 
-    $listBox = New-Object System.Windows.Forms.CheckedListBox
-    $listBox.Location = '20,20'
-    $listBox.Size = '340,280'
-    $drivers | ForEach-Object { $listBox.Items.Add($_) }
-    $formDrivers.Controls.Add($listBox)
+        $form = New-Object Windows.Forms.Form
+        $form.Text = "Remove Printer Drivers"
+        $form.Size = New-Object Drawing.Size(600,500)
+        $form.StartPosition = 'CenterScreen'
 
-    $btnRemove = New-Object System.Windows.Forms.Button
-    $btnRemove.Text = "Remove Selected"
-    $btnRemove.Location = '120,320'
-    $btnRemove.Size = '140,40'
-    $btnRemove.Add_Click({
+        $listBox = New-Object Windows.Forms.CheckedListBox
+        $listBox.Location = '10,10'
+        $listBox.Size = New-Object Drawing.Size(560,380)
+        foreach ($d in $drivers) { [void]$listBox.Items.Add($d.Name) }
+        $form.Controls.Add($listBox)
+
+        $btnRemove = New-Object Windows.Forms.Button
+        $btnRemove.Text = "Remove Selected"
+        $btnRemove.Size = New-Object Drawing.Size(180,30)
+        $btnRemove.Location = '10,410'
+        $btnRemove.Add_Click({
             foreach ($item in $listBox.CheckedItems) {
                 try {
-                    Remove-PrinterDriver -Name $item -ErrorAction Stop
-                    Write-Log "Removed driver: ${item}"
+                    Write-Log "Removing driver: ${item}"
+                    Remove-PrinterDriver -Name "${item}" -ErrorAction SilentlyContinue
                 } catch {
-                    Show-Error "Failed to remove ${item}: ${_}"
+                    Write-Log "Error removing driver ${item}: $_" "ERROR"
                 }
             }
-            [System.Windows.Forms.MessageBox]::Show("Selected drivers removed.", "Done", 'OK', 'Information')
-            $formDrivers.Close()
+            Show-Info "Driver removal completed."
+            $form.Close()
         })
-    $formDrivers.Controls.Add($btnRemove)
+        $form.Controls.Add($btnRemove)
 
-    $form.TopMost = $false
-    $form.Enabled = $false
-    $formDrivers.ShowDialog() | Out-Null
-    $form.Enabled = $true
-    $form.TopMost = $true
-    $form.Activate()
+        $btnCancel = New-Object Windows.Forms.Button
+        $btnCancel.Text = "Cancel"
+        $btnCancel.Size = New-Object Drawing.Size(120,30)
+        $btnCancel.Location = '420,410'
+        $btnCancel.Add_Click({ $form.Close() })
+        $form.Controls.Add($btnCancel)
+
+        [void]$form.ShowDialog()
+    } catch {
+        Write-Log "Error in driver interface: $_" 'ERROR'
+        Show-Error "Error loading driver interface.`n$_"
+    }
 }
 
-# Main GUI
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Printer Troubleshooting Tool"
-$form.Size = '400,280'
-$form.StartPosition = 'CenterScreen'
-$form.TopMost = $true
+# ==== RESET PRINTER POLICIES ====
+function Reset-PrinterPolicies {
+    try {
+        Write-Log "Deleting PointAndPrint policy key..."
+        reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" /f | Out-Null
+        Write-Log "PointAndPrint policy key deleted."
 
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Choose an option:"
-$label.Location = '20,20'
-$label.Size = '340,20'
-$form.Controls.Add($label)
+        Write-Log "Running gpupdate /force (silent)..."
+        $gpOut = & gpupdate /force /target:computer 2>&1
+        Write-Log "gpupdate output:`n$gpOut"
 
-$btnClear = New-Object System.Windows.Forms.Button
-$btnClear.Text = "1. Clear Print Queue"
-$btnClear.Location = '50,50'
-$btnClear.Size = '300,40'
-$btnClear.Add_Click({ Clear-PrintQueue })
-$form.Controls.Add($btnClear)
+        Show-Info "Printer policies have been reset and GPO updated."
+    } catch {
+        Write-Log "Error resetting printer policies: $_" 'ERROR'
+        Show-Error "Error resetting printer policies.`n$_"
+    }
+}
 
-$btnReset = New-Object System.Windows.Forms.Button
-$btnReset.Text = "2. Reset Spooler Dependency"
-$btnReset.Location = '50,100'
-$btnReset.Size = '300,40'
-$btnReset.Add_Click({ Reset-SpoolerDependency })
-$form.Controls.Add($btnReset)
+# ==== MAIN GUI ====
+$formMain = New-Object System.Windows.Forms.Form
+$formMain.Text = "Printing Troubleshooter"
+$formMain.Size = New-Object System.Drawing.Size(600, 380)
+$formMain.StartPosition = "CenterScreen"
 
-$btnRemove = New-Object System.Windows.Forms.Button
-$btnRemove.Text = "3. Remove Printer Drivers"
-$btnRemove.Location = '50,150'
-$btnRemove.Size = '300,40'
-$btnRemove.Add_Click({ Remove-PrinterDrivers })
-$form.Controls.Add($btnRemove)
+$btn1 = New-Object System.Windows.Forms.Button
+$btn1.Text = "1. Clear Print Queue"
+$btn1.Location = New-Object System.Drawing.Point(20,40)
+$btn1.Size = New-Object System.Drawing.Size(540,40)
+$btn1.Add_Click({ Clear-PrintQueue })
+$formMain.Controls.Add($btn1)
 
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = ""
-$statusLabel.Location = '20,210'
-$statusLabel.Size = '340,20'
-$form.Controls.Add($statusLabel)
+$btn2 = New-Object System.Windows.Forms.Button
+$btn2.Text = "2. Fix Spooler Dependency"
+$btn2.Location = New-Object System.Drawing.Point(20,90)
+$btn2.Size = New-Object System.Drawing.Size(540,40)
+$btn2.Add_Click({ Reset-SpoolerDependency })
+$formMain.Controls.Add($btn2)
 
-$form.ShowDialog() | Out-Null
-Write-Log "Printer Troubleshooting Tool session ended."
+$btn3 = New-Object System.Windows.Forms.Button
+$btn3.Text = "3. Remove All Printers"
+$btn3.Location = New-Object System.Drawing.Point(20,140)
+$btn3.Size = New-Object System.Drawing.Size(540,40)
+$btn3.Add_Click({ Remove-AllPrinters })
+$formMain.Controls.Add($btn3)
 
-# End of script
+$btn4 = New-Object System.Windows.Forms.Button
+$btn4.Text = "4. Remove Selected Drivers"
+$btn4.Location = New-Object System.Drawing.Point(20,190)
+$btn4.Size = New-Object System.Drawing.Size(540,40)
+$btn4.Add_Click({ Remove-PrinterDrivers-Interactive })
+$formMain.Controls.Add($btn4)
+
+$btn5 = New-Object System.Windows.Forms.Button
+$btn5.Text = "5. Reset Printer Policies (PointAndPrint)"
+$btn5.Location = New-Object System.Drawing.Point(20,240)
+$btn5.Size = New-Object System.Drawing.Size(540,40)
+$btn5.Add_Click({ Reset-PrinterPolicies })
+$formMain.Controls.Add($btn5)
+
+$formMain.Add_FormClosing({ Write-Log "==== Session ended ====" })
+[void]$formMain.ShowDialog()
+
+# ==== END OF SCRIPT ====
