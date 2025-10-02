@@ -1,87 +1,92 @@
-﻿<#
+<#
 .SYNOPSIS
-    PowerShell Script for Broadcasting Logon Messages via GPO.
+    Post-logon script to display a standard message via an HTA file.
 
 .DESCRIPTION
-    This script displays customizable warning messages to users upon login via Group Policy, 
-    enabling broad communication in managed environments and enhancing organizational messaging.
+    - Executes the .HTA using mshta.exe so it does not depend on the system's file handler.
+    - Writes execution logs to C:\Scripts-LOGS (one log file per script).
+    - Designed to run as a User Logon Script via Group Policy.
+    - Runs mshta in a hidden window to avoid flashing a console for users.
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy
+    Luiz Hamilton Silva - @brazilianscriptguy (adapted & generalized)
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: 2025-10-02
 #>
 
-# Enhanced error handling
+param (
+    [string]$messagePath = "\\forest-logonserver\NETLOGON\broadcast-logonmessage\Broadcast-UserLogonMessageViaGPO.hta"
+)
+
+# Fail quietly by default (caller environment controlled)
 $ErrorActionPreference = "SilentlyContinue"
 
-# Define the log path for recording execution details
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "BroadcastUserLogonMessage.log"
-$logPath = Join-Path $logDir $logFileName
-
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
-    }
+# --- Hide the console window ---
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
+"@
+try {
+    $consolePtr = [Win32]::GetConsoleWindow()
+    # 0 = SW_HIDE
+    [Win32]::ShowWindow($consolePtr, 0) | Out-Null
+} catch {
+    # If hiding fails, continue but log the condition below (if logging is available)
+}
+# ---------------------------------
 
-# Enhanced logging function
+# Prepare logging
+$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir      = "C:\Scripts-LOGS"
+$logFileName = "${scriptName}.log"
+$logPath     = Join-Path $logDir $logFileName
+
 function Log-Message {
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-        [Parameter(Mandatory = $false)]
-        [string]$MessageType = "INFO"
+        [Parameter(Mandatory = $true)][string]$Message,
+        [string]$Severity = "INFO"
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
     try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
+        if (-not (Test-Path $logDir)) {
+            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+        }
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $entry = "[$timestamp] [$Severity] $Message"
+        Add-Content -Path $logPath -Value $entry -ErrorAction Stop
     } catch {
-        Write-Error "Failed to write to log: $_"
+        # If logging fails, we cannot do much in a hidden logon script; swallow to avoid blocking logon
     }
 }
 
-# Function to display the post-logon message
-function Display-LogonMessage {
-    param (
-        [string]$messageFilePath
-    )
+# Start
+Log-Message "Script started. Target HTA: $messagePath"
 
+# Validate the HTA path and run it via mshta.exe
+if (Test-Path $messagePath -PathType Leaf) {
+    Log-Message "HTA file found at: $messagePath"
     try {
-        # Check if the logon message file exists
-        if (Test-Path $messageFilePath -PathType Leaf) {
-            Log-Message "Message file found at: $messageFilePath. Executing the script."
-
-            # Create a shell object to run the Windows Script Host
-            $shell = New-Object -ComObject WScript.Shell
-
-            # Execute the message file in a hidden window
-            $exitCode = $shell.Run($messageFilePath, 0, $true)
-
-            # Log the success or failure of the execution
-            if ($exitCode -eq 0) {
-                Log-Message "Post-logon message executed successfully."
-            } else {
-                Log-Message "Post-logon message execution failed with exit code: $exitCode" -MessageType "ERROR"
-            }
+        $mshta = Join-Path $env:windir "System32\mshta.exe"
+        if (-not (Test-Path $mshta)) {
+            Log-Message "mshta.exe not found at expected location: $mshta" "ERROR"
         } else {
-            Log-Message "Post-logon message file not found at: $messageFilePath" -MessageType "ERROR"
+            # Use Start-Process to launch mshta.exe with the HTA file; run hidden
+            $args = "`"$messagePath`""
+            Start-Process -FilePath $mshta -ArgumentList $args -WindowStyle Hidden -NoNewWindow
+            Log-Message "mshta.exe launched (hidden) for: $messagePath"
         }
     } catch {
-        Log-Message "An error occurred while attempting to execute the post-logon message: $_" -MessageType "ERROR"
+        Log-Message "Error launching mshta.exe for HTA: $_" "ERROR"
     }
+} else {
+    Log-Message "HTA file not found at: $messagePath" "ERROR"
 }
 
-# Define the path to the post-logon message file located on the network share
-$messagePath = "\\forest-logonserver-name\netlogon\broadcast-logonmessage\Broadcast-UserLogonMessageViaGPO.hta"
+Log-Message "Script finished."
+exit 0
 
-# Execute the logon message display
-Display-LogonMessage -messageFilePath $messagePath
-
-# End of the script
+# End of script
