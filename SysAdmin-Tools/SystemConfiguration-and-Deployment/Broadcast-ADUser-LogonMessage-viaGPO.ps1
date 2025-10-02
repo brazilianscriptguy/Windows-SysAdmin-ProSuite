@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Post-logon script to display a standard message via an HTA file.
 
@@ -41,10 +41,10 @@ try {
 # ---------------------------------
 
 # Prepare logging
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir      = "C:\Scripts-LOGS"
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir = "C:\Scripts-LOGS"
 $logFileName = "${scriptName}.log"
-$logPath     = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir $logFileName
 
 function Log-Message {
     param (
