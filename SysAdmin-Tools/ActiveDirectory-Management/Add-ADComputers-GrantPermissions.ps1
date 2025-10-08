@@ -5,7 +5,7 @@
 .DESCRIPTION
     This script automates the process of adding workstations to specific Organizational Units (OUs) 
     in Active Directory and assigns the necessary permissions for workstations to join the domain, 
-    streamlining domain management. TEST
+    streamlining domain management.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
