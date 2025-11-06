@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Moves all Windows Event Log (.evtx) files from the default folder to a new target folder and updates registry paths.
 
@@ -66,10 +66,10 @@ if (-not (Test-Administrator)) {
 }
 
 # --- Logging ---
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir      = 'C:\Logs-TEMP'
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir = 'C:\Logs-TEMP'
 $logFileName = "${scriptName}_$(Get-Date -Format 'yyyyMMddHHmmss').log"
-$logPath     = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir $logFileName
 if (-not (Test-Path $logDir)) {
     try { New-Item -Path $logDir -ItemType Directory -Force | Out-Null } catch { Write-Error "Failed to create log directory: $logDir"; exit }
 }
@@ -77,7 +77,7 @@ function Write-Log {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)][string]$Message,
-        [Parameter()][ValidateSet('INFO','WARN','ERROR')] [string]$Level = 'INFO'
+        [Parameter()][ValidateSet('INFO', 'WARN', 'ERROR')] [string]$Level = 'INFO'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
@@ -97,27 +97,27 @@ $DefaultLogsFolder = "$env:SystemRoot\System32\winevt\Logs"
 
 function Get-SafeName {
     param([Parameter(Mandatory)][string]$Name)
-    $n = $Name -replace '%4','-'
+    $n = $Name -replace '%4', '-'
     $invalid = ([IO.Path]::GetInvalidFileNameChars() + [IO.Path]::GetInvalidPathChars()) | Sort-Object -Unique
-    foreach($c in $invalid){ $n = $n -replace [Regex]::Escape([string]$c), '-' }
-    $n = ($n -replace '[\s\-]+','-').Trim().Trim('.').Trim('-')
-    if([string]::IsNullOrWhiteSpace($n)){ $n = 'Log' }
+    foreach ($c in $invalid) { $n = $n -replace [Regex]::Escape([string]$c), '-' }
+    $n = ($n -replace '[\s\-]+', '-').Trim().Trim('.').Trim('-')
+    if ([string]::IsNullOrWhiteSpace($n)) { $n = 'Log' }
     return $n
 }
 
 function Files-Differ {
-    param([Parameter(Mandatory)][string]$A,[Parameter(Mandatory)][string]$B)
+    param([Parameter(Mandatory)][string]$A, [Parameter(Mandatory)][string]$B)
     try {
         $fa = Get-Item -LiteralPath $A -ErrorAction Stop
         $fb = Get-Item -LiteralPath $B -ErrorAction Stop
-        if($fa.Length -ne $fb.Length){ return $true }
-        if([Math]::Abs(($fa.LastWriteTimeUtc - $fb.LastWriteTimeUtc).TotalSeconds) -gt 2){ return $true }
+        if ($fa.Length -ne $fb.Length) { return $true }
+        if ([Math]::Abs(($fa.LastWriteTimeUtc - $fb.LastWriteTimeUtc).TotalSeconds) -gt 2) { return $true }
         return $false
     } catch { return $true }
 }
 
 function New-UniqueArchiveName {
-    param([Parameter(Mandatory)][string]$Dir,[Parameter(Mandatory)][string]$Base)
+    param([Parameter(Mandatory)][string]$Dir, [Parameter(Mandatory)][string]$Base)
     do {
         $stamp = Get-Date -Format 'yyyyMMddHHmmssfff'
         $candidate = Join-Path $Dir ("{0}_{1}.evtx" -f $Base, $stamp)
@@ -146,7 +146,7 @@ function Snapshot-ServiceState {
 
 function Restore-ServiceState {
     foreach ($kvp in $Global:ServiceState.GetEnumerator()) {
-        $name  = $kvp.Key
+        $name = $kvp.Key
         $state = $kvp.Value
         try {
             $svc = Get-Service -Name $name -ErrorAction Stop
@@ -270,15 +270,15 @@ function Move-EventLogs {
     }
 
     # Initialize the progress bar on the UI thread.
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Minimum = 0 })
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Maximum = $logFiles.Count })
-    $ProgressBar.Invoke([System.Action]{ $ProgressBar.Value   = 0 })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Minimum = 0 })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Maximum = $logFiles.Count })
+    $ProgressBar.Invoke([System.Action] { $ProgressBar.Value = 0 })
     $i = 0
 
     foreach ($logFile in $logFiles) {
         try {
             # Sanitize folder and active filename: <Target>\<Base>\<Base>.evtx
-            $baseName   = Get-SafeName -Name $logFile.BaseName
+            $baseName = Get-SafeName -Name $logFile.BaseName
             $targetPath = Join-Path -Path $TargetFolder -ChildPath $baseName
 
             # If the folder does not exist, create it and apply ACL from original logs folder.
@@ -308,7 +308,7 @@ function Move-EventLogs {
                         Write-Log -Message "Archived previous active: $destinationFile -> $archive" -Level "INFO"
                     } catch {
                         Write-Log -Message "Failed to archive existing destination (locked?): $destinationFile. Skipping this log." -Level "WARN"
-                        $i++; $ProgressBar.Invoke([System.Action]{ $ProgressBar.Value = [Math]::Min($i, $logFiles.Count) }); continue
+                        $i++; $ProgressBar.Invoke([System.Action] { $ProgressBar.Value = [Math]::Min($i, $logFiles.Count) }); continue
                     }
                 } else {
                     Write-Log -Message "Active up-to-date: $destinationFile" -Level "INFO"
@@ -332,7 +332,7 @@ function Move-EventLogs {
         }
         finally {
             $i++
-            $ProgressBar.Invoke([System.Action]{ $ProgressBar.Value = [Math]::Min($i, $logFiles.Count) })
+            $ProgressBar.Invoke([System.Action] { $ProgressBar.Value = [Math]::Min($i, $logFiles.Count) })
         }
     }
 
@@ -352,7 +352,7 @@ function Update-RegistryPaths {
             if ($fileProp -ne $null) {
                 $logName = $subKey.PSChildName
                 # Build the new file location: <NewPath>\<logName>\<logName>.evtx
-                $sanLog   = Get-SafeName -Name $logName
+                $sanLog = Get-SafeName -Name $logName
                 $newFolderPath = Join-Path -Path $NewPath -ChildPath $sanLog
                 $newLogFilePath = Join-Path -Path $newFolderPath -ChildPath ("{0}.evtx" -f $sanLog)
 
@@ -421,32 +421,32 @@ function Setup-GUI {
     $form.Controls.Add($buttonClose)
 
     $buttonMove.Add_Click({
-        $targetFolder = $textBox.Text.Trim()
-        if ([string]::IsNullOrWhiteSpace($targetFolder)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
-            Write-Log -Message "Error: Target root folder not entered." -Level "ERROR"
-            return
-        }
-        try {
-            $statusLabel.Text = "Stopping services (EventLog, dependents, DHCP)..."
-            Stop-For-Migration
+            $targetFolder = $textBox.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($targetFolder)) {
+                [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+                Write-Log -Message "Error: Target root folder not entered." -Level "ERROR"
+                return
+            }
+            try {
+                $statusLabel.Text = "Stopping services (EventLog, dependents, DHCP)..."
+                Stop-For-Migration
 
-            $statusLabel.Text = "Moving .evtx files..."
-            Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
+                $statusLabel.Text = "Moving .evtx files..."
+                Move-EventLogs -TargetFolder $targetFolder -ProgressBar $progressBar
 
-            $statusLabel.Text = "Updating registry (classic logs)..."
-            Update-RegistryPaths -NewPath $targetFolder
+                $statusLabel.Text = "Updating registry (classic logs)..."
+                Update-RegistryPaths -NewPath $targetFolder
 
-            $statusLabel.Text = "Restoring services..."
-            Start-After-Migration
+                $statusLabel.Text = "Restoring services..."
+                Start-After-Migration
 
-            # Ensure progress shows 100%
-            $progressBar.Value = $progressBar.Maximum
+                # Ensure progress shows 100%
+                $progressBar.Value = $progressBar.Maximum
 
-            $buttonMove.Enabled = $false
-            $buttonClose.Enabled = $true
+                $buttonMove.Enabled = $false
+                $buttonClose.Enabled = $true
 
-            $finalMsg = @"
+                $finalMsg = @"
 Event logs have been moved to:
   $targetFolder
 
@@ -464,15 +464,15 @@ A reboot may be required for all changes to take effect.
     • Event log paths are valid and writable
     • 'L:\DHCP Server\' and 'L:\DHCP Server\Backup\' remain intact
 "@
-            [System.Windows.Forms.MessageBox]::Show($finalMsg, "Migration Completed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
-            $statusLabel.Text = "Completed. You may close this window."
-            Write-Log -Message "Process finished with exit code 0. Target: $targetFolder" -Level "INFO"
-            Write-Log -Message "DHCP Server requires validation after migration (status, leases, reservations, log paths)." -Level "WARN"
-        }
-        catch {
-            Handle-Error -Message "An error occurred during the log moving process." -Exception $_
-        }
-    })
+                [System.Windows.Forms.MessageBox]::Show($finalMsg, "Migration Completed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+                $statusLabel.Text = "Completed. You may close this window."
+                Write-Log -Message "Process finished with exit code 0. Target: $targetFolder" -Level "INFO"
+                Write-Log -Message "DHCP Server requires validation after migration (status, leases, reservations, log paths)." -Level "WARN"
+            }
+            catch {
+                Handle-Error -Message "An error occurred during the log moving process." -Exception $_
+            }
+        })
     
     $form.ShowDialog() | Out-Null
 }
