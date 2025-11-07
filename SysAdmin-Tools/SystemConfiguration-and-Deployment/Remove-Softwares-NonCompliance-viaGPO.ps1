@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Script to remove obsolete or non-compliant software packages installed on workstations.
 
@@ -20,33 +20,33 @@
 param(
     [string[]]$SoftwareNames = @(
         # Adware & PUAs
-        "Amazon Music","CCleaner","Glary Utilities","Driver Booster","Reimage Repair","SlimCleaner","glpi agent 1.11",
-        "Advanced SystemCare","Unchecky","Ask Toolbar","Yahoo Toolbar","Bing Toolbar","WebDiscover Browser",
+        "Amazon Music", "CCleaner", "Glary Utilities", "Driver Booster", "Reimage Repair", "SlimCleaner", "glpi agent 1.11",
+        "Advanced SystemCare", "Unchecky", "Ask Toolbar", "Yahoo Toolbar", "Bing Toolbar", "WebDiscover Browser",
 
         # Unauthorized browsers & extensions
-        "Perplexity AI Comet","perplexity.ai/comet",
-        "OpenAI Atlas Browser","openai atlas",
-        "Comet Browser","Atlas Browser",
+        "Perplexity AI Comet", "perplexity.ai/comet",
+        "OpenAI Atlas Browser", "openai atlas",
+        "Comet Browser", "Atlas Browser",
 
         # Games & Entertainment
-        "Bubble Witch","Candy Crush","Checkers Deluxe","Circle Empires","Crosswords","Gardenscapes",
-        "Damas Pro","Souldiers","Solitaire","Among Us","Minecraft","Fortnite","League of Legends",
-        "Roblox","World of Warcraft","Genshin Impact","PUBG","StarCraft","SupremaPoker","GGPoker","Wandering",
+        "Bubble Witch", "Candy Crush", "Checkers Deluxe", "Circle Empires", "Crosswords", "Gardenscapes",
+        "Damas Pro", "Souldiers", "Solitaire", "Among Us", "Minecraft", "Fortnite", "League of Legends",
+        "Roblox", "World of Warcraft", "Genshin Impact", "PUBG", "StarCraft", "SupremaPoker", "GGPoker", "Wandering",
 
         # Streaming & Media
-        "Deezer","Spotify","Disney","Netflix","Prime Video","Hulu","Vudu","Crackle","HBO Max",
-        "Crunchyroll","Groove Music","TikTok","Kodi","Plex",
+        "Deezer", "Spotify", "Disney", "Netflix", "Prime Video", "Hulu", "Vudu", "Crackle", "HBO Max",
+        "Crunchyroll", "Groove Music", "TikTok", "Kodi", "Plex",
 
         # VPNs, Proxies & File Sharing
-        "Hotspot","Infatica","OpenVPN","WireGuard","ZeroTier","uTorrent","BitTorrent","FrostWire",
-        "eMule","Shareaza","Ares Galaxy","LimeWire","Psiphon","Hotspot Shield","ProtonVPN","ExpressVPN",
-        "Surfshark","NordVPN","Private Internet Access",
+        "Hotspot", "Infatica", "OpenVPN", "WireGuard", "ZeroTier", "uTorrent", "BitTorrent", "FrostWire",
+        "eMule", "Shareaza", "Ares Galaxy", "LimeWire", "Psiphon", "Hotspot Shield", "ProtonVPN", "ExpressVPN",
+        "Surfshark", "NordVPN", "Private Internet Access",
 
         # Hacking / Unauthorized Tools
-        "Cheat Engine","Cain & Abel","John the Ripper","Hydra","Aircrack-ng",
+        "Cheat Engine", "Cain & Abel", "John the Ripper", "Hydra", "Aircrack-ng",
 
         # Conflicting Antivirus / Security
-        "avast","avg","McAfee","Avira","Trend Micro","Comodo Antivirus","ESET NOD32",
+        "avast", "avg", "McAfee", "Avira", "Trend Micro", "Comodo Antivirus", "ESET NOD32",
 
         # Unauthorized / Obsolete Office Software
         "broffice"
@@ -74,8 +74,8 @@ $logFile = Join-Path $LogDir ("{0}.log" -f $scriptName)
 function Log-Message {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$Message,
-        [ValidateSet('INFO','WARNING','ERROR','DEBUG')]
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('INFO', 'WARNING', 'ERROR', 'DEBUG')]
         [string]$Level = 'INFO'
     )
     $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -102,27 +102,27 @@ function Get-NormalizedVersion {
 
 function Split-UninstallString {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)][string]$UninstallString)
+    param([Parameter(Mandatory = $true)][string]$UninstallString)
     $u = $UninstallString.Trim()
-    if     ($u -match '^\s*"(.*?)"\s*(.*)$') { return [pscustomobject]@{ Executable=$matches[1]; Arguments=$matches[2].Trim() } }
-    elseif ($u -match '^\s*([^\s]+)\s*(.*)$') { return [pscustomobject]@{ Executable=$matches[1]; Arguments=$matches[2].Trim() } }
-    else { return [pscustomobject]@{ Executable=$u; Arguments='' } }
+    if ($u -match '^\s*"(.*?)"\s*(.*)$') { return [pscustomobject]@{ Executable = $matches[1]; Arguments = $matches[2].Trim() } }
+    elseif ($u -match '^\s*([^\s]+)\s*(.*)$') { return [pscustomobject]@{ Executable = $matches[1]; Arguments = $matches[2].Trim() } }
+    else { return [pscustomobject]@{ Executable = $u; Arguments = '' } }
 }
 
 function Invoke-CommandWithTimeout {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)][string]$CommandLine,[int]$TimeoutSec=300)
+    param([Parameter(Mandatory = $true)][string]$CommandLine, [int]$TimeoutSec = 300)
     try {
         $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList "/c $CommandLine" -WindowStyle Hidden -PassThru
-        if (-not $proc.WaitForExit($TimeoutSec * 1000)) { try { $proc.Kill() } catch { } ; return @{ ExitCode=-1; TimedOut=$true } }
-        return @{ ExitCode=[int]$proc.ExitCode; TimedOut=$false }
-    } catch { return @{ ExitCode=-2; TimedOut=$false } }
+        if (-not $proc.WaitForExit($TimeoutSec * 1000)) { try { $proc.Kill() } catch { } ; return @{ ExitCode = -1; TimedOut = $true } }
+        return @{ ExitCode = [int]$proc.ExitCode; TimedOut = $false }
+    } catch { return @{ ExitCode = -2; TimedOut = $false } }
 }
 
 # ---------- Silent EXE auto-detection + MSI support ----------
 function Get-WorkingSilentUninstallCommand {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)][string]$UninstallString)
+    param([Parameter(Mandatory = $true)][string]$UninstallString)
 
     $un = Split-UninstallString -UninstallString $UninstallString
     $exe = $un.Executable
@@ -131,12 +131,12 @@ function Get-WorkingSilentUninstallCommand {
     if ($exe -match '(?i)msiexec(\.exe)?$') {
         if ($UninstallString -match '(\{[0-9A-Fa-f\-]{36}\})') {
             $guid = $matches[1]
-            return [pscustomobject]@{ Command="msiexec.exe /x $guid /qn /norestart"; ParmsUsed="/x $guid /qn /norestart"; IsMSI=$true; Executed=$false }
+            return [pscustomobject]@{ Command = "msiexec.exe /x $guid /qn /norestart"; ParmsUsed = "/x $guid /qn /norestart"; IsMSI = $true; Executed = $false }
         } else {
             $cmd = $UninstallString
-            if ($cmd -notmatch '(?i)/q')      { $cmd += ' /qn' }
+            if ($cmd -notmatch '(?i)/q') { $cmd += ' /qn' }
             if ($cmd -notmatch '(?i)restart') { $cmd += ' /norestart' }
-            return [pscustomobject]@{ Command=$cmd; ParmsUsed=($cmd -replace '(?i)^.*?msiexec(\.exe)?\s*',''); IsMSI=$true; Executed=$false }
+            return [pscustomobject]@{ Command = $cmd; ParmsUsed = ($cmd -replace '(?i)^.*?msiexec(\.exe)?\s*', ''); IsMSI = $true; Executed = $false }
         }
     }
 
@@ -154,7 +154,7 @@ function Get-WorkingSilentUninstallCommand {
         $cmd = "`"$exe`" $args".Trim()
         $r = Invoke-CommandWithTimeout -CommandLine $cmd -TimeoutSec 300
         if (-not $r.TimedOut -and ($r.ExitCode -eq 0 -or $r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)) {
-            return [pscustomobject]@{ Command=$cmd; ParmsUsed=($args -replace '^\s+',''); IsMSI=$false; Executed=$true }
+            return [pscustomobject]@{ Command = $cmd; ParmsUsed = ($args -replace '^\s+', ''); IsMSI = $false; Executed = $true }
         }
     }
     return $null
@@ -162,7 +162,7 @@ function Get-WorkingSilentUninstallCommand {
 
 function Get-MSIProductCodeFromDisplayName {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)][string]$DisplayName)
+    param([Parameter(Mandatory = $true)][string]$DisplayName)
     $paths = @(
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
         'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
@@ -187,7 +187,7 @@ function Get-MSIProductCodeFromDisplayName {
 
 # --------- Cleanup Helpers ---------
 function Remove-ItemSafe {
-    param([Parameter(Mandatory=$true)][string]$Path)
+    param([Parameter(Mandatory = $true)][string]$Path)
     try {
         if (Test-Path -LiteralPath $Path) {
             Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
@@ -198,7 +198,7 @@ function Remove-ItemSafe {
 }
 
 function Remove-RegistryKeySafe {
-    param([Parameter(Mandatory=$true)][string]$KeyPath)
+    param([Parameter(Mandatory = $true)][string]$KeyPath)
     try {
         if (Test-Path -LiteralPath $KeyPath) {
             Remove-Item -LiteralPath $KeyPath -Recurse -Force -ErrorAction SilentlyContinue
@@ -209,7 +209,7 @@ function Remove-RegistryKeySafe {
 }
 
 function Stop-ProcessesUnderFolder {
-    param([Parameter(Mandatory=$true)][string]$FolderPath)
+    param([Parameter(Mandatory = $true)][string]$FolderPath)
     if ([string]::IsNullOrWhiteSpace($FolderPath)) { return }
     if (-not (Test-Path -LiteralPath $FolderPath)) { return }
     try {
@@ -228,7 +228,7 @@ function Force-UninstallExe {
         Returns process exit code.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)][string]$UninstallString)
+    param([Parameter(Mandatory = $true)][string]$UninstallString)
 
     $un = Split-UninstallString -UninstallString $UninstallString
     $exe = $un.Executable
@@ -260,8 +260,8 @@ function Invoke-HardCleanup {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$DisplayName,
-        [Parameter(Mandatory=$true)][string]$UninstallString
+        [Parameter(Mandatory = $true)][string]$DisplayName,
+        [Parameter(Mandatory = $true)][string]$UninstallString
     )
 
     Log-Message "Applying full cleanup for '$DisplayName' (direct file/registry removal)."
@@ -277,10 +277,10 @@ function Invoke-HardCleanup {
     }
 
     # Standard Glary folders (x64 / x86)
-    $pf  = ${env:ProgramFiles}
+    $pf = ${env:ProgramFiles}
     $pf86 = ${env:ProgramFiles(x86)}
-    if ($pf)  { Get-ChildItem -LiteralPath $pf  -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "Glary Utilities*" } | ForEach-Object { [void]$candidates.Add($_.FullName) } }
-    if ($pf86){ Get-ChildItem -LiteralPath $pf86 -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "Glary Utilities*" } | ForEach-Object { [void]$candidates.Add($_.FullName) } }
+    if ($pf) { Get-ChildItem -LiteralPath $pf  -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "Glary Utilities*" } | ForEach-Object { [void]$candidates.Add($_.FullName) } }
+    if ($pf86) { Get-ChildItem -LiteralPath $pf86 -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "Glary Utilities*" } | ForEach-Object { [void]$candidates.Add($_.FullName) } }
 
     # 2) Kill processes running from inside those folders
     foreach ($p in $candidates) { Stop-ProcessesUnderFolder -FolderPath $p }
@@ -381,9 +381,9 @@ function Invoke-HardCleanup {
 # ===================== Uninstall Handler =====================
 function Invoke-Uninstall {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$true)]$Software)
+    param([Parameter(Mandatory = $true)]$Software)
 
-    $displayName     = $Software.DisplayName
+    $displayName = $Software.DisplayName
     $uninstallString = $Software.UninstallString
 
     if ([string]::IsNullOrWhiteSpace($displayName)) { Log-Message "Registry entry without DisplayName skipped." "DEBUG"; return }
@@ -407,8 +407,8 @@ function Invoke-Uninstall {
                 )
                 foreach ($rp in $paths) {
                     $stillThere = ($null -ne (Get-ChildItem $rp -ErrorAction SilentlyContinue | ForEach-Object {
-                        try { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue) } catch { $null }
-                    } | Where-Object { $_.DisplayName -eq $displayName }))
+                                try { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue) } catch { $null }
+                            } | Where-Object { $_.DisplayName -eq $displayName }))
                     if ($stillThere) { break }
                 }
             } catch {}
