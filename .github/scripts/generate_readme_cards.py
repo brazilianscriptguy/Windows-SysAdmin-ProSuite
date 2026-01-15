@@ -221,7 +221,8 @@ def main() -> None:
       login
       name
       followers { totalCount }
-      repositories(privacy: PUBLIC, ownerAffiliations: OWNER) { totalCount }
+      publicRepos: repositories(privacy: PUBLIC) { totalCount }
+      ownedRepos: repositories(ownerAffiliations: OWNER) { totalCount }
       contributionsCollection {
         contributionCalendar {
           weeks {
@@ -298,7 +299,8 @@ def main() -> None:
   lines_stats = [
     ("User", display_name),
     ("Followers", f'{u["followers"]["totalCount"]}'),
-    ("Public repos", f'{u["repositories"]["totalCount"]}'),
+    ("Public repos", f'{u["publicRepos"]["totalCount"]}'),
+    ("Owned repos", f'{u["ownedRepos"]["totalCount"]}'),
     ("Total stars", f"{stars}"),
     ("Contributions (1y)", f"{total_contribs}"),
   ]
