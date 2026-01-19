@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Migrates Windows Event Log storage to a new target root and updates BOTH:
       - Classic EventLog registry paths (HKLM:\SYSTEM\CCS\Services\EventLog)
@@ -81,17 +81,17 @@ if (-not (Test-Administrator)) {
 }
 
 # --- Logging ---
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir      = 'C:\Logs-TEMP'
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir = 'C:\Logs-TEMP'
 $logFileName = "${scriptName}_$(Get-Date -Format 'yyyyMMddHHmmss').log"
-$logPath     = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir $logFileName
 if (-not (Test-Path -LiteralPath $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
 
 function Write-Log {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)][string]$Message,
-        [Parameter()][ValidateSet('INFO','WARN','ERROR')] [string]$Level = 'INFO'
+        [Parameter()][ValidateSet('INFO', 'WARN', 'ERROR')] [string]$Level = 'INFO'
     )
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
@@ -102,12 +102,12 @@ function Format-ExceptionDetail {
     param([Parameter(Mandatory)][System.Management.Automation.ErrorRecord]$ErrorRecord)
     $ex = $ErrorRecord.Exception
     $type = if ($ex) { $ex.GetType().FullName } else { "UnknownExceptionType" }
-    $msg  = if ($ex) { $ex.Message } else { [string]$ErrorRecord }
+    $msg = if ($ex) { $ex.Message } else { [string]$ErrorRecord }
     $pos = ""
     try { $pos = $ErrorRecord.InvocationInfo.PositionMessage } catch { }
     $stack = ""
     try { $stack = $ex.StackTrace } catch { }
-@"
+    @"
 ExceptionType: $type
 Message: $msg
 
@@ -149,19 +149,19 @@ $DefaultLogsFolder = Join-Path $env:SystemRoot 'System32\winevt\Logs'
 
 function Get-SafeName {
     param([Parameter(Mandatory)][string]$Name)
-    $n = $Name -replace '%4','-'
-    $n = $n -replace '/','-'
+    $n = $Name -replace '%4', '-'
+    $n = $n -replace '/', '-'
     $invalid = ([IO.Path]::GetInvalidFileNameChars() + [IO.Path]::GetInvalidPathChars()) | Sort-Object -Unique
-    foreach($c in $invalid){ $n = $n -replace [Regex]::Escape([string]$c), '-' }
-    $n = ($n -replace '[\s\-]+','-').Trim().Trim('.').Trim('-')
-    if([string]::IsNullOrWhiteSpace($n)){ $n = 'Log' }
+    foreach ($c in $invalid) { $n = $n -replace [Regex]::Escape([string]$c), '-' }
+    $n = ($n -replace '[\s\-]+', '-').Trim().Trim('.').Trim('-')
+    if ([string]::IsNullOrWhiteSpace($n)) { $n = 'Log' }
     return $n
 }
 
 function Expand-EnvPath { param([Parameter(Mandatory)][string]$Path) try { [Environment]::ExpandEnvironmentVariables($Path) } catch { $Path } }
 
 function New-UniqueArchiveName {
-    param([Parameter(Mandatory)][string]$Dir,[Parameter(Mandatory)][string]$Base)
+    param([Parameter(Mandatory)][string]$Dir, [Parameter(Mandatory)][string]$Base)
     do {
         $stamp = Get-Date -Format 'yyyyMMddHHmmssfff'
         $candidate = Join-Path $Dir ("{0}_{1}.evtx" -f $Base, $stamp)
@@ -178,7 +178,7 @@ function Invoke-Retry {
         [int]$MaxAttempts = 8,
         [int]$DelayMs = 350
     )
-    for ($i=1; $i -le $MaxAttempts; $i++) {
+    for ($i = 1; $i -le $MaxAttempts; $i++) {
         try { return & $Action }
         catch {
             if ($i -eq $MaxAttempts) { throw }
@@ -199,17 +199,17 @@ function Get-TargetRouting {
     # Archive-<LogOrChannel>-YYYY-MM-DD-HH-MM-SS-mmm.evtx
     $rx = '^Archive-(?<log>.+)-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$'
     if ($base -match $rx) {
-        $logical      = $matches['log']
-        $folderName   = Get-SafeName -Name $logical
+        $logical = $matches['log']
+        $folderName = Get-SafeName -Name $logical
         $targetFolder = Join-Path -Path $TargetRoot -ChildPath $folderName
-        $destFile     = Join-Path -Path $targetFolder -ChildPath $LogFile.Name
-        return [pscustomobject]@{ TargetFolder=$targetFolder; DestFile=$destFile; IsArchive=$true }
+        $destFile = Join-Path -Path $targetFolder -ChildPath $LogFile.Name
+        return [pscustomobject]@{ TargetFolder = $targetFolder; DestFile = $destFile; IsArchive = $true }
     }
 
-    $folderName   = Get-SafeName -Name $base
+    $folderName = Get-SafeName -Name $base
     $targetFolder = Join-Path -Path $TargetRoot -ChildPath $folderName
-    $destFile     = Join-Path -Path $targetFolder -ChildPath ("{0}.evtx" -f $folderName)
-    return [pscustomobject]@{ TargetFolder=$targetFolder; DestFile=$destFile; IsArchive=$false }
+    $destFile = Join-Path -Path $targetFolder -ChildPath ("{0}.evtx" -f $folderName)
+    return [pscustomobject]@{ TargetFolder = $targetFolder; DestFile = $destFile; IsArchive = $false }
 }
 
 # --- NEW: ACL Baseline (REQUIRED) ---
@@ -243,13 +243,13 @@ function Set-LogRepositoryAclBaseline {
         }
 
         $inherit = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
-        $prop    = [System.Security.AccessControl.PropagationFlags]::None
-        $allow   = [System.Security.AccessControl.AccessControlType]::Allow
+        $prop = [System.Security.AccessControl.PropagationFlags]::None
+        $allow = [System.Security.AccessControl.AccessControlType]::Allow
 
         # --- Well-known SIDs (language independent) ---
-        $sidSystem   = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-18'   # LocalSystem
-        $sidAdmins   = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-32-544' # Builtin Administrators
-        $sidAuthUsers= New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11'   # Authenticated Users
+        $sidSystem = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-18'   # LocalSystem
+        $sidAdmins = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-32-544' # Builtin Administrators
+        $sidAuthUsers = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11'   # Authenticated Users
 
         # --- Service SID: NT SERVICE\EventLog ---
         # Resolve dynamically to avoid translation issues
@@ -324,7 +324,7 @@ function Snapshot-ServiceState {
 
 function Restore-ServiceState {
     foreach ($kvp in $Global:ServiceState.GetEnumerator()) {
-        $name  = $kvp.Key
+        $name = $kvp.Key
         $state = $kvp.Value
         try {
             $svc = Get-Service -Name $name -ErrorAction Stop
@@ -411,7 +411,7 @@ function Invoke-WevtutilTimed {
     $psi.Arguments = ($Arguments -join ' ')
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
+    $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
 
     $p = New-Object System.Diagnostics.Process
@@ -420,14 +420,14 @@ function Invoke-WevtutilTimed {
 
     if (-not $p.WaitForExit($TimeoutSeconds * 1000)) {
         try { $p.Kill() } catch { }
-        return [pscustomobject]@{ TimedOut=$true; ExitCode=$null; StdOut=""; StdErr="Timed out after $TimeoutSeconds seconds." }
+        return [pscustomobject]@{ TimedOut = $true; ExitCode = $null; StdOut = ""; StdErr = "Timed out after $TimeoutSeconds seconds." }
     }
 
     return [pscustomobject]@{
         TimedOut = $false
         ExitCode = $p.ExitCode
-        StdOut   = $p.StandardOutput.ReadToEnd()
-        StdErr   = $p.StandardError.ReadToEnd()
+        StdOut = $p.StandardOutput.ReadToEnd()
+        StdErr = $p.StandardError.ReadToEnd()
     }
 }
 
@@ -441,7 +441,7 @@ function Get-ChannelLogFileName {
     $lines = $r.StdOut -split "`r?`n"
     $line = $lines | Where-Object { $_ -match '^\s*logFileName\s*:\s*' } | Select-Object -First 1
     if (-not $line) { return $null }
-    (($line -replace '^\s*logFileName\s*:\s*','').Trim())
+    (($line -replace '^\s*logFileName\s*:\s*', '').Trim())
 }
 
 function Set-ChannelLogFileName {
@@ -490,9 +490,9 @@ function Update-WinevtChannels {
 
         if (-not $inDefault) { $skipped++; continue }
 
-        $safe = Get-SafeName -Name ($ch -replace '/','-')
+        $safe = Get-SafeName -Name ($ch -replace '/', '-')
         $folder = Join-Path -Path $TargetRoot -ChildPath $safe
-        $file   = Join-Path -Path $folder -ChildPath ("{0}.evtx" -f $safe)
+        $file = Join-Path -Path $folder -ChildPath ("{0}.evtx" -f $safe)
 
         if (-not (Test-Path -LiteralPath $folder)) {
             try { New-Item -Path $folder -ItemType Directory -Force | Out-Null } catch { }
@@ -527,7 +527,7 @@ function Update-ClassicRegistryPaths {
             $safeLog = Get-SafeName -Name $logName
 
             $newFolder = Join-Path -Path $TargetRoot -ChildPath $safeLog
-            $newFile   = Join-Path -Path $newFolder -ChildPath ("{0}.evtx" -f $safeLog)
+            $newFile = Join-Path -Path $newFolder -ChildPath ("{0}.evtx" -f $safeLog)
 
             if (-not (Test-Path -LiteralPath $newFolder)) {
                 New-Item -Path $newFolder -ItemType Directory -Force | Out-Null
@@ -555,8 +555,8 @@ function Set-ClassicLogSizes153600KB {
     [CmdletBinding()]
     param()
 
-    $classic = @('Application','Security','Setup','System')
-    $maxKb   = 153600
+    $classic = @('Application', 'Security', 'Setup', 'System')
+    $maxKb = 153600
 
     foreach ($name in $classic) {
         try {
@@ -574,7 +574,7 @@ function Copy-Or-Move-EventLogs {
     param(
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][bool]$StagingCopyOnly,
-        [Parameter(Mandatory=$false)][object]$ProgressBar
+        [Parameter(Mandatory = $false)][object]$ProgressBar
     )
 
     if (-not (Test-Path -LiteralPath $TargetRoot)) {
@@ -586,7 +586,7 @@ function Copy-Or-Move-EventLogs {
     if ($ProgressBar -and $ProgressBar -is [System.Windows.Forms.ProgressBar]) {
         $ProgressBar.Minimum = 0
         $ProgressBar.Maximum = $logFiles.Count
-        $ProgressBar.Value   = 0
+        $ProgressBar.Value = 0
     }
 
     $mappings = New-Object System.Collections.Generic.List[pscustomobject]
@@ -605,7 +605,7 @@ function Copy-Or-Move-EventLogs {
             # If destination exists, generate a unique file name and copy.
             $dest = $route.DestFile
             if (Test-Path -LiteralPath $dest) {
-                $dir  = Split-Path -Path $dest -Parent
+                $dir = Split-Path -Path $dest -Parent
                 $base = [IO.Path]::GetFileNameWithoutExtension($dest)
                 $dest = New-UniqueArchiveName -Dir $dir -Base $base
             }
@@ -614,12 +614,12 @@ function Copy-Or-Move-EventLogs {
                 Copy-Item -LiteralPath $logFile.FullName -Destination $dest -Force -ErrorAction Stop
             } | Out-Null
 
-            Write-Log -Message ("Copied{0}: {1} -> {2}" -f ($(if($StagingCopyOnly){" (staging)"}else{""})), $logFile.Name, $dest)
+            Write-Log -Message ("Copied{0}: {1} -> {2}" -f ($(if ($StagingCopyOnly) { " (staging)" }else { "" })), $logFile.Name, $dest)
 
             $mappings.Add([pscustomobject]@{
-                SourceFullPath      = $logFile.FullName
-                DestinationFullPath = $dest
-            }) | Out-Null
+                    SourceFullPath = $logFile.FullName
+                    DestinationFullPath = $dest
+                }) | Out-Null
 
         } catch {
             Write-Log -Message ("Copy error: {0} ({1})" -f $logFile.FullName, $_.Exception.Message) -Level "WARN"
@@ -637,7 +637,7 @@ function Copy-Or-Move-EventLogs {
 
 function Cleanup-SourceEvtx {
     [CmdletBinding()]
-    param([Parameter(Mandatory=$false)][object]$Mappings)
+    param([Parameter(Mandatory = $false)][object]$Mappings)
 
     if ($null -eq $Mappings) { Write-Log -Message "Cleanup skipped: mappings null." -Level "WARN"; return }
     $items = @($Mappings)
@@ -716,63 +716,63 @@ function Setup-GUI {
     $form.Controls.Add($buttonClose)
 
     $buttonRun.Add_Click({
-        $targetRoot = $textBox.Text.Trim()
-        $staging = [bool]$chkStaging.Checked
-        $mappings = @()
+            $targetRoot = $textBox.Text.Trim()
+            $staging = [bool]$chkStaging.Checked
+            $mappings = @()
 
-        if ([string]::IsNullOrWhiteSpace($targetRoot)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error",
-                [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
-            return
-        }
-
-        try {
-            $statusLabel.Text = "Applying ACL baseline to target..."
-            Set-LogRepositoryAclBaseline -RootPath $targetRoot
-
-            $statusLabel.Text = "Stopping services..."
-            Stop-For-Migration
-
-            $statusLabel.Text = "Copying .evtx files..."
-            $mappings = Copy-Or-Move-EventLogs -TargetRoot $targetRoot -StagingCopyOnly $staging -ProgressBar $progressBar
-            if ($null -eq $mappings) { $mappings = @() }
-
-            $statusLabel.Text = "Updating classic registry paths..."
-            $okClassic = Update-ClassicRegistryPaths -TargetRoot $targetRoot
-
-            $statusLabel.Text = "Updating WINEVT channels..."
-            $okWinevt = Update-WinevtChannels -TargetRoot $targetRoot
-
-            $statusLabel.Text = "Enforcing classic log size (153600 KB)..."
-            Set-ClassicLogSizes153600KB
-
-            $statusLabel.Text = "Restoring services..."
-            Start-After-Migration
-
-            if (-not $staging -and $okClassic -and $okWinevt -and @($mappings).Count -gt 0) {
-                $statusLabel.Text = "Deleting sources..."
-                Cleanup-SourceEvtx -Mappings $mappings
-            } else {
-                Write-Log -Message "StagingCopyOnly enabled or update failures; sources NOT deleted." -Level "WARN"
+            if ([string]::IsNullOrWhiteSpace($targetRoot)) {
+                [System.Windows.Forms.MessageBox]::Show("Please enter the target root folder.", "Input Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+                return
             }
 
-            $progressBar.Value = $progressBar.Maximum
-            $buttonRun.Enabled = $false
-            $buttonClose.Enabled = $true
-            $statusLabel.Text = "Completed."
+            try {
+                $statusLabel.Text = "Applying ACL baseline to target..."
+                Set-LogRepositoryAclBaseline -RootPath $targetRoot
 
-            [System.Windows.Forms.MessageBox]::Show(
-                "Completed.`n`nLog: $logPath",
-                "Done",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            ) | Out-Null
+                $statusLabel.Text = "Stopping services..."
+                Stop-For-Migration
 
-        } catch {
-            Handle-Error -Message "Migration failed. Review the log for details." -Exception $_
-            try { Start-After-Migration } catch { }
-        }
-    })
+                $statusLabel.Text = "Copying .evtx files..."
+                $mappings = Copy-Or-Move-EventLogs -TargetRoot $targetRoot -StagingCopyOnly $staging -ProgressBar $progressBar
+                if ($null -eq $mappings) { $mappings = @() }
+
+                $statusLabel.Text = "Updating classic registry paths..."
+                $okClassic = Update-ClassicRegistryPaths -TargetRoot $targetRoot
+
+                $statusLabel.Text = "Updating WINEVT channels..."
+                $okWinevt = Update-WinevtChannels -TargetRoot $targetRoot
+
+                $statusLabel.Text = "Enforcing classic log size (153600 KB)..."
+                Set-ClassicLogSizes153600KB
+
+                $statusLabel.Text = "Restoring services..."
+                Start-After-Migration
+
+                if (-not $staging -and $okClassic -and $okWinevt -and @($mappings).Count -gt 0) {
+                    $statusLabel.Text = "Deleting sources..."
+                    Cleanup-SourceEvtx -Mappings $mappings
+                } else {
+                    Write-Log -Message "StagingCopyOnly enabled or update failures; sources NOT deleted." -Level "WARN"
+                }
+
+                $progressBar.Value = $progressBar.Maximum
+                $buttonRun.Enabled = $false
+                $buttonClose.Enabled = $true
+                $statusLabel.Text = "Completed."
+
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Completed.`n`nLog: $logPath",
+                    "Done",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                ) | Out-Null
+
+            } catch {
+                Handle-Error -Message "Migration failed. Review the log for details." -Exception $_
+                try { Start-After-Migration } catch { }
+            }
+        })
 
     $form.ShowDialog() | Out-Null
 }
