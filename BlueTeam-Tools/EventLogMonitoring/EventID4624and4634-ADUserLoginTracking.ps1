@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Tracks AD user Logon (4624) and Logoff (4634) events from Security EVTX files using Log Parser (MSUtil.LogQuery COM),
     and exports a consolidated CSV report. Includes a Windows Forms GUI.
@@ -69,13 +69,13 @@ try {
     exit 1
 }
 
-$scriptName       = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $DomainServerName = [Environment]::MachineName
 
 # Defaults
-$logDir              = "C:\Logs-TEMP"
+$logDir = "C:\Logs-TEMP"
 $outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
-$logPath             = Join-Path $logDir ("{0}.log" -f $scriptName)
+$logPath = Join-Path $logDir ("{0}.log" -f $scriptName)
 
 if (-not (Test-Path $logDir -PathType Container)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
@@ -134,7 +134,7 @@ function Select-Folder {
     )
 
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
-        Description         = $Description
+        Description = $Description
         ShowNewFolderButton = $ShowNewFolderButton
     }
 
@@ -189,8 +189,8 @@ function Test-LogParserAvailability {
 function New-LogParserComObjects {
     try {
         return @{
-            LogQuery     = (New-Object -ComObject "MSUtil.LogQuery")
-            InputFormat  = (New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat")
+            LogQuery = (New-Object -ComObject "MSUtil.LogQuery")
+            InputFormat = (New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat")
             OutputFormat = (New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat")
         }
     } catch {
@@ -271,19 +271,19 @@ function Track-LogonLogoffEvents {
     }
 
     $com = New-LogParserComObjects
-    $LogQuery     = $com.LogQuery
-    $InputFormat  = $com.InputFormat
+    $LogQuery = $com.LogQuery
+    $InputFormat = $com.InputFormat
     $OutputFormat = $com.OutputFormat
 
-    $timestamp        = Get-Date -Format "yyyyMMddHHmmss"
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
     $consolidatedFile = Join-Path $OutputFolder ("{0}-LogonLogoff-{1}.csv" -f $DomainServerName, $timestamp)
 
     $userInClause = Get-SafeUserListForSqlInClause -UserAccounts $UserAccounts
 
-    $totalFiles     = $evtxFiles.Count
+    $totalFiles = $evtxFiles.Count
     $processedFiles = 0
-    $failedFiles    = 0
-    $wroteHeader    = $false
+    $failedFiles = 0
+    $wroteHeader = $false
 
     foreach ($file in $evtxFiles) {
         $processedFiles++
@@ -388,169 +388,169 @@ WHERE EventID = 4634
 
 #region GUI Setup
 $form = New-Object System.Windows.Forms.Form -Property @{
-    Text            = 'Logon/Logoff Auditor (Event IDs 4624 & 4634)'
-    Size            = [System.Drawing.Size]::new(450, 350)
-    StartPosition   = 'CenterScreen'
+    Text = 'Logon/Logoff Auditor (Event IDs 4624 & 4634)'
+    Size = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedSingle'
-    MaximizeBox     = $false
+    MaximizeBox = $false
 }
 
 # User Accounts
 $labelUsers = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 20)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "User Accounts:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "User Accounts:"
 }
 $form.Controls.Add($labelUsers)
 
 $textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
-    Location  = [System.Drawing.Point]::new(120, 20)
-    Size      = [System.Drawing.Size]::new(320, 60)
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size = [System.Drawing.Size]::new(320, 60)
     Multiline = $true
-    Text      = "user01, user02, user03, user04, user05"
+    Text = "user01, user02, user03, user04, user05"
 }
 $form.Controls.Add($textBoxUsers)
 
 # Log Directory
 $labelLogDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Log Directory:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Log Directory:"
 }
 $form.Controls.Add($labelLogDir)
 
 $textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 90)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $logDir
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $logDir
 }
 $form.Controls.Add($textBoxLogDir)
 
 $buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 90)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseLogDir.Add_Click({
-    $folder = Select-Folder -Description "Select a folder for log files" -ShowNewFolderButton $true
-    if ($folder) {
-        $textBoxLogDir.Text = $folder
-        Write-Log -Message ("Log Directory set to: '{0}' (GUI Browse)" -f $folder)
-    }
-})
+        $folder = Select-Folder -Description "Select a folder for log files" -ShowNewFolderButton $true
+        if ($folder) {
+            $textBoxLogDir.Text = $folder
+            Write-Log -Message ("Log Directory set to: '{0}' (GUI Browse)" -f $folder)
+        }
+    })
 $form.Controls.Add($buttonBrowseLogDir)
 
 # Output Folder
 $labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Output Folder:"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Output Folder:"
 }
 $form.Controls.Add($labelOutputDir)
 
 $textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
     Location = [System.Drawing.Point]::new(120, 120)
-    Size     = [System.Drawing.Size]::new(200, 20)
-    Text     = $outputFolderDefault
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $outputFolderDefault
 }
 $form.Controls.Add($textBoxOutputDir)
 
 $buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(330, 120)
-    Size     = [System.Drawing.Size]::new(100, 20)
-    Text     = "Browse"
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
 }
 $buttonBrowseOutputDir.Add_Click({
-    $folder = Select-Folder -Description "Select a folder for CSV output" -ShowNewFolderButton $true
-    if ($folder) {
-        $textBoxOutputDir.Text = $folder
-        Write-Log -Message ("Output Folder set to: '{0}' (GUI Browse)" -f $folder)
-    }
-})
+        $folder = Select-Folder -Description "Select a folder for CSV output" -ShowNewFolderButton $true
+        if ($folder) {
+            $textBoxOutputDir.Text = $folder
+            Write-Log -Message ("Output Folder set to: '{0}' (GUI Browse)" -f $folder)
+        }
+    })
 $form.Controls.Add($buttonBrowseOutputDir)
 
 # Status Label
 $labelStatus = New-Object System.Windows.Forms.Label -Property @{
     Location = [System.Drawing.Point]::new(10, 180)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Text     = "Ready"
+    Size = [System.Drawing.Size]::new(430, 20)
+    Text = "Ready"
 }
 $form.Controls.Add($labelStatus)
 
 # Progress Bar
 $progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
     Location = [System.Drawing.Point]::new(10, 210)
-    Size     = [System.Drawing.Size]::new(430, 20)
-    Minimum  = 0
-    Maximum  = 100
-    Value    = 0
+    Size = [System.Drawing.Size]::new(430, 20)
+    Minimum = 0
+    Maximum = 100
+    Value = 0
 }
 $form.Controls.Add($progressBar)
 
 # Start Button
 $buttonStart = New-Object System.Windows.Forms.Button -Property @{
     Location = [System.Drawing.Point]::new(10, 240)
-    Size     = [System.Drawing.Size]::new(120, 30)
-    Text     = 'Start Analysis'
+    Size = [System.Drawing.Size]::new(120, 30)
+    Text = 'Start Analysis'
 }
 $buttonStart.Add_Click({
-    try {
-        # Apply GUI selections
-        $script:logDir = $textBoxLogDir.Text.Trim()
-        if ([string]::IsNullOrWhiteSpace($script:logDir)) { throw "Log Directory cannot be empty." }
+        try {
+            # Apply GUI selections
+            $script:logDir = $textBoxLogDir.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($script:logDir)) { throw "Log Directory cannot be empty." }
 
-        if (-not (Test-Path $script:logDir -PathType Container)) {
-            New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+            if (-not (Test-Path $script:logDir -PathType Container)) {
+                New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+            }
+            $script:logPath = Join-Path $script:logDir ("{0}.log" -f $scriptName)
+
+            $outputFolder = $textBoxOutputDir.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($outputFolder)) { throw "Output Folder cannot be empty." }
+
+            # Parse users (comma separated)
+            $rawUsers = $textBoxUsers.Text
+            $userAccounts = @()
+            if (-not [string]::IsNullOrWhiteSpace($rawUsers)) {
+                $userAccounts = @($rawUsers -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            }
+
+            if (-not $userAccounts -or $userAccounts.Count -eq 0) {
+                Show-MessageBox -Message "Please enter at least one user account to track." -Title "Input Required" -Icon ([System.Windows.Forms.MessageBoxIcon]::Warning)
+                Set-Status -Text "Ready"
+                return
+            }
+
+            if (-not (Test-LogParserAvailability)) {
+                Show-MessageBox -Message "Microsoft Log Parser 2.2 is not installed or MSUtil COM is not registered.`n`nInstall Log Parser 2.2 and try again." -Title "Prerequisite Missing" -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
+                Set-Status -Text "Ready"
+                return
+            }
+
+            Write-Log -Message ("User started analysis. Users: {0}" -f ($userAccounts -join ', '))
+            Set-Status -Text "Select the folder containing Security EVTX files..."
+
+            $evtxFolder = Select-Folder -Description "Select the folder containing Security .evtx files" -ShowNewFolderButton $false
+            if (-not $evtxFolder) {
+                Show-MessageBox -Message "No EVTX folder selected." -Title "Input Required" -Icon ([System.Windows.Forms.MessageBoxIcon]::Warning)
+                Set-Status -Text "Ready"
+                return
+            }
+
+            Set-Status -Text ("Processing EVTX files in: {0}" -f $evtxFolder)
+            Update-ProgressBar -Value 5
+
+            Track-LogonLogoffEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+        } catch {
+            Write-Log -Message ("Fatal error in Start handler: {0}" -f $_.Exception.Message) -Level Error
+            Show-MessageBox -Message ("Error: {0}" -f $_.Exception.Message) -Title "Error" -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
+            Set-Status -Text "Error occurred. Check the log."
+            Update-ProgressBar -Value 0
         }
-        $script:logPath = Join-Path $script:logDir ("{0}.log" -f $scriptName)
-
-        $outputFolder = $textBoxOutputDir.Text.Trim()
-        if ([string]::IsNullOrWhiteSpace($outputFolder)) { throw "Output Folder cannot be empty." }
-
-        # Parse users (comma separated)
-        $rawUsers = $textBoxUsers.Text
-        $userAccounts = @()
-        if (-not [string]::IsNullOrWhiteSpace($rawUsers)) {
-            $userAccounts = @($rawUsers -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-        }
-
-        if (-not $userAccounts -or $userAccounts.Count -eq 0) {
-            Show-MessageBox -Message "Please enter at least one user account to track." -Title "Input Required" -Icon ([System.Windows.Forms.MessageBoxIcon]::Warning)
-            Set-Status -Text "Ready"
-            return
-        }
-
-        if (-not (Test-LogParserAvailability)) {
-            Show-MessageBox -Message "Microsoft Log Parser 2.2 is not installed or MSUtil COM is not registered.`n`nInstall Log Parser 2.2 and try again." -Title "Prerequisite Missing" -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
-            Set-Status -Text "Ready"
-            return
-        }
-
-        Write-Log -Message ("User started analysis. Users: {0}" -f ($userAccounts -join ', '))
-        Set-Status -Text "Select the folder containing Security EVTX files..."
-
-        $evtxFolder = Select-Folder -Description "Select the folder containing Security .evtx files" -ShowNewFolderButton $false
-        if (-not $evtxFolder) {
-            Show-MessageBox -Message "No EVTX folder selected." -Title "Input Required" -Icon ([System.Windows.Forms.MessageBoxIcon]::Warning)
-            Set-Status -Text "Ready"
-            return
-        }
-
-        Set-Status -Text ("Processing EVTX files in: {0}" -f $evtxFolder)
-        Update-ProgressBar -Value 5
-
-        Track-LogonLogoffEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
-    } catch {
-        Write-Log -Message ("Fatal error in Start handler: {0}" -f $_.Exception.Message) -Level Error
-        Show-MessageBox -Message ("Error: {0}" -f $_.Exception.Message) -Title "Error" -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
-        Set-Status -Text "Error occurred. Check the log."
-        Update-ProgressBar -Value 0
-    }
-})
+    })
 $form.Controls.Add($buttonStart)
 
 # Script scope variables
-$script:form        = $form
+$script:form = $form
 $script:progressBar = $progressBar
 $script:labelStatus = $labelStatus
 
