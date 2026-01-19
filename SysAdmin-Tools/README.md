@@ -35,7 +35,7 @@ Welcome to the **SysAdmin-Tools** suite — a powerful collection of **PowerShel
    ```
 
 2. ⚙️ **PowerShell Version:**  
-   PowerShell 5.1 or later  
+   PowerShell 7.0 or later  (compatible with 5.1)
    ```powershell
    $PSVersionTable.PSVersion
    ```
