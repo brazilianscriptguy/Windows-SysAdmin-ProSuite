@@ -1,0 +1,27 @@
+{
+  "appName": "Windows SysAdmin ProSuite",
+  "hubLogDir": "C:\\Logs-TEMP",
+  "index": {
+    "roots": [
+      "BlueTeam-Tools",
+      "Core-ScriptLibrary",
+      "ITSM-Templates-SVR",
+      "ITSM-Templates-WKS",
+      "SysAdmin-Tools"
+    ],
+    "includeExtensions": [".ps1", ".vbs", ".hta"],
+    "excludePrefixes": [
+      "ITSM-Templates-WKS\\Assets\\"
+    ],
+    "includePrefixes": [
+      "ITSM-Templates-WKS\\Assets\\AdditionalSupportScipts\\"
+    ],
+    "uiDisplayNames": {
+      "BlueTeam-Tools": "BlueTeam Tools",
+      "Core-ScriptLibrary": "Core ScriptLibrary",
+      "ITSM-Templates-SVR": "ITSM SVR",
+      "ITSM-Templates-WKS": "ITSM WKS",
+      "SysAdmin-Tools": "SysAdmin Tools"
+    }
+  }
+}
