@@ -1,4 +1,4 @@
-## 🚀 Complete PowerShell and VBScript Toolkit (2026)
+## 🚀 Complete PowerShell and VBScript Toolkit 
 
 ### ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022
 
@@ -43,7 +43,7 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 ---
 
-## ⚙️ Requirements & Environment Setup (2026)
+## ⚙️ Requirements & Environment Setup 
 
 | Requirement | Minimum Version / Notes |
 |-------------|--------------------------|
