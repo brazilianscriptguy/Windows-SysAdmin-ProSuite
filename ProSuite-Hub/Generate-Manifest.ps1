@@ -1,4 +1,4 @@
-# ProSuite-Hub\Generate-Manifest.ps1
+ï»¿# ProSuite-Hub\Generate-Manifest.ps1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -18,7 +18,7 @@ function Should-IncludePath {
     # Normaliza para backslash
     $rp = $relativePath -replace '/', '\'
 
-    # Se estiver em um include explícito, inclui
+    # Se estiver em um include explï¿½cito, inclui
     foreach ($inc in $includePrefixes) {
         if ($rp.StartsWith($inc, [System.StringComparison]::OrdinalIgnoreCase)) {
             return $true
@@ -57,20 +57,20 @@ foreach ($r in $roots) {
             $domain = $parts[0]
             $module = if ($parts.Length -ge 2) { $parts[1] } else { $domain }
 
-            # Ajuste específico: ITSM WKS Support Tools
+            # Ajuste especï¿½fico: ITSM WKS Support Tools
             $uiModule = $module
             if ($rel.StartsWith("ITSM-Templates-WKS\Assets\AdditionalSupportScipts\", [System.StringComparison]::OrdinalIgnoreCase)) {
                 $uiModule = "Support Tools"
             }
 
-            $id = ($rel -replace '\\','-')
-            $id = $id.ToLower() -replace '[^\w\-\.]','-'
+            $id = ($rel -replace '\\', '-')
+            $id = $id.ToLower() -replace '[^\w\-\.]', '-'
 
             $requiresAdmin = $false
             if ($_.Extension.ToLowerInvariant() -eq ".ps1") {
                 $requiresAdmin = Infer-RequiresAdmin -ScriptPath $_.FullName
             } else {
-                # VBS/HTA em geral são “assistivos”, mas você pode ajustar depois
+                # VBS/HTA em geral sï¿½o ï¿½assistivosï¿½, mas vocï¿½ pode ajustar depois
                 $requiresAdmin = $false
             }
 
@@ -83,24 +83,24 @@ foreach ($r in $roots) {
             $readmeRel = if ($readme) { Get-RelativePath -FullPath $readme -BasePath $repoRoot } else { $null }
 
             $tools.Add([pscustomobject]@{
-                id            = $id
-                name          = $_.BaseName
-                domain        = $domain
-                module        = $uiModule
-                modulePath    = $module
-                type          = $_.Extension.TrimStart('.').ToUpper()
-                path          = $rel
-                requiresAdmin = $requiresAdmin
-                synopsis      = $synopsis
-                readmePath    = $readmeRel
-            })
+                    id = $id
+                    name = $_.BaseName
+                    domain = $domain
+                    module = $uiModule
+                    modulePath = $module
+                    type = $_.Extension.TrimStart('.').ToUpper()
+                    path = $rel
+                    requiresAdmin = $requiresAdmin
+                    synopsis = $synopsis
+                    readmePath = $readmeRel
+                })
         }
 }
 
 $manifest = [pscustomobject]@{
     app = [pscustomobject]@{
-        name      = $settings.appName
-        version   = "0.1.0"
+        name = $settings.appName
+        version = "0.1.0"
         hubLogDir = $settings.hubLogDir
         generated = (Get-Date).ToString("s")
     }

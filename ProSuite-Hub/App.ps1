@@ -1,4 +1,4 @@
-# ProSuite-Hub\App.ps1
+﻿# ProSuite-Hub\App.ps1
 # Windows SysAdmin ProSuite - Hub UI (PS 5.1 compatible, USA English)
 
 Set-StrictMode -Version Latest
@@ -28,10 +28,10 @@ Add-Type -AssemblyName System.Drawing | Out-Null
 . (Join-Path $PSScriptRoot "Core\ProSuite.Logging.ps1")
 . (Join-Path $PSScriptRoot "Core\ProSuite.Runner.ps1")
 
-$repoRoot   = Get-RepoRoot
-$settings   = Read-JsonFile -Path (Join-Path $PSScriptRoot "Settings.json")
-$appName    = [string]$settings.appName
-$hubLogDir  = [string]$settings.hubLogDir
+$repoRoot = Get-RepoRoot
+$settings = Read-JsonFile -Path (Join-Path $PSScriptRoot "Settings.json")
+$appName = [string]$settings.appName
+$hubLogDir = [string]$settings.hubLogDir
 
 $manifestPath = Join-Path $PSScriptRoot "Manifest.json"
 if (-not (Test-Path -LiteralPath $manifestPath)) {
@@ -186,7 +186,7 @@ $script:lastHubLog = $null
 function Append-Output {
     param([Parameter(Mandatory)][string]$Text)
     if ($txtOutput.InvokeRequired) {
-        $null = $txtOutput.BeginInvoke([Action[string]]{ param($t) $txtOutput.AppendText($t) }, $Text)
+        $null = $txtOutput.BeginInvoke([Action[string]] { param($t) $txtOutput.AppendText($t) }, $Text)
     } else {
         $txtOutput.AppendText($Text)
     }
@@ -222,10 +222,10 @@ function Tool-MatchesFilter {
     $s = $Search.Trim().ToLowerInvariant()
 
     return (
-        (($Tool.name     -as [string]).ToLowerInvariant().Contains($s)) -or
-        (($Tool.domain   -as [string]).ToLowerInvariant().Contains($s)) -or
-        (($Tool.module   -as [string]).ToLowerInvariant().Contains($s)) -or
-        (($Tool.path     -as [string]).ToLowerInvariant().Contains($s)) -or
+        (($Tool.name -as [string]).ToLowerInvariant().Contains($s)) -or
+        (($Tool.domain -as [string]).ToLowerInvariant().Contains($s)) -or
+        (($Tool.module -as [string]).ToLowerInvariant().Contains($s)) -or
+        (($Tool.path -as [string]).ToLowerInvariant().Contains($s)) -or
         (($Tool.synopsis -as [string]).ToLowerInvariant().Contains($s))
     )
 }
@@ -241,16 +241,16 @@ function Populate-Tree {
 
     $domains = $script:tools | Group-Object domain | Sort-Object Name
     foreach ($d in $domains) {
-        $domainKey  = $d.Name
+        $domainKey = $d.Name
         $domainText = if ($displayMap.ContainsKey($domainKey)) { $displayMap[$domainKey] } else { $domainKey }
 
         $dn = New-Object System.Windows.Forms.TreeNode($domainText)
-        $dn.Tag = [pscustomobject]@{ kind="domain"; domain=$domainKey }
+        $dn.Tag = [pscustomobject]@{ kind = "domain"; domain = $domainKey }
 
         $modules = $d.Group | Group-Object module | Sort-Object Name
         foreach ($m in $modules) {
             $mn = New-Object System.Windows.Forms.TreeNode($m.Name)
-            $mn.Tag = [pscustomobject]@{ kind="module"; domain=$domainKey; module=$m.Name }
+            $mn.Tag = [pscustomobject]@{ kind = "module"; domain = $domainKey; module = $m.Name }
 
             # Optional 3rd level: path segment [2] when it adds value
             $sub = $m.Group | ForEach-Object {
@@ -260,7 +260,7 @@ function Populate-Tree {
 
             foreach ($s in $sub) {
                 $sn = New-Object System.Windows.Forms.TreeNode($s)
-                $sn.Tag = [pscustomobject]@{ kind="sub"; domain=$domainKey; module=$m.Name; sub=$s }
+                $sn.Tag = [pscustomobject]@{ kind = "sub"; domain = $domainKey; module = $m.Name; sub = $s }
                 [void]$mn.Nodes.Add($sn)
             }
 
@@ -333,23 +333,23 @@ function Run-Tool {
     Invoke-ProSuiteToolProcess -Tool $t -RepoRoot $repoRoot -HubLogDir $hubLogDir -RunAsAdmin:$AsAdmin `
         -OnOutput { param($line) Append-Output $line } `
         -OnCompleted {
-            param($ok, $hubLog, $err)
+        param($ok, $hubLog, $err)
 
-            $script:lastHubLog = $hubLog
+        $script:lastHubLog = $hubLog
 
-            if ($ok) {
-                $status.Text = "Completed."
-                Append-Output "`r`n[OK] Completed.`r`n"
-            } else {
-                $status.Text = "Completed with errors."
+        if ($ok) {
+            $status.Text = "Completed."
+            Append-Output "`r`n[OK] Completed.`r`n"
+        } else {
+            $status.Text = "Completed with errors."
 
-                $errMsg = if ([string]::IsNullOrWhiteSpace($err)) { "Errors occurred." } else { $err }
-                Append-Output ("`r`n[FAIL] {0}`r`n" -f $errMsg)
+            $errMsg = if ([string]::IsNullOrWhiteSpace($err)) { "Errors occurred." } else { $err }
+            Append-Output ("`r`n[FAIL] {0}`r`n" -f $errMsg)
 
-                $hubLogMsg = if ($hubLog) { $hubLog } else { "N/A" }
-                Show-MessageBox -Type Error -Title $appName -Text ("Tool finished with errors.`r`n`r`nHub log:`r`n{0}" -f $hubLogMsg)
-            }
+            $hubLogMsg = if ($hubLog) { $hubLog } else { "N/A" }
+            Show-MessageBox -Type Error -Title $appName -Text ("Tool finished with errors.`r`n`r`nHub log:`r`n{0}" -f $hubLogMsg)
         }
+    }
 }
 
 # -------------------------------
@@ -359,85 +359,85 @@ $tree.Add_AfterSelect({ Populate-ListForSelection })
 $txtSearch.Add_TextChanged({ Populate-ListForSelection })
 
 $list.Add_SelectedIndexChanged({
-    $t = Get-SelectedTool
-    if ($t -and $t.readmePath) {
-        Load-ReadmeText -ReadmeRel $t.readmePath
-    }
-})
+        $t = Get-SelectedTool
+        if ($t -and $t.readmePath) {
+            Load-ReadmeText -ReadmeRel $t.readmePath
+        }
+    })
 
 $btnOpenHubLogs.Add_Click({
-    try { Start-Process explorer.exe ('"{0}"' -f $hubLogDir) | Out-Null } catch { }
-})
+        try { Start-Process explorer.exe ('"{0}"' -f $hubLogDir) | Out-Null } catch { }
+    })
 
 $btnOpenFolder.Add_Click({
-    $t = Get-SelectedTool
-    if (-not $t) { return }
-    $abs = Join-Path $repoRoot $t.path
-    if (Test-Path -LiteralPath $abs) {
-        $folder = Split-Path -Parent $abs
-        Start-Process explorer.exe ('"{0}"' -f $folder) | Out-Null
-    }
-})
+        $t = Get-SelectedTool
+        if (-not $t) { return }
+        $abs = Join-Path $repoRoot $t.path
+        if (Test-Path -LiteralPath $abs) {
+            $folder = Split-Path -Parent $abs
+            Start-Process explorer.exe ('"{0}"' -f $folder) | Out-Null
+        }
+    })
 
 $btnOpenLog.Add_Click({
-    if ($script:lastHubLog -and (Test-Path -LiteralPath $script:lastHubLog)) {
-        Start-Process notepad.exe ('"{0}"' -f $script:lastHubLog) | Out-Null
-    } else {
-        Show-MessageBox -Type Warning -Title $appName -Text "No hub log is available yet."
-    }
-})
+        if ($script:lastHubLog -and (Test-Path -LiteralPath $script:lastHubLog)) {
+            Start-Process notepad.exe ('"{0}"' -f $script:lastHubLog) | Out-Null
+        } else {
+            Show-MessageBox -Type Warning -Title $appName -Text "No hub log is available yet."
+        }
+    })
 
 $btnReload.Add_Click({
-    try {
-        $script:manifest = Read-JsonFile -Path $manifestPath
-        $script:tools = @($script:manifest.tools)
+        try {
+            $script:manifest = Read-JsonFile -Path $manifestPath
+            $script:tools = @($script:manifest.tools)
 
-        Populate-Tree
-        if ($tree.Nodes.Count -gt 0) { $tree.SelectedNode = $tree.Nodes[0] }
-        $status.Text = "Manifest reloaded."
-    } catch {
-        Show-MessageBox -Type Error -Title $appName -Text "Failed to reload Manifest.json."
-    }
-})
+            Populate-Tree
+            if ($tree.Nodes.Count -gt 0) { $tree.SelectedNode = $tree.Nodes[0] }
+            $status.Text = "Manifest reloaded."
+        } catch {
+            Show-MessageBox -Type Error -Title $appName -Text "Failed to reload Manifest.json."
+        }
+    })
 
 $btnGen.Add_Click({
-    try {
-        $status.Text = "Rebuilding manifest..."
-        $gen = Join-Path $PSScriptRoot "Generate-Manifest.ps1"
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gen | Out-Null
+        try {
+            $status.Text = "Rebuilding manifest..."
+            $gen = Join-Path $PSScriptRoot "Generate-Manifest.ps1"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gen | Out-Null
 
-        $script:manifest = Read-JsonFile -Path $manifestPath
-        $script:tools = @($script:manifest.tools)
+            $script:manifest = Read-JsonFile -Path $manifestPath
+            $script:tools = @($script:manifest.tools)
 
-        Populate-Tree
-        if ($tree.Nodes.Count -gt 0) { $tree.SelectedNode = $tree.Nodes[0] }
-        $status.Text = "Manifest rebuilt."
-    } catch {
-        $status.Text = "Failed."
-        Show-MessageBox -Type Error -Title $appName -Text "Failed to rebuild manifest."
-    }
-})
+            Populate-Tree
+            if ($tree.Nodes.Count -gt 0) { $tree.SelectedNode = $tree.Nodes[0] }
+            $status.Text = "Manifest rebuilt."
+        } catch {
+            $status.Text = "Failed."
+            Show-MessageBox -Type Error -Title $appName -Text "Failed to rebuild manifest."
+        }
+    })
 
 $btnRun.Add_Click({ Run-Tool })
 $btnRunAdmin.Add_Click({ Run-Tool -AsAdmin })
 
 # One-time: apply SplitContainer constraints AFTER layout + focus search box
 $form.Add_Shown({
-    try {
-        $minLeft  = 260
-        $minRight = 520
+        try {
+            $minLeft = 260
+            $minRight = 520
 
-        $split.Panel1MinSize = $minLeft
-        $split.Panel2MinSize = $minRight
+            $split.Panel1MinSize = $minLeft
+            $split.Panel2MinSize = $minRight
 
-        $maxSplitter = [Math]::Max($minLeft, $split.Width - $minRight)
-        $split.SplitterDistance = [Math]::Min([Math]::Max($split.SplitterDistance, $minLeft), $maxSplitter)
-    } catch {
-        # Do not hard-fail on layout constraints
-    }
+            $maxSplitter = [Math]::Max($minLeft, $split.Width - $minRight)
+            $split.SplitterDistance = [Math]::Min([Math]::Max($split.SplitterDistance, $minLeft), $maxSplitter)
+        } catch {
+            # Do not hard-fail on layout constraints
+        }
 
-    try { $txtSearch.Focus() } catch { }
-})
+        try { $txtSearch.Focus() } catch { }
+    })
 
 # Init
 Populate-Tree

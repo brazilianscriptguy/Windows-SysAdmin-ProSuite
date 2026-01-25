@@ -1,4 +1,4 @@
-# ProSuite-Hub\Core\ProSuite.Helpers.ps1
+ï»¿# ProSuite-Hub\Core\ProSuite.Helpers.ps1
 Set-StrictMode -Version Latest
 
 function Get-RepoRoot {
@@ -68,7 +68,7 @@ function Infer-RequiresAdmin {
         [Parameter(Mandatory)][string]$ScriptPath
     )
 
-    # Heurística conservadora (você pode evoluir depois)
+    # Heurï¿½stica conservadora (vocï¿½ pode evoluir depois)
     try {
         $head = Get-Content -LiteralPath $ScriptPath -TotalCount 220 -ErrorAction Stop
         $t = ($head -join "`n")
@@ -87,7 +87,7 @@ function Try-ExtractSynopsis {
         $content = Get-Content -LiteralPath $ScriptPath -TotalCount 120 -ErrorAction Stop
         $text = ($content -join "`n")
         if ($text -match '(?is)\.SYNOPSIS\s*(.+?)\r?\n\s*\.') {
-            return (($Matches[1] -replace '\r','') -replace '^\s+|\s+$','')
+            return (($Matches[1] -replace '\r', '') -replace '^\s+|\s+$', '')
         }
     } catch { }
     return ""

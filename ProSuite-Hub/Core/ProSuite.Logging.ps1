@@ -1,4 +1,4 @@
-# ProSuite-Hub\Core\ProSuite.Logging.ps1
+﻿# ProSuite-Hub\Core\ProSuite.Logging.ps1
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "ProSuite.Helpers.ps1")
 
@@ -27,7 +27,7 @@ function Write-HubLog {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$Message,
-        [ValidateSet("INFO","WARN","ERROR","DEBUG")][string]$Level = "INFO"
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")][string]$Level = "INFO"
     )
     $line = "[{0}] [{1}] {2}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss"), $Level, $Message
     Add-Content -LiteralPath $Path -Value $line -Encoding UTF8
@@ -37,14 +37,14 @@ function Show-MessageBox {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Text,
-        [ValidateSet("Info","Warning","Error")][string]$Type = "Info",
+        [ValidateSet("Info", "Warning", "Error")][string]$Type = "Info",
         [string]$Title = "Windows SysAdmin ProSuite"
     )
     Add-Type -AssemblyName System.Windows.Forms | Out-Null
     switch ($Type) {
-        "Info"    { $icon = [System.Windows.Forms.MessageBoxIcon]::Information }
+        "Info" { $icon = [System.Windows.Forms.MessageBoxIcon]::Information }
         "Warning" { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
-        "Error"   { $icon = [System.Windows.Forms.MessageBoxIcon]::Error }
+        "Error" { $icon = [System.Windows.Forms.MessageBoxIcon]::Error }
     }
     [System.Windows.Forms.MessageBox]::Show(
         $Text, $Title,
