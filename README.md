@@ -1,10 +1,10 @@
-## 🚀 Complete PowerShell and VBScript Toolkit
+## 🚀 Complete PowerShell and VBScript Toolkit (2026)
 
 ### ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022
 
 Welcome to the **PowerShell Toolset for Windows Server Administration** and **VBScript Repository** — a curated collection of automation scripts by [`@brazilianscriptguy`](https://github.com/brazilianscriptguy) for secure, compliant, and scalable Windows infrastructure management.
 
->✨ All tools include intuitive **graphical user interfaces (GUI)**, generate structured `.log` files, and many also export `.csv` audit reports.
+> ✨ Most tools include intuitive **graphical user interfaces (GUI)**, generate structured `.log` files, and many also export `.csv` audit reports.
 
 ---
 
@@ -14,72 +14,72 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 | Folder | Description |
 |--------|-------------|
-| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tools for DFIR: EventLogMonitoring and IncidentResponse modules for breach triage, log analysis, and digital evidence. |
-| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Modules-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Core scripting modules for CI/CD pipelines, helper functions, and reusable logic blocks — includes NuGet packaging support. |
-| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Standardized Windows Server 2019/2022 baseline templates: DNS, AD CS, GPO, DHCP, IIS, and institutional compliance automation. |
-| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | Institutional ITSM for Windows 10/11: BeforeJoinDomain, AfterJoinDomain, and detailed workstation standardization routines. |
-| [![SysAdmin Tools](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Centralized PowerShell + VBS GUIs for AD, GPO, WSUS, DNS, DHCP, CA, and infrastructure orchestration — organized into 7 categories. |
+| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tooling for DFIR, including **Event Log monitoring** and **incident response** modules for triage, analysis, and digital evidence workflows. |
+| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Modules-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Core scripting modules for CI/CD pipelines, helper functions, and reusable logic blocks — including **NuGet packaging** support. |
+| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Standardized **Windows Server 2019/2022** baseline templates: DNS, AD CS, GPO, DHCP, IIS, and institutional compliance automation. |
+| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | Institutional ITSM automation for **Windows 10/11**: `BeforeJoinDomain`, `AfterJoinDomain`, and workstation standardization routines. |
+| [![SysAdmin Tools](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Centralized **PowerShell + VBScript** GUIs for AD, GPO, WSUS, DNS, DHCP, CA, and infrastructure orchestration — organized into 7 categories. |
 
 ---
 
 ## 💻 Core Features
 
-- 🧪 **Forensic Readiness:** Artifacts, Event Log parsing, breach detection  
-- ⚡ **PowerShell-Driven Automation:** Secure scripting with reusability and CI support  
-- 🔐 **Server & Workstation Hardening:** Enforces institutional configurations and firewall, DNS, and GPO policies  
-- 👤 **IAM & Domain Prep:** Tools for AD objects, logon behavior, SID tracking, and offline login caching  
-- 📋 **Registry + GPO Integration:** Uses native Windows `.reg`, `.vbs`, and `.hta` to maintain compliance  
+- 🧪 **Forensic readiness:** Artifact collection, Event Log parsing, and breach detection support  
+- ⚡ **PowerShell-driven automation:** Secure scripting patterns with reusability and CI support  
+- 🔐 **Server & workstation hardening:** Enforces institutional baselines, including firewall, DNS, and GPO policies  
+- 👤 **IAM & domain readiness:** Tools for AD objects, logon behavior, SID tracking, and offline logon caching  
+- 📋 **Registry + GPO integration:** Leverages native Windows `.reg`, `.vbs`, and `.hta` to maintain compliance  
 
 ---
 
 ## 🌟 Key Highlights & Core Competencies
 
-- 🖼️ **GUI-Driven Interfaces:** Interactive scripts with guided automation  
-- 📝 **Standardized Logging:** Detailed `.log` outputs in structured directories  
-- 📊 **CSV Audit Reports:** BIOS, SID, OS state, update status, software inventory  
-- 🧩 **Modular Design:** All scripts are reusable, adaptable, and parameterized  
-- 🔁 **Release Automation:** GitHub Actions for linting, packaging, NuGet publishing  
-- 🛡️ **Zero Third-Party Binaries:** 100% native to Windows OS ecosystem  
+- 🖼️ **GUI-driven interfaces:** Interactive tools with guided automation  
+- 📝 **Standardized logging:** Detailed `.log` outputs stored in consistent directories  
+- 📊 **CSV audit reports:** BIOS, SID, OS posture, update status, and software inventory exports  
+- 🧩 **Modular design:** Reusable components with parameters and consistent conventions  
+- 🔁 **Release automation:** GitHub Actions for linting, packaging, and NuGet publishing  
+- 🛡️ **Zero third-party binaries:** Built to remain native to the Windows ecosystem  
 
 ---
 
-## ⚙️ Requirements & Environment Setup
+## ⚙️ Requirements & Environment Setup (2026)
 
-| **Requirement** | Minimum Version / Notes |
+| Requirement | Minimum Version / Notes |
 |-------------|--------------------------|
-| **PowerShell** | 5.1 (Windows built-in) or 7.x for cross-platform CLI |
-| **Operating System** | Windows 10/11 (Workstation), Windows Server 2019/2022 |
-| **Execution Policy** | Scripts require `RemoteSigned` or `Unrestricted` |
-| **Administrator Rights** | Required for most `.ps1`, `.hta`, and registry-modifying `.vbs` files |
-| **.NET Framework** | 4.7.2 or later (some GUIs depend on WPF/.NET UI elements) |
-| **Optional Tools** | Git (for `git clone`), Notepad++ or VSCode for editing, Task Scheduler for automation |
+| **PowerShell** | **Windows PowerShell 5.1** (built-in) or **PowerShell 7.x** recommended |
+| **Operating System** | **Windows 10/11** (Workstation), **Windows Server 2019/2022** |
+| **Execution Policy** | Recommended: `RemoteSigned` (avoid `Unrestricted` unless required by your environment) |
+| **Administrator Rights** | Required for many `.ps1`, `.hta`, and registry-modifying `.vbs` tasks |
+| **.NET Framework** | **4.8** recommended (for legacy GUI components); Windows 11 commonly includes modern runtimes |
+| **Optional Tools** | Git (for `git clone`), VS Code (recommended), Task Scheduler for automation |
 
 ---
 
 ## ▶️ How to Use
 
-### Run scripts:
+### Run scripts
 
-| **File Type** | Execution Method |
-|-----------|------------------|
-| `.ps1`    | Right-click → “Run with PowerShell” |
-| `.vbs`    | Right-click → “Open with Command Prompt” |
-| `.hta`    | Double-click (run as administrator) |
+| File Type | Execution Method |
+|----------|-------------------|
+| `.ps1` | Right-click → **Run with PowerShell** (or run from an elevated terminal) |
+| `.vbs` | Run via `cscript.exe` (recommended) or double-click for `wscript.exe` |
+| `.hta` | Double-click (run as administrator when required) |
 
-### View logs and reports:
+### View logs and reports
 
-| **Path** | Purpose |
+| Path | Purpose |
 |------|---------|
 | `C:\ITSM-Logs-WKS\` | Workstation automation logs |
-| `C:\ITSM-Logs-SVR\` | Server-side script execution logs |
-| `C:\Scripts-LOGS\`  | GPO sync, agent deployment, antivirus logs |
-| `C:\Logs-TEMP\`     | General-purpose and legacy script output |
+| `C:\ITSM-Logs-SVR\` | Server-side execution logs |
+| `C:\Scripts-LOGS\` | GPO sync, agent deployment, antivirus logs |
+| `C:\Logs-TEMP\` | General-purpose and legacy script output |
 
 ---
 
 ## 🤝 Support & Contributions
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
 [![Patreon](https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
@@ -89,7 +89,6 @@ Welcome to the **PowerShell Toolset for Windows Server Administration** and **VB
 
 ---
 
-💼 Thank you for using **Windows-SysAdmin-ProSuite** — your trusted toolkit for automating administrative tasks, enforcing security policies, and achieving ITSM excellence across public or enterprise infrastructure.
+💼 Thank you for using **Windows-SysAdmin-ProSuite** — your trusted toolkit for automating administrative tasks, enforcing security policies, and supporting ITSM excellence across public-sector or enterprise infrastructure.
 
-© 2025 Luiz Hamilton. All rights reserved.
-_
+© 2026 Luiz Hamilton. All rights reserved.
