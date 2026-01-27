@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Workstation Discovery Tool - Active Directory Workstation Inventory and List Export (GUI)
 
@@ -52,10 +52,10 @@ Add-Type -AssemblyName System.Drawing
 # ===========================
 #          Logging
 # ===========================
-$scriptName  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir      = 'C:\Logs-TEMP'
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir = 'C:\Logs-TEMP'
 $logFileName = "{0}_{1}.log" -f $scriptName, (Get-Date -Format 'yyyyMMdd_HHmmss')
-$logPath     = Join-Path $logDir $logFileName
+$logPath = Join-Path $logDir $logFileName
 
 if (-not (Test-Path $logDir)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
@@ -64,7 +64,7 @@ if (-not (Test-Path $logDir)) {
 function Write-Log {
     param(
         [Parameter(Mandatory)][string]$Message,
-        [ValidateSet('INFO','WARNING','ERROR')][string]$Level = 'INFO'
+        [ValidateSet('INFO', 'WARNING', 'ERROR')][string]$Level = 'INFO'
     )
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     ("[{0}] [{1}] {2}" -f $timestamp, $Level, $Message) | Add-Content -Path $logPath -ErrorAction SilentlyContinue
@@ -74,16 +74,16 @@ function Show-Message {
     param(
         [Parameter(Mandatory)][string]$Text,
         [string]$Title = 'Information',
-        [ValidateSet('Information','Warning','Error')][string]$Icon = 'Information'
+        [ValidateSet('Information', 'Warning', 'Error')][string]$Icon = 'Information'
     )
 
     $mbIcon = [System.Windows.Forms.MessageBoxIcon]::$Icon
     [void][System.Windows.Forms.MessageBox]::Show($Text, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, $mbIcon)
 
     $lvl = switch ($Icon) {
-        'Error'   { 'ERROR' }
+        'Error' { 'ERROR' }
         'Warning' { 'WARNING' }
-        default   { 'INFO' }
+        default { 'INFO' }
     }
     Write-Log -Message ("{0} - {1}" -f $Title, $Text) -Level $lvl
 }
@@ -114,14 +114,14 @@ function Get-CurrentDomainFQDN {
 function Get-WorkstationData {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Current','Specific','Forest')]
+        [ValidateSet('Current', 'Specific', 'Forest')]
         [string]$Scope,
 
         [string]$SpecificDomain = '',
-        [string]$SearchBase     = '',
+        [string]$SearchBase = '',
 
         [bool]$OnlyEnabled = $true,
-        [bool]$SkipPing    = $true,
+        [bool]$SkipPing = $true,
 
         [int]$PingTimeoutMs = 1200
     )
@@ -129,7 +129,7 @@ function Get-WorkstationData {
     $domains = @()
 
     switch ($Scope) {
-        'Current'  { $domains += (Get-CurrentDomainFQDN) }
+        'Current' { $domains += (Get-CurrentDomainFQDN) }
         'Specific' {
             if ([string]::IsNullOrWhiteSpace($SpecificDomain)) {
                 throw 'No specific domain was selected.'
@@ -138,7 +138,7 @@ function Get-WorkstationData {
         }
         'Forest' {
             try {
-                $forest  = Get-ADForest -ErrorAction Stop
+                $forest = Get-ADForest -ErrorAction Stop
                 $domains = @($forest.Domains)
                 Write-Log -Message ("Forest scope selected. Domains discovered: {0}" -f $domains.Count) -Level 'INFO'
             }
@@ -157,9 +157,9 @@ function Get-WorkstationData {
         if ($OnlyEnabled) { $adFilter += " -and Enabled -eq 'true'" }
 
         $adParams = @{
-            Filter      = $adFilter
-            Properties  = 'Name','DNSHostName','IPv4Address','Enabled','LastLogonDate','DistinguishedName'
-            Server      = $domain
+            Filter = $adFilter
+            Properties = 'Name', 'DNSHostName', 'IPv4Address', 'Enabled', 'LastLogonDate', 'DistinguishedName'
+            Server = $domain
             ErrorAction = 'Stop'
         }
         if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
@@ -186,15 +186,15 @@ function Get-WorkstationData {
             $pct = [math]::Round(($i * 100) / $total)
 
             if ($script:form -and $script:form.IsHandleCreated) {
-                $script:form.Invoke([Action]{
-                    $script:progressBar.Value = [Math]::Min([Math]::Max($pct, 0), 100)
-                    $script:lblStatus.Text    = ("Domain {0} - {1}/{2} ({3}%) - {4}" -f $domain, $i, $total, $pct, $comp.Name)
-                })
+                $script:form.Invoke([Action] {
+                        $script:progressBar.Value = [Math]::Min([Math]::Max($pct, 0), 100)
+                        $script:lblStatus.Text = ("Domain {0} - {1}/{2} ({3}%) - {4}" -f $domain, $i, $total, $pct, $comp.Name)
+                    })
             }
 
-            $name   = $comp.Name
-            $fqdn   = $comp.DNSHostName
-            $ip     = $comp.IPv4Address
+            $name = $comp.Name
+            $fqdn = $comp.DNSHostName
+            $ip = $comp.IPv4Address
             $source = if ($ip) { 'AD' } else { $null }
 
             # DNS resolution (preferred)
@@ -203,7 +203,7 @@ function Get-WorkstationData {
                     # Note: PowerShell 5.1 Resolve-DnsName does not support -DnsTimeoutSeconds.
                     # Using -QuickTimeout for better responsiveness when applicable.
                     $dns = Resolve-DnsName -Name $fqdn -Type A -QuickTimeout -ErrorAction Stop -WarningAction SilentlyContinue
-                    $ip  = $dns | Where-Object { $_.IPAddress -match '^\d{1,3}(\.\d{1,3}){3}$' } | Select-Object -First 1 -ExpandProperty IPAddress
+                    $ip = $dns | Where-Object { $_.IPAddress -match '^\d{1,3}(\.\d{1,3}){3}$' } | Select-Object -First 1 -ExpandProperty IPAddress
                     if ($ip) { $source = 'DNS' }
                 }
                 catch {
@@ -222,7 +222,7 @@ function Get-WorkstationData {
                             Select-Object -First 1 -ExpandProperty IPAddressToString
 
                         if ($addr) {
-                            $ip     = $addr
+                            $ip = $addr
                             $source = 'Ping+DNS'
                         }
                     }
@@ -235,12 +235,12 @@ function Get-WorkstationData {
             if (-not $ip) { $source = 'Not Resolved' }
 
             $allResults += [PSCustomObject]@{
-                ComputerName      = $name
-                FQDN              = $fqdn
-                IPv4Address       = $ip
-                IP_Source         = $source
-                Enabled           = $comp.Enabled
-                Domain            = $domain
+                ComputerName = $name
+                FQDN = $fqdn
+                IPv4Address = $ip
+                IP_Source = $source
+                Enabled = $comp.Enabled
+                Domain = $domain
                 DistinguishedName = $comp.DistinguishedName
             }
         }
@@ -249,7 +249,7 @@ function Get-WorkstationData {
     # Return both the data and the domain list (for accurate summaries)
     return [PSCustomObject]@{
         Domains = $domains
-        Data    = $allResults
+        Data = $allResults
     }
 }
 
@@ -266,13 +266,13 @@ $script:form.MaximizeBox = $false
 # Controls
 $lblScope = New-Object System.Windows.Forms.Label
 $lblScope.Text = 'Search scope:'
-$lblScope.Location = New-Object System.Drawing.Point(20,20)
-$lblScope.Size = New-Object System.Drawing.Size(120,20)
+$lblScope.Location = New-Object System.Drawing.Point(20, 20)
+$lblScope.Size = New-Object System.Drawing.Size(120, 20)
 $script:form.Controls.Add($lblScope)
 
 $cmbScope = New-Object System.Windows.Forms.ComboBox
-$cmbScope.Location = New-Object System.Drawing.Point(150,18)
-$cmbScope.Size = New-Object System.Drawing.Size(300,21)
+$cmbScope.Location = New-Object System.Drawing.Point(150, 18)
+$cmbScope.Size = New-Object System.Drawing.Size(300, 21)
 $cmbScope.DropDownStyle = 'DropDownList'
 $cmbScope.Items.AddRange(@('Current domain', 'Specific domain', 'All domains in forest'))
 $cmbScope.SelectedIndex = 0
@@ -280,114 +280,114 @@ $script:form.Controls.Add($cmbScope)
 
 $lblDomain = New-Object System.Windows.Forms.Label
 $lblDomain.Text = 'Domain:'
-$lblDomain.Location = New-Object System.Drawing.Point(20,50)
-$lblDomain.Size = New-Object System.Drawing.Size(120,20)
+$lblDomain.Location = New-Object System.Drawing.Point(20, 50)
+$lblDomain.Size = New-Object System.Drawing.Size(120, 20)
 $lblDomain.Enabled = $false
 $script:form.Controls.Add($lblDomain)
 
 $cmbDomain = New-Object System.Windows.Forms.ComboBox
-$cmbDomain.Location = New-Object System.Drawing.Point(150,48)
-$cmbDomain.Size = New-Object System.Drawing.Size(480,21)
+$cmbDomain.Location = New-Object System.Drawing.Point(150, 48)
+$cmbDomain.Size = New-Object System.Drawing.Size(480, 21)
 $cmbDomain.DropDownStyle = 'DropDownList'
 $cmbDomain.Enabled = $false
 $script:form.Controls.Add($cmbDomain)
 
 $lblOU = New-Object System.Windows.Forms.Label
 $lblOU.Text = 'OU / Search base (optional):'
-$lblOU.Location = New-Object System.Drawing.Point(20,80)
-$lblOU.Size = New-Object System.Drawing.Size(140,20)
+$lblOU.Location = New-Object System.Drawing.Point(20, 80)
+$lblOU.Size = New-Object System.Drawing.Size(140, 20)
 $script:form.Controls.Add($lblOU)
 
 $txtOU = New-Object System.Windows.Forms.TextBox
-$txtOU.Location = New-Object System.Drawing.Point(170,78)
-$txtOU.Size = New-Object System.Drawing.Size(460,20)
+$txtOU.Location = New-Object System.Drawing.Point(170, 78)
+$txtOU.Size = New-Object System.Drawing.Size(460, 20)
 $script:form.Controls.Add($txtOU)
 
 $chkEnabled = New-Object System.Windows.Forms.CheckBox
 $chkEnabled.Text = 'Only enabled computer accounts'
 $chkEnabled.Checked = $true
-$chkEnabled.Location = New-Object System.Drawing.Point(20,110)
-$chkEnabled.Size = New-Object System.Drawing.Size(260,20)
+$chkEnabled.Location = New-Object System.Drawing.Point(20, 110)
+$chkEnabled.Size = New-Object System.Drawing.Size(260, 20)
 $script:form.Controls.Add($chkEnabled)
 
 $chkNoPing = New-Object System.Windows.Forms.CheckBox
 $chkNoPing.Text = 'Skip ping fallback (faster)'
 $chkNoPing.Checked = $true
-$chkNoPing.Location = New-Object System.Drawing.Point(20,135)
-$chkNoPing.Size = New-Object System.Drawing.Size(260,20)
+$chkNoPing.Location = New-Object System.Drawing.Point(20, 135)
+$chkNoPing.Size = New-Object System.Drawing.Size(260, 20)
 $script:form.Controls.Add($chkNoPing)
 
 $lblFormat = New-Object System.Windows.Forms.Label
 $lblFormat.Text = 'Export format:'
-$lblFormat.Location = New-Object System.Drawing.Point(20,165)
-$lblFormat.Size = New-Object System.Drawing.Size(120,20)
+$lblFormat.Location = New-Object System.Drawing.Point(20, 165)
+$lblFormat.Size = New-Object System.Drawing.Size(120, 20)
 $script:form.Controls.Add($lblFormat)
 
 $cmbFormat = New-Object System.Windows.Forms.ComboBox
-$cmbFormat.Location = New-Object System.Drawing.Point(150,163)
-$cmbFormat.Size = New-Object System.Drawing.Size(480,21)
+$cmbFormat.Location = New-Object System.Drawing.Point(150, 163)
+$cmbFormat.Size = New-Object System.Drawing.Size(480, 21)
 $cmbFormat.DropDownStyle = 'DropDownList'
 $cmbFormat.Items.AddRange(@(
-    'Unique IPv4 addresses (TXT)',
-    'Short computer names / NetBIOS (TXT)',
-    'Fully qualified domain names / FQDN (TXT)',
-    'Full report (CSV)'
-))
+        'Unique IPv4 addresses (TXT)',
+        'Short computer names / NetBIOS (TXT)',
+        'Fully qualified domain names / FQDN (TXT)',
+        'Full report (CSV)'
+    ))
 $cmbFormat.SelectedIndex = 0
 $script:form.Controls.Add($cmbFormat)
 
 $lblPath = New-Object System.Windows.Forms.Label
 $lblPath.Text = 'Output file:'
-$lblPath.Location = New-Object System.Drawing.Point(20,195)
-$lblPath.Size = New-Object System.Drawing.Size(120,20)
+$lblPath.Location = New-Object System.Drawing.Point(20, 195)
+$lblPath.Size = New-Object System.Drawing.Size(120, 20)
 $script:form.Controls.Add($lblPath)
 
 $txtPath = New-Object System.Windows.Forms.TextBox
-$txtPath.Location = New-Object System.Drawing.Point(150,193)
-$txtPath.Size = New-Object System.Drawing.Size(400,20)
+$txtPath.Location = New-Object System.Drawing.Point(150, 193)
+$txtPath.Size = New-Object System.Drawing.Size(400, 20)
 $txtPath.Text = 'C:\temp\workstations_list.txt'
 $script:form.Controls.Add($txtPath)
 
 $btnBrowse = New-Object System.Windows.Forms.Button
 $btnBrowse.Text = 'Browse...'
-$btnBrowse.Size = New-Object System.Drawing.Size(80,23)
-$btnBrowse.Location = New-Object System.Drawing.Point(550,192)
+$btnBrowse.Size = New-Object System.Drawing.Size(80, 23)
+$btnBrowse.Location = New-Object System.Drawing.Point(550, 192)
 $btnBrowse.Add_Click({
-    $sfd = New-Object System.Windows.Forms.SaveFileDialog
-    $sfd.Filter = 'Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|All files (*.*)|*.*'
-    $sfd.FileName = [System.IO.Path]::GetFileName($txtPath.Text)
-    if ($sfd.ShowDialog() -eq 'OK') {
-        $txtPath.Text = $sfd.FileName
-    }
-})
+        $sfd = New-Object System.Windows.Forms.SaveFileDialog
+        $sfd.Filter = 'Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|All files (*.*)|*.*'
+        $sfd.FileName = [System.IO.Path]::GetFileName($txtPath.Text)
+        if ($sfd.ShowDialog() -eq 'OK') {
+            $txtPath.Text = $sfd.FileName
+        }
+    })
 $script:form.Controls.Add($btnBrowse)
 
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = 'Generate'
-$btnRun.Size = New-Object System.Drawing.Size(480,40)
-$btnRun.Location = New-Object System.Drawing.Point(150,230)
+$btnRun.Size = New-Object System.Drawing.Size(480, 40)
+$btnRun.Location = New-Object System.Drawing.Point(150, 230)
 $btnRun.BackColor = [System.Drawing.Color]::LightGreen
 $btnRun.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
 $script:form.Controls.Add($btnRun)
 
 $script:progressBar = New-Object System.Windows.Forms.ProgressBar
-$script:progressBar.Location = New-Object System.Drawing.Point(20,280)
-$script:progressBar.Size = New-Object System.Drawing.Size(610,25)
+$script:progressBar.Location = New-Object System.Drawing.Point(20, 280)
+$script:progressBar.Size = New-Object System.Drawing.Size(610, 25)
 $script:progressBar.Style = 'Continuous'
 $script:form.Controls.Add($script:progressBar)
 
 $script:lblStatus = New-Object System.Windows.Forms.Label
 $script:lblStatus.Text = 'Ready.'
-$script:lblStatus.Location = New-Object System.Drawing.Point(20,310)
-$script:lblStatus.Size = New-Object System.Drawing.Size(610,30)
+$script:lblStatus.Location = New-Object System.Drawing.Point(20, 310)
+$script:lblStatus.Size = New-Object System.Drawing.Size(610, 30)
 $script:form.Controls.Add($script:lblStatus)
 
 $txtSummary = New-Object System.Windows.Forms.TextBox
 $txtSummary.Multiline = $true
 $txtSummary.ReadOnly = $true
 $txtSummary.ScrollBars = 'Vertical'
-$txtSummary.Location = New-Object System.Drawing.Point(20,350)
-$txtSummary.Size = New-Object System.Drawing.Size(610,190)
+$txtSummary.Location = New-Object System.Drawing.Point(20, 350)
+$txtSummary.Size = New-Object System.Drawing.Size(610, 190)
 $script:form.Controls.Add($txtSummary)
 
 # ===========================
@@ -405,131 +405,131 @@ catch {
 
 # Populate domains when "Specific domain" is selected
 $cmbScope.Add_SelectedIndexChanged({
-    $isSpecific = ($cmbScope.SelectedItem -eq 'Specific domain')
-    $cmbDomain.Enabled = $isSpecific
-    $lblDomain.Enabled = $isSpecific
+        $isSpecific = ($cmbScope.SelectedItem -eq 'Specific domain')
+        $cmbDomain.Enabled = $isSpecific
+        $lblDomain.Enabled = $isSpecific
 
-    if ($isSpecific -and $cmbDomain.Items.Count -eq 0) {
-        try {
-            $forest = Get-ADForest -ErrorAction Stop
-            $forest.Domains | ForEach-Object { [void]$cmbDomain.Items.Add($_) }
-            if ($forest.Domains.Count -gt 0) { $cmbDomain.SelectedIndex = 0 }
+        if ($isSpecific -and $cmbDomain.Items.Count -eq 0) {
+            try {
+                $forest = Get-ADForest -ErrorAction Stop
+                $forest.Domains | ForEach-Object { [void]$cmbDomain.Items.Add($_) }
+                if ($forest.Domains.Count -gt 0) { $cmbDomain.SelectedIndex = 0 }
+            }
+            catch {
+                Show-Message -Text ("Failed to load forest domains.`n`n{0}" -f $_.Exception.Message) -Title 'Error' -Icon 'Error'
+                $cmbDomain.Enabled = $false
+                $lblDomain.Enabled = $false
+            }
         }
-        catch {
-            Show-Message -Text ("Failed to load forest domains.`n`n{0}" -f $_.Exception.Message) -Title 'Error' -Icon 'Error'
-            $cmbDomain.Enabled = $false
-            $lblDomain.Enabled = $false
-        }
-    }
-})
+    })
 
 # ===========================
 #     Main Execution Logic
 # ===========================
 $btnRun.Add_Click({
-    $btnRun.Enabled = $false
-    $script:progressBar.Value = 0
-    $txtSummary.Clear()
-    $script:lblStatus.Text = 'Querying Active Directory...'
-    Write-Log -Message 'User initiated workstation discovery.' -Level 'INFO'
-
-    try {
-        $scopeUi      = [string]$cmbScope.SelectedItem
-        $searchBase   = $txtOU.Text.Trim()
-        $onlyEnabled  = [bool]$chkEnabled.Checked
-        $skipPing     = [bool]$chkNoPing.Checked
-        $formatUi     = [string]$cmbFormat.SelectedItem
-        $userPath     = $txtPath.Text.Trim()
-
-        $scope = switch ($scopeUi) {
-            'Current domain'       { 'Current' }
-            'Specific domain'      { 'Specific' }
-            'All domains in forest' { 'Forest' }
-            default                { 'Current' }
-        }
-
-        $domain = if ($scope -eq 'Specific') { [string]$cmbDomain.SelectedItem } else { '' }
-
-        $result = Get-WorkstationData -Scope $scope -SpecificDomain $domain -SearchBase $searchBase -OnlyEnabled $onlyEnabled -SkipPing $skipPing
-        $data   = @($result.Data)
-        $usedDomains = @($result.Domains)
-
-        if ($data.Count -eq 0) {
-            throw 'No matching workstations were found for the selected criteria.'
-        }
-
-        # Smart output naming (only when user keeps the default path)
-        $effectiveDomain = if ($domain) { $domain } elseif ($scope -eq 'Current') { Get-CurrentDomainFQDN } else { 'Forest' }
-
-        $baseDir = 'C:\temp'
-        if (-not (Test-Path $baseDir)) { New-Item -Path $baseDir -ItemType Directory -Force | Out-Null }
-
-        $isDefaultPath = ($userPath -match '^C:\\temp\\workstations_list\.txt$') -or [string]::IsNullOrWhiteSpace($userPath)
-
-        $fileName = switch ($formatUi) {
-            'Unique IPv4 addresses (TXT)'             { "IPAddress-$effectiveDomain-workstations_list.txt" }
-            'Short computer names / NetBIOS (TXT)'    { "HostName-$effectiveDomain-workstations_list.txt" }
-            'Fully qualified domain names / FQDN (TXT)' { "FQDN-$effectiveDomain-workstations_list.txt" }
-            'Full report (CSV)'                      { "FullReport-$effectiveDomain-workstations_list.csv" }
-            default                                  { "workstations_list-$effectiveDomain.txt" }
-        }
-
-        $outPath = if ($isDefaultPath) { Join-Path $baseDir $fileName } else { $userPath }
-
-        # Export by selected format
-        switch ($formatUi) {
-            'Unique IPv4 addresses (TXT)' {
-                $data | Where-Object { $_.IPv4Address } |
-                    Select-Object -ExpandProperty IPv4Address -Unique |
-                    Sort-Object |
-                    Out-File -FilePath $outPath -Encoding ascii -Force
-            }
-            'Short computer names / NetBIOS (TXT)' {
-                $data | Select-Object -ExpandProperty ComputerName -Unique |
-                    Sort-Object |
-                    Out-File -FilePath $outPath -Encoding ascii -Force
-            }
-            'Fully qualified domain names / FQDN (TXT)' {
-                $data | Where-Object { $_.FQDN } |
-                    Select-Object -ExpandProperty FQDN -Unique |
-                    Sort-Object |
-                    Out-File -FilePath $outPath -Encoding ascii -Force
-            }
-            'Full report (CSV)' {
-                $data | Export-Csv -Path $outPath -NoTypeInformation -Encoding UTF8 -Force
-            }
-        }
-
-        # Summary
-        $summaryLines = @(
-            'Operation completed successfully.',
-            ("Total workstations found: {0}" -f $data.Count),
-            ("Domain(s): {0}" -f ($usedDomains -join ', ')),
-            ("Output file: {0}" -f $outPath),
-            ''
-        )
-
-        $summaryLines += ($data | Group-Object IP_Source | Sort-Object Count -Descending | ForEach-Object {
-            "{0,-18}: {1,5}" -f $_.Name, $_.Count
-        })
-
-        $txtSummary.Text = ($summaryLines -join "`r`n")
-        $script:lblStatus.Text = ("Completed. File saved to: {0}" -f $outPath)
-
-        Show-Message -Text ("Success!`n`nTotal entries: {0}`nSaved to: {1}" -f $data.Count, $outPath) -Title 'Completed' -Icon 'Information'
-        Write-Log -Message ("Export completed. Entries: {0}. Output: {1}" -f $data.Count, $outPath) -Level 'INFO'
-    }
-    catch {
-        $txtSummary.Text = ("ERROR: {0}" -f $_.Exception.Message)
-        $script:lblStatus.Text = 'Operation failed.'
-        Show-Message -Text $_.Exception.Message -Title 'Error' -Icon 'Error'
-        Write-Log -Message $_.Exception.Message -Level 'ERROR'
-    }
-    finally {
-        $btnRun.Enabled = $true
+        $btnRun.Enabled = $false
         $script:progressBar.Value = 0
-    }
-})
+        $txtSummary.Clear()
+        $script:lblStatus.Text = 'Querying Active Directory...'
+        Write-Log -Message 'User initiated workstation discovery.' -Level 'INFO'
+
+        try {
+            $scopeUi = [string]$cmbScope.SelectedItem
+            $searchBase = $txtOU.Text.Trim()
+            $onlyEnabled = [bool]$chkEnabled.Checked
+            $skipPing = [bool]$chkNoPing.Checked
+            $formatUi = [string]$cmbFormat.SelectedItem
+            $userPath = $txtPath.Text.Trim()
+
+            $scope = switch ($scopeUi) {
+                'Current domain' { 'Current' }
+                'Specific domain' { 'Specific' }
+                'All domains in forest' { 'Forest' }
+                default { 'Current' }
+            }
+
+            $domain = if ($scope -eq 'Specific') { [string]$cmbDomain.SelectedItem } else { '' }
+
+            $result = Get-WorkstationData -Scope $scope -SpecificDomain $domain -SearchBase $searchBase -OnlyEnabled $onlyEnabled -SkipPing $skipPing
+            $data = @($result.Data)
+            $usedDomains = @($result.Domains)
+
+            if ($data.Count -eq 0) {
+                throw 'No matching workstations were found for the selected criteria.'
+            }
+
+            # Smart output naming (only when user keeps the default path)
+            $effectiveDomain = if ($domain) { $domain } elseif ($scope -eq 'Current') { Get-CurrentDomainFQDN } else { 'Forest' }
+
+            $baseDir = 'C:\temp'
+            if (-not (Test-Path $baseDir)) { New-Item -Path $baseDir -ItemType Directory -Force | Out-Null }
+
+            $isDefaultPath = ($userPath -match '^C:\\temp\\workstations_list\.txt$') -or [string]::IsNullOrWhiteSpace($userPath)
+
+            $fileName = switch ($formatUi) {
+                'Unique IPv4 addresses (TXT)' { "IPAddress-$effectiveDomain-workstations_list.txt" }
+                'Short computer names / NetBIOS (TXT)' { "HostName-$effectiveDomain-workstations_list.txt" }
+                'Fully qualified domain names / FQDN (TXT)' { "FQDN-$effectiveDomain-workstations_list.txt" }
+                'Full report (CSV)' { "FullReport-$effectiveDomain-workstations_list.csv" }
+                default { "workstations_list-$effectiveDomain.txt" }
+            }
+
+            $outPath = if ($isDefaultPath) { Join-Path $baseDir $fileName } else { $userPath }
+
+            # Export by selected format
+            switch ($formatUi) {
+                'Unique IPv4 addresses (TXT)' {
+                    $data | Where-Object { $_.IPv4Address } |
+                        Select-Object -ExpandProperty IPv4Address -Unique |
+                        Sort-Object |
+                        Out-File -FilePath $outPath -Encoding ascii -Force
+                }
+                'Short computer names / NetBIOS (TXT)' {
+                    $data | Select-Object -ExpandProperty ComputerName -Unique |
+                        Sort-Object |
+                        Out-File -FilePath $outPath -Encoding ascii -Force
+                }
+                'Fully qualified domain names / FQDN (TXT)' {
+                    $data | Where-Object { $_.FQDN } |
+                        Select-Object -ExpandProperty FQDN -Unique |
+                        Sort-Object |
+                        Out-File -FilePath $outPath -Encoding ascii -Force
+                }
+                'Full report (CSV)' {
+                    $data | Export-Csv -Path $outPath -NoTypeInformation -Encoding UTF8 -Force
+                }
+            }
+
+            # Summary
+            $summaryLines = @(
+                'Operation completed successfully.',
+                ("Total workstations found: {0}" -f $data.Count),
+                ("Domain(s): {0}" -f ($usedDomains -join ', ')),
+                ("Output file: {0}" -f $outPath),
+                ''
+            )
+
+            $summaryLines += ($data | Group-Object IP_Source | Sort-Object Count -Descending | ForEach-Object {
+                    "{0,-18}: {1,5}" -f $_.Name, $_.Count
+                })
+
+            $txtSummary.Text = ($summaryLines -join "`r`n")
+            $script:lblStatus.Text = ("Completed. File saved to: {0}" -f $outPath)
+
+            Show-Message -Text ("Success!`n`nTotal entries: {0}`nSaved to: {1}" -f $data.Count, $outPath) -Title 'Completed' -Icon 'Information'
+            Write-Log -Message ("Export completed. Entries: {0}. Output: {1}" -f $data.Count, $outPath) -Level 'INFO'
+        }
+        catch {
+            $txtSummary.Text = ("ERROR: {0}" -f $_.Exception.Message)
+            $script:lblStatus.Text = 'Operation failed.'
+            Show-Message -Text $_.Exception.Message -Title 'Error' -Icon 'Error'
+            Write-Log -Message $_.Exception.Message -Level 'ERROR'
+        }
+        finally {
+            $btnRun.Enabled = $true
+            $script:progressBar.Value = 0
+        }
+    })
 
 # Show GUI
 [void]$script:form.ShowDialog()
