@@ -48,7 +48,7 @@ The **Network and Infrastructure Management** folder provides a set of **PowerSh
 |--------------------------------------------|---------------------------------------------------------------------------------|
 | **Check-ServicesPort-Connectivity.ps1**    | Verifies connectivity of service ports across endpoints.                        |
 | **Create-NewDHCPReservations.ps1**         | Creates DHCP reservations via GUI input for hostname, MAC, and IP.              |
-| **Discovery-ADComputer-Tool.ps1**         | Queries AD computers, resolves IPv4 (AD/DNS/ping fallback), and exports lists via GUI. |
+| **Discovery-Network-ADComputers.ps1**         | Queries AD computers, resolves IPv4 (AD/DNS/ping fallback), and exports lists via GUI. |
 | **Inventory-WSUSConfigs-Tool.ps1**         | Collects WSUS stats, patch activity, and repo size.                             |
 | **Restart-NetworkAdapter.ps1**             | Restarts local or remote network adapters.                                       |
 | **Restart-SpoolerPoolServices.ps1**        | Restarts print services with logging.                                            |
