@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Troubleshoots spooler, print queue, printers, drivers and related GPO policies.
 
@@ -204,7 +204,7 @@ function Clear-RegistryKeyValues {
     try {
         $props = Get-ItemProperty -Path $Path -ErrorAction Stop
         foreach ($p in $props.PSObject.Properties) {
-            if ($p.Name -in @('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider')) { continue }
+            if ($p.Name -in @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider')) { continue }
 
             $preserve = $false
             foreach ($frag in $PreserveValueFragments) {
@@ -230,7 +230,7 @@ function Clear-RegistryKeyValues {
 }
 
 function Clear-SpoolFolders {
-    param([string[]]$Folders = @('PRINTERS','SERVERS'))
+    param([string[]]$Folders = @('PRINTERS', 'SERVERS'))
 
     $spoolRoot = Join-Path $env:SystemRoot 'System32\spool'
     foreach ($f in $Folders) {
@@ -273,7 +273,7 @@ function Get-PreservePrinterNames {
 
     # normalize: unique, case-insensitive
     $unique = $names | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
-    return ,$unique
+    return , $unique
 }
 
 # ==== CLEAR PRINT QUEUE ====
@@ -373,17 +373,17 @@ function Remove-PrinterDrivers-Interactive {
         $btnRemove.Size = New-Object Drawing.Size(180, 30)
         $btnRemove.Location = '10,410'
         $btnRemove.Add_Click({
-            foreach ($item in $listBox.CheckedItems) {
-                try {
-                    Write-Log "Removing driver: ${item}"
-                    Remove-PrinterDriver -Name "${item}" -ErrorAction SilentlyContinue
-                } catch {
-                    Write-Log "Error removing driver ${item}: $($_.Exception.Message)" "ERROR"
+                foreach ($item in $listBox.CheckedItems) {
+                    try {
+                        Write-Log "Removing driver: ${item}"
+                        Remove-PrinterDriver -Name "${item}" -ErrorAction SilentlyContinue
+                    } catch {
+                        Write-Log "Error removing driver ${item}: $($_.Exception.Message)" "ERROR"
+                    }
                 }
-            }
-            Show-Info "Driver removal completed."
-            $form.Close()
-        })
+                Show-Info "Driver removal completed."
+                $form.Close()
+            })
         $form.Controls.Add($btnRemove)
 
         $btnCancel = New-Object Windows.Forms.Button
@@ -453,7 +453,7 @@ Recommended only when fixing ghost printers.
         Write-Log "Deep Cleanup started. IncludeHKU=$includeHKU"
 
         Stop-Spooler
-        Clear-SpoolFolders -Folders @('PRINTERS','SERVERS')
+        Clear-SpoolFolders -Folders @('PRINTERS', 'SERVERS')
 
         # Preserve installed printers + built-ins
         $preserveNames = Get-PreservePrinterNames
@@ -500,7 +500,7 @@ Recommended only when fixing ghost printers.
         # --- Optional HKU cleanup ---
         if ($includeHKU) {
             Write-Log "Deep Cleanup HKU started."
-            $userPreserveFragments = @('Microsoft','OneNote','PDF','XPS','scanner','Scan')
+            $userPreserveFragments = @('Microsoft', 'OneNote', 'PDF', 'XPS', 'scanner', 'Scan')
 
             try {
                 $users = Get-ChildItem -Path "Registry::HKEY_USERS" -ErrorAction Stop
