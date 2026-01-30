@@ -1,497 +1,995 @@
-﻿<#
+<#
 .SYNOPSIS
-    PowerShell Script for Retrieving DHCP Reservations.
+    PowerShell GUI for DHCP Reservation Creation and Duplicate Scanning
 
 .DESCRIPTION
-    This script retrieves DHCP reservations from servers and allows filtering by hostname 
-    or description, ensuring accurate documentation and management of network resources.
+    This script provides a Windows Forms GUI to:
+    - Create new DHCP reservations (MAC/IP validation + duplicate checks)
+    - Scan for duplicate MAC/IP across scopes on a selected DHCP server
+    - Discover DHCP servers via AD (Get-DhcpServerInDC), with optional manual add (IP/hostname)
+    - Live log pane, progress bar, CSV export, and TXT duplicate report
+    - Enterprise-friendly behavior: strict mode, admin enforcement, robust error handling, and C:\Logs-TEMP logging
+    - UI layout: fixed 900x830 window, non-overlapping controls, and aligned bottom buttons
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 24, 2024
+    Last Updated: 2026-01-30
 #>
 
-param(
-    [switch]$ShowConsole = $false
-)
+#Requires -RunAsAdministrator
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-# Hide the PowerShell console window for a cleaner UI unless requested to show the console
-if (-not $ShowConsole) {
+# --- HIDE CONSOLE (comment for debugging) ---
+try {
     Add-Type @"
-    using System;
-    using System.Runtime.InteropServices;
-    public class Window {
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern IntPtr GetConsoleWindow();
-        [DllImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        public static void Hide() {
-            var handle = GetConsoleWindow();
-            ShowWindow(handle, 0); // 0 = SW_HIDE
-        }
-        public static void Show() {
-            var handle = GetConsoleWindow();
-            ShowWindow(handle, 5); // 5 = SW_SHOW
-        }
-    }
-"@
-    [Window]::Hide()
+using System;
+using System.Runtime.InteropServices;
+public class Win {
+  [DllImport("kernel32.dll")] static extern IntPtr GetConsoleWindow();
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  public static void Hide() { ShowWindow(GetConsoleWindow(), 0); }
 }
+"@ -ErrorAction Stop
+    [Win]::Hide()
+} catch {}
 
-# Load Windows Forms Assemblies
+# --- Load WinForms assemblies ---
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Enhanced logging function with error handling and validation
-function Log-Message {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
+# --- LOGGING SETUP ---
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$logDir     = 'C:\Logs-TEMP'
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logPath    = Join-Path $logDir "$scriptName.log"
+$reportPath = Join-Path $logDir "DHCP_DuplicateReservations_Report.txt"
 
-        [Parameter(Mandatory = $false)]
-        [ValidateSet("INFO", "ERROR", "WARNING", "DEBUG", "CRITICAL")]
-        [string]$MessageType = "INFO"
+function Write-Log {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [ValidateSet('INFO','WARN','ERROR','SUCCESS')][string]$Level = 'INFO'
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
 
+    $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $entry = "[$ts] [$Level] $Message"
+
+    # File log (single log file, append-only)
     try {
-        # Ensure the log path exists, create if necessary
-        if (-not (Test-Path $logDir)) {
-            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-        }
-        # Attempt to write to the log file
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        # Fallback: Log to console if writing to the log file fails
-        Write-Error "Failed to write to log: $_"
-        Write-Output $logEntry
-    }
-}
+        Add-Content -Path $logPath -Value $entry -Encoding UTF8 -ErrorAction Stop
+    } catch {}
 
-# Unified error handling function refactored as a reusable method
-function Handle-Error {
-    param (
-        [Parameter(Mandatory = $true)][string]$ErrorMessage
-    )
-    Log-Message -Message "ERROR: $ErrorMessage" -MessageType "ERROR"
-    [System.Windows.Forms.MessageBox]::Show($ErrorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-}
-
-# Function to initialize script name and file paths
-function Initialize-ScriptPaths {
-    # Use $MyInvocation.ScriptName to get the full path of the script, fallback to "Script" if it doesn't exist
-    $scriptName = if ($MyInvocation.ScriptName) {
-        [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.ScriptName)
-    } else {
-        "Script"  # Fallback if no name is available
-    }
-
-    # Define the log directory and file name with timestamp
-    $logDir = 'C:\Logs-TEMP'
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $logFileName = "${scriptName}_${timestamp}.log"
-    $logPath = Join-Path $logDir $logFileName
-
-    # Ensure the log directory exists, create it if necessary
-    if (-not (Test-Path $logDir)) {
-        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-    }
-
-    # Return paths for use in logging
-    return @{
-        LogDir = $logDir
-        LogPath = $logPath
-        ScriptName = $scriptName
-    }
-}
-
-# Function to retrieve forest domains (from TransferDHCPScope.ps1)
-function Get-ForestDomains {
+    # UI log (thread-safe)
     try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.Domains | Select-Object -ExpandProperty Name
-    } catch {
-        Handle-Error "Failed to retrieve forest domains. Error: $_"
-        return @()
-    }
-}
-
-# Function to retrieve DHCP servers from the domain (from TransferDHCPScope.ps1)
-function Get-DHCPServerFromDomain {
-    param (
-        [string]$domain
-    )
-    try {
-        $dhcpServers = Get-DhcpServerInDC -ErrorAction Stop
-        $domainDhcpServers = @()
-        if ($dhcpServers -and $dhcpServers.Count -gt 0) {
-            foreach ($server in $dhcpServers) {
-                if ($server.DNSName -like "*.$domain") {
-                    $domainDhcpServers += $server.DNSName
+        if ($script:logBox -and -not $script:logBox.IsDisposed) {
+            $append = {
+                param($text,$lvl)
+                $this.SelectionStart = $this.TextLength
+                $this.SelectionColor = switch ($lvl) {
+                    'ERROR'   { [System.Drawing.Color]::Red }
+                    'WARN'    { [System.Drawing.Color]::DarkOrange }
+                    'SUCCESS' { [System.Drawing.Color]::Green }
+                    default   { [System.Drawing.Color]::Black }
                 }
+                $this.AppendText($text + [Environment]::NewLine)
+                $this.ScrollToCaret()
+                $this.SelectionColor = [System.Drawing.Color]::Black
             }
-            if ($domainDhcpServers.Count -gt 0) {
-                return $domainDhcpServers  # Return all matching DHCP servers for the domain
+
+            if ($script:logBox.InvokeRequired) {
+                $null = $script:logBox.BeginInvoke($append, @($entry,$Level))
             } else {
-                Handle-Error "No authorized DHCP servers found for the domain '${domain}'."
-                return @()
+                & $append $entry $Level
             }
-        } else {
-            Handle-Error "No authorized DHCP servers found in Active Directory."
-            return @()
         }
-    } catch {
-        Handle-Error "Error retrieving DHCP servers for domain '${domain}': $_"
-        return @()
-    }
+    } catch {}
 }
 
-# Function to retrieve DHCP scopes from a server (from TransferDHCPScope.ps1)
-function Get-DhcpScopesFromServer {
-    param (
-        [string]$dhcpServer
+function Show-MessageBox {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Title = 'Message',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    )
+    [void][System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        $Title,
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        $Icon
+    )
+}
+
+function Set-Status {
+    param(
+        [Parameter(Mandatory)][string]$Text,
+        [int]$ProgressValue = -1
     )
     try {
-        $scopes = Get-DhcpServerv4Scope -ComputerName $dhcpServer -ErrorAction Stop
-        if ($scopes) {
-            return $scopes
-        } else {
-            Log-Message -Message "No scopes found on DHCP server $dhcpServer" -MessageType "WARNING"
-            return @()
+        if ($script:lblStatus -and -not $script:lblStatus.IsDisposed) { $script:lblStatus.Text = $Text }
+        if ($ProgressValue -ge 0 -and $script:progress -and -not $script:progress.IsDisposed) {
+            $script:progress.Value = [Math]::Max($script:progress.Minimum, [Math]::Min($ProgressValue, $script:progress.Maximum))
         }
-    } catch {
-        Handle-Error "Error retrieving scopes from DHCP server '$dhcpServer'. Error: $_"
-        return @()
-    }
+    } catch {}
 }
 
-# Function to execute the retrieval of DHCP reservations (adapted from Export-DhcpScope)
-function Retrieve-DhcpReservations {
-    param (
-        [string[]]$Servers,
-        [string]$NameFilter,
-        [string]$DescriptionFilter
-    )
-
-    $global:allReservations = @()
-    $global:filteredReservations = @()
-
-    foreach ($dhcpServer in $Servers) {
-        Log-Message -Message "Processing DHCP server: $dhcpServer" -MessageType "INFO"
-
-        # Get all DHCP scopes on the specified server
-        $scopes = Get-DhcpScopesFromServer -dhcpServer $dhcpServer
-
-        if ($scopes) {
-            Log-Message -Message "Found $($scopes.Count) scopes on DHCP server $dhcpServer" -MessageType "INFO"
-
-            # Loop through each scope to get reservations
-            foreach ($scope in $scopes) {
-                $reservations = Get-DhcpServerv4Reservation -ComputerName $dhcpServer -ScopeId $scope.ScopeId -ErrorAction SilentlyContinue
-                if ($reservations) {
-                    # Add the DHCPServer property to each reservation
-                    foreach ($reservation in $reservations) {
-                        $reservation | Add-Member -NotePropertyName "DHCPServer" -NotePropertyValue $dhcpServer -Force
-                    }
-                    $global:allReservations += $reservations
-                    Log-Message -Message "Retrieved $($reservations.Count) reservations from scope $($scope.ScopeId) on server $dhcpServer" -MessageType "INFO"
-                } else {
-                    Log-Message -Message "No reservations found in scope $($scope.ScopeId) on server $dhcpServer" -MessageType "WARNING"
-                }
-            }
-        } else {
-            Log-Message -Message "No scopes found on DHCP server $dhcpServer" -MessageType "WARNING"
-        }
-    }
-
-    if ($global:allReservations.Count -eq 0) {
-        Handle-Error "No reservations found on the selected DHCP servers."
-        return
-    }
-
-    # Apply filters (hostname and description)
-    $global:filteredReservations = Apply-Filters -Reservations $global:allReservations -NameFilter $NameFilter -DescriptionFilter $DescriptionFilter
-
-    if ($global:filteredReservations.Count -eq 0) {
-        Handle-Error "No reservations match the specified filter."
-        return
-    }
-
-    return $global:filteredReservations
-}
-
-# Define filter application logic (from previous code)
-function Apply-Filters {
-    param (
-        [array]$Reservations,
-        [string]$NameFilter,
-        [string]$DescriptionFilter
-    )
-
-    if (-not [string]::IsNullOrEmpty($NameFilter) -or -not [string]::IsNullOrEmpty($DescriptionFilter)) {
-        $filteredReservations = $Reservations
-        if (-not [string]::IsNullOrEmpty($NameFilter)) {
-            $regexPatternName = ($NameFilter -split ',' | ForEach-Object { [regex]::Escape($_.Trim()) }) -join '|'
-            $filteredReservations = $filteredReservations | Where-Object { $_.Name -match $regexPatternName }
-        }
-        if (-not [string]::IsNullOrEmpty($DescriptionFilter)) {
-            $regexPatternDesc = ($DescriptionFilter -split ',' | ForEach-Object { [regex]::Escape($_.Trim()) }) -join '|'
-            $filteredReservations = $filteredReservations | Where-Object { $_.Description -match $regexPatternDesc }
-        }
-        return $filteredReservations
-    }
-    return $Reservations # Return all if no filters are applied
-}
-
-# Function to execute the export of reservations to CSV (adapted from Export-DhcpScope)
-function Export-ReservationsToCSV {
-    param (
-        [array]$Reservations,
-        [string]$FilePath
-    )
-
+# --- Admin check (redundant with #Requires but keeps UX consistent) ---
+function Test-AdminPrivileges {
     try {
-        if ($Reservations.Count -gt 0) {
-            # Export the filtered reservations to CSV
-            $Reservations | Select-Object DHCPServer, ScopeId, IPAddress, ClientId, Description, Name | Export-Csv -Path $FilePath -NoTypeInformation -Encoding UTF8
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { return $false }
+}
+if (-not (Test-AdminPrivileges)) {
+    Show-MessageBox -Message "This script requires administrative privileges. Please run as Administrator." -Title "Error" -Icon Error
+    exit 1
+}
 
-            # Log success message
-            Log-Message -Message "Reservations exported successfully to $FilePath" -MessageType "INFO"
-            [System.Windows.Forms.MessageBox]::Show("Reservations exported successfully to $FilePath", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        } else {
-            Handle-Error "No reservations to export."
-        }
+# --- Import Required Modules ---
+function Import-RequiredModule {
+    param([Parameter(Mandatory)][string]$Name)
+    try {
+        Import-Module $Name -ErrorAction Stop
+        Write-Log "Module loaded: $Name" "SUCCESS"
     } catch {
-        Handle-Error "An error occurred during export: $($_.Exception.Message)"
+        Write-Log "Failed to load module ${Name}: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to load module '$Name':`n$($_.Exception.Message)" -Title "Error" -Icon Error
+        throw
     }
 }
 
-# Function to create the GUI (adapted from Create-GUI)
-function Create-GUI {
-    # Create the form
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "DHCP Reservations Viewer"
-    $form.Size = New-Object System.Drawing.Size(850, 650)
-    $form.StartPosition = "CenterScreen"
-
-    # Create controls
-    $labelDomain = New-Object System.Windows.Forms.Label
-    $labelDomain.Text = "Domain:"
-    $labelDomain.Location = New-Object System.Drawing.Point(10, 20)
-    $labelDomain.Size = New-Object System.Drawing.Size(110, 20)
-    $form.Controls.Add($labelDomain)
-
-    $comboBoxDomain = New-Object System.Windows.Forms.ComboBox
-    $comboBoxDomain.Location = New-Object System.Drawing.Point(130, 20)
-    $comboBoxDomain.Size = New-Object System.Drawing.Size(390, 20)
-    $comboBoxDomain.DropDownStyle = 'DropDownList'
-    $form.Controls.Add($comboBoxDomain)
-
-    $labelDhcpServer = New-Object System.Windows.Forms.Label
-    $labelDhcpServer.Text = "DHCP Servers:"
-    $labelDhcpServer.Location = New-Object System.Drawing.Point(10, 50)
-    $labelDhcpServer.Size = New-Object System.Drawing.Size(110, 20)
-    $form.Controls.Add($labelDhcpServer)
-
-    # CheckedListBox to display the DHCP servers
-    $checkedListDhcpServers = New-Object System.Windows.Forms.CheckedListBox
-    $checkedListDhcpServers.Location = New-Object System.Drawing.Point(130, 50)
-    $checkedListDhcpServers.Size = New-Object System.Drawing.Size(390, 100)
-    $checkedListDhcpServers.CheckOnClick = $true
-    $form.Controls.Add($checkedListDhcpServers)
-
-    $labelNameFilter = New-Object System.Windows.Forms.Label
-    $labelNameFilter.Text = "Filter by Name:"
-    $labelNameFilter.Location = New-Object System.Drawing.Point(10, 160)
-    $labelNameFilter.Size = New-Object System.Drawing.Size(110, 20)
-    $form.Controls.Add($labelNameFilter)
-
-    $textNameFilter = New-Object System.Windows.Forms.TextBox
-    $textNameFilter.Location = New-Object System.Drawing.Point(130, 160)
-    $textNameFilter.Size = New-Object System.Drawing.Size(390, 20)
-    $form.Controls.Add($textNameFilter)
-
-    $labelDescriptionFilter = New-Object System.Windows.Forms.Label
-    $labelDescriptionFilter.Text = "Filter by Description:"
-    $labelDescriptionFilter.Location = New-Object System.Drawing.Point(10, 190)
-    $labelDescriptionFilter.Size = New-Object System.Drawing.Size(110, 20)
-    $form.Controls.Add($labelDescriptionFilter)
-
-    $textDescriptionFilter = New-Object System.Windows.Forms.TextBox
-    $textDescriptionFilter.Location = New-Object System.Drawing.Point(130, 190)
-    $textDescriptionFilter.Size = New-Object System.Drawing.Size(390, 20)
-    $form.Controls.Add($textDescriptionFilter)
-
-    # ToolTip for Name filter textbox
-    $toolTip = New-Object System.Windows.Forms.ToolTip
-    $toolTip.SetToolTip($textNameFilter, "Enter hostnames separated by commas (e.g. PRT,WKS,SRV)")
-
-    # Create buttons
-    $buttonGetReservations = New-Object System.Windows.Forms.Button
-    $buttonGetReservations.Location = New-Object System.Drawing.Point(550, 18)
-    $buttonGetReservations.Size = New-Object System.Drawing.Size(120, 25)
-    $buttonGetReservations.Text = "Get Reservations"
-    $form.Controls.Add($buttonGetReservations)
-
-    $buttonExportCSV = New-Object System.Windows.Forms.Button
-    $buttonExportCSV.Location = New-Object System.Drawing.Point(680, 18)
-    $buttonExportCSV.Size = New-Object System.Drawing.Size(120, 25)
-    $buttonExportCSV.Text = "Export to CSV"
-    $buttonExportCSV.Enabled = $false  # Initially disabled
-    $form.Controls.Add($buttonExportCSV)
-
-    # Create a DataGridView to display the reservations
-    $dataGridView = New-Object System.Windows.Forms.DataGridView
-    $dataGridView.Location = New-Object System.Drawing.Point(10, 230)
-    $dataGridView.Size = New-Object System.Drawing.Size(810, 370)
-    $dataGridView.AutoSizeColumnsMode = 'Fill'
-    $dataGridView.ReadOnly = $true
-    $form.Controls.Add($dataGridView)
-
-    # Populate domain ComboBox
-    $domains = Get-ForestDomains
-    if ($domains.Count -gt 0) {
-        $comboBoxDomain.Items.AddRange($domains)
-    } else {
-        Handle-Error "No domains found in the forest."
-    }
-
-    # Event handler for when a domain is selected
-    $comboBoxDomain.Add_SelectedIndexChanged({
-            $selectedDomain = $comboBoxDomain.SelectedItem
-            if ($selectedDomain) {
-                $checkedListDhcpServers.Items.Clear()
-                $dhcpServersList = Get-DHCPServerFromDomain -domain $selectedDomain
-                if ($dhcpServersList.Count -gt 0) {
-                    foreach ($server in $dhcpServersList) {
-                        [void]$checkedListDhcpServers.Items.Add($server)
-                    }
-                    Log-Message -Message "DHCP servers for domain '$selectedDomain' loaded." -MessageType "INFO"
-                } else {
-                    Handle-Error "No DHCP servers found for domain '$selectedDomain'."
-                }
-            }
-        })
-
-    # Define the button click event for Get Reservations
-    $buttonGetReservations.Add_Click({
-            # Clear previous data
-            $dataGridView.Rows.Clear()
-            $dataGridView.Columns.Clear()
-            $global:allReservations = @()
-            $global:filteredReservations = @()
-            $buttonExportCSV.Enabled = $false  # Disable export button until data is loaded
-
-            try {
-                # Get the selected DHCP servers from the CheckedListBox
-                $checkedItems = $checkedListDhcpServers.CheckedItems
-                if ($checkedItems.Count -eq 0) {
-                    Handle-Error "Please select at least one DHCP server."
-                    return
-                } else {
-                    $dhcpServers = $checkedItems
-                    Log-Message -Message "Using selected DHCP servers: $($dhcpServers -join ', ')" -MessageType "INFO"
-                }
-
-                # Get filters
-                $filterTextName = $textNameFilter.Text.Trim()
-                $filterTextDescription = $textDescriptionFilter.Text.Trim()
-
-                # Retrieve reservations
-                $reservations = Retrieve-DhcpReservations -Servers $dhcpServers -NameFilter $filterTextName -DescriptionFilter $filterTextDescription
-
-                if ($reservations) {
-                    # Prepare the DataGridView columns
-                    $columns = @("DHCPServer", "ScopeId", "IPAddress", "ClientId", "Description", "Name")
-                    foreach ($col in $columns) {
-                        $dataGridView.Columns.Add($col, $col)
-                    }
-
-                    # Populate the DataGridView with reservation data
-                    foreach ($reservation in $reservations) {
-                        $row = $dataGridView.Rows.Add()
-                        $dataGridView.Rows[$row].Cells["DHCPServer"].Value = $reservation.DHCPServer
-                        $dataGridView.Rows[$row].Cells["ScopeId"].Value = $reservation.ScopeId
-                        $dataGridView.Rows[$row].Cells["IPAddress"].Value = $reservation.IPAddress
-                        $dataGridView.Rows[$row].Cells["ClientId"].Value = $reservation.ClientId
-                        $dataGridView.Rows[$row].Cells["Description"].Value = $reservation.Description
-                        $dataGridView.Rows[$row].Cells["Name"].Value = $reservation.Name
-                    }
-
-                    $buttonExportCSV.Enabled = $true  # Enable export button now that data is loaded
-
-                    Log-Message -Message "Successfully retrieved and displayed reservations." -MessageType "INFO"
-                }
-            } catch {
-                Handle-Error "An error occurred while retrieving reservations: $($_.Exception.Message)"
-            }
-        })
-
-    # Define the button click event for Export to CSV
-    $buttonExportCSV.Add_Click({
-            try {
-                # Create a SaveFileDialog
-                $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-                $saveFileDialog.Filter = "CSV Files (*.csv)|*.csv"
-                $saveFileDialog.Title = "Save DHCP Reservations"
-                $saveFileDialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
-                $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-                $saveFileDialog.FileName = "DhcpReservations_$timestamp.csv"
-
-                if ($saveFileDialog.ShowDialog() -eq 'OK') {
-                    $csvPath = $saveFileDialog.FileName
-
-                    # Export reservations to CSV
-                    Export-ReservationsToCSV -Reservations $global:filteredReservations -FilePath $csvPath
-                }
-            } catch {
-                Handle-Error "An error occurred during export: $($_.Exception.Message)"
-            }
-        })
-
-    # Run the form
-    [void]$form.ShowDialog()
-}
-
-# Initialize Script Paths and Logging
-$paths = Initialize-ScriptPaths
-$global:logDir = $paths.LogDir
-$global:logPath = $paths.LogPath
-
-# Ensure the log directory and file exist
 try {
-    if (-not (Test-Path $global:logDir)) {
-        New-Item -Path $global:logDir -ItemType Directory -Force | Out-Null
-    }
-    # Create the log file if it doesn't exist
-    if (-not (Test-Path $global:logPath)) {
-        New-Item -Path $global:logPath -ItemType File -Force | Out-Null
+    Import-RequiredModule -Name 'DhcpServer'
+    Import-RequiredModule -Name 'ActiveDirectory'
+} catch { exit 1 }
+
+Write-Log "==== Session started ====" "INFO"
+Write-Log "LogPath: $logPath" "INFO"
+
+# --- Validation helpers ---
+function Normalize-MAC {
+    param([Parameter(Mandatory)][string]$Mac)
+    $m = $Mac.Trim().ToUpperInvariant().Replace(':','').Replace('-','').Replace('.','')
+    return $m
+}
+function Format-MAC {
+    param([Parameter(Mandatory)][string]$Mac12)
+    ($Mac12 -replace '(.{2})(?!$)','$1:').ToUpperInvariant()
+}
+function Test-MACAddress {
+    param([Parameter(Mandatory)][string]$Mac)
+    $m = Normalize-MAC $Mac
+    return ($m -match '^[A-F0-9]{12}$')
+}
+function Test-IPAddress {
+    param([Parameter(Mandatory)][string]$IP)
+    try { [Net.IPAddress]::Parse($IP) | Out-Null; return $true } catch { return $false }
+}
+
+function Resolve-Hostname {
+    param([Parameter(Mandatory)][string]$IPAddress)
+    try {
+        $dns = [Net.Dns]::GetHostEntry($IPAddress)
+        if ($dns -and $dns.HostName) { return $dns.HostName.Split('.')[0] }
+    } catch {}
+    return "Host-$($IPAddress -replace '\.','-')"
+}
+
+function Test-HostReachable {
+    param([Parameter(Mandatory)][string]$ComputerNameOrIP)
+    try { return (Test-Connection -ComputerName $ComputerNameOrIP -Count 1 -Quiet -ErrorAction Stop) } catch { return $false }
+}
+
+function Convert-IpToUInt32 {
+    param([Parameter(Mandatory)][string]$ip)
+    $bytes = [Net.IPAddress]::Parse($ip).GetAddressBytes()
+    [Array]::Reverse($bytes)
+    return [BitConverter]::ToUInt32($bytes,0)
+}
+function Convert-UInt32ToIp {
+    param([Parameter(Mandatory)][UInt32]$int)
+    $bytes = [BitConverter]::GetBytes($int)
+    [Array]::Reverse($bytes)
+    return ([Net.IPAddress]::new($bytes)).ToString()
+}
+
+# --- Global state ---
+$script:AllScopes       = @()
+$script:AllReservations = @()
+$script:DhcpServers     = @()
+$script:CheckedResSet   = New-Object 'System.Collections.Generic.HashSet[string]'
+
+# --- GUI Form ---
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text            = "DHCP Reservation & Duplicate Scanner"
+    Size            = New-Object System.Drawing.Size(900,830)
+    StartPosition   = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox     = $false
+    Font            = New-Object System.Drawing.Font('Segoe UI',9)
+}
+
+# Mode panel
+$panelMode = New-Object System.Windows.Forms.Panel -Property @{ Location='10,10'; Size='860,40'; BorderStyle='FixedSingle' }
+$lblMode   = New-Object System.Windows.Forms.Label -Property @{ Text="Select Mode:"; Location='10,10'; Size='100,20' }
+$comboMode = New-Object System.Windows.Forms.ComboBox -Property @{ Location='110,8'; Size='740,24'; DropDownStyle='DropDownList' }
+$comboMode.Items.AddRange(@('Create Reservation','Scan Duplicates'))
+$comboMode.SelectedIndex = 0
+$panelMode.Controls.AddRange(@($lblMode,$comboMode))
+$form.Controls.Add($panelMode)
+
+# Domain/Server panel
+$panelServer  = New-Object System.Windows.Forms.Panel -Property @{ Location='10,50'; Size='860,90'; BorderStyle='FixedSingle' }
+$lblDomain    = New-Object System.Windows.Forms.Label -Property @{ Text="Select Domain:"; Location='10,10'; Size='200,20' }
+$comboDomain  = New-Object System.Windows.Forms.ComboBox -Property @{ Location='10,30'; Size='830,24'; DropDownStyle='DropDownList' }
+$lblServer    = New-Object System.Windows.Forms.Label -Property @{ Text="Select DHCP Server (or type IP/host):"; Location='10,58'; Size='250,20' }
+$comboServer  = New-Object System.Windows.Forms.ComboBox -Property @{ Location='270,56'; Size='570,24'; DropDownStyle='DropDown' }
+$panelServer.Controls.AddRange(@($lblDomain,$comboDomain,$lblServer,$comboServer))
+$form.Controls.Add($panelServer)
+
+# Create panel
+$panelCreate = New-Object System.Windows.Forms.Panel -Property @{ Location='10,150'; Size='860,420'; BorderStyle='FixedSingle'; Visible=$true }
+$lblCreateScopes  = New-Object System.Windows.Forms.Label -Property @{ Text="Select Scope:"; Location='10,10'; Size='200,20' }
+$listCreateScopes = New-Object System.Windows.Forms.ListView -Property @{ Location='10,30'; Size='830,260'; View='Details'; CheckBoxes=$false; FullRowSelect=$true }
+[void]$listCreateScopes.Columns.Add("Scope ID",120)
+[void]$listCreateScopes.Columns.Add("Name",250)
+[void]$listCreateScopes.Columns.Add("Range",350)
+
+$lblIP        = New-Object System.Windows.Forms.Label -Property @{ Text="Select Available IP:"; Location='10,300'; Size='140,20' }
+$comboBoxIPs  = New-Object System.Windows.Forms.ComboBox -Property @{ Location='150,298'; Size='690,24'; DropDownStyle='DropDownList' }
+$lblName      = New-Object System.Windows.Forms.Label -Property @{ Text="Reservation Name:"; Location='10,330'; Size='140,20' }
+$txtName      = New-Object System.Windows.Forms.TextBox -Property @{ Location='150,328'; Size='690,24' }
+$lblMAC       = New-Object System.Windows.Forms.Label -Property @{ Text="MAC Address (D8BBC1830F62):"; Location='10,360'; Size='200,20' }
+$txtMAC       = New-Object System.Windows.Forms.TextBox -Property @{ Location='210,358'; Size='630,24' }
+$lblDesc      = New-Object System.Windows.Forms.Label -Property @{ Text="Description:"; Location='10,390'; Size='140,20' }
+$txtDesc      = New-Object System.Windows.Forms.TextBox -Property @{ Location='150,388'; Size='690,24' }
+
+$panelCreate.Controls.AddRange(@(
+    $lblCreateScopes,$listCreateScopes,
+    $lblIP,$comboBoxIPs,
+    $lblName,$txtName,
+    $lblMAC,$txtMAC,
+    $lblDesc,$txtDesc
+))
+$form.Controls.Add($panelCreate)
+
+# Scan panel
+$panelScan = New-Object System.Windows.Forms.Panel -Property @{ Location='10,150'; Size='860,420'; BorderStyle='FixedSingle'; Visible=$false }
+$lblReservations  = New-Object System.Windows.Forms.Label -Property @{ Text="Reservations:"; Location='10,10'; Size='200,20' }
+$chkSelectAll     = New-Object System.Windows.Forms.CheckBox -Property @{ Text="Select All"; Location='760,10'; Size='90,20' }
+$listReservations = New-Object System.Windows.Forms.ListView -Property @{ Location='10,30'; Size='830,320'; View='Details'; CheckBoxes=$true; FullRowSelect=$true }
+[void]$listReservations.Columns.Add("IP",140)
+[void]$listReservations.Columns.Add("MAC",160)
+[void]$listReservations.Columns.Add("Hostname",200)
+[void]$listReservations.Columns.Add("Scope",120)
+[void]$listReservations.Columns.Add("Server",180)
+
+$lblOutput = New-Object System.Windows.Forms.Label -Property @{ Text="Output Folder:"; Location='10,360'; Size='140,20' }
+$txtOutput = New-Object System.Windows.Forms.TextBox -Property @{ Location='150,358'; Size='620,24'; Text=[Environment]::GetFolderPath("MyDocuments") }
+$btnBrowse = New-Object System.Windows.Forms.Button -Property @{ Text="Browse"; Location='780,357'; Size='60,26' }
+$panelScan.Controls.AddRange(@($lblReservations,$chkSelectAll,$listReservations,$lblOutput,$txtOutput,$btnBrowse))
+$form.Controls.Add($panelScan)
+
+# Log panel
+$panelLog = New-Object System.Windows.Forms.Panel -Property @{ Location='10,575'; Size='860,120'; BorderStyle='FixedSingle' }
+$lblLog   = New-Object System.Windows.Forms.Label -Property @{ Text="Log:"; Location='10,10'; Size='200,20' }
+$script:logBox = New-Object System.Windows.Forms.RichTextBox -Property @{ Location='10,30'; Size='830,80'; ReadOnly=$true; ScrollBars='Vertical' }
+$panelLog.Controls.AddRange(@($lblLog,$script:logBox))
+$form.Controls.Add($panelLog)
+
+# Footer controls (aligned bottom buttons)
+$script:progress  = New-Object System.Windows.Forms.ProgressBar -Property @{ Location='10,700'; Size='860,15'; Minimum=0; Maximum=100; Value=0 }
+$script:lblStatus = New-Object System.Windows.Forms.Label -Property @{ Text="Ready"; Location='10,720'; Size='860,20' }
+$btnAction = New-Object System.Windows.Forms.Button -Property @{ Text="Add Reservation"; Location='10,745'; Size='180,30' }
+$btnExport = New-Object System.Windows.Forms.Button -Property @{ Text="Export CSV"; Location='200,745'; Size='140,30'; Visible=$false }
+$btnClose  = New-Object System.Windows.Forms.Button -Property @{ Text="Close"; Location='740,745'; Size='130,30' }
+$btnClose.Add_Click({ $form.Close() })
+$form.Controls.AddRange(@($script:progress,$script:lblStatus,$btnAction,$btnExport,$btnClose))
+
+# --- Domain discovery ---
+try {
+    Write-Log "Retrieving forest domains..." "INFO"
+    $domains = (Get-ADForest -ErrorAction Stop).Domains
+    if ($domains -and $domains.Count -gt 0) {
+        $comboDomain.Items.AddRange($domains)
+        $comboDomain.SelectedIndex = 0
+        Write-Log "Domains loaded: $($domains.Count)" "SUCCESS"
+    } else {
+        Write-Log "No domains found in the forest." "ERROR"
+        Show-MessageBox -Message "No domains found in the forest." -Title "Error" -Icon Error
     }
 } catch {
-    Handle-Error "Failed to initialize logging."
-    exit
+    Write-Log "Failed to retrieve forest domains: $($_.Exception.Message)" "ERROR"
+    Show-MessageBox -Message "Failed to retrieve forest domains:`n$($_.Exception.Message)" -Title "Error" -Icon Error
 }
 
-# Import Necessary Modules with Error Handling
-function Import-Modules {
+# --- DHCP server discovery (AD) ---
+function Discover-DHCPServers {
+    $comboServer.Items.Clear()
+    $script:DhcpServers = @()
+
     try {
-        Import-Module DHCPServer -ErrorAction Stop
-        Import-Module ActiveDirectory -ErrorAction Stop
+        $selDomain = $comboDomain.SelectedItem
+        if (-not $selDomain) {
+            Set-Status "Select a domain first."
+            Write-Log "Discover-DHCPServers aborted: no domain selected." "WARN"
+            return
+        }
+
+        Set-Status "Discovering DHCP servers..."
+        Write-Log "Discovering DHCP servers (filter domain suffix: $selDomain)..." "INFO"
+
+        # NOTE: Get-DhcpServerInDC returns authorized DHCP servers visible to the current context.
+        $servers = Get-DhcpServerInDC -ErrorAction Stop
+
+        $idx = 0
+        foreach ($s in $servers) {
+            if ($s.DnsName -and ($s.DnsName -like "*$selDomain*")) {
+                $idx++
+                $obj = [PSCustomObject]@{
+                    ID          = $idx
+                    IP          = $s.IPAddress
+                    Name        = $s.DnsName.Split('.')[0]
+                    DisplayName = "$($s.DnsName) ($($s.IPAddress))"
+                }
+                $script:DhcpServers += $obj
+                $comboServer.Items.Add($obj.DisplayName) | Out-Null
+                Write-Log "Found DHCP server: $($obj.DisplayName)" "INFO"
+            }
+        }
+
+        if ($script:DhcpServers.Count -eq 0) {
+            Set-Status "No DHCP servers found for $selDomain."
+            Write-Log "No DHCP servers found for selected domain filter: $selDomain" "WARN"
+            Show-MessageBox -Message "No DHCP servers found for the selected domain." -Title "Warning" -Icon Warning
+        } else {
+            $comboServer.SelectedIndex = 0
+            Set-Status "$($script:DhcpServers.Count) DHCP server(s) found."
+            Write-Log "Total DHCP servers found: $($script:DhcpServers.Count)" "SUCCESS"
+        }
     } catch {
-        Handle-Error "Failed to import necessary modules."
-        exit
+        Set-Status "Error discovering DHCP servers."
+        Write-Log "Discover-DHCPServers error: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to discover DHCP servers:`n$($_.Exception.Message)" -Title "Error" -Icon Error
     }
 }
-Import-Modules
 
-# Log that the script has started
-Log-Message -Message "Script started" -MessageType "INFO"
+# --- Populate scopes for Create mode ---
+function Load-CreateScopes {
+    $listCreateScopes.Items.Clear()
+    $script:AllScopes = @()
+    $comboBoxIPs.Items.Clear()
 
-# Execute the GUI creation function
-Create-GUI
+    try {
+        $sel = $script:DhcpServers | Where-Object { $_.DisplayName -eq $comboServer.SelectedItem }
+        if (-not $sel) {
+            Set-Status "No DHCP server selected."
+            Write-Log "Load-CreateScopes aborted: no server selected." "WARN"
+            return
+        }
 
-# End of script
+        Set-Status "Loading scopes..."
+        Write-Log "Loading scopes from $($sel.DisplayName)..." "INFO"
+
+        $scopes = Get-DhcpServerv4Scope -ComputerName $sel.IP -ErrorAction Stop
+        foreach ($sc in $scopes) {
+            $scopeID = $sc.ScopeId.ToString()
+            $name    = $sc.Name
+            $range   = "$($sc.StartRange)-$($sc.EndRange)"
+            $script:AllScopes += [PSCustomObject]@{ ScopeID=$scopeID; Name=$name; Range=$range }
+
+            $item = New-Object System.Windows.Forms.ListViewItem $scopeID
+            $null = $item.SubItems.Add($name)
+            $null = $item.SubItems.Add($range)
+            [void]$listCreateScopes.Items.Add($item)
+        }
+
+        Set-Status "$($script:AllScopes.Count) scope(s) loaded."
+        Write-Log "Loaded $($script:AllScopes.Count) scope(s) from $($sel.DisplayName)" "SUCCESS"
+    } catch {
+        Set-Status "Error loading scopes."
+        Write-Log "Load-CreateScopes error: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to load scopes:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+    }
+}
+
+# --- Manual DHCP server entry (debounced) ---
+$debounceTimer = New-Object System.Windows.Forms.Timer
+$debounceTimer.Interval = 350
+$debounceTimer.Add_Tick({
+    $debounceTimer.Stop()
+
+    $text = if ($null -ne $comboServer.Text) { $comboServer.Text.Trim() } else { '' }
+    if ([string]::IsNullOrWhiteSpace($text)) { return }
+
+    # If already present, select it
+    $existing = $script:DhcpServers | Where-Object { $_.DisplayName -eq $text -or $_.IP -eq $text -or $_.Name -eq $text }
+    if ($existing) { $comboServer.SelectedItem = $existing.DisplayName; return }
+
+    try {
+        # Resolve to IPv4
+        $resolvedIP = if (Test-IPAddress $text) {
+            $text
+        } else {
+            ([Net.Dns]::GetHostEntry($text).AddressList |
+                Where-Object { $_.AddressFamily -eq 'InterNetwork' } |
+                Select-Object -First 1).ToString()
+        }
+
+        if (-not $resolvedIP) {
+            Set-Status "Could not resolve server."
+            Write-Log "Manual add failed: could not resolve '$text'." "WARN"
+            return
+        }
+
+        if (-not (Test-HostReachable -ComputerNameOrIP $resolvedIP)) {
+            Set-Status "Host unreachable: $resolvedIP"
+            Write-Log "Manual add failed: host unreachable '$resolvedIP'." "ERROR"
+            return
+        }
+
+        $resolvedName = try { ([Net.Dns]::GetHostEntry($resolvedIP).HostName.Split('.')[0]) } catch { "DHCP-$($resolvedIP -replace '\.','-')" }
+
+        $obj = [PSCustomObject]@{
+            ID          = $script:DhcpServers.Count + 1
+            IP          = $resolvedIP
+            Name        = $resolvedName
+            DisplayName = "$resolvedName ($resolvedIP)"
+        }
+
+        $script:DhcpServers += $obj
+        $comboServer.Items.Add($obj.DisplayName) | Out-Null
+        $comboServer.SelectedItem = $obj.DisplayName
+
+        Set-Status "Server added: $($obj.DisplayName)"
+        Write-Log "Manually added DHCP server: $($obj.DisplayName)" "SUCCESS"
+
+    } catch {
+        Set-Status "Error adding server."
+        Write-Log "Manual server add error for '$text': $($_.Exception.Message)" "ERROR"
+    }
+})
+$comboServer.Add_TextChanged({ $debounceTimer.Stop(); $debounceTimer.Start() })
+
+# --- DHCP data helpers ---
+function Get-AvailableIPs {
+    param(
+        [Parameter(Mandatory)][string]$ScopeID,
+        [Parameter(Mandatory)][string]$DhcpServer,
+        [int]$MaxResults = 512
+    )
+
+    $available = New-Object System.Collections.Generic.List[string]
+
+    try {
+        $scope = Get-DhcpServerv4Scope -ComputerName $DhcpServer -ScopeId $ScopeID -ErrorAction Stop
+        if (-not $scope) {
+            Write-Log "Scope not found: ScopeID=$ScopeID on $DhcpServer" "ERROR"
+            return @()
+        }
+
+        $leases       = Get-DhcpServerv4Lease       -ComputerName $DhcpServer -ScopeId $ScopeID -ErrorAction SilentlyContinue
+        $reservations = Get-DhcpServerv4Reservation -ComputerName $DhcpServer -ScopeId $ScopeID -ErrorAction SilentlyContinue
+
+        $used = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($l in ($leases | Where-Object { $_ }))       { $null = $used.Add($l.IPAddress.ToString()) }
+        foreach ($r in ($reservations | Where-Object { $_ })) { $null = $used.Add($r.IPAddress.ToString()) }
+
+        $startI = Convert-IpToUInt32 $scope.StartRange.ToString()
+        $endI   = Convert-IpToUInt32 $scope.EndRange.ToString()
+
+        if ($startI -gt $endI) {
+            Write-Log "Invalid scope range: $ScopeID ($($scope.StartRange)-$($scope.EndRange))" "ERROR"
+            return @()
+        }
+
+        $checked = 0
+        for ($i = $startI; $i -le $endI; $i++) {
+            $checked++
+            $ip = Convert-UInt32ToIp $i
+
+            # Skip common network/broadcast endings
+            $lastOctet = [int]($ip.Split('.')[-1])
+            if ($lastOctet -in 0,255) { continue }
+
+            if (-not $used.Contains($ip)) {
+                $null = $available.Add($ip)
+                if ($available.Count -ge $MaxResults) {
+                    Write-Log "Available IP list capped at $MaxResults (scope may be large): ScopeID=$ScopeID" "WARN"
+                    break
+                }
+            }
+
+            if (($checked % 2048) -eq 0) {
+                # keep UI responsive
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+        }
+
+        return $available
+    } catch {
+        Write-Log "Get-AvailableIPs failed: ScopeID=$ScopeID Server=$DhcpServer :: $($_.Exception.Message)" "ERROR"
+        return @()
+    }
+}
+
+function Find-DuplicateMACAcrossServer {
+    param(
+        [Parameter(Mandatory)][string]$Mac12,
+        [Parameter(Mandatory)][string]$DhcpServerIP
+    )
+
+    $norm = (Normalize-MAC $Mac12)
+    try {
+        $scopes = Get-DhcpServerv4Scope -ComputerName $DhcpServerIP -ErrorAction Stop
+        foreach ($sc in $scopes) {
+            $sid = $sc.ScopeId.ToString()
+            $res = Get-DhcpServerv4Reservation -ComputerName $DhcpServerIP -ScopeId $sid -ErrorAction SilentlyContinue
+            foreach ($r in ($res | Where-Object { $_ })) {
+                $existing = (Normalize-MAC $r.ClientId)
+                if ($existing -eq $norm) {
+                    return [PSCustomObject]@{
+                        Found  = $true
+                        IP     = $r.IPAddress.ToString()
+                        Scope  = $sid
+                        Server = $DhcpServerIP
+                    }
+                }
+            }
+        }
+        return [PSCustomObject]@{ Found = $false }
+    } catch {
+        return [PSCustomObject]@{ Found = $false; Error = $_.Exception.Message }
+    }
+}
+
+function Find-DuplicateIPAcrossServer {
+    param(
+        [Parameter(Mandatory)][string]$IPAddress,
+        [Parameter(Mandatory)][string]$DhcpServerIP
+    )
+
+    try {
+        $scopes = Get-DhcpServerv4Scope -ComputerName $DhcpServerIP -ErrorAction Stop
+        foreach ($sc in $scopes) {
+            $sid = $sc.ScopeId.ToString()
+            $res = Get-DhcpServerv4Reservation -ComputerName $DhcpServerIP -ScopeId $sid -ErrorAction SilentlyContinue
+            foreach ($r in ($res | Where-Object { $_ })) {
+                if ($r.IPAddress.ToString() -eq $IPAddress) {
+                    $mac12 = Normalize-MAC $r.ClientId
+                    return [PSCustomObject]@{
+                        Found  = $true
+                        MAC    = (Format-MAC $mac12)
+                        Scope  = $sid
+                        Server = $DhcpServerIP
+                    }
+                }
+            }
+        }
+        return [PSCustomObject]@{ Found = $false }
+    } catch {
+        return [PSCustomObject]@{ Found = $false; Error = $_.Exception.Message }
+    }
+}
+
+# --- Scan flow ---
+function Update-ReservationList {
+    $listReservations.BeginUpdate()
+    try {
+        $listReservations.Items.Clear()
+
+        foreach ($r in $script:AllReservations) {
+            $it = New-Object System.Windows.Forms.ListViewItem $r.IP
+            $null = $it.SubItems.Add($r.MAC)
+            $null = $it.SubItems.Add($r.Hostname)
+            $null = $it.SubItems.Add($r.Scope)
+            $null = $it.SubItems.Add($r.Server)
+            $it.Tag = $r.UniqueID
+
+            if ($script:CheckedResSet.Contains($r.UniqueID)) { $it.Checked = $true }
+            [void]$listReservations.Items.Add($it)
+        }
+
+        Set-Status "$($script:AllReservations.Count) reservation(s) found ($($script:CheckedResSet.Count) selected)."
+        Write-Log "Displayed $($script:AllReservations.Count) reservation(s)." "INFO"
+    } finally {
+        $listReservations.EndUpdate()
+    }
+}
+
+function Write-Report {
+    try {
+        $all = @($script:AllReservations)
+
+        $sb = New-Object System.Text.StringBuilder
+        [void]$sb.AppendLine("DHCP Duplicate Reservations Report - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        [void]$sb.AppendLine("==================================================")
+        [void]$sb.AppendLine("Server: $($comboServer.SelectedItem)")
+        [void]$sb.AppendLine("Total reservations collected: $($all.Count)")
+        [void]$sb.AppendLine("")
+
+        if ($all.Count -eq 0) {
+            [void]$sb.AppendLine("No reservations were collected in this scan.")
+            [void]$sb.AppendLine("")
+            Set-Content -Path $reportPath -Value $sb.ToString() -Encoding UTF8
+            Write-Log "Report generated (no reservations): $reportPath" "SUCCESS"
+            return
+        }
+
+        # Force arrays so Count is always safe
+        $dupMACs = @($all | Group-Object MAC | Where-Object { $_.Count -gt 1 })
+        $dupIPs  = @($all | Group-Object IP  | Where-Object { $_.Count -gt 1 })
+
+        [void]$sb.AppendLine("Duplicate MAC groups: $($dupMACs.Count)")
+        [void]$sb.AppendLine("Duplicate IP groups : $($dupIPs.Count)")
+        [void]$sb.AppendLine("")
+
+        if (($dupMACs.Count + $dupIPs.Count) -eq 0) {
+            [void]$sb.AppendLine("No duplicate MAC or IP addresses found.")
+            [void]$sb.AppendLine("")
+        } else {
+
+            if ($dupMACs.Count -gt 0) {
+                [void]$sb.AppendLine("=== DUPLICATE MAC ADDRESSES ===")
+                foreach ($g in $dupMACs) {
+                    [void]$sb.AppendLine("MAC: $($g.Name) (Count: $($g.Count))")
+                    foreach ($r in $g.Group) {
+                        [void]$sb.AppendLine("  IP: $($r.IP) | Hostname: $($r.Hostname) | Scope: $($r.Scope) | Server: $($r.Server)")
+                    }
+                    [void]$sb.AppendLine("")
+                }
+            }
+
+            if ($dupIPs.Count -gt 0) {
+                [void]$sb.AppendLine("=== DUPLICATE IP ADDRESSES ===")
+                foreach ($g in $dupIPs) {
+                    [void]$sb.AppendLine("IP: $($g.Name) (Count: $($g.Count))")
+                    foreach ($r in $g.Group) {
+                        [void]$sb.AppendLine("  MAC: $($r.MAC) | Hostname: $($r.Hostname) | Scope: $($r.Scope) | Server: $($r.Server)")
+                    }
+                    [void]$sb.AppendLine("")
+                }
+            }
+        }
+
+        Set-Content -Path $reportPath -Value $sb.ToString() -Encoding UTF8
+        Write-Log "Report generated: $reportPath" "SUCCESS"
+    } catch {
+        Write-Log "Report generation error: $($_.Exception.Message)" "ERROR"
+    }
+}
+
+function Scan-Reservations {
+    $listReservations.Items.Clear()
+    $script:AllReservations = @()
+    $script:CheckedResSet.Clear()
+
+    try {
+        $sel = $script:DhcpServers | Where-Object { $_.DisplayName -eq $comboServer.SelectedItem }
+        if (-not $sel) {
+            Set-Status "No DHCP server selected."
+            Write-Log "Scan aborted: no server selected." "WARN"
+            return
+        }
+
+        Set-Status "Scanning reservations on $($sel.DisplayName)..."
+        Write-Log "Scanning reservations on $($sel.DisplayName)..." "INFO"
+
+        $scopes = Get-DhcpServerv4Scope -ComputerName $sel.IP -ErrorAction Stop
+        $script:progress.Value = 0
+        $script:progress.Maximum = [Math]::Max(1, $scopes.Count)
+
+        foreach ($sc in $scopes) {
+            $scopeID = $sc.ScopeId.ToString()
+            try {
+                $res = Get-DhcpServerv4Reservation -ComputerName $sel.IP -ScopeId $scopeID -ErrorAction SilentlyContinue
+                foreach ($r in ($res | Where-Object { $_ })) {
+                    $ip  = $r.IPAddress.ToString()
+                    $mac12 = Normalize-MAC $r.ClientId
+                    $macFmt = Format-MAC $mac12
+                    $hostName = Resolve-Hostname -IPAddress $ip
+
+                    $script:AllReservations += [PSCustomObject]@{
+                        IP       = $ip
+                        MAC      = $macFmt
+                        Hostname = $hostName
+                        Scope    = $scopeID
+                        Server   = $sel.DisplayName
+                        UniqueID = "$ip-$mac12-$scopeID"
+                    }
+                }
+            } catch {
+                Write-Log "Scope scan error (Scope=$scopeID Server=$($sel.DisplayName)): $($_.Exception.Message)" "ERROR"
+            }
+
+            $script:progress.Value = [Math]::Min($script:progress.Value + 1, $script:progress.Maximum)
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        Update-ReservationList
+        Write-Report
+
+        Set-Status "$($script:AllReservations.Count) reservation(s) found."
+        Write-Log "Scan completed: $($script:AllReservations.Count) reservation(s) on $($sel.DisplayName)" "SUCCESS"
+
+        # Notify report path only after generation
+        Show-MessageBox -Message "Scan completed.`nReport generated at:`n$reportPath" -Title "Success" -Icon Information
+    } catch {
+        Set-Status "Error scanning reservations."
+        Write-Log "Scan error: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to scan reservations:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+    }
+}
+
+# --- Select All checkbox ---
+$chkSelectAll.Add_CheckedChanged({
+    $listReservations.BeginUpdate()
+    try {
+        foreach ($item in $listReservations.Items) {
+            $item.Checked = $chkSelectAll.Checked
+            if ($chkSelectAll.Checked) { $null = $script:CheckedResSet.Add([string]$item.Tag) }
+            else { $null = $script:CheckedResSet.Remove([string]$item.Tag) }
+        }
+        Set-Status "$($listReservations.Items.Count) reservation(s) found ($($script:CheckedResSet.Count) selected)."
+        Write-Log "Select All set to: $($chkSelectAll.Checked)" "INFO"
+    } finally {
+        $listReservations.EndUpdate()
+    }
+})
+
+$listReservations.Add_ItemChecked({
+    param($sender,$e)
+    if ($null -eq $e.Item) { return }
+    try {
+        $tag = [string]$e.Item.Tag
+        if ($e.Item.Checked) { $null = $script:CheckedResSet.Add($tag) }
+        else { $null = $script:CheckedResSet.Remove($tag) }
+        Set-Status "$($listReservations.Items.Count) reservation(s) found ($($script:CheckedResSet.Count) selected)."
+    } catch {
+        Set-Status "Selection update error."
+        Write-Log "ItemChecked error: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to update selection:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+    }
+})
+
+# --- Browse output folder for CSV ---
+$btnBrowse.Add_Click({
+    $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+    if ($fbd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtOutput.Text = $fbd.SelectedPath
+        Write-Log "Output folder set: $($fbd.SelectedPath)" "INFO"
+    }
+})
+
+# --- Mode switching ---
+$comboMode.Add_SelectedIndexChanged({
+    if ($comboMode.SelectedItem -eq 'Create Reservation') {
+        $panelCreate.Visible = $true
+        $panelScan.Visible   = $false
+        $btnAction.Text      = 'Add Reservation'
+        $btnExport.Visible   = $false
+        Set-Status "Ready"
+        Write-Log "Mode selected: Create Reservation" "INFO"
+        if ($comboServer.SelectedItem) { Load-CreateScopes }
+    } else {
+        $panelCreate.Visible = $false
+        $panelScan.Visible   = $true
+        $btnAction.Text      = 'Scan Reservations'
+        $btnExport.Visible   = $true
+        $listReservations.Items.Clear()
+        $script:CheckedResSet.Clear()
+        Set-Status "Ready"
+        Write-Log "Mode selected: Scan Duplicates" "INFO"
+    }
+})
+
+$comboDomain.Add_SelectedIndexChanged({ Discover-DHCPServers })
+$comboServer.Add_SelectedIndexChanged({
+    if ($comboMode.SelectedItem -eq 'Create Reservation') { Load-CreateScopes }
+})
+
+# --- Create: when scope selected, load available IPs ---
+$listCreateScopes.Add_SelectedIndexChanged({
+    $comboBoxIPs.Items.Clear()
+
+    if ($listCreateScopes.SelectedItems.Count -eq 0) {
+        Set-Status "No scope selected."
+        Write-Log "IP load skipped: no scope selected." "WARN"
+        return
+    }
+
+    $scopeID = $listCreateScopes.SelectedItems[0].Text
+    $sel     = $script:DhcpServers | Where-Object { $_.DisplayName -eq $comboServer.SelectedItem }
+    if (-not $sel) {
+        Set-Status "No DHCP server selected."
+        Write-Log "IP load skipped: no server selected." "WARN"
+        return
+    }
+
+    try {
+        Set-Status "Loading available IPs..."
+        Write-Log "Loading available IPs (Scope=$scopeID Server=$($sel.DisplayName))..." "INFO"
+
+        $ips = Get-AvailableIPs -ScopeID $scopeID -DhcpServer $sel.IP -MaxResults 512
+        $script:progress.Value = 0
+        $script:progress.Maximum = [Math]::Max(1, $ips.Count)
+
+        foreach ($ip in $ips) {
+            [void]$comboBoxIPs.Items.Add($ip)
+            $script:progress.Value = [Math]::Min($script:progress.Value + 1, $script:progress.Maximum)
+        }
+
+        Set-Status "$($ips.Count) available IP(s) loaded."
+        Write-Log "Available IPs loaded: $($ips.Count) (Scope=$scopeID)" "SUCCESS"
+    } catch {
+        Set-Status "Error loading available IPs."
+        Write-Log "Available IPs load error (Scope=$scopeID): $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to load IPs:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+    }
+})
+
+# --- Action button (Create or Scan) ---
+$btnAction.Add_Click({
+    if ($comboMode.SelectedItem -eq 'Create Reservation') {
+        $scopeID   = if ($listCreateScopes.SelectedItems.Count -gt 0) { $listCreateScopes.SelectedItems[0].Text } else { $null }
+        $ipSel     = [string]$comboBoxIPs.SelectedItem
+        $name      = $txtName.Text.Trim()
+        $macRaw    = $txtMAC.Text.Trim()
+        $desc      = $txtDesc.Text.Trim()
+        $selServer = $script:DhcpServers | Where-Object { $_.DisplayName -eq $comboServer.SelectedItem }
+
+        if (-not $selServer) {
+            Show-MessageBox -Message "Select a DHCP server first." -Title "Warning" -Icon Warning
+            Write-Log "Create aborted: no DHCP server selected." "WARN"
+            return
+        }
+
+        if (-not $scopeID) {
+            Show-MessageBox -Message "Select a scope first." -Title "Warning" -Icon Warning
+            Write-Log "Create aborted: no scope selected." "WARN"
+            return
+        }
+
+        if (-not $ipSel -or -not (Test-IPAddress $ipSel)) {
+            Show-MessageBox -Message "Select a valid available IP." -Title "Warning" -Icon Warning
+            Write-Log "Create aborted: invalid/missing IP selection." "WARN"
+            return
+        }
+
+        if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($desc)) {
+            Show-MessageBox -Message "Please fill Name and Description." -Title "Warning" -Icon Warning
+            Write-Log "Create aborted: missing Name/Description." "WARN"
+            return
+        }
+
+        if (-not (Test-MACAddress $macRaw)) {
+            Show-MessageBox -Message "Invalid MAC address. Use 12 hex digits (example: D8BBC1830F62) or common formats (AA:BB:CC:DD:EE:FF)." -Title "Error" -Icon Error
+            Write-Log "Create aborted: invalid MAC input '$macRaw'." "ERROR"
+            return
+        }
+
+        $mac12 = Normalize-MAC $macRaw
+
+        # Duplicate checks across all scopes on selected server (stronger protection)
+        Set-Status "Checking duplicates..."
+        Write-Log "Duplicate check started (Server=$($selServer.DisplayName) Scope=$scopeID IP=$ipSel MAC=$mac12)..." "INFO"
+
+        $dupMac = Find-DuplicateMACAcrossServer -Mac12 $mac12 -DhcpServerIP $selServer.IP
+        if ($dupMac.Error) {
+            Show-MessageBox -Message "Error checking MAC duplicates:`n$($dupMac.Error)" -Title "Error" -Icon Error
+            Write-Log "Duplicate MAC check error: $($dupMac.Error)" "ERROR"
+            Set-Status "Duplicate check error."
+            return
+        }
+        if ($dupMac.Found) {
+            $msg = "Duplicate MAC detected on server $($selServer.DisplayName):`nMAC: $(Format-MAC $mac12)`nExisting IP: $($dupMac.IP)`nScope: $($dupMac.Scope)"
+            Show-MessageBox -Message $msg -Title "Warning" -Icon Warning
+            Write-Log $msg "WARN"
+            Set-Status "Duplicate MAC detected."
+            return
+        }
+
+        $dupIP = Find-DuplicateIPAcrossServer -IPAddress $ipSel -DhcpServerIP $selServer.IP
+        if ($dupIP.Error) {
+            Show-MessageBox -Message "Error checking IP duplicates:`n$($dupIP.Error)" -Title "Error" -Icon Error
+            Write-Log "Duplicate IP check error: $($dupIP.Error)" "ERROR"
+            Set-Status "Duplicate check error."
+            return
+        }
+        if ($dupIP.Found) {
+            $msg = "Duplicate IP detected on server $($selServer.DisplayName):`nIP: $ipSel`nExisting MAC: $($dupIP.MAC)`nScope: $($dupIP.Scope)"
+            Show-MessageBox -Message $msg -Title "Warning" -Icon Warning
+            Write-Log $msg "WARN"
+            Set-Status "Duplicate IP detected."
+            return
+        }
+
+        try {
+            Add-DhcpServerv4Reservation -ComputerName $selServer.IP -ScopeId $scopeID -IPAddress $ipSel -ClientId $mac12 -Name $name -Description $desc -ErrorAction Stop
+
+            $msgOk = "Reservation added successfully:`nServer: $($selServer.DisplayName)`nScope: $scopeID`nIP: $ipSel`nMAC: $(Format-MAC $mac12)"
+            Show-MessageBox -Message $msgOk -Title "Success" -Icon Information
+
+            Write-Log "Reservation added: Server=$($selServer.DisplayName) Scope=$scopeID IP=$ipSel MAC=$mac12 Name='$name' Desc='$desc'" "SUCCESS"
+            Set-Status "Reservation added."
+
+            $txtName.Clear(); $txtMAC.Clear(); $txtDesc.Clear()
+            if ($comboBoxIPs.Items.Contains($ipSel)) { $comboBoxIPs.Items.Remove($ipSel) | Out-Null }
+
+        } catch {
+            Set-Status "Error adding reservation."
+            Write-Log "Add reservation failed: $($_.Exception.Message)" "ERROR"
+            Show-MessageBox -Message "Failed to add reservation:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+        }
+    } else {
+        Scan-Reservations
+    }
+})
+
+# --- CSV export ---
+$btnExport.Add_Click({
+    if ($script:CheckedResSet.Count -eq 0) {
+        Show-MessageBox -Message "Select at least one reservation to export." -Title "Warning" -Icon Warning
+        Write-Log "Export aborted: no selection." "WARN"
+        return
+    }
+
+    $outDir = $txtOutput.Text
+    if (-not (Test-Path $outDir)) {
+        Show-MessageBox -Message "Output folder does not exist." -Title "Error" -Icon Error
+        Write-Log "Export aborted: invalid folder '$outDir'." "ERROR"
+        return
+    }
+
+    $ts = Get-Date -Format "yyyyMMdd_HHmmss"
+    $csvPath = Join-Path $outDir "DHCP_Reservations_$ts.csv"
+
+    try {
+        $data = foreach ($uid in $script:CheckedResSet) {
+            $script:AllReservations | Where-Object { $_.UniqueID -eq $uid }
+        }
+
+        if ($data -and $data.Count -gt 0) {
+            $data |
+                Select-Object IP,MAC,Hostname,Scope,Server |
+                Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+
+            Write-Log "Exported $($data.Count) reservation(s) to $csvPath" "SUCCESS"
+            Set-Status "Exported $($data.Count) reservation(s)."
+
+            Show-MessageBox -Message "Export completed.`nFile:`n$csvPath" -Title "Success" -Icon Information
+            try { Start-Process $csvPath } catch {}
+
+        } else {
+            Write-Log "Export skipped: no rows resolved from selection set." "WARN"
+            Set-Status "Nothing exported."
+            Show-MessageBox -Message "No reservations selected for export." -Title "Information" -Icon Information
+        }
+    } catch {
+        Set-Status "CSV export error."
+        Write-Log "Export error: $($_.Exception.Message)" "ERROR"
+        Show-MessageBox -Message "Failed to export CSV:`n$($_.Exception.Message)" -Title "Error" -Icon Error
+    }
+})
+
+# --- Form lifecycle ---
+$form.Add_Load({
+    Write-Log "Form loaded: $($form.ClientSize.Width)x$($form.ClientSize.Height)" "INFO"
+    Discover-DHCPServers
+})
+
+$form.Add_Shown({
+    $form.Activate()
+    Write-Log "Form shown. Current mode: $($comboMode.SelectedItem)" "INFO"
+})
+
+$form.Add_FormClosing({
+    Write-Log "==== Session ended ====" "INFO"
+})
+
+# --- Show GUI ---
+[void]$form.ShowDialog()
+Write-Log "Script finished." "SUCCESS"
+
+# --- End of Script
