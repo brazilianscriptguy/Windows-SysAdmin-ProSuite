@@ -44,20 +44,20 @@ The **Network and Infrastructure Management** folder provides a set of **PowerSh
 
 ## 📄 Script Descriptions (Alphabetical Order)
 
-| **Script Name**                             | **Description**                                                                 |
-|--------------------------------------------|---------------------------------------------------------------------------------|
-| **Check-ServicesPort-Connectivity.ps1**    | Verifies connectivity of service ports across endpoints.                        |
-| **Create-NewDHCPReservations.ps1**         | Creates DHCP reservations via GUI input for hostname, MAC, and IP.              |
-| **Discovery-Network-ADComputers.ps1**         | Queries AD computers, resolves IPv4 (AD/DNS/ping fallback), and exports lists via GUI. |
-| **Inventory-WSUSConfigs-Tool.ps1**         | Collects WSUS stats, patch activity, and repo size.                             |
-| **Restart-NetworkAdapter.ps1**             | Restarts local or remote network adapters.                                       |
-| **Restart-SpoolerPoolServices.ps1**        | Restarts print services with logging.                                            |
-| **Retrieve-DHCPReservations.ps1**          | Exports DHCP reservations; supports filtering.                                   |
-| **Retrieve-Empty-DNSReverseLookupZone.ps1**| Detects and lists unused reverse DNS zones.                                      |
-| **Retrieve-ServersDiskSpace.ps1**          | Queries disk usage across multiple servers.                                      |
-| **Synchronize-ADComputerTime.ps1**         | Forces time sync from computers to domain controller.                            |
-| **Transfer-DHCPScopes.ps1**                | Transfers DHCP scopes between servers.                                           |
-| **Update-DNS-and-Sites-Services.ps1**      | Updates DNS and Sites/Subnets based on DHCP data.                                |
+| **Script Name**                              | **Description**                                                                 |
+|---------------------------------------------|---------------------------------------------------------------------------------|
+| **Check-ServicesPort-Connectivity.ps1**     | Tests network connectivity for service ports across target hosts.               |
+| **Create-NewDHCPReservations.ps1**          | Creates DHCP reservations via GUI using hostname, MAC, and IP.                  |
+| **Discovery-Network-ADComputers.ps1**       | Discovers AD computers, resolves IPv4 addresses, and exports results via GUI.   |
+| **Inventory-WSUSConfigs-Tool.ps1**          | Collects WSUS configuration, patch status, and repository metrics.              |
+| **Restart-NetworkAdapter.ps1**              | Restarts local or remote network adapters safely.                               |
+| **Restart-SpoolerPoolServices.ps1**         | Restarts print spooler services with logging.                                   |
+| **Retrieve-DHCPReservations.ps1**           | Audits DHCP reservations and detects duplicate MAC or IP assignments.           |
+| **Retrieve-Empty-DNSReverseLookupZone.ps1** | Identifies unused or empty reverse DNS lookup zones.                            |
+| **Retrieve-ServersDiskSpace.ps1**           | Retrieves disk usage information from multiple servers.                         |
+| **Synchronize-ADComputerTime.ps1**          | Forces time synchronization with the domain controller.                         |
+| **Transfer-DHCPScopes.ps1**                 | Transfers DHCP scopes between Windows DHCP servers.                             |
+| **Update-DNS-and-Sites-Services.ps1**       | Updates DNS records and AD Sites/Subnets using DHCP data.                       |
 
 ---
 
