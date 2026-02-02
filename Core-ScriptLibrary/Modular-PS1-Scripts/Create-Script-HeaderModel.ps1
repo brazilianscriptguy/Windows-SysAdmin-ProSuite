@@ -1,45 +1,74 @@
 <#
 .SYNOPSIS
-    Brief, one-line summary of the script's purpose.
+    <One-line purpose (imperative + outcome).>
 
 .DESCRIPTION
-    A detailed explanation of the script's functionality. Describe its main tasks, automation features,
-    and intended use case within the Windows-SysAdmin-ProSuite. Customize this section to reflect
-    the specific script's objectives.
+    <What this script does, in plain terms, for enterprise operations.>
+    This script is part of the Windows-SysAdmin-ProSuite toolset and is designed to be:
+    - Operator-friendly (GUI-first where applicable, minimal console reliance)
+    - Auditable (structured logging under C:\Logs-TEMP)
+    - Safe-by-default (validation, clear errors, and optional WhatIf)
+    - Compatible with Windows Server / Windows 10/11 enterprise environments
 
 .FEATURES
-    - Feature 1: Brief description of a key capability.
-    - Feature 2: Description of another significant functionality.
-    - Feature 3: Progress bar for long-running operations.
-    - Feature 4: Optional console hiding for GUI-focused use.
-    - Feature N: Success/error message boxes for user feedback.
+    - GUI-first workflow (Windows Forms) with fixed, aligned controls (no truncated buttons).
+    - Structured log output to C:\Logs-TEMP\<ScriptName>.log (append-only session markers).
+    - Clear user feedback via MessageBox (Info/Warn/Error), console hidden by default.
+    - Robust error handling (try/catch with actionable messages; no silent failures).
+    - Optional safe execution switches (e.g., -WhatIf) for change-impact review.
+    - Optional CSV export to user's Documents folder for reporting and audit trails.
 
 .PARAMETERS
-    -ParameterName <Type>: Description of the parameter's purpose and expected input.
-    -AnotherParameter <Type>: Description of another parameter's role.
-    -ShowConsole <switch>: Optional. Shows the console window if set; hides it by default for GUI apps.
-    [Add additional parameters as needed for the specific script.]
+    -DomainFqdn <String>
+        Target domain FQDN (e.g., "SEDE.TJAP"). When omitted in GUI mode, selectable from forest domains.
+
+    -OutputDir <String>
+        Output directory for logs and artifacts. Default: C:\Logs-TEMP
+
+    -ExportCsv <Switch>
+        If set, exports the main report to CSV in the current user's Documents folder.
+
+    -WhatIf <Switch>
+        If set, performs a dry-run (no changes). Actions are logged as [WHAT-IF].
+
+    -ShowConsole <Switch>
+        If set, keeps the PowerShell console visible (useful for debugging).
+        Default behavior is to hide the console for GUI-focused tools.
 
 .AUTHOR
-    Your Name or Alias - @YourSocialHandle
+    Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    1.0 - [Insert Date]
+    1.0 - 2026-02-02
 
 .NOTES
-    - Requires PowerShell 5.1 or higher.
-    - May require Administrator privileges depending on the task.
-    - Compatible with PowerShell 7+ for enhanced features.
-    - Customize the main body with the specific script logic.
+    Requirements:
+    - PowerShell 5.1+ (Windows PowerShell). Compatible with PowerShell 7+ where modules support it.
+    - RSAT/ActiveDirectory or other modules as required by the script’s scope.
+    - Administrator privileges may be required depending on actions performed.
+
+    Logging:
+    - Log file: C:\Logs-TEMP\<ScriptName>.log
+    - Recommended to run from an elevated session when making directory/service/AD changes.
+
+    Design standards (ProSuite):
+    - StrictMode enabled; predictable error behavior; no Write-Host for operational logs.
+    - GUI buttons aligned and sized to avoid truncation (fixed layout math).
+    - Prefer -Identity over -Filter when an exact identifier is available.
 
 .EXAMPLES
-    Example 1: Running with all parameters
-    ```powershell
-    .\ScriptName.ps1 -ParameterName 'Value' -AnotherParameter 123 -ShowConsole
-    ```
-
-    Example 2: Minimal execution with defaults
+    Example 1: Default GUI execution (recommended)
     ```powershell
     .\ScriptName.ps1
+    ```
+
+    Example 2: CLI mode with CSV export and WhatIf
+    ```powershell
+    .\ScriptName.ps1 -DomainFqdn "SEDE.TJAP" -ExportCsv -WhatIf
+    ```
+
+    Example 3: Keep console visible for troubleshooting
+    ```powershell
+    .\ScriptName.ps1 -ShowConsole
     ```
 #>
