@@ -82,4 +82,4 @@ git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 
 💼 Thank you for using **BlueTeam-Tools Suite** — empowering secure, forensic-grade Windows administration.
 
-© 2025 Luiz Hamilton. All rights reserved.
+© 2026 Luiz Hamilton. All rights reserved.
