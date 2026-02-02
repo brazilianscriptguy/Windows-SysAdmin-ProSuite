@@ -38,15 +38,15 @@ The **Modular-PS1-Scripts** directory provides foundational **PowerShell scripts
 
 ## 📄 Script Descriptions (Alphabetical)
 
-| Script                                       | Description                                                                                                                        |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Create-Script-HeaderModel.ps1**            | Generates standard script headers with metadata for consistency                                                                    |
-| **Create-Script-LoggingMethod.ps1**          | Implements universal logging across modules for error and audit tracking                                                           |
-| **Create-Script-MainCodeStructure-Body.ps1** | Creates a script scaffold with structured logic blocks                                                                             |
-| **Export-MarkdownCompilationReport.ps1**     | Recursively aggregates all `.md` files into a single structured report with content normalization |
-| **Extract-Script-TextHeaders.ps1**           | Extracts header blocks from `.ps1` files and documents them to `.txt`                                                              |
-| **Launch-Script-AutomaticMenu.ps1**          | GUI-based script launcher with folder-tabbed menus and buttons                                                                     |
-
+| Script Name                                  | Description                                                                 |
+|----------------------------------------------|-----------------------------------------------------------------------------|
+| Create-Script-HeaderModel.ps1                | Generates standardized PowerShell script headers with metadata and proper documentation blocks |
+| Create-Script-LoggingMethod.ps1              | Implements a reusable, universal logging function for consistent audit trails and error tracking |
+| Create-Script-MainCodeStructure-Body.ps1     | Builds a clean, structured script body scaffold following PowerShell best practices |
+| Export-MarkdownCompilationReport.ps1         | Recursively collects all `.md` files into one normalized, structured compilation report with TOC |
+| Extract-Script-TextHeaders.ps1               | Extracts comment-based header blocks from `.ps1` files and exports them to plain text files |
+| Launch-Script-AutomaticMenu.ps1              | Provides a GUI-based script launcher with tabbed folder navigation, search, and execution controls |
+                       |
 
 ---
 
