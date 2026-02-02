@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Extracts comment-based help headers from .ps1 files and consolidates them into a single merged report.
 
@@ -25,13 +25,13 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]${RootFolder} = $null,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]${AllowLineCommentHeaders},
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]${ShowConsole}
 )
 
@@ -45,21 +45,21 @@ function Test-IsWindows {
 
 # ---------------------------- GLOBAL CONTEXT ----------------------------
 ${script:ScriptName} = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-${script:LogDir}     = 'C:\Logs-TEMP'
-${script:LogPath}    = $null
-${script:LogBuffer}  = New-Object System.Collections.Generic.List[string]
+${script:LogDir} = 'C:\Logs-TEMP'
+${script:LogPath} = $null
+${script:LogBuffer} = New-Object System.Collections.Generic.List[string]
 
 # Run counters (summary)
-${script:TotalFiles}    = 0
-${script:HeadersFound}  = 0
-${script:NoHeader}      = 0
-${script:LineHeaders}   = 0
-${script:BlockHeaders}  = 0
-${script:ReadErrors}    = 0
+${script:TotalFiles} = 0
+${script:HeadersFound} = 0
+${script:NoHeader} = 0
+${script:LineHeaders} = 0
+${script:BlockHeaders} = 0
+${script:ReadErrors} = 0
 
 # ---------------------------- CONSOLE VISIBILITY (OPTIONAL) ----------------------------
 function Set-ConsoleVisibility {
-    param([Parameter(Mandatory=$true)][bool]${Visible})
+    param([Parameter(Mandatory = $true)][bool]${Visible})
 
     if (-not (Test-IsWindows)) { return }
 
@@ -87,7 +87,7 @@ public class WinConsole {
 
 # ---------------------------- LOGGING (PROSUITE) ----------------------------
 function Initialize-Log {
-    param([Parameter(Mandatory=$false)][string]${Directory} = 'C:\Logs-TEMP')
+    param([Parameter(Mandatory = $false)][string]${Directory} = 'C:\Logs-TEMP')
 
     try {
         if (-not (Test-Path -LiteralPath ${Directory})) {
@@ -107,8 +107,8 @@ function Initialize-Log {
 
 function Write-Log {
     param(
-        [Parameter(Mandatory=$true)][string]${Message},
-        [ValidateSet('INFO','WARN','ERROR','SUCCESS','DEBUG')][string]${Level} = 'INFO'
+        [Parameter(Mandatory = $true)][string]${Message},
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'SUCCESS', 'DEBUG')][string]${Level} = 'INFO'
     )
 
     if ([string]::IsNullOrWhiteSpace(${script:LogPath})) {
@@ -119,7 +119,7 @@ function Write-Log {
         ${script:LogPath} = Join-Path ${fallbackDir} "${script:ScriptName}.log"
     }
 
-    ${ts}    = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    ${ts} = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     ${entry} = "[${ts}] [${Level}] ${Message}"
 
     try { Add-Content -Path ${script:LogPath} -Value ${entry} -Encoding UTF8 -ErrorAction Stop } catch {}
@@ -131,7 +131,7 @@ function Finalize-Log {
 }
 
 function Show-ErrorBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
 
     if (-not (Test-IsWindows)) { return }
     try {
@@ -141,7 +141,7 @@ function Show-ErrorBox {
 }
 
 function Show-InfoBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
 
     if (-not (Test-IsWindows)) { return }
     try {
@@ -152,8 +152,8 @@ function Show-InfoBox {
 
 function Handle-Error {
     param(
-        [Parameter(Mandatory=$true)][string]${ErrorMessage},
-        [Parameter(Mandatory=$false)][switch]${ShowMessageBox}
+        [Parameter(Mandatory = $true)][string]${ErrorMessage},
+        [Parameter(Mandatory = $false)][switch]${ShowMessageBox}
     )
     Write-Log -Message ${ErrorMessage} -Level 'ERROR'
     if (${ShowMessageBox}) { Show-ErrorBox -Message ${ErrorMessage} }
@@ -162,20 +162,20 @@ function Handle-Error {
 # ---------------------------- HEADER EXTRACTION ----------------------------
 
 function Get-BlockHelpHeader {
-    param([Parameter(Mandatory=$true)][string]${FilePath})
+    param([Parameter(Mandatory = $true)][string]${FilePath})
 
     ${headerLines} = New-Object System.Collections.Generic.List[string]
-    ${inHeader}    = $false
-    ${foundStart}  = $false
-    ${foundEnd}    = $false
-    ${lineCount}   = 0
+    ${inHeader} = $false
+    ${foundStart} = $false
+    ${foundEnd} = $false
+    ${lineCount} = 0
 
     try {
         foreach (${line} in (Get-Content -LiteralPath ${FilePath} -ErrorAction Stop)) {
             ${lineCount}++
 
             if (-not ${foundStart} -and ${line} -match '<#') {
-                ${inHeader}   = $true
+                ${inHeader} = $true
                 ${foundStart} = $true
             }
 
@@ -200,7 +200,7 @@ function Get-BlockHelpHeader {
 }
 
 function Get-LineHelpHeader {
-    param([Parameter(Mandatory=$true)][string]${FilePath})
+    param([Parameter(Mandatory = $true)][string]${FilePath})
 
     # Accepts headers like:
     # # .SYNOPSIS
@@ -250,7 +250,7 @@ function Get-LineHelpHeader {
 }
 
 function Get-FileHeader {
-    param([Parameter(Mandatory=$true)][string]${FilePath})
+    param([Parameter(Mandatory = $true)][string]${FilePath})
 
     # Prefer block-help; optionally fallback to line-help.
     ${block} = @(Get-BlockHelpHeader -FilePath ${FilePath})
@@ -272,8 +272,8 @@ function Get-FileHeader {
 
 function Write-SummaryFooter {
     param(
-        [Parameter(Mandatory=$true)][string]${MergedFile},
-        [Parameter(Mandatory=$true)][string]${RootFolder}
+        [Parameter(Mandatory = $true)][string]${MergedFile},
+        [Parameter(Mandatory = $true)][string]${RootFolder}
     )
 
     ${summary} = New-Object System.Text.StringBuilder
@@ -294,7 +294,7 @@ function Write-SummaryFooter {
 }
 
 function Start-HeaderExtraction {
-    param([Parameter(Mandatory=$true)][string]${RootFolder})
+    param([Parameter(Mandatory = $true)][string]${RootFolder})
 
     try {
         if (-not (Test-Path -LiteralPath ${RootFolder} -PathType Container)) {
@@ -304,12 +304,12 @@ function Start-HeaderExtraction {
         Write-Log -Message "Starting header extraction from: ${RootFolder}" -Level 'INFO'
 
         # Reset counters per run (important for multiple GUI runs)
-        ${script:TotalFiles}    = 0
-        ${script:HeadersFound}  = 0
-        ${script:NoHeader}      = 0
-        ${script:LineHeaders}   = 0
-        ${script:BlockHeaders}  = 0
-        ${script:ReadErrors}    = 0
+        ${script:TotalFiles} = 0
+        ${script:HeadersFound} = 0
+        ${script:NoHeader} = 0
+        ${script:LineHeaders} = 0
+        ${script:BlockHeaders} = 0
+        ${script:ReadErrors} = 0
 
         ${mergedFile} = Join-Path ${RootFolder} "Merged-PowerShellScripts-Headers.txt"
 
@@ -325,7 +325,7 @@ function Start-HeaderExtraction {
         # Deterministic ordering (sorted by FullName)
         ${ps1Files} = @(
             Get-ChildItem -LiteralPath ${RootFolder} -Recurse -Filter "*.ps1" -File -ErrorAction Stop |
-            Sort-Object -Property FullName
+                Sort-Object -Property FullName
         )
 
         ${script:TotalFiles} = @(${ps1Files}).Count
@@ -355,7 +355,7 @@ function Start-HeaderExtraction {
 
         Write-Log -Message "Extraction complete. Output saved to: ${mergedFile}" -Level 'SUCCESS'
         Write-Log -Message ("Summary - Total={0}, Headers={1}, NoHeader={2}, Block={3}, Line={4}, ReadErrors={5}" -f `
-            ${script:TotalFiles}, ${script:HeadersFound}, ${script:NoHeader}, ${script:BlockHeaders}, ${script:LineHeaders}, ${script:ReadErrors}) -Level 'INFO'
+                ${script:TotalFiles}, ${script:HeadersFound}, ${script:NoHeader}, ${script:BlockHeaders}, ${script:LineHeaders}, ${script:ReadErrors}) -Level 'INFO'
 
         return ${mergedFile}
     } catch {
@@ -373,9 +373,9 @@ function Show-GUI {
     [System.Windows.Forms.Application]::EnableVisualStyles()
 
     ${uiLeft} = 10
-    ${uiTop}  = 12
+    ${uiTop} = 12
     ${uiLblW} = 120
-    ${uiGap}  = 10
+    ${uiGap} = 10
     ${uiBoxW} = 420
     ${uiBtnH} = 32
 
@@ -403,9 +403,9 @@ function Show-GUI {
     ${browse}.Size = New-Object System.Drawing.Size(80, 23)
     ${browse}.Location = New-Object System.Drawing.Point((${textBox}.Right + ${uiGap}), (${uiTop} - 4))
     ${browse}.Add_Click({
-        ${dialog} = New-Object System.Windows.Forms.FolderBrowserDialog
-        if (${dialog}.ShowDialog() -eq "OK") { ${textBox}.Text = ${dialog}.SelectedPath }
-    })
+            ${dialog} = New-Object System.Windows.Forms.FolderBrowserDialog
+            if (${dialog}.ShowDialog() -eq "OK") { ${textBox}.Text = ${dialog}.SelectedPath }
+        })
     ${form}.Controls.Add(${browse})
 
     ${chkLineHeaders} = New-Object System.Windows.Forms.CheckBox
@@ -449,36 +449,36 @@ function Show-GUI {
     }
 
     ${btnRun}.Add_Click({
-        ${folder} = ${textBox}.Text.Trim()
+            ${folder} = ${textBox}.Text.Trim()
 
-        if (-not (Test-Path -LiteralPath ${folder} -PathType Container)) {
-            Handle-Error -ErrorMessage "Invalid folder path: ${folder}" -ShowMessageBox
-            Update-LogView
-            return
-        }
-
-        try {
-            ${AllowLineCommentHeaders} = [bool]${chkLineHeaders}.Checked
-
-            ${lblStatus}.Text = "Running..."
-            Write-Log -Message "GUI run requested for folder: ${folder} (AllowLineHeaders=${AllowLineCommentHeaders})" -Level 'INFO'
-            Update-LogView
-
-            ${merged} = Start-HeaderExtraction -RootFolder ${folder}
-            Update-LogView
-
-            if (${merged}) {
-                ${lblStatus}.Text = "Completed: ${merged}"
-                Show-InfoBox -Message ("Headers saved to:`r`n{0}`r`n`r`nTotal: {1} | Headers: {2} | Missing: {3}" -f `
-                    ${merged}, ${script:TotalFiles}, ${script:HeadersFound}, ${script:NoHeader})
-            } else {
-                ${lblStatus}.Text = "Completed with errors. Check log."
+            if (-not (Test-Path -LiteralPath ${folder} -PathType Container)) {
+                Handle-Error -ErrorMessage "Invalid folder path: ${folder}" -ShowMessageBox
+                Update-LogView
+                return
             }
-        } catch {
-            Handle-Error -ErrorMessage "GUI run failed: $($_.Exception.Message)" -ShowMessageBox
-            Update-LogView
-        }
-    })
+
+            try {
+                ${AllowLineCommentHeaders} = [bool]${chkLineHeaders}.Checked
+
+                ${lblStatus}.Text = "Running..."
+                Write-Log -Message "GUI run requested for folder: ${folder} (AllowLineHeaders=${AllowLineCommentHeaders})" -Level 'INFO'
+                Update-LogView
+
+                ${merged} = Start-HeaderExtraction -RootFolder ${folder}
+                Update-LogView
+
+                if (${merged}) {
+                    ${lblStatus}.Text = "Completed: ${merged}"
+                    Show-InfoBox -Message ("Headers saved to:`r`n{0}`r`n`r`nTotal: {1} | Headers: {2} | Missing: {3}" -f `
+                            ${merged}, ${script:TotalFiles}, ${script:HeadersFound}, ${script:NoHeader})
+                } else {
+                    ${lblStatus}.Text = "Completed with errors. Check log."
+                }
+            } catch {
+                Handle-Error -ErrorMessage "GUI run failed: $($_.Exception.Message)" -ShowMessageBox
+                Update-LogView
+            }
+        })
 
     [void]${form}.ShowDialog()
 }
