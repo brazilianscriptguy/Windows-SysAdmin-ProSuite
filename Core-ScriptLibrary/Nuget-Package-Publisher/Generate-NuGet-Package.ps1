@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Generic NuGet Package Builder & Publisher
+    Generic NuGet Package Builder & Publisher 
 
 .DESCRIPTION
     A PowerShell script with a GUI to prepare, build, validate, and publish a NuGet package to GitHub Packages.
