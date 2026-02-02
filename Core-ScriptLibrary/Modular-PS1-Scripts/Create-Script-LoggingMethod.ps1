@@ -1,4 +1,4 @@
-# ==================================================================================================
+﻿# ==================================================================================================
 # ENTERPRISE LOGGING (Windows-SysAdmin-ProSuite STANDARD)
 # - Single log file per run (no per-call file creation)
 # - Default log directory: C:\Logs-TEMP
@@ -8,16 +8,16 @@
 
 # ---- Global log context (initialize once per script run) ----
 ${script:ScriptName} = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-${script:LogDir}     = 'C:\Logs-TEMP'
+${script:LogDir} = 'C:\Logs-TEMP'
 ${script:StartStamp} = (Get-Date -Format 'yyyyMMdd_HHmmss')
-${script:LogPath}    = $null
+${script:LogPath} = $null
 
 function Initialize-Log {
     param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]${LogDirectory} = 'C:\Logs-TEMP',
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]${LogFileName} = $null
     )
 
@@ -40,20 +40,20 @@ function Initialize-Log {
 
 function Write-Log {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]${Message},
 
-        [Parameter(Mandatory=$false)]
-        [ValidateSet('INFO','WARN','ERROR','SUCCESS','DEBUG')]
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'SUCCESS', 'DEBUG')]
         [string]${Level} = 'INFO',
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [switch]${AsWhatIf},
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [int]${PercentComplete} = -1,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]${Activity} = 'Processing'
     )
 
@@ -111,7 +111,7 @@ function Finalize-Log {
 
 # ---- GUI-friendly message helpers (optional) ----
 function Show-InfoBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
         [void][System.Windows.Forms.MessageBox]::Show(${Message}, 'Information', 'OK', 'Information')
@@ -119,7 +119,7 @@ function Show-InfoBox {
 }
 
 function Show-ErrorBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
         [void][System.Windows.Forms.MessageBox]::Show(${Message}, 'Error', 'OK', 'Error')
@@ -128,13 +128,13 @@ function Show-ErrorBox {
 
 function Handle-Error {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]${ErrorMessage},
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [switch]${ShowMessageBox},
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]${Context} = $null
     )
 
