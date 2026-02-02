@@ -24,35 +24,32 @@ Welcome to the **SysAdmin-Tools** suite—a curated collection of **PowerShell a
 | **SystemConfiguration-and-Deployment** | Baselines and configuration consistency across deployments | [![System Deployment](https://img.shields.io/badge/System%20Deployment-README-blue?style=for-the-badge&logo=github)](SystemConfiguration-and-Deployment/README.md) |
 | **WSUS-Management-Tools** | WSUS cleanup, reporting, maintenance, and optimization | [![WSUS Tools](https://img.shields.io/badge/WSUS%20Tools-README-blue?style=for-the-badge&logo=github)](WSUS-Management-Tools/README.md) |
 
----
-
 ## 🛠️ Prerequisites
 
-1. **🖥️ RSAT (Remote Server Administration Tools)**  
-   Required for AD/DNS/DHCP and related administration
-   ```powershell
-   Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
-   ```
+- **🖥️ RSAT Tools**  
+  Required for AD / DNS / DHCP administration  
+  ```powershell
+  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+  ```
 
-2. **⚙️ PowerShell Version**  
-   Recommended: **PowerShell 7.0+** (many scripts remain compatible with **Windows PowerShell 5.1**)
-   ```powershell
-   $PSVersionTable.PSVersion
-   ```
+- **⚙️ PowerShell 5.1+**  
+  Check version:  
+  ```powershell
+  $PSVersionTable.PSVersion
+  ```
 
-3. **🔑 Administrator Privileges**  
-   Some actions require elevated permissions to apply system-level changes
+- **🔑 Administrator rights**  
+  Needed for system-modifying operations
 
-4. **🔧 Execution Policy (local session)**  
-   Enables script execution for the current PowerShell process
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-   ```
+- **🔧 Execution Policy**  
+  Allow scripts in current session:  
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+  ```
 
-5. **📦 Dependencies / Modules**  
-   Ensure required modules are available (for example: `ActiveDirectory`, `DhcpServer`, etc.)
+- **📦 Modules**  
+  Ensure modules like `ActiveDirectory`, `DhcpServer`, etc. are installed/available
 
----
 
 ## 🚀 Getting Started
 
