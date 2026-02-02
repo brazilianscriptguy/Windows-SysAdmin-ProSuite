@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Generates a NuSpec (.nuspec) file for NuGet packaging automation.
+    Generates a NuSpec (.nuspec) file for NuGet packaging automation. 
 
 .DESCRIPTION
     Dynamically creates a .nuspec file with metadata and ZIP mapping, supporting
