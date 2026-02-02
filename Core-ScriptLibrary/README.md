@@ -1,6 +1,6 @@
 ## 🔧 Core Script Library Folder
 
-Welcome to the **Core Script Library repository**, a cornerstone of the `Windows-SysAdmin-ProSuite/Core-ScriptLibrary/` folder. This library includes two subfolders: **Modular-PS1-Scripts** and **Nuget-Package-Publisher**, both offering advanced **PowerShell automation scripts** to streamline administration, optimize workflows, and publish NuGet packages.
+Welcome to the **Core Script Library repository**, a cornerstone of the `Windows-SysAdmin-ProSuite/Core-ScriptLibrary/` folder. This library includes two subfolders: **Modular-PS1-Scripts** and **Nuget-Package-Publisher**, both offering advanced **PowerShell automation scripts** to streamline administration, optimize workflows, and publish NuGet packages. 
 
 ---
 
