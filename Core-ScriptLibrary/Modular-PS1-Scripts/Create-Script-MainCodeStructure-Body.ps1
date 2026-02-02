@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Generates an enterprise-grade PowerShell script scaffold (header, logging, console-hide, GUI/CLI skeleton).
 
@@ -81,13 +81,13 @@ $ErrorActionPreference = 'Stop'
 
 # ---------------------------- GLOBAL CONTEXT ----------------------------
 ${script:ScriptName} = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-${script:Timestamp}  = (Get-Date -Format "yyyyMMdd_HHmmss")
-${script:LogPath}    = $null
-${script:LogBuffer}  = New-Object System.Collections.Generic.List[string]
+${script:Timestamp} = (Get-Date -Format "yyyyMMdd_HHmmss")
+${script:LogPath} = $null
+${script:LogBuffer} = New-Object System.Collections.Generic.List[string]
 
 # ---------------------------- CONSOLE HIDE (OPTIONAL) ----------------------------
 function Set-ConsoleVisibility {
-    param([Parameter(Mandatory=$true)][bool]${Visible})
+    param([Parameter(Mandatory = $true)][bool]${Visible})
 
     if ($PSVersionTable.Platform -ne "Win32NT") { return }
 
@@ -116,7 +116,7 @@ public class WinConsole {
 # ---------------------------- LOGGING (PROSUITE) ----------------------------
 function Initialize-Log {
     param(
-        [Parameter(Mandatory=$false)][string]${Directory} = 'C:\Logs-TEMP'
+        [Parameter(Mandatory = $false)][string]${Directory} = 'C:\Logs-TEMP'
     )
 
     if (-not (Test-Path -LiteralPath ${Directory})) {
@@ -132,9 +132,9 @@ function Initialize-Log {
 
 function Write-Log {
     param(
-        [Parameter(Mandatory=$true)][string]${Message},
-        [Parameter(Mandatory=$false)]
-        [ValidateSet('INFO','WARN','ERROR','SUCCESS','DEBUG')]
+        [Parameter(Mandatory = $true)][string]${Message},
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'SUCCESS', 'DEBUG')]
         [string]${Level} = 'INFO'
     )
 
@@ -161,8 +161,8 @@ function Finalize-Log {
 
 function Handle-Error {
     param(
-        [Parameter(Mandatory=$true)][string]${ErrorMessage},
-        [Parameter(Mandatory=$false)][switch]${ShowMessageBox}
+        [Parameter(Mandatory = $true)][string]${ErrorMessage},
+        [Parameter(Mandatory = $false)][switch]${ShowMessageBox}
     )
 
     Write-Log -Message ${ErrorMessage} -Level 'ERROR'
@@ -178,10 +178,10 @@ function Handle-Error {
 # ---------------------------- SCAFFOLD GENERATION ----------------------------
 function New-ScriptScaffoldContent {
     param(
-        [Parameter(Mandatory=$true)][string]${NewScriptName}
+        [Parameter(Mandatory = $true)][string]${NewScriptName}
     )
 
-@"
+    @"
 <#
 .SYNOPSIS
     <One-line purpose (imperative + outcome).>
@@ -240,8 +240,8 @@ public class WinConsole {
     }
 }
 "@ -ErrorAction Stop
-        [WinConsole]::SetVisible(`$Visible)
-    } catch {}
+    [WinConsole]::SetVisible(`$Visible)
+} catch {}
 }
 
 if (-not `$ShowConsole) { Set-ConsoleVisibility -Visible `$false }
@@ -254,8 +254,8 @@ if (-not (Test-Path -LiteralPath `$logDir)) { New-Item -Path `$logDir -ItemType 
 
 function Write-Log {
     param(
-        [Parameter(Mandatory=`$true)][string]`$Message,
-        [ValidateSet('INFO','WARN','ERROR','SUCCESS','DEBUG')][string]`$Level = 'INFO'
+        [Parameter(Mandatory = `$true)][string]`$Message,
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'SUCCESS', 'DEBUG')][string]`$Level = 'INFO'
     )
     `$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     `$entry = "[`$ts] [`$Level] `$Message"
