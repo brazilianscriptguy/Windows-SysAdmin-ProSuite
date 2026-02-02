@@ -1,20 +1,30 @@
-﻿<#
+<#
 .SYNOPSIS
     PowerShell Script for Managing Disabled and Expired AD User Accounts.
 
 .DESCRIPTION
-    This script automates the process of disabling expired Active Directory user accounts, 
-    ensuring compliance with organizational security policies and improving user account management.
+    This script provides a GUI to manage Active Directory user accounts:
+    - Lists expired (enabled) accounts and disables selected accounts.
+    - Lists disabled accounts (excluding built-in/system accounts and CN=Users).
+    - Removes selected disabled users from all groups (cross-domain safe).
+    - Disables accounts from manual input (comma-separated) or from a .txt file (one per line).
+    - Exports a Disabled Accounts report to CSV in the current user's Documents folder.
+    - Generates an append-only log file in C:\Logs-TEMP.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 22, 2024
+    Last Updated: 2026-02-02
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
+#Requires -RunAsAdministrator
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# ---------------------------- Hide Console ----------------------------
+try {
+    Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class Window {
@@ -32,489 +42,651 @@ public class Window {
         ShowWindow(handle, 5); // 5 = SW_SHOW
     }
 }
-"@
+"@ -ErrorAction Stop
 
-[Window]::Hide()
+    [Window]::Hide()
+} catch {}
 
-# Load necessary assemblies for GUI
-Import-Module ActiveDirectory
+# ---------------------------- Modules / Assemblies ----------------------------
+try {
+    Import-Module ActiveDirectory -ErrorAction Stop
+} catch {
+    [void][System.Windows.Forms.MessageBox]::Show(
+        "Failed to load ActiveDirectory module (RSAT required).`n$($_.Exception.Message)",
+        "Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+    exit 1
+}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Determine the script name and set up logging path
+# ---------------------------- Logging ----------------------------
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$logDir     = 'C:\Logs-TEMP'
+$logPath    = Join-Path $logDir "${scriptName}.log"
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    $null = New-Item -Path $logDir -ItemType Directory -ErrorAction SilentlyContinue
-    if (-not (Test-Path $logDir)) {
-        Write-Error "Failed to create log directory at $logDir. Logging will not be possible."
-        return
-    }
+if (-not (Test-Path -LiteralPath $logDir)) {
+    try { New-Item -Path $logDir -ItemType Directory -Force | Out-Null } catch {}
 }
 
-# Enhanced logging function with error handling
-function Log-Message {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-        [Parameter(Mandatory = $false)]
-        [string]$MessageType = "INFO"
+if (-not (Test-Path -LiteralPath $logDir)) {
+    [void][System.Windows.Forms.MessageBox]::Show(
+        "Failed to create log directory at ${logDir}. Logging will not be possible.",
+        "Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to write to log: $_"
-    }
+    exit 1
 }
 
-# Function to display error messages
+function Log-Message {
+    param(
+        [Parameter(Mandatory=$true)][string]$Message,
+        [ValidateSet('INFO','WARNING','ERROR','SUCCESS')][string]$MessageType = 'INFO'
+    )
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $entry = "[${timestamp}] [${MessageType}] ${Message}"
+    try { Add-Content -Path $logPath -Value $entry -Encoding UTF8 -ErrorAction Stop } catch {}
+}
+
 function Show-ErrorMessage {
-    param ([string]$message)
-    [System.Windows.Forms.MessageBox]::Show($message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message "Error: $message" -MessageType "ERROR"
+    param([Parameter(Mandatory=$true)][string]$Message)
+    [void][System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        "Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+    Log-Message -Message "${Message}" -MessageType 'ERROR'
 }
 
-# Function to display information messages
 function Show-InfoMessage {
-    param ([string]$message)
-    [System.Windows.Forms.MessageBox]::Show($message, 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Log-Message "Info: $message" -MessageType "INFO"
+    param([Parameter(Mandatory=$true)][string]$Message)
+    [void][System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        "Information",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information
+    )
+    Log-Message -Message "${Message}" -MessageType 'INFO'
 }
 
-# Function to get all domain names in the forest
+Log-Message -Message "==== Session started ====" -MessageType 'INFO'
+Log-Message -Message "LogPath: ${logPath}" -MessageType 'INFO'
+
+# ---------------------------- Helpers ----------------------------
+
+function Normalize-AccountInput {
+    param([Parameter(Mandatory=$true)][string[]]$Names)
+    @(
+        $Names |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
 function Get-ForestDomains {
     try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        $domains = $forest.Domains | ForEach-Object { $_.Name }
+        $forest  = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+        $domains = @($forest.Domains | ForEach-Object { $_.Name })
         return $domains
     } catch {
-        Show-ErrorMessage "Unable to fetch domain names in the forest."
+        Show-ErrorMessage -Message "Unable to fetch domain names in the forest."
         return @()
     }
 }
 
-# Function to list expired user accounts
-function List-ExpiredAccounts {
-    param (
-        [string]$domainFQDN,
-        [System.Windows.Forms.ListView]$listView
-    )
+function Get-DomainFqdnFromDistinguishedName {
+    param([Parameter(Mandatory=$true)][string]$DistinguishedName)
 
-    # Clear any existing items in the list view
-    $listView.Items.Clear()
+    $matches = [regex]::Matches($DistinguishedName, '(?i)DC=([^,]+)')
+    if (-not $matches -or $matches.Count -eq 0) { return $null }
 
-    # Get current date
-    $currentDate = Get-Date
-
-    # Get expired user accounts
-    $expiredUsers = Get-ADUser -Server $domainFQDN -Filter { Enabled -eq $true -and AccountExpirationDate -lt $currentDate } -Properties SamAccountName, DisplayName, AccountExpirationDate
-
-    # Check if there are expired user accounts
-    if ($expiredUsers.Count -eq 0) {
-        Show-InfoMessage "There are no expired user accounts to list."
-        return
-    }
-
-    # Add expired user accounts to the list view
-    $expiredUsers | ForEach-Object {
-        $listItem = New-Object System.Windows.Forms.ListViewItem
-        $listItem.Text = $_.SamAccountName
-        
-        # Handle DisplayName and AccountExpirationDate
-        $displayName = if ($_.DisplayName) { $_.DisplayName } else { "N/A" }
-        $expirationDate = if ($_.AccountExpirationDate) { ([DateTime]$_.AccountExpirationDate).ToString("yyyy-MM-dd") } else { "N/A" }
-
-        $listItem.SubItems.Add($displayName)
-        $listItem.SubItems.Add($expirationDate)
-        $listView.Items.Add($listItem)
-    }
+    $dcs = @()
+    foreach ($m in $matches) { $dcs += $m.Groups[1].Value }
+    return ($dcs -join '.')
 }
 
-# Function to disable expired user accounts and log the action
-function Disable-ExpiredAccounts {
-    param (
-        [string]$domainFQDN,
-        [System.Windows.Forms.ListView]$listView
+# ---------------------------- Expired Users ----------------------------
+
+function List-ExpiredAccounts {
+    param(
+        [Parameter(Mandatory=$true)][string]$domainFQDN,
+        [Parameter(Mandatory=$true)][System.Windows.Forms.ListView]$listView
     )
 
-    # Check if any accounts are selected
-    if ($listView.CheckedItems.Count -eq 0) {
-        Show-ErrorMessage "No accounts selected. Please select at least one account to disable."
+    $listView.Items.Clear()
+    $currentDate = Get-Date
+
+    try {
+        $expiredUsers = @(
+            Get-ADUser -Server $domainFQDN `
+                -Filter { Enabled -eq $true -and AccountExpirationDate -lt $currentDate } `
+                -Properties SamAccountName, DisplayName, AccountExpirationDate
+        )
+    } catch {
+        Show-ErrorMessage -Message "Failed to query expired users on ${domainFQDN}.`n$($_.Exception.Message)"
         return
     }
 
-    # Get current date
-    $currentDate = Get-Date
+    if (-not $expiredUsers -or $expiredUsers.Count -eq 0) {
+        Show-InfoMessage -Message "There are no expired user accounts to list."
+        return
+    }
 
-    # Iterate through the selected accounts to disable them
+    foreach ($u in $expiredUsers) {
+        $item = New-Object System.Windows.Forms.ListViewItem
+        $item.Text = $u.SamAccountName
+
+        $displayName    = if ($u.DisplayName) { $u.DisplayName } else { 'N/A' }
+        $expirationDate = if ($u.AccountExpirationDate) { ([DateTime]$u.AccountExpirationDate).ToString('yyyy-MM-dd') } else { 'N/A' }
+
+        $null = $item.SubItems.Add($displayName)
+        $null = $item.SubItems.Add($expirationDate)
+        $null = $listView.Items.Add($item)
+    }
+
+    Log-Message -Message "Listed expired users on ${domainFQDN}: $($expiredUsers.Count)" -MessageType 'SUCCESS'
+}
+
+function Disable-ExpiredAccounts {
+    param(
+        [Parameter(Mandatory=$true)][string]$domainFQDN,
+        [Parameter(Mandatory=$true)][System.Windows.Forms.ListView]$listView
+    )
+
+    if ($listView.CheckedItems.Count -eq 0) {
+        Show-ErrorMessage -Message "No accounts selected. Please select at least one account to disable."
+        return
+    }
+
     $disabledCount = 0
-    foreach ($item in $listView.CheckedItems) {
-        $samAccountName = $item.Text
-        $user = Get-ADUser -Server $domainFQDN -Filter { SamAccountName -eq $samAccountName } -Properties AccountExpirationDate
 
-        if ($user) {
-            $user | Disable-ADAccount
+    foreach ($row in $listView.CheckedItems) {
+        $samAccountName = [string]$row.Text
+        if ([string]::IsNullOrWhiteSpace($samAccountName)) { continue }
+
+        try {
+            Disable-ADAccount -Identity $samAccountName -Server $domainFQDN -ErrorAction Stop
             $disabledCount++
-            $logMessage = "Disabled $($user.SamAccountName)'s account because it is expired."
-            Log-Message -Message $logMessage
+            Log-Message -Message "Disabled expired account: ${samAccountName} (${domainFQDN})" -MessageType 'INFO'
+        } catch {
+            Log-Message -Message "Failed to disable expired account '${samAccountName}' on ${domainFQDN}: $($_.Exception.Message)" -MessageType 'ERROR'
         }
     }
 
-    # Refresh the list view to reflect the changes
     List-ExpiredAccounts -domainFQDN $domainFQDN -listView $listView
-
-    # Show message box with information
-    Show-InfoMessage "$disabledCount expired accounts have been disabled. Log file generated at: $logPath"
+    Show-InfoMessage -Message "${disabledCount} expired account(s) have been disabled.`nLog file: ${logPath}"
 }
 
-# Function to list disabled user accounts
+# ---------------------------- Disabled Users ----------------------------
+
 function List-DisabledAccounts {
-    param (
-        [string]$domainFQDN,
-        [System.Windows.Forms.ListView]$listView
+    param(
+        [Parameter(Mandatory=$true)][string]$domainFQDN,
+        [Parameter(Mandatory=$true)][System.Windows.Forms.ListView]$listView
     )
 
-    # Clear any existing items in the list view
     $listView.Items.Clear()
 
-    # List of known system and built-in accounts to exclude
-    $excludeAccounts = @("Administrator", "Guest", "krbtgt", "DefaultAccount", "WDAGUtilityAccount")
+    $excludeAccounts = @('Administrator','Guest','krbtgt','DefaultAccount','WDAGUtilityAccount')
 
-    # Get all disabled user accounts in the domain, excluding system and built-in accounts
-    $disabledUsers = Get-ADUser -Server $domainFQDN -Filter { Enabled -eq $false } -Properties SamAccountName, DisplayName, DistinguishedName, whenChanged | Where-Object {
-        ($excludeAccounts -notcontains $_.SamAccountName) -and
-        ($_.DistinguishedName -notmatch "^CN=Users,")
-    }
-
-    # Check if there are any disabled users to list
-    if ($disabledUsers.Count -eq 0) {
-        Show-InfoMessage "No disabled user accounts found outside the 'CN=Users' container."
+    try {
+        $disabledUsers = @(
+            Get-ADUser -Server $domainFQDN -Filter { Enabled -eq $false } `
+                -Properties SamAccountName, DisplayName, DistinguishedName, whenChanged |
+            Where-Object {
+                ($excludeAccounts -notcontains $_.SamAccountName) -and
+                ($_.DistinguishedName -notmatch '^CN=Users,')
+            }
+        )
+    } catch {
+        Show-ErrorMessage -Message "Failed to query disabled users on ${domainFQDN}.`n$($_.Exception.Message)"
         return
     }
 
-    # Add disabled user accounts to the list view
-    $disabledUsers | ForEach-Object {
-        $listItem = New-Object System.Windows.Forms.ListViewItem
-        $listItem.Text = $_.SamAccountName
-        
-        # Handle DisplayName and whenChanged
-        $displayName = if ($_.DisplayName) { $_.DisplayName } else { "N/A" }
-        $lastChanged = if ($_.whenChanged) { ([DateTime]$_.whenChanged).ToString("yyyy-MM-dd") } else { "N/A" }
-
-        $listItem.SubItems.Add($displayName)
-        $listItem.SubItems.Add($lastChanged)
-        $listView.Items.Add($listItem)
+    if (-not $disabledUsers -or $disabledUsers.Count -eq 0) {
+        Show-InfoMessage -Message "No disabled user accounts found outside the 'CN=Users' container."
+        return
     }
+
+    foreach ($u in $disabledUsers) {
+        $item = New-Object System.Windows.Forms.ListViewItem
+        $item.Text = $u.SamAccountName
+
+        $displayName = if ($u.DisplayName) { $u.DisplayName } else { 'N/A' }
+        $lastChanged = if ($u.whenChanged) { ([DateTime]$u.whenChanged).ToString('yyyy-MM-dd') } else { 'N/A' }
+
+        $null = $item.SubItems.Add($displayName)
+        $null = $item.SubItems.Add($lastChanged)
+        $null = $listView.Items.Add($item)
+    }
+
+    Log-Message -Message "Listed disabled users on ${domainFQDN}: $($disabledUsers.Count)" -MessageType 'SUCCESS'
 }
 
-# Function to remove a user from all groups
-function Remove-UserFromGroups {
-    param (
-        [string]$SamAccountName,
-        [string]$domainFQDN
+function Remove-UserFromGroups-CrossDomainSafe {
+    param(
+        [Parameter(Mandatory=$true)][string]${SamAccountName},
+        [Parameter(Mandatory=$true)][string]${UserDomainFqdn}
     )
 
     try {
-        # Retrieve user object
-        $user = Get-ADUser -Identity $SamAccountName -Server $domainFQDN -Properties MemberOf
-        if ($user -ne $null -and $user.MemberOf.Count -gt 0) {
-            foreach ($groupDN in $user.MemberOf) {
-                try {
-                    Remove-ADGroupMember -Identity $groupDN -Members $SamAccountName -Confirm:$false -Server $domainFQDN
-                    Write-Host "Successfully removed $SamAccountName from group $groupDN" -ForegroundColor Green
-                    Log-Message "Successfully removed $SamAccountName from group $groupDN" -MessageType "INFO"
-                } catch {
-                    Write-Warning "Failed to remove ${SamAccountName} from group ${groupDN}: $_"
-                    Log-Message "Failed to remove ${SamAccountName} from group ${groupDN}: $_" -MessageType "ERROR"
-                }
-            }
-        } else {
-            Write-Host "${SamAccountName} is not a member of any groups or does not exist in ${domainFQDN}" -ForegroundColor Yellow
-            Log-Message "${SamAccountName} is not a member of any groups or does not exist in ${domainFQDN}" -MessageType "INFO"
-        }
-    } catch {
-        Write-Warning "Failed to retrieve or remove groups for ${SamAccountName}: $_"
-        Log-Message "Failed to retrieve or remove groups for ${SamAccountName}: $_" -MessageType "ERROR"
+        ${userObj} = Get-ADUser -Identity ${SamAccountName} -Server ${UserDomainFqdn} -Properties MemberOf, DistinguishedName -ErrorAction Stop
     }
-}
-
-# Function to handle the "Remove from Groups" button click event
-function On-RemoveFromGroupsClick {
-    param (
-        [System.Windows.Forms.ListView]$listView,
-        [System.Windows.Forms.ProgressBar]$progressBar,
-        [string]$domainFQDN
-    )
-
-    # Check if any accounts are selected
-    if ($listView.CheckedItems.Count -eq 0) {
-        Show-ErrorMessage "No accounts selected. Please select at least one account to remove from groups."
+    catch {
+        Log-Message -Message "Failed to retrieve user '${SamAccountName}' on ${UserDomainFqdn}: $($_.Exception.Message)" -MessageType 'ERROR'
         return
     }
 
-    # Initialize the progress bar
-    $progressBar.Minimum = 0
-    $progressBar.Maximum = $listView.CheckedItems.Count
-    $progressBar.Value = 0
-
-    # Iterate through the selected accounts and remove them from groups
-    foreach ($item in $listView.CheckedItems) {
-        $samAccountName = $item.Text
-        Remove-UserFromGroups -SamAccountName $samAccountName -domainFQDN $domainFQDN
-        
-        # Increment the progress bar
-        $progressBar.PerformStep()
+    if ($null -eq ${userObj}.MemberOf -or ${userObj}.MemberOf.Count -eq 0) {
+        Log-Message -Message "User '${SamAccountName}' has no removable group memberships on ${UserDomainFqdn}." -MessageType 'INFO'
+        return
     }
 
-    # Refresh the list view to reflect changes
-    List-DisabledAccounts -domainFQDN $domainFQDN -listView $listView
+    ${userDn} = [string]${userObj}.DistinguishedName
+    if ([string]::IsNullOrWhiteSpace(${userDn})) {
+        Log-Message -Message "User '${SamAccountName}' has no DistinguishedName (unexpected). Skipping." -MessageType 'ERROR'
+        return
+    }
 
-    # Show message box with information
-    Show-InfoMessage "Selected accounts have been removed from their groups. Log file generated at: $logPath"
-}
-# Function to disable user accounts by name or from a file
-function Disable-UserAccountsFromList {
-    param (
-        [string[]]$accountNames,
-        [string]$domainFQDN
-    )
+    foreach (${groupDN} in ${userObj}.MemberOf) {
 
-    foreach ($name in $accountNames) {
+        ${groupDomain} = Get-DomainFqdnFromDistinguishedName -DistinguishedName ${groupDN}
+        if ([string]::IsNullOrWhiteSpace(${groupDomain})) {
+            Log-Message -Message "Failed to resolve group domain from DN '${groupDN}' for user '${SamAccountName}'." -MessageType 'WARNING'
+            continue
+        }
+
+        # Attempt 1: Remove using the user's DistinguishedName (cross-domain safe)
         try {
-            $user = Get-ADUser -Server $domainFQDN -Filter { SamAccountName -eq $name }
-            if ($user) {
-                $user | Disable-ADAccount
-                Log-Message -Message "Disabled $name's account."
-                Show-InfoMessage "Disabled account for user: $name"
-            } else {
-                Log-Message -Message "User $name not found." -MessageType "ERROR"
-                Show-ErrorMessage "User $name not found."
+            Remove-ADGroupMember -Identity ${groupDN} -Members ${userDn} -Confirm:$false -Server ${groupDomain} -ErrorAction Stop
+            Log-Message -Message "Removed '${SamAccountName}' from group '${groupDN}' (server: ${groupDomain}, member: DN)." -MessageType 'INFO'
+            continue
+        }
+        catch {
+            ${err1} = $_.Exception.Message
+
+            if (${err1} -match "refer" -or ${err1} -match "referência" -or ${err1} -match "referral") {
+                Log-Message -Message "Remove-ADGroupMember returned referral for '${SamAccountName}' from '${groupDN}' via ${groupDomain}. Using ADSI fallback." -MessageType 'INFO'
             }
-        } catch {
-            Log-Message -Message "Failed to disable ${name}: $_" -MessageType "ERROR"
-            Show-ErrorMessage "Failed to disable ${name}: $_"
+            else {
+                Log-Message -Message "Remove-ADGroupMember failed for '${SamAccountName}' from '${groupDN}' via ${groupDomain} (DN attempt): ${err1}" -MessageType 'WARNING'
+            }
+
+            # Attempt 2 (fallback): ADSI direct removal from group "member" attribute
+            try {
+                ${groupPath}  = "LDAP://${groupDN}"
+                ${groupEntry} = [ADSI]${groupPath}
+
+                # Safety check: only proceed if the user DN is actually present in the group's member list
+                if (${groupEntry}.Properties["member"] -notcontains ${userDn}) {
+                    Log-Message -Message "User '${SamAccountName}' is not a member of '${groupDN}' (already clean)." -MessageType 'INFO'
+                    continue
+                }
+
+                ${groupEntry}.Properties["member"].Remove(${userDn}) | Out-Null
+                ${groupEntry}.CommitChanges()
+
+                Log-Message -Message "Removed '${SamAccountName}' from group '${groupDN}' via ADSI fallback (member DN removed)." -MessageType 'INFO'
+            }
+            catch {
+                ${err2} = $_.Exception.Message
+                Log-Message -Message "ADSI fallback failed to remove '${SamAccountName}' from group '${groupDN}': ${err2}" -MessageType 'ERROR'
+            }
         }
     }
 }
 
-# Function to handle the "Disable Users" button click event for manual input or file upload
+function On-RemoveFromGroupsClick {
+    param(
+        [Parameter(Mandatory=$true)][System.Windows.Forms.ListView]$listView,
+        [Parameter(Mandatory=$true)][System.Windows.Forms.ProgressBar]$progressBar,
+        [Parameter(Mandatory=$true)][string]$domainFQDN
+    )
+
+    if ($listView.CheckedItems.Count -eq 0) {
+        Show-ErrorMessage -Message "No accounts selected. Please select at least one account to remove from groups."
+        return
+    }
+
+    $progressBar.Minimum = 0
+    $progressBar.Maximum = $listView.CheckedItems.Count
+    $progressBar.Value   = 0
+    $progressBar.Step    = 1
+
+    $i = 0
+    foreach ($row in $listView.CheckedItems) {
+        $i++
+        $samAccountName = [string]$row.Text
+        if ([string]::IsNullOrWhiteSpace($samAccountName)) { continue }
+
+        Remove-UserFromGroups-CrossDomainSafe -SamAccountName $samAccountName -UserDomainFqdn $domainFQDN
+
+        $progressBar.Value = [Math]::Min($i, $progressBar.Maximum)
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    List-DisabledAccounts -domainFQDN $domainFQDN -listView $listView
+    Show-InfoMessage -Message "Selected accounts have been removed from their groups.`nLog file: ${logPath}"
+}
+
+# ---------------------------- Disable Users (Input/File) ----------------------------
+
+function Disable-UserAccountsFromList {
+    param(
+        [Parameter(Mandatory=$true)][string[]]$accountNames,
+        [Parameter(Mandatory=$true)][string]$domainFQDN
+    )
+
+    $names = Normalize-AccountInput -Names $accountNames
+    if (-not $names -or $names.Count -eq 0) {
+        Show-ErrorMessage -Message "No valid account names provided."
+        return
+    }
+
+    $disabled = 0
+    foreach ($name in $names) {
+        try {
+            Disable-ADAccount -Identity $name -Server $domainFQDN -ErrorAction Stop
+            $disabled++
+            Log-Message -Message "Disabled account: ${name} (${domainFQDN})" -MessageType 'INFO'
+        } catch {
+            Log-Message -Message "Failed to disable '${name}' on ${domainFQDN}: $($_.Exception.Message)" -MessageType 'ERROR'
+        }
+    }
+
+    Show-InfoMessage -Message "Disable operation completed.`nDisabled: ${disabled}`nLog file: ${logPath}"
+}
+
 function On-DisableUsersClick {
-    param (
-        [System.Windows.Forms.TextBox]$inputTextBox,
-        [string]$domainFQDN
+    param(
+        [Parameter(Mandatory=$true)][System.Windows.Forms.TextBox]$inputTextBox,
+        [Parameter(Mandatory=$true)][string]$domainFQDN
     )
 
     $input = $inputTextBox.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($input) -or $input -eq 'Type a user account or a .txt file name with full path') {
+        Show-ErrorMessage -Message "Please type one or more account names (comma-separated) or a .txt file path."
+        return
+    }
+
+    $usernames = @()
+
     if ([System.IO.File]::Exists($input)) {
-        $usernames = Get-Content -Path $input
-        Show-InfoMessage "Disabling users from file: $input"
+        try {
+            $usernames = Get-Content -Path $input -ErrorAction Stop
+            Log-Message -Message "Disabling users from file: ${input}" -MessageType 'INFO'
+        } catch {
+            Show-ErrorMessage -Message "Failed to read file: ${input}`n$($_.Exception.Message)"
+            return
+        }
     } else {
-        $usernames = $input -split ","
-        Show-InfoMessage "Disabling users from input: $input"
+        $usernames = $input -split ','
+        Log-Message -Message "Disabling users from manual input." -MessageType 'INFO'
     }
 
     Disable-UserAccountsFromList -accountNames $usernames -domainFQDN $domainFQDN
 }
 
-# Function to handle the "Disable Users" button click event for manual input or file upload
-function On-DisableUsersClick {
-    param (
-        [System.Windows.Forms.TextBox]$inputTextBox,
-        [string]$domainFQDN
+# ---------------------------- Export Disabled CSV ----------------------------
+
+function Export-DisabledAccountsReportCsv {
+    param(
+        [Parameter(Mandatory=$true)][string]$DomainFqdn,
+        [Parameter(Mandatory=$true)][string]$OutputFolder
     )
 
-    $input = $inputTextBox.Text.Trim()
-    if ([System.IO.File]::Exists($input)) {
-        $usernames = Get-Content -Path $input
-    } else {
-        $usernames = $input -split ","
-    }
+    try {
+        if (-not (Test-Path -LiteralPath $OutputFolder)) {
+            New-Item -Path $OutputFolder -ItemType Directory -Force | Out-Null
+        }
 
-    Disable-UserAccountsFromList -accountNames $usernames -domainFQDN $domainFQDN
+        $excludeAccounts = @('Administrator','Guest','krbtgt','DefaultAccount','WDAGUtilityAccount')
+
+        $disabledUsers = @(
+            Get-ADUser -Server $DomainFqdn -Filter { Enabled -eq $false } `
+                -Properties SamAccountName, DisplayName, DistinguishedName, whenChanged |
+            Where-Object {
+                ($excludeAccounts -notcontains $_.SamAccountName) -and
+                ($_.DistinguishedName -notmatch '^CN=Users,')
+            } |
+            Select-Object SamAccountName, DisplayName, whenChanged, DistinguishedName
+        )
+
+        $ts = Get-Date -Format 'yyyyMMdd_HHmmss'
+        $safeDomain = $DomainFqdn.Replace('.','-')
+        $csvPath = Join-Path $OutputFolder "DisabledAccounts_${safeDomain}_${ts}.csv"
+
+        $disabledUsers | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+
+        Log-Message -Message "Disabled accounts report exported: ${csvPath}" -MessageType 'SUCCESS'
+        Show-InfoMessage -Message "Disabled accounts report exported:`n${csvPath}"
+    } catch {
+        Log-Message -Message "Failed to export disabled accounts report for ${DomainFqdn}: $($_.Exception.Message)" -MessageType 'ERROR'
+        Show-ErrorMessage -Message "Failed to export disabled accounts report:`n$($_.Exception.Message)"
+    }
 }
 
-# Function to create and show the GUI with tabs
+# ---------------------------- GUI ----------------------------
+
 function Show-GUI {
-    # Create and configure the form
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "AD User Management"
-    $form.Size = New-Object System.Drawing.Size(620, 700)
-    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    ${domains} = Get-ForestDomains
+    if (-not ${domains} -or ${domains}.Count -eq 0) {
+        Show-ErrorMessage -Message "No domains found in the forest."
+        return
+    }
 
-    # Create and configure the TabControl
-    $tabControl = New-Object System.Windows.Forms.TabControl
-    $tabControl.Size = New-Object System.Drawing.Size(580, 640)
-    $tabControl.Location = New-Object System.Drawing.Point(10, 10)
+    ${form} = New-Object System.Windows.Forms.Form
+    ${form}.Text = 'AD User Management'
+    ${form}.Size = New-Object System.Drawing.Size(620, 700)
+    ${form}.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    ${form}.FormBorderStyle = 'FixedSingle'
+    ${form}.MaximizeBox = $false
 
-    # Create tabs
-    $tabExpiredUsers = New-Object System.Windows.Forms.TabPage
-    $tabExpiredUsers.Text = "Expired Users"
+    ${tabControl} = New-Object System.Windows.Forms.TabControl
+    ${tabControl}.Size = New-Object System.Drawing.Size(580, 640)
+    ${tabControl}.Location = New-Object System.Drawing.Point(10, 10)
 
-    $tabDisabledUsers = New-Object System.Windows.Forms.TabPage
-    $tabDisabledUsers.Text = "Disabled Users"
+    ${tabExpiredUsers} = New-Object System.Windows.Forms.TabPage
+    ${tabExpiredUsers}.Text = 'Expired Users'
 
-    # Add domain dropdown to both tabs
-    $domainComboBoxExpired = New-Object System.Windows.Forms.ComboBox
-    $domainComboBoxExpired.Size = New-Object System.Drawing.Size(400, 30)
-    $domainComboBoxExpired.Location = New-Object System.Drawing.Point(10, 10)
-    $domainComboBoxExpired.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $domainComboBoxExpired.Items.AddRange((Get-ForestDomains))
-    $domainComboBoxExpired.SelectedIndex = 0
-    $tabExpiredUsers.Controls.Add($domainComboBoxExpired)
+    ${tabDisabledUsers} = New-Object System.Windows.Forms.TabPage
+    ${tabDisabledUsers}.Text = 'Disabled Users'
 
-    $domainComboBoxDisabled = New-Object System.Windows.Forms.ComboBox
-    $domainComboBoxDisabled.Size = New-Object System.Drawing.Size(400, 30)
-    $domainComboBoxDisabled.Location = New-Object System.Drawing.Point(10, 10)
-    $domainComboBoxDisabled.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $domainComboBoxDisabled.Items.AddRange((Get-ForestDomains))
-    $domainComboBoxDisabled.SelectedIndex = 0
-    $tabDisabledUsers.Controls.Add($domainComboBoxDisabled)
+    # -------------------- GLOBAL TAB LAYOUT CONSTANTS --------------------
+    ${uiLeft}     = 10
+    ${uiTopPad}   = 10
+    ${uiBtnTop}   = 50
+    ${uiListTop}  = 90
+    ${uiListW}    = 540
+    ${uiGap}      = 10
+    ${uiBtnH}     = 32
 
-    ### TAB 1: Expired Users ###
+    # Three top buttons must fit into 540px:
+    # 3*170 + 2*10 = 530 => safe inside 540
+    ${uiBtnW}     = 170
+    ${uiBtnX1}    = ${uiLeft}
+    ${uiBtnX2}    = ${uiBtnX1} + ${uiBtnW} + ${uiGap}
+    ${uiBtnX3}    = ${uiBtnX2} + ${uiBtnW} + ${uiGap}
 
-    # Create and configure the "List Expired Users" button
-    $listExpiredButton = New-Object System.Windows.Forms.Button
-    $listExpiredButton.Text = "List Expired Users"
-    $listExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
-    $listExpiredButton.Location = New-Object System.Drawing.Point(10, 50)
-    $listExpiredButton.Add_Click({
-            List-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
-        })
-    $tabExpiredUsers.Controls.Add($listExpiredButton)
+    # Bottom-right action buttons aligned to list width
+    ${uiActionBtnW} = 170
+    ${uiActionX}    = ${uiLeft} + ${uiListW} - ${uiActionBtnW}
 
-    # Create and configure the "Disable Expired Users" button
-    $disableExpiredButton = New-Object System.Windows.Forms.Button
-    $disableExpiredButton.Text = "Disable Expired Users"
-    $disableExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
-    $disableExpiredButton.Location = New-Object System.Drawing.Point(200, 50)
-    $disableExpiredButton.Add_Click({
-            Disable-ExpiredAccounts -domainFQDN $domainComboBoxExpired.SelectedItem -listView $expiredListView
-        })
-    $tabExpiredUsers.Controls.Add($disableExpiredButton)
+    # -------------------- DOMAIN DROPDOWNS (FULL WIDTH / NO TRUNCATION) --------------------
+    ${domainComboBoxExpired} = New-Object System.Windows.Forms.ComboBox
+    ${domainComboBoxExpired}.Size = New-Object System.Drawing.Size(${uiListW}, 30)
+    ${domainComboBoxExpired}.Location = New-Object System.Drawing.Point(${uiLeft}, ${uiTopPad})
+    ${domainComboBoxExpired}.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    ${domainComboBoxExpired}.Items.AddRange(${domains})
+    ${domainComboBoxExpired}.SelectedIndex = 0
+    ${tabExpiredUsers}.Controls.Add(${domainComboBoxExpired})
 
-    # Create and configure the "Select All Expired Users" button
-    $selectAllExpiredButton = New-Object System.Windows.Forms.Button
-    $selectAllExpiredButton.Text = "Select All Expired Users"
-    $selectAllExpiredButton.Size = New-Object System.Drawing.Size(180, 30)
-    $selectAllExpiredButton.Location = New-Object System.Drawing.Point(400, 50)
-    $selectAllExpiredButton.Add_Click({
-            $expiredListView.Items | ForEach-Object { $_.Checked = $true }
-        })
-    $tabExpiredUsers.Controls.Add($selectAllExpiredButton)
+    ${domainComboBoxDisabled} = New-Object System.Windows.Forms.ComboBox
+    ${domainComboBoxDisabled}.Size = New-Object System.Drawing.Size(${uiListW}, 30)
+    ${domainComboBoxDisabled}.Location = New-Object System.Drawing.Point(${uiLeft}, ${uiTopPad})
+    ${domainComboBoxDisabled}.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    ${domainComboBoxDisabled}.Items.AddRange(${domains})
+    ${domainComboBoxDisabled}.SelectedIndex = 0
+    ${tabDisabledUsers}.Controls.Add(${domainComboBoxDisabled})
 
-    # Create and configure the expired accounts list view
-    $expiredListView = New-Object System.Windows.Forms.ListView
-    $expiredListView.Size = New-Object System.Drawing.Size(540, 400)
-    $expiredListView.Location = New-Object System.Drawing.Point(10, 90)
-    $expiredListView.View = [System.Windows.Forms.View]::Details
-    $expiredListView.Columns.Add("SAM Account Name", 150)
-    $expiredListView.Columns.Add("Display Name", 250)
-    $expiredListView.Columns.Add("Expiration Date", 150)
-    $expiredListView.CheckBoxes = $true
-    $tabExpiredUsers.Controls.Add($expiredListView)
+    # ---------------- TAB 1: Expired Users ----------------
 
-    ### TAB 2: Disabled Users ###
+    ${listExpiredButton} = New-Object System.Windows.Forms.Button
+    ${listExpiredButton}.Text     = 'List Expired Users'
+    ${listExpiredButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${listExpiredButton}.Location = New-Object System.Drawing.Point(${uiBtnX1}, ${uiBtnTop})
+    ${tabExpiredUsers}.Controls.Add(${listExpiredButton})
 
-    # Create and configure the "List Disabled Users" button
-    $listDisabledButton = New-Object System.Windows.Forms.Button
-    $listDisabledButton.Text = "List Disabled Users"
-    $listDisabledButton.Size = New-Object System.Drawing.Size(180, 30)
-    $listDisabledButton.Location = New-Object System.Drawing.Point(10, 50)
-    $listDisabledButton.Add_Click({
-            List-DisabledAccounts -domainFQDN $domainComboBoxDisabled.SelectedItem -listView $disabledListView
-        })
-    $tabDisabledUsers.Controls.Add($listDisabledButton)
+    ${disableExpiredButton} = New-Object System.Windows.Forms.Button
+    ${disableExpiredButton}.Text     = 'Disable Expired Users'
+    ${disableExpiredButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${disableExpiredButton}.Location = New-Object System.Drawing.Point(${uiBtnX2}, ${uiBtnTop})
+    ${tabExpiredUsers}.Controls.Add(${disableExpiredButton})
 
-    # Create and configure the "Remove from Groups" button
-    $removeFromGroupsButton = New-Object System.Windows.Forms.Button
-    $removeFromGroupsButton.Text = "Remove from Groups"
-    $removeFromGroupsButton.Size = New-Object System.Drawing.Size(180, 30)
-    $removeFromGroupsButton.Location = New-Object System.Drawing.Point(200, 50)
-    $removeFromGroupsButton.Add_Click({
-            On-RemoveFromGroupsClick -listView $disabledListView -progressBar $progressBar -domainFQDN $domainComboBoxDisabled.SelectedItem
-        })
-    $tabDisabledUsers.Controls.Add($removeFromGroupsButton)
+    ${selectAllExpiredButton} = New-Object System.Windows.Forms.Button
+    ${selectAllExpiredButton}.Text     = 'Select All Expired Users'
+    ${selectAllExpiredButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${selectAllExpiredButton}.Location = New-Object System.Drawing.Point(${uiBtnX3}, ${uiBtnTop})
+    ${tabExpiredUsers}.Controls.Add(${selectAllExpiredButton})
 
-    # Create and configure the "Select All Disabled Users" button
-    $selectAllDisabledButton = New-Object System.Windows.Forms.Button
-    $selectAllDisabledButton.Text = "Select All Disabled Users"
-    $selectAllDisabledButton.Size = New-Object System.Drawing.Size(180, 30)
-    $selectAllDisabledButton.Location = New-Object System.Drawing.Point(400, 50)
-    $selectAllDisabledButton.Add_Click({
-            $disabledListView.Items | ForEach-Object { $_.Checked = $true }
-        })
-    $tabDisabledUsers.Controls.Add($selectAllDisabledButton)
+    ${expiredListView} = New-Object System.Windows.Forms.ListView
+    ${expiredListView}.Size = New-Object System.Drawing.Size(${uiListW}, 400)
+    ${expiredListView}.Location = New-Object System.Drawing.Point(${uiLeft}, ${uiListTop})
+    ${expiredListView}.View = [System.Windows.Forms.View]::Details
+    ${expiredListView}.CheckBoxes = $true
+    ${expiredListView}.FullRowSelect = $true
+    ${expiredListView}.GridLines = $true
+    [void]${expiredListView}.Columns.Add('SAM Account Name', 150)
+    [void]${expiredListView}.Columns.Add('Display Name', 250)
+    [void]${expiredListView}.Columns.Add('Expiration Date', 150)
+    ${tabExpiredUsers}.Controls.Add(${expiredListView})
 
-    # Create and configure the disabled accounts list view
-    $disabledListView = New-Object System.Windows.Forms.ListView
-    $disabledListView.Size = New-Object System.Drawing.Size(540, 400)
-    $disabledListView.Location = New-Object System.Drawing.Point(10, 90)
-    $disabledListView.View = [System.Windows.Forms.View]::Details
-    $disabledListView.Columns.Add("SAM Account Name", 150)
-    $disabledListView.Columns.Add("Display Name", 250)
-    $disabledListView.Columns.Add("Last Changed", 150)
-    $disabledListView.CheckBoxes = $true
-    $tabDisabledUsers.Controls.Add($disabledListView)
+    ${listExpiredButton}.Add_Click({
+        List-ExpiredAccounts -domainFQDN ${domainComboBoxExpired}.SelectedItem -listView ${expiredListView}
+    })
 
-    # Create and configure the progress bar
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Size = New-Object System.Drawing.Size(540, 20)
-    $progressBar.Location = New-Object System.Drawing.Point(10, 500)
-    $progressBar.Step = 1
-    $tabDisabledUsers.Controls.Add($progressBar)
+    ${disableExpiredButton}.Add_Click({
+        Disable-ExpiredAccounts -domainFQDN ${domainComboBoxExpired}.SelectedItem -listView ${expiredListView}
+    })
 
-    # Create and configure the input text box with example text and button to disable users from a list or file
-    $inputTextBox = New-Object System.Windows.Forms.TextBox
-    $inputTextBox.Size = New-Object System.Drawing.Size(400, 20)
-    $inputTextBox.Location = New-Object System.Drawing.Point(10, 530)
-    $inputTextBox.Text = "Type a user account or a .txt file name with full path"  # Example placeholder text
-    $inputTextBox.ForeColor = [System.Drawing.Color]::Gray  # Set the placeholder text color
+    ${selectAllExpiredButton}.Add_Click({
+        foreach (${it} in ${expiredListView}.Items) { ${it}.Checked = $true }
+    })
 
-    # Event to clear the placeholder text when the user clicks on the textbox
-    $inputTextBox.Add_GotFocus({
-            if ($inputTextBox.Text -eq "Type a user account or a .txt file name with full path") {
-                $inputTextBox.Text = ""
-                $inputTextBox.ForeColor = [System.Drawing.Color]::Black
-            }
-        })
+    # ---------------- TAB 2: Disabled Users ----------------
 
-    # Event to restore the placeholder text if the user leaves the textbox empty
-    $inputTextBox.Add_LostFocus({
-            if ($inputTextBox.Text.Trim() -eq "") {
-                $inputTextBox.Text = "Type a user account or a .txt file name with full path"
-                $inputTextBox.ForeColor = [System.Drawing.Color]::Gray
-            }
-        })
+    ${listDisabledButton} = New-Object System.Windows.Forms.Button
+    ${listDisabledButton}.Text     = 'List Disabled Users'
+    ${listDisabledButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${listDisabledButton}.Location = New-Object System.Drawing.Point(${uiBtnX1}, ${uiBtnTop})
+    ${tabDisabledUsers}.Controls.Add(${listDisabledButton})
 
-    $tabDisabledUsers.Controls.Add($inputTextBox)
+    ${removeFromGroupsButton} = New-Object System.Windows.Forms.Button
+    ${removeFromGroupsButton}.Text     = 'Remove from Groups'
+    ${removeFromGroupsButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${removeFromGroupsButton}.Location = New-Object System.Drawing.Point(${uiBtnX2}, ${uiBtnTop})
+    ${tabDisabledUsers}.Controls.Add(${removeFromGroupsButton})
 
-    $disableUsersButton = New-Object System.Windows.Forms.Button
-    $disableUsersButton.Text = "Disable Users"
-    $disableUsersButton.Size = New-Object System.Drawing.Size(180, 30)
-    $disableUsersButton.Location = New-Object System.Drawing.Point(420, 525)
-    $disableUsersButton.Add_Click({
-            On-DisableUsersClick -inputTextBox $inputTextBox -domainFQDN $domainComboBoxDisabled.SelectedItem
-        })
-    $tabDisabledUsers.Controls.Add($disableUsersButton)
+    ${selectAllDisabledButton} = New-Object System.Windows.Forms.Button
+    ${selectAllDisabledButton}.Text     = 'Select All Disabled Users'
+    ${selectAllDisabledButton}.Size     = New-Object System.Drawing.Size(${uiBtnW}, ${uiBtnH})
+    ${selectAllDisabledButton}.Location = New-Object System.Drawing.Point(${uiBtnX3}, ${uiBtnTop})
+    ${tabDisabledUsers}.Controls.Add(${selectAllDisabledButton})
 
+    ${disabledListView} = New-Object System.Windows.Forms.ListView
+    ${disabledListView}.Size = New-Object System.Drawing.Size(${uiListW}, 400)
+    ${disabledListView}.Location = New-Object System.Drawing.Point(${uiLeft}, ${uiListTop})
+    ${disabledListView}.View = [System.Windows.Forms.View]::Details
+    ${disabledListView}.CheckBoxes = $true
+    ${disabledListView}.FullRowSelect = $true
+    ${disabledListView}.GridLines = $true
+    [void]${disabledListView}.Columns.Add('SAM Account Name', 150)
+    [void]${disabledListView}.Columns.Add('Display Name', 250)
+    [void]${disabledListView}.Columns.Add('Last Changed', 150)
+    ${tabDisabledUsers}.Controls.Add(${disabledListView})
 
-    # Add tabs to TabControl
-    $tabControl.TabPages.AddRange(@($tabExpiredUsers, $tabDisabledUsers))
+    ${progressBar} = New-Object System.Windows.Forms.ProgressBar
+    ${progressBar}.Size = New-Object System.Drawing.Size(${uiListW}, 20)
+    ${progressBar}.Location = New-Object System.Drawing.Point(${uiLeft}, 500)
+    ${progressBar}.Step = 1
+    ${tabDisabledUsers}.Controls.Add(${progressBar})
 
-    # Add TabControl to form
-    $form.Controls.Add($tabControl)
+    # Bottom row: textbox meets the Disable Users button with a 10px gap
+    ${uiBottomTextY} = 530
+    ${uiTextW}       = (${uiActionX} - ${uiLeft} - ${uiGap})
 
-    # Show the form
-    [System.Windows.Forms.Application]::Run($form)
+    ${inputTextBox} = New-Object System.Windows.Forms.TextBox
+    ${inputTextBox}.Size = New-Object System.Drawing.Size(${uiTextW}, 20)
+    ${inputTextBox}.Location = New-Object System.Drawing.Point(${uiLeft}, ${uiBottomTextY})
+    ${inputTextBox}.Text = 'Type a user account or a .txt file name with full path'
+    ${inputTextBox}.ForeColor = [System.Drawing.Color]::Gray
+    ${tabDisabledUsers}.Controls.Add(${inputTextBox})
+
+    ${inputTextBox}.Add_GotFocus({
+        if (${inputTextBox}.Text -eq 'Type a user account or a .txt file name with full path') {
+            ${inputTextBox}.Text = ''
+            ${inputTextBox}.ForeColor = [System.Drawing.Color]::Black
+        }
+    })
+
+    ${inputTextBox}.Add_LostFocus({
+        if (${inputTextBox}.Text.Trim() -eq '') {
+            ${inputTextBox}.Text = 'Type a user account or a .txt file name with full path'
+            ${inputTextBox}.ForeColor = [System.Drawing.Color]::Gray
+        }
+    })
+
+    ${disableUsersButton} = New-Object System.Windows.Forms.Button
+    ${disableUsersButton}.Text     = 'Disable Users'
+    ${disableUsersButton}.Size     = New-Object System.Drawing.Size(${uiActionBtnW}, ${uiBtnH})
+    ${disableUsersButton}.Location = New-Object System.Drawing.Point(${uiActionX}, (${uiBottomTextY} - 5))
+    ${tabDisabledUsers}.Controls.Add(${disableUsersButton})
+
+    ${exportDisabledCsvButton} = New-Object System.Windows.Forms.Button
+    ${exportDisabledCsvButton}.Text     = 'Export to CSV'
+    ${exportDisabledCsvButton}.Size     = New-Object System.Drawing.Size(${uiActionBtnW}, ${uiBtnH})
+    ${exportDisabledCsvButton}.Location = New-Object System.Drawing.Point(${uiActionX}, (${disableUsersButton}.Bottom + ${uiGap}))
+    ${tabDisabledUsers}.Controls.Add(${exportDisabledCsvButton})
+
+    ${listDisabledButton}.Add_Click({
+        List-DisabledAccounts -domainFQDN ${domainComboBoxDisabled}.SelectedItem -listView ${disabledListView}
+    })
+
+    ${removeFromGroupsButton}.Add_Click({
+        On-RemoveFromGroupsClick -listView ${disabledListView} -progressBar ${progressBar} -domainFQDN ${domainComboBoxDisabled}.SelectedItem
+    })
+
+    ${selectAllDisabledButton}.Add_Click({
+        foreach (${it} in ${disabledListView}.Items) { ${it}.Checked = $true }
+    })
+
+    ${disableUsersButton}.Add_Click({
+        On-DisableUsersClick -inputTextBox ${inputTextBox} -domainFQDN ${domainComboBoxDisabled}.SelectedItem
+    })
+
+    ${exportDisabledCsvButton}.Add_Click({
+        ${docs} = [Environment]::GetFolderPath('MyDocuments')
+        Export-DisabledAccountsReportCsv -DomainFqdn ${domainComboBoxDisabled}.SelectedItem -OutputFolder ${docs}
+    })
+
+    # Finalize
+    ${tabControl}.TabPages.AddRange(@(${tabExpiredUsers}, ${tabDisabledUsers}))
+    ${form}.Controls.Add(${tabControl})
+
+    ${form}.Add_FormClosing({
+        Log-Message -Message "==== Session ended ====" -MessageType 'INFO'
+    })
+
+    [System.Windows.Forms.Application]::Run(${form})
 }
 
-# Main script execution
+# Main
 Show-GUI
 
-# End of script
+# End of Script
