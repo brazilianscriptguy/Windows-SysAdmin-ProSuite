@@ -42,21 +42,21 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
     [string]$Root = (Get-Location).Path,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
     [string]$OutputFile = "All-Markdown-Files-Combined.txt",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string[]]$ExcludePathRegex = @(
         '\\\.git\\',
         '\\node_modules\\'
     ),
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [ValidateRange(0, 2147483647)]
     [int]$MaxFileBytes = 0
 )
@@ -67,8 +67,8 @@ $ErrorActionPreference = 'Stop'
 function Get-RelativePath {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$Base,
-        [Parameter(Mandatory=$true)][string]$Full
+        [Parameter(Mandatory = $true)][string]$Base,
+        [Parameter(Mandatory = $true)][string]$Full
     )
 
     $basePath = (Resolve-Path -LiteralPath $Base).Path.TrimEnd('\')
@@ -83,8 +83,8 @@ function Get-RelativePath {
 function Test-IsExcludedPath {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$FullPath,
-        [Parameter(Mandatory=$true)][string[]]$RegexList
+        [Parameter(Mandatory = $true)][string]$FullPath,
+        [Parameter(Mandatory = $true)][string[]]$RegexList
     )
 
     foreach ($rx in $RegexList) {
@@ -97,13 +97,13 @@ function Test-IsExcludedPath {
 function Read-TextFileSafe {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$Path,
-        [Parameter(Mandatory=$false)][int]$MaxBytes = 0
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $false)][int]$MaxBytes = 0
     )
 
     # MaxBytes=0 => read all
     # Keep it simple and robust: try encodings in order.
-    $encodings = @('utf8','default','unicode')
+    $encodings = @('utf8', 'default', 'unicode')
 
     foreach ($enc in $encodings) {
         try {
@@ -124,7 +124,7 @@ function Read-TextFileSafe {
                     }
 
                     switch ($enc) {
-                        'utf8'    { return ([System.Text.Encoding]::UTF8.GetString($buf)) }
+                        'utf8' { return ([System.Text.Encoding]::UTF8.GetString($buf)) }
                         'default' { return ([System.Text.Encoding]::Default.GetString($buf)) }
                         'unicode' { return ([System.Text.Encoding]::Unicode.GetString($buf)) }
                     }
@@ -146,8 +146,8 @@ function Read-TextFileSafe {
 function Resolve-OutputPath {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$RootResolved,
-        [Parameter(Mandatory=$true)][string]$OutputFile
+        [Parameter(Mandatory = $true)][string]$RootResolved,
+        [Parameter(Mandatory = $true)][string]$OutputFile
     )
 
     if ([System.IO.Path]::IsPathRooted($OutputFile)) {
@@ -284,17 +284,17 @@ finally {
 # Verification (no Write-Host; return object + verbose)
 if (Test-Path -LiteralPath $outFull) {
     $fi = Get-Item -LiteralPath $outFull
-    Write-Verbose ("OK: created {0} ({1} KB)" -f $fi.FullName, ([math]::Round($fi.Length/1KB,2)))
+    Write-Verbose ("OK: created {0} ({1} KB)" -f $fi.FullName, ([math]::Round($fi.Length / 1KB, 2)))
 
     # Return a useful object
     [PSCustomObject]@{
-        Root          = $rootResolved
-        OutputPath    = $fi.FullName
-        MdFiles       = @($mdFiles).Count
-        TotalBytes    = $totalBytes
-        OutputBytes   = $fi.Length
-        MaxFileBytes  = $MaxFileBytes
-        GeneratedOn   = $now
+        Root = $rootResolved
+        OutputPath = $fi.FullName
+        MdFiles = @($mdFiles).Count
+        TotalBytes = $totalBytes
+        OutputBytes = $fi.Length
+        MaxFileBytes = $MaxFileBytes
+        GeneratedOn = $now
     }
 } else {
     Write-Error ("FAILED: file not found after write: {0}" -f $outFull)

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell GUI launcher to browse, search, and execute categorized .ps1 scripts from a root folder.
 
@@ -28,22 +28,22 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
     [string]${RootDirectory} = $null,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]${ShowConsole},
 
-    [Parameter(Mandatory=$false)]
-    [ValidateRange(1,10)]
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 10)]
     [int]${CategoryDepth} = 4,
 
-    [Parameter(Mandatory=$false)]
-    [ValidateSet('Auto','WindowsPowerShell','PowerShell7')]
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Auto', 'WindowsPowerShell', 'PowerShell7')]
     [string]${ExecutionHost} = 'Auto',
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string[]]${ExcludeRelativePathRegex} = @(
         '\\\.git(\\|$)',
         '\\node_modules(\\|$)',
@@ -77,7 +77,7 @@ param(
         '\\tests?(\\|$)'
     ),
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]${EnableDefaultFlattenRules}
 )
 
@@ -118,7 +118,7 @@ if (${RootDirectory} -match '^[A-Za-z]:\\Windows(\\|$)') {
 
 # ---------------------------- CONSOLE VISIBILITY (OPTIONAL) ----------------------------
 function Set-ConsoleVisibility {
-    param([Parameter(Mandatory=$true)][bool]${Visible})
+    param([Parameter(Mandatory = $true)][bool]${Visible})
 
     if (-not (Test-IsWindows)) { return }
 
@@ -156,13 +156,13 @@ Add-Type -AssemblyName System.Drawing
 
 # ---------------------------- LOGGING (PROSUITE) ----------------------------
 ${script:ScriptName} = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-${script:LogDir}     = 'C:\Logs-TEMP'
-${script:LogPath}    = $null
+${script:LogDir} = 'C:\Logs-TEMP'
+${script:LogPath} = $null
 
 function Write-Log {
     param(
-        [Parameter(Mandatory=$true)][string]${Message},
-        [ValidateSet('INFO','WARN','ERROR','SUCCESS','DEBUG')][string]${Level} = 'INFO'
+        [Parameter(Mandatory = $true)][string]${Message},
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'SUCCESS', 'DEBUG')][string]${Level} = 'INFO'
     )
     ${ts} = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     ${entry} = "[${ts}] [${Level}] ${Message}"
@@ -188,7 +188,7 @@ function Initialize-Log {
 }
 
 function Show-InfoBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
     [void][System.Windows.Forms.MessageBox]::Show(
         ${Message},
         'Information',
@@ -198,7 +198,7 @@ function Show-InfoBox {
 }
 
 function Show-ErrorBox {
-    param([Parameter(Mandatory=$true)][string]${Message})
+    param([Parameter(Mandatory = $true)][string]${Message})
     [void][System.Windows.Forms.MessageBox]::Show(
         ${Message},
         'Error',
@@ -211,7 +211,7 @@ Initialize-Log
 
 # ---------------------------- DISCOVERY HELPERS ----------------------------
 function Get-ExecutionBinary {
-    param([Parameter(Mandatory=$true)][string]${Mode})
+    param([Parameter(Mandatory = $true)][string]${Mode})
 
     if (${Mode} -eq 'WindowsPowerShell') { return 'powershell.exe' }
     if (${Mode} -eq 'PowerShell7') { return 'pwsh.exe' }
@@ -227,8 +227,8 @@ function Get-DefaultFlattenRules {
     return @(
         [PSCustomObject]@{
             MatchPrefix = 'ITSM-Templates-WKS\Assets\AdditionalSupportScipts'
-            OutputKey   = 'ITSM-Templates-WKS\AdditionalSupportScripts'
-            Recurse     = $true
+            OutputKey = 'ITSM-Templates-WKS\AdditionalSupportScripts'
+            Recurse = $true
         }
     )
 }
@@ -236,38 +236,38 @@ function Get-DefaultFlattenRules {
 function Get-ScriptCatalogV3 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
         [string]${BasePath},
 
-        [Parameter(Mandatory=$false)]
-        [ValidateRange(1,10)]
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 10)]
         [int]${MaxDepth} = 4,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]${IncludeRootCategory} = $true,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]${OnlyFoldersWithScripts} = $true,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string[]]${ExcludeRelPathRegex} = @(),
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [object[]]${FlattenRules} = @()
     )
 
     ${resolvedBase} = (Resolve-Path -LiteralPath ${BasePath}).Path.TrimEnd('\')
 
     function Get-RelPath {
-        param([Parameter(Mandatory=$true)][string]${FullPath})
+        param([Parameter(Mandatory = $true)][string]${FullPath})
         ${rel} = ${FullPath}.Substring(${resolvedBase}.Length).TrimStart('\')
         if ([string]::IsNullOrWhiteSpace(${rel})) { return '.' }
         return ${rel}
     }
 
     function Test-IsExcludedRelPath {
-        param([Parameter(Mandatory=$true)][string]${RelPath})
+        param([Parameter(Mandatory = $true)][string]${RelPath})
         foreach (${rx} in ${ExcludeRelPathRegex}) {
             if ([string]::IsNullOrWhiteSpace(${rx})) { continue }
             if (${RelPath} -match ${rx}) { return $true }
@@ -276,13 +276,13 @@ function Get-ScriptCatalogV3 {
     }
 
     ${dirList} = New-Object System.Collections.Generic.List[object]
-    ${queue}   = New-Object System.Collections.Generic.Queue[object]
+    ${queue} = New-Object System.Collections.Generic.Queue[object]
     ${queue}.Enqueue([PSCustomObject]@{ Path = ${resolvedBase}; Depth = 0 })
 
     while (${queue}.Count -gt 0) {
         ${node} = ${queue}.Dequeue()
-        ${p}    = ${node}.Path
-        ${d}    = [int]${node}.Depth
+        ${p} = ${node}.Path
+        ${d} = [int]${node}.Depth
 
         if (${d} -gt ${MaxDepth}) { continue }
 
@@ -318,14 +318,14 @@ function Get-ScriptCatalogV3 {
         if (-not ${rule}) { continue }
 
         ${matchPrefix} = [string]${rule}.MatchPrefix
-        ${outputKey}   = [string]${rule}.OutputKey
-        ${recurse}     = $true
+        ${outputKey} = [string]${rule}.OutputKey
+        ${recurse} = $true
         try { if ($null -ne ${rule}.Recurse) { ${recurse} = [bool]${rule}.Recurse } } catch { ${recurse} = $true }
 
         if ([string]::IsNullOrWhiteSpace(${matchPrefix}) -or [string]::IsNullOrWhiteSpace(${outputKey})) { continue }
 
         ${matchPrefix} = ${matchPrefix}.Trim('\')
-        ${absPrefix}   = Join-Path ${resolvedBase} ${matchPrefix}
+        ${absPrefix} = Join-Path ${resolvedBase} ${matchPrefix}
         if (-not (Test-Path -LiteralPath ${absPrefix} -PathType Container)) { continue }
 
         try {
@@ -358,8 +358,8 @@ function Get-ScriptCatalogV3 {
 
 function Get-ScriptCatalog {
     param(
-        [Parameter(Mandatory=$true)][string]${BasePath},
-        [Parameter(Mandatory=$true)][int]${MaxDepth}
+        [Parameter(Mandatory = $true)][string]${BasePath},
+        [Parameter(Mandatory = $true)][int]${MaxDepth}
     )
 
     ${flattenRules} = @()
@@ -385,9 +385,9 @@ function Get-ScriptCatalog {
 # ---------------------------- UI HELPERS ----------------------------
 function Populate-ListBox {
     param(
-        [Parameter(Mandatory=$true)][System.Windows.Forms.CheckedListBox]${ListBox},
-        [Parameter(Mandatory=$true)][System.IO.FileInfo[]]${Scripts},
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $true)][System.Windows.Forms.CheckedListBox]${ListBox},
+        [Parameter(Mandatory = $true)][System.IO.FileInfo[]]${Scripts},
+        [Parameter(Mandatory = $false)]
         [AllowEmptyString()]
         [string]${FilterText} = ''
     )
@@ -416,8 +416,8 @@ function Populate-ListBox {
 
 function Get-SelectedScriptPaths {
     param(
-        [Parameter(Mandatory=$true)][System.Windows.Forms.TabControl]${TabControl},
-        [Parameter(Mandatory=$true)][hashtable]${Catalog}
+        [Parameter(Mandatory = $true)][System.Windows.Forms.TabControl]${TabControl},
+        [Parameter(Mandatory = $true)][hashtable]${Catalog}
     )
 
     ${selected} = New-Object System.Collections.Generic.List[string]
@@ -447,10 +447,10 @@ function Get-SelectedScriptPaths {
 
 function Execute-SelectedScripts {
     param(
-        [Parameter(Mandatory=$true)][string[]]${ScriptPaths},
-        [Parameter(Mandatory=$true)][string]${HostBinary},
-        [Parameter(Mandatory=$true)][System.Windows.Forms.ProgressBar]${ProgressBar},
-        [Parameter(Mandatory=$true)][System.Windows.Forms.Label]${StatusLabel}
+        [Parameter(Mandatory = $true)][string[]]${ScriptPaths},
+        [Parameter(Mandatory = $true)][string]${HostBinary},
+        [Parameter(Mandatory = $true)][System.Windows.Forms.ProgressBar]${ProgressBar},
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Label]${StatusLabel}
     )
 
     if (@(${ScriptPaths}).Count -eq 0) {
@@ -460,7 +460,7 @@ function Execute-SelectedScripts {
 
     ${ProgressBar}.Minimum = 0
     ${ProgressBar}.Maximum = [math]::Max(1, @(${ScriptPaths}).Count)
-    ${ProgressBar}.Value   = 0
+    ${ProgressBar}.Value = 0
 
     foreach (${path} in ${ScriptPaths}) {
         ${StatusLabel}.Text = ("Executing: {0}" -f ${path})
@@ -472,7 +472,7 @@ function Execute-SelectedScripts {
             ${psi}.Arguments = ("-NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f ${path})
             ${psi}.UseShellExecute = $false
             ${psi}.RedirectStandardOutput = $true
-            ${psi}.RedirectStandardError  = $true
+            ${psi}.RedirectStandardError = $true
             ${psi}.CreateNoWindow = $true
 
             ${proc} = [System.Diagnostics.Process]::Start(${psi})
@@ -514,11 +514,11 @@ function Create-GUI {
 
     ${formW} = 1100
     ${formH} = 820
-    ${pad}   = 10
-    ${btnH}  = 34
-    ${gap}   = 10
+    ${pad} = 10
+    ${btnH} = 34
+    ${gap} = 10
     ${progH} = 14
-    ${labelH}= 18
+    ${labelH} = 18
 
     ${form} = New-Object System.Windows.Forms.Form
     ${form}.Text = "Launch Script Menu"
@@ -530,9 +530,9 @@ function Create-GUI {
     ${form}.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
     ${bottomY} = ${form}.ClientSize.Height - ${pad} - ${btnH}
-    ${labelY}  = ${bottomY} - ${gap} - ${labelH}
-    ${progY}   = ${labelY}  - ${gap} - ${progH}
-    ${tabH}    = ${progY}   - ${pad} - ${gap}
+    ${labelY} = ${bottomY} - ${gap} - ${labelH}
+    ${progY} = ${labelY} - ${gap} - ${progH}
+    ${tabH} = ${progY} - ${pad} - ${gap}
 
     ${tabControl} = New-Object System.Windows.Forms.TabControl
     ${tabControl}.Location = New-Object System.Drawing.Point(${pad}, ${pad})
@@ -553,7 +553,7 @@ function Create-GUI {
     ${lblStatus}.Text = "Ready"
     ${form}.Controls.Add(${lblStatus})
 
-    ${btnWidthExec}  = 180
+    ${btnWidthExec} = 180
     ${btnWidthClose} = 120
 
     ${btnClose} = New-Object System.Windows.Forms.Button
@@ -622,7 +622,7 @@ function Create-GUI {
 
     foreach (${category} in @(${catalog}.Keys | Sort-Object)) {
         ${categoryLocal} = ${category}
-        ${scriptsLocal}  = ${catalog}[${categoryLocal}]
+        ${scriptsLocal} = ${catalog}[${categoryLocal}]
 
         ${tab} = New-Object System.Windows.Forms.TabPage
         ${tab}.Text = ${categoryLocal}
@@ -645,17 +645,17 @@ function Create-GUI {
         Populate-ListBox -ListBox ${listBox} -Scripts ${scriptsLocal} -FilterText ''
 
         ${searchBoxLocal} = ${searchBox}
-        ${listBoxLocal}   = ${listBox}
+        ${listBoxLocal} = ${listBox}
 
         ${textChangedHandler} = {
             param($sender, $eventArgs)
             try {
                 ${debounce}.Stop()
                 ${debounce}.Tag = [PSCustomObject]@{
-                    Category  = ${categoryLocal}
+                    Category = ${categoryLocal}
                     SearchBox = ${searchBoxLocal}
-                    ListBox   = ${listBoxLocal}
-                    Scripts   = ${scriptsLocal}
+                    ListBox = ${listBoxLocal}
+                    Scripts = ${scriptsLocal}
                 }
                 ${debounce}.Start()
             } catch {
@@ -679,24 +679,24 @@ function Create-GUI {
     }
 
     ${btnExecute}.Add_Click({
-        try {
-            ${lblStatus}.Text = "Collecting selected scripts..."
-            ${selected} = Get-SelectedScriptPaths -TabControl ${tabControl} -Catalog ${catalog}
-            Execute-SelectedScripts -ScriptPaths ${selected} -HostBinary ${hostBin} -ProgressBar ${progress} -StatusLabel ${lblStatus}
-            $null = ${updateExecState}.Invoke()
-        } catch {
-            Write-Log -Message ("Execution pipeline error: {0}" -f $_.Exception.Message) -Level 'ERROR'
-            Show-ErrorBox -Message ("Execution failed: {0}" -f $_.Exception.Message)
-        }
-    })
+            try {
+                ${lblStatus}.Text = "Collecting selected scripts..."
+                ${selected} = Get-SelectedScriptPaths -TabControl ${tabControl} -Catalog ${catalog}
+                Execute-SelectedScripts -ScriptPaths ${selected} -HostBinary ${hostBin} -ProgressBar ${progress} -StatusLabel ${lblStatus}
+                $null = ${updateExecState}.Invoke()
+            } catch {
+                Write-Log -Message ("Execution pipeline error: {0}" -f $_.Exception.Message) -Level 'ERROR'
+                Show-ErrorBox -Message ("Execution failed: {0}" -f $_.Exception.Message)
+            }
+        })
 
     ${form}.Add_Shown({
-        try { $null = ${updateExecState}.Invoke() } catch {}
-    })
+            try { $null = ${updateExecState}.Invoke() } catch {}
+        })
 
     ${form}.Add_FormClosing({
-        Write-Log -Message "==== Session ended ====" -Level 'INFO'
-    })
+            Write-Log -Message "==== Session ended ====" -Level 'INFO'
+        })
 
     [void]${form}.ShowDialog()
 }
