@@ -1,6 +1,6 @@
 # 📝 MIT License
 
-© 2025 [@brazilianscriptguy](https://github.com/brazilianscriptguy)
+© 2026 [@brazilianscriptguy](https://github.com/brazilianscriptguy)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
