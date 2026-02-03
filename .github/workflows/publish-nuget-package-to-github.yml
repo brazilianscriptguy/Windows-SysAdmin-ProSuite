@@ -1,4 +1,4 @@
-name: Publish NuGet Package to GitHub (nupkg + snupkg + nuspec validation)
+name: Publish NuGet Package to GitHub (nupkg + nuspec validation)
 
 on:
   push:
@@ -31,6 +31,7 @@ jobs:
       OUT_DIR: "nupkg-out"
       STAGE_DIR: "tmp-sysadmin-prosuite"
       NUGET_SOURCE: "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+      SARIF_IGNORE: "true"
 
     steps:
       - name: 🧾 Checkout repository
@@ -60,6 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           nuspec="${PKG_ID}.nuspec"
+
           [[ -f "$nuspec" ]] || { echo "::error file=$nuspec::$nuspec not found"; exit 1; }
           [[ -f "README.md" ]] || { echo "::error file=README.md::README.md not found"; exit 1; }
           [[ -f "LICENSE.txt" ]] || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
@@ -88,7 +90,7 @@ jobs:
           if [[ -f "icon.png" ]]; then
             cp icon.png "${STAGE_DIR}/icon.png"
           else
-            echo "::notice::icon.png not found at repo root (allowed only if nuspec icon is not required)."
+            echo "::notice::icon.png not found at repo root (OK only if nuspec icon is not required)."
           fi
 
       - name: 🔎 Validate .nuspec metadata (readme / repository / license / icon)
@@ -97,16 +99,12 @@ jobs:
           set -euo pipefail
 
           nuspec="${STAGE_DIR}/${PKG_ID}.nuspec"
-
-          # Nuspec has a default XML namespace; use xmlstarlet with namespace prefix.
           NS="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
 
-          # Helpers
           read_xpath() {
             xmlstarlet sel -N n="$NS" -t -v "$1" "$nuspec" 2>/dev/null || true
           }
 
-          # Extract required fields
           readme="$(read_xpath 'normalize-space(//n:package/n:metadata/n:readme)')"
           license_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:license/@type)' "$nuspec" 2>/dev/null || true)"
           license_file="$(read_xpath 'normalize-space(//n:package/n:metadata/n:license)')"
@@ -114,7 +112,6 @@ jobs:
           repo_url="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@url)' "$nuspec" 2>/dev/null || true)"
           repo_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@type)' "$nuspec" 2>/dev/null || true)"
 
-          # Validate readme
           if [[ -z "${readme}" ]]; then
             echo "::error file=${PKG_ID}.nuspec::Missing <readme> in nuspec metadata."
             exit 1
@@ -124,7 +121,6 @@ jobs:
             exit 1
           fi
 
-          # Validate license
           if [[ "${license_type}" != "file" ]]; then
             echo "::error file=${PKG_ID}.nuspec::<license> must use type=\"file\" (found: '${license_type:-empty}')."
             exit 1
@@ -138,7 +134,6 @@ jobs:
             exit 1
           fi
 
-          # Validate icon
           if [[ -z "${icon}" ]]; then
             echo "::error file=${PKG_ID}.nuspec::Missing <icon> in nuspec metadata."
             exit 1
@@ -148,7 +143,6 @@ jobs:
             exit 1
           fi
 
-          # Validate repository
           if [[ -z "${repo_url}" ]]; then
             echo "::error file=${PKG_ID}.nuspec::Missing <repository url=\"...\" /> in nuspec metadata."
             exit 1
@@ -168,35 +162,39 @@ jobs:
           echo "  icon:     $icon"
           echo "  repo:     type=$repo_type url=$repo_url"
 
-      - name: 🛠️ Pack NuGet package (.nupkg + .snupkg)
+      - name: 🛠️ Pack NuGet package (.nupkg, optional .snupkg when PDBs exist)
         shell: bash
         run: |
           set -euo pipefail
 
           cd "${STAGE_DIR}"
 
-          # Create .nupkg + .snupkg (symbols) in one pass
-          mono /usr/local/bin/nuget pack "${PKG_ID}.nuspec" \
-            -OutputDirectory "../${OUT_DIR}" \
-            -NonInteractive \
-            -Symbols \
-            -SymbolPackageFormat snupkg
+          shopt -s nullglob
+          # If you ever add binaries + PDBs, this automatically enables snupkg.
+          pdb_count="$(find . -type f -iname "*.pdb" | wc -l | tr -d ' ')"
+
+          if [[ "$pdb_count" != "0" ]]; then
+            echo "PDBs detected ($pdb_count) -> generating .snupkg"
+            mono /usr/local/bin/nuget pack "${PKG_ID}.nuspec" \
+              -OutputDirectory "../${OUT_DIR}" \
+              -NonInteractive \
+              -Symbols \
+              -SymbolPackageFormat snupkg
+          else
+            echo "::notice::No PDBs detected (content/tools package). Skipping .snupkg generation."
+            mono /usr/local/bin/nuget pack "${PKG_ID}.nuspec" \
+              -OutputDirectory "../${OUT_DIR}" \
+              -NonInteractive
+          fi
 
           cd ..
 
-          echo "Generated packages:"
+          echo "Generated outputs:"
           ls -la "${OUT_DIR}" || true
 
-          shopt -s nullglob
           nupkgs=("${OUT_DIR}"/*.nupkg)
-          snupkgs=("${OUT_DIR}"/*.snupkg)
-
           if [[ ${#nupkgs[@]} -lt 1 ]]; then
             echo "::error::No .nupkg generated."
-            exit 1
-          fi
-          if [[ ${#snupkgs[@]} -lt 1 ]]; then
-            echo "::error::No .snupkg generated."
             exit 1
           fi
 
