@@ -5,183 +5,262 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight UTC
+    - cron: "0 0 * * *" # daily at 00:00 UTC
+
+concurrency:
+  group: make-update-releases-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
   cleanup-github-releases:
+    name: 🧹 Cleanup Managed Releases & Tags
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
+    timeout-minutes: 20
 
-      - name: Install Dependencies
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Tags/releases managed by this workflow must start with one of these prefixes
+      MANAGED_TAG_PREFIXES: >-
+        AD-SSO-APIs-Integration
+        All-Repository-Files
+        BlueTeam-Tools
+        Core-ScriptLibrary
+        GPOs-Templates
+        ITSM-Templates-SVR
+        ITSM-Templates-WKS
+        READMEs-Files-Package
+        SysAdmin-Tools
+
+    steps:
+      - name: 🧰 Install Dependencies (gh + jq)
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y jq gh
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      - name: Delete All Managed Releases and Tags
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🔐 Authenticate GitHub CLI
+        shell: bash
         run: |
-          MANAGED_TAGS=("AD-SSO-APIs-Integration" "All-Repository-Files" "BlueTeam-Tools" "Core-ScriptLibrary" "GPOs-Templates" "ITSM-Templates-SVR" "ITSM-Templates-WKS" "READMEs-Files-Package" "SysAdmin-Tools")
-          for tag_prefix in "${MANAGED_TAGS[@]}"; do
-            gh release list --limit 100 --json tagName | jq -r '.[].tagName' | grep "^$tag_prefix" | while read -r tag; do
-              echo "Deleting release and tag: $tag"
-              gh release delete "$tag" -y || true
-              git push origin ":refs/tags/$tag" || true
+          set -euo pipefail
+          gh auth status
+
+      - name: 🗑️ Delete Managed Releases and Tags (server-side)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          owner="${GITHUB_REPOSITORY%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+
+          # Fetch release tag names once (limit 200; increase if you have more)
+          mapfile -t all_release_tags < <(gh release list --limit 200 --json tagName -q '.[].tagName' || true)
+
+          if [[ "${#all_release_tags[@]}" -eq 0 ]]; then
+            echo "No releases found."
+            exit 0
+          fi
+
+          echo "Managed prefixes:"
+          echo "${MANAGED_TAG_PREFIXES}" | tr ' ' '\n' | sed '/^\s*$/d'
+
+          for prefix in ${MANAGED_TAG_PREFIXES}; do
+            echo "Processing prefix: ${prefix}"
+
+            for tag in "${all_release_tags[@]}"; do
+              if [[ "$tag" == "${prefix}"* ]]; then
+                echo "Deleting release: $tag"
+                gh release delete "$tag" -y || true
+
+                # Delete tag ref via API (avoids git checkout/push)
+                # Endpoint expects: tags/<tag-name> (without refs/)
+                echo "Deleting tag ref: tags/$tag"
+                gh api -X DELETE "repos/${owner}/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+              fi
             done
           done
 
   update-github-releases:
+    name: 🚀 Build & Publish Managed Releases
     needs: cleanup-github-releases
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     strategy:
+      fail-fast: false
       matrix:
-        release_name: [
-          "AD-SSO-APIs-Integration",
-          "All-Repository-Files",
-          "BlueTeam-Tools",
-          "Core-ScriptLibrary",
-          "GPOs-Templates",
-          "ITSM-Templates-SVR",
-          "ITSM-Templates-WKS",
-          "READMEs-Files-Package",
-          "SysAdmin-Tools"
-        ]
+        release_name:
+          - AD-SSO-APIs-Integration
+          - All-Repository-Files
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - GPOs-Templates
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - READMEs-Files-Package
+          - SysAdmin-Tools
 
     steps:
-      - name: Checkout Repository
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 0
+          submodules: true
 
-      - name: Install Dependencies
-        run: sudo apt-get install -y zip jq gh
+      - name: 🧰 Install Dependencies (zip + jq)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zip jq
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      - name: Set Version Tag
+      - name: 🏷️ Compute Version Tag
         id: tag
-        run: echo "VERSION_TAG=${{ matrix.release_name }}-$(date +%Y%m%d)-${GITHUB_SHA::7}" >> $GITHUB_ENV
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::7}"
+          date_tag="$(date -u +%Y%m%d)"
+          echo "version_tag=${{ matrix.release_name }}-${date_tag}-${short_sha}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Package Artifacts
+      - name: 📦 Build Release Artifact
+        id: build
+        shell: bash
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          mkdir -p artifacts
+          set -euo pipefail
+
+          mkdir -p artifacts temp
+
+          # Always start clean
+          rm -rf temp/*
+          mkdir -p temp
+
+          # Helper: copy root metadata if present
+          copy_root_meta() {
+            [[ -f README.md ]] && cp README.md temp/ || true
+            [[ -f LICENSE.txt ]] && cp LICENSE.txt temp/ || true
+            [[ -f LICENSE ]] && cp LICENSE temp/ || true
+          }
+
           case "$RELEASE_NAME" in
-            BlueTeam-Tools | Core-ScriptLibrary | ITSM-Templates-SVR | ITSM-Templates-WKS | SysAdmin-Tools)
-              cp -r "$RELEASE_NAME" "./temp"
-              cp README.md LICENSE.txt temp/ || true
-              zip -r "artifacts/$RELEASE_NAME.zip" temp
-              rm -rf temp
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              if [[ ! -d "$RELEASE_NAME" ]]; then
+                echo "::error::Directory not found: $RELEASE_NAME"
+                exit 1
+              fi
+              cp -r "$RELEASE_NAME" temp/
+              copy_root_meta
               ;;
 
             GPOs-Templates)
-              mkdir -p temp
+              if [[ ! -d "SysAdmin-Tools/GroupPolicyObjects-Templates" ]]; then
+                echo "::error::Directory not found: SysAdmin-Tools/GroupPolicyObjects-Templates"
+                exit 1
+              fi
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
-              cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/
-              cp README.md LICENSE.txt temp/ || true
-              zip -r "artifacts/$RELEASE_NAME.zip" temp
-              rm -rf temp
+              # Optional helper tool (keep tolerant)
+              [[ -f SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 ]] && \
+                cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/ || true
+              copy_root_meta
               ;;
 
             READMEs-Files-Package)
-              mkdir -p temp
-              cp README.md temp/main-README.md || true
+              # Collect all README.md files across repo (including root as main-README.md)
+              [[ -f README.md ]] && cp README.md temp/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
-                repo_dir=$(dirname "$file")
-                repo_name=$(basename "$repo_dir")
-                cp "$file" "temp/${repo_name}-README.md"
+                dir="$(dirname "$file")"
+                name="$(basename "$dir")"
+                cp "$file" "temp/${name}-README.md"
               done
-              zip -r "artifacts/$RELEASE_NAME.zip" temp
-              rm -rf temp
               ;;
 
             All-Repository-Files)
-              mkdir -p temp
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                cp -r "$dir" temp/
+                if [[ -d "$dir" ]]; then
+                  cp -r "$dir" temp/
+                else
+                  echo "::warning::Directory missing (skipped): $dir"
+                fi
               done
-              cp README.md LICENSE.txt temp/ || true
-              zip -r "artifacts/$RELEASE_NAME.zip" temp
-              rm -rf temp
+              copy_root_meta
               ;;
 
             AD-SSO-APIs-Integration)
-              mkdir -p temp
+              if [[ ! -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]]; then
+                echo "::error::Directory not found: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"
+                exit 1
+              fi
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
-              zip -r "artifacts/$RELEASE_NAME.zip" temp
-              rm -rf temp
+              ;;
+
+            *)
+              echo "::error::Unknown RELEASE_NAME: $RELEASE_NAME"
+              exit 1
               ;;
           esac
 
-      - name: Generate SHA256 Checksum
-        run: sha256sum "artifacts/${{ matrix.release_name }}.zip" > "artifacts/${{ matrix.release_name }}.sha256.txt"
+          (cd temp && zip -r "../artifacts/${RELEASE_NAME}.zip" .)
 
-      - name: Extract Changelog for ${{ matrix.release_name }}
+          sha256sum "artifacts/${RELEASE_NAME}.zip" > "artifacts/${RELEASE_NAME}.sha256.txt"
+
+          echo "zip_path=artifacts/${RELEASE_NAME}.zip" >> "$GITHUB_OUTPUT"
+          echo "sha_path=artifacts/${RELEASE_NAME}.sha256.txt" >> "$GITHUB_OUTPUT"
+
+      - name: 📝 Extract Changelog Section
         id: changelog
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
         run: |
-          section="## ${{ matrix.release_name }}"
-          body=$(awk -v section="$section" '
+          set -euo pipefail
+
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "body=No CHANGELOG.md found in repository root." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          section="## ${RELEASE_NAME}"
+
+          # Extract lines between "## RELEASE_NAME" and next "## "
+          body="$(awk -v section="$section" '
             $0 == section {found=1; next}
             /^## / && found {exit}
             found {print}
-          ' CHANGELOG.md)
+          ' CHANGELOG.md | sed -e 's/[[:space:]]\+$//' )"
 
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-          echo "${body:-No changelog available.}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          if [[ -z "${body// }" ]]; then
+            body="No changelog available for ${RELEASE_NAME}."
+          fi
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.VERSION_TAG }}
-          name: ${{ env.VERSION_TAG }}
-          body: ${{ env.RELEASE_BODY }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Multi-line output
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Upload .zip Artifact
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ matrix.release_name }}.zip
-          asset_name: ${{ matrix.release_name }}.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload .sha256 Checksum
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ matrix.release_name }}.sha256.txt
-          asset_name: ${{ matrix.release_name }}.sha256.txt
-          asset_content_type: text/plain
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Artifact to Actions
+      - name: 🧾 Upload Build Artifacts (Actions)
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.release_name }}
-          path: artifacts/${{ matrix.release_name }}.zip
+          path: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.sha256.txt
+          retention-days: 30
+
+      - name: 🚀 Create/Update GitHub Release (and upload assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.version_tag }}
+          name: ${{ steps.tag.outputs.version_tag }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.sha256.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
