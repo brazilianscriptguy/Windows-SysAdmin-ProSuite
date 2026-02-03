@@ -13,10 +13,12 @@ on:
       - ".psscriptanalyzer"
   workflow_dispatch:
 
+# Prevent concurrent runs on the same branch from racing (especially important when creating autofix PRs)
 concurrency:
   group: psscriptanalyzer-${{ github.ref }}
   cancel-in-progress: true
 
+# Default least-privilege
 permissions:
   contents: read
 
@@ -25,16 +27,29 @@ jobs:
     name: 🧪 PowerShell Code Quality Check
     runs-on: ubuntu-latest
 
+    # Job-scoped permissions:
+    # - security-events: write -> required to upload SARIF to Code Scanning
+    # - contents/pull-requests: write -> only needed to open autofix PRs on push
     permissions:
-      contents: write          # needed only if auto-fix PR is enabled
-      security-events: write   # required for SARIF upload
-      pull-requests: write     # needed only if auto-fix PR is enabled
+      contents: write
+      pull-requests: write
+      security-events: write
 
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: 🕒 Capture Metadata
+        id: metadata
+        shell: bash
+        run: |
+          echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit_msg<<EOF" >> "$GITHUB_OUTPUT"
+          git log -1 --pretty=%B >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: 🔍 Check for PowerShell Files
         id: check-ps1
@@ -44,7 +59,7 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Found $count PowerShell script(s)."
 
-      - name: 🛠️ Install PSScriptAnalyzer
+      - name: 🧩 Install PSScriptAnalyzer
         if: steps.check-ps1.outputs.count != '0'
         shell: pwsh
         run: |
@@ -53,9 +68,9 @@ jobs:
             Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -RequiredVersion 1.24.0
           }
           Import-Module PSScriptAnalyzer -Force
-          (Get-Module PSScriptAnalyzer).Version.ToString() | Write-Output
+          Write-Output ("PSScriptAnalyzer version: " + (Get-Module PSScriptAnalyzer).Version)
 
-      - name: 🧹 Auto-Fix (Indentation + Whitespace)
+      - name: 🧹 Auto-Fix Formatting (Indentation + Whitespace)
         if: steps.check-ps1.outputs.count != '0'
         shell: pwsh
         run: |
@@ -87,9 +102,8 @@ jobs:
 
           Invoke-ScriptAnalyzer @htFix | Out-Null
 
-      # Best-practice: DO NOT push to main/develop from CI.
-      # Instead, open a PR with autofix changes (only on push events).
-      - name: 🔁 Create Auto-Fix PR
+      # Best practice: never push directly to main/develop from CI; open a PR instead.
+      - name: 🔁 Create Auto-Fix PR (push events only)
         if: github.event_name == 'push' && steps.check-ps1.outputs.count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -97,7 +111,7 @@ jobs:
           commit-message: "chore: auto-fix PSScriptAnalyzer formatting"
           title: "chore: auto-fix PSScriptAnalyzer formatting"
           body: |
-            This PR applies automated formatting fixes:
+            Automated formatting fixes from CI:
             - PSUseConsistentIndentation
             - PSUseConsistentWhitespace
           branch: "ci/autofix/psscriptanalyzer-${{ github.run_id }}"
@@ -144,7 +158,7 @@ jobs:
 
           $results = Invoke-ScriptAnalyzer @htPSA
 
-          # Always write a SARIF file (even if empty) so upload steps never fail.
+          # Build SARIF results
           $sarifResults = @()
           if ($results) {
             $sarifResults = $results | ForEach-Object {
@@ -165,12 +179,13 @@ jobs:
             }
           }
 
+          # Always write SARIF (never let upload steps fail)
           $sarif = @{
             '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
-            version = '2.1.0'
-            runs = @(
+            version   = '2.1.0'
+            runs      = @(
               @{
-                tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }
+                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }
                 results = $sarifResults
               }
             )
@@ -178,6 +193,7 @@ jobs:
 
           $sarif | ConvertTo-Json -Depth 12 | Out-File -FilePath $sarifFile -Encoding utf8
 
+          # Fail the job only on Error-level findings
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
             Write-Error "PSScriptAnalyzer found error-level findings."
             exit 1
@@ -219,8 +235,10 @@ jobs:
 
           $lines = @()
           $lines += "### 🧪 PowerShell Lint Summary"
+          $lines += "- 🕒 **Timestamp (UTC):** ${{ steps.metadata.outputs.timestamp }}"
           $lines += "- 🔗 **Repo:** $repo"
           $lines += "- 🧷 **Commit:** $sha"
+          $lines += "- 📝 **Message:** ${{ steps.metadata.outputs.commit_msg }}"
           $lines += "- 🧾 **Run:** $runId"
           $lines += ""
 
