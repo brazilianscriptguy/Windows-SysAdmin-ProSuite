@@ -1,14 +1,13 @@
-name: Make and Update GitHub Releases
+name: Make and Update GitHub Releases (Cleanup + Rebuild)
 
 on:
   workflow_dispatch: {}
-  release:
-    types: [published]
   schedule:
-    - cron: "0 0 * * *" # daily at 00:00 UTC
+    - cron: "0 0 * * *" # daily 00:00 UTC
 
+# Prevent overlapping runs (schedule + manual, or long matrices)
 concurrency:
-  group: make-update-releases-${{ github.ref }}
+  group: releases-cleanup-rebuild
   cancel-in-progress: false
 
 permissions:
@@ -16,13 +15,15 @@ permissions:
 
 jobs:
   cleanup-github-releases:
-    name: 🧹 Cleanup Managed Releases & Tags
+    name: 🧹 Cleanup ALL Old Managed Releases & Tags
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Tags/releases managed by this workflow must start with one of these prefixes
+
+      # These prefixes define what this workflow "owns".
+      # Anything whose tag starts with one of these prefixes will be deleted.
       MANAGED_TAG_PREFIXES: >-
         AD-SSO-APIs-Integration
         All-Repository-Files
@@ -35,20 +36,20 @@ jobs:
         SysAdmin-Tools
 
     steps:
-      - name: 🧰 Install Dependencies (gh + jq)
+      - name: 🧰 Install Dependencies (gh)
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y jq gh
+          sudo apt-get install -y gh
 
-      - name: 🔐 Authenticate GitHub CLI
+      - name: 🔐 Verify GitHub CLI Auth
         shell: bash
         run: |
           set -euo pipefail
           gh auth status
 
-      - name: 🗑️ Delete Managed Releases and Tags (server-side)
+      - name: 🗑️ Delete ALL matching Releases (all pages)
         shell: bash
         run: |
           set -euo pipefail
@@ -56,38 +57,80 @@ jobs:
           owner="${GITHUB_REPOSITORY%/*}"
           repo="${GITHUB_REPOSITORY#*/}"
 
-          # Fetch release tag names once (limit 200; increase if you have more)
-          mapfile -t all_release_tags < <(gh release list --limit 200 --json tagName -q '.[].tagName' || true)
-
-          if [[ "${#all_release_tags[@]}" -eq 0 ]]; then
-            echo "No releases found."
-            exit 0
-          fi
-
+          echo "Repository: ${owner}/${repo}"
           echo "Managed prefixes:"
-          echo "${MANAGED_TAG_PREFIXES}" | tr ' ' '\n' | sed '/^\s*$/d'
+          for p in ${MANAGED_TAG_PREFIXES}; do
+            echo " - $p"
+          done
 
-          for prefix in ${MANAGED_TAG_PREFIXES}; do
-            echo "Processing prefix: ${prefix}"
+          # List releases via API (paginate), extract tag_name, delete if prefix matches.
+          # This deletes releases regardless of how many you have (no fixed limit).
+          page=1
+          deleted=0
 
-            for tag in "${all_release_tags[@]}"; do
+          while :; do
+            # 100 per page (max)
+            json="$(gh api --paginate "repos/${owner}/${repo}/releases?per_page=100&page=${page}" || true)"
+            # If empty array or empty response -> stop
+            if [[ -z "${json}" ]] || [[ "${json}" == "[]" ]]; then
+              break
+            fi
+
+            # Extract "tag_name" lines safely
+            mapfile -t tags < <(printf '%s' "${json}" | gh api --silent --input - --jq '.[].tag_name' 2>/dev/null || true)
+
+            # If no tags returned, stop
+            if [[ "${#tags[@]}" -eq 0 ]]; then
+              break
+            fi
+
+            for tag in "${tags[@]}"; do
+              for prefix in ${MANAGED_TAG_PREFIXES}; do
+                if [[ "$tag" == "${prefix}"* ]]; then
+                  echo "Deleting release: $tag"
+                  gh release delete "$tag" -y || true
+                  deleted=$((deleted + 1))
+                  break
+                fi
+              done
+            done
+
+            page=$((page + 1))
+          done
+
+          echo "Deleted releases: ${deleted}"
+
+      - name: 🗑️ Delete ALL matching Tags (all pages)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          owner="${GITHUB_REPOSITORY%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+
+          deleted=0
+
+          # List all tags via API (paginate). Delete any tag that matches our prefixes.
+          gh api --paginate "repos/${owner}/${repo}/tags?per_page=100" --jq '.[].name' | while read -r tag; do
+            [[ -z "${tag}" ]] && continue
+            for prefix in ${MANAGED_TAG_PREFIXES}; do
               if [[ "$tag" == "${prefix}"* ]]; then
-                echo "Deleting release: $tag"
-                gh release delete "$tag" -y || true
-
-                # Delete tag ref via API (avoids git checkout/push)
-                # Endpoint expects: tags/<tag-name> (without refs/)
-                echo "Deleting tag ref: tags/$tag"
+                echo "Deleting tag ref: refs/tags/${tag}"
+                # Delete tag reference
                 gh api -X DELETE "repos/${owner}/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+                deleted=$((deleted + 1))
+                break
               fi
             done
           done
 
+          echo "Deleted tags: ${deleted}"
+
   update-github-releases:
-    name: 🚀 Build & Publish Managed Releases
+    name: 🚀 Rebuild Managed Releases
     needs: cleanup-github-releases
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     strategy:
       fail-fast: false
@@ -110,12 +153,12 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: 🧰 Install Dependencies (zip + jq)
+      - name: 🧰 Install Dependencies (zip)
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y zip jq
+          sudo apt-get install -y zip
 
       - name: 🏷️ Compute Version Tag
         id: tag
@@ -127,20 +170,15 @@ jobs:
           echo "version_tag=${{ matrix.release_name }}-${date_tag}-${short_sha}" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Build Release Artifact
-        id: build
         shell: bash
         env:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -euo pipefail
 
+          rm -rf artifacts temp || true
           mkdir -p artifacts temp
 
-          # Always start clean
-          rm -rf temp/*
-          mkdir -p temp
-
-          # Helper: copy root metadata if present
           copy_root_meta() {
             [[ -f README.md ]] && cp README.md temp/ || true
             [[ -f LICENSE.txt ]] && cp LICENSE.txt temp/ || true
@@ -149,28 +187,20 @@ jobs:
 
           case "$RELEASE_NAME" in
             BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
-              if [[ ! -d "$RELEASE_NAME" ]]; then
-                echo "::error::Directory not found: $RELEASE_NAME"
-                exit 1
-              fi
+              [[ -d "$RELEASE_NAME" ]] || { echo "::error::Missing dir: $RELEASE_NAME"; exit 1; }
               cp -r "$RELEASE_NAME" temp/
               copy_root_meta
               ;;
 
             GPOs-Templates)
-              if [[ ! -d "SysAdmin-Tools/GroupPolicyObjects-Templates" ]]; then
-                echo "::error::Directory not found: SysAdmin-Tools/GroupPolicyObjects-Templates"
-                exit 1
-              fi
+              [[ -d "SysAdmin-Tools/GroupPolicyObjects-Templates" ]] || { echo "::error::Missing dir: SysAdmin-Tools/GroupPolicyObjects-Templates"; exit 1; }
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
-              # Optional helper tool (keep tolerant)
               [[ -f SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 ]] && \
                 cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/ || true
               copy_root_meta
               ;;
 
             READMEs-Files-Package)
-              # Collect all README.md files across repo (including root as main-README.md)
               [[ -f README.md ]] && cp README.md temp/main-README.md || true
               find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
                 dir="$(dirname "$file")"
@@ -181,35 +211,24 @@ jobs:
 
             All-Repository-Files)
               for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-                if [[ -d "$dir" ]]; then
-                  cp -r "$dir" temp/
-                else
-                  echo "::warning::Directory missing (skipped): $dir"
-                fi
+                [[ -d "$dir" ]] && cp -r "$dir" temp/ || echo "::warning::Missing dir (skipped): $dir"
               done
               copy_root_meta
               ;;
 
             AD-SSO-APIs-Integration)
-              if [[ ! -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]]; then
-                echo "::error::Directory not found: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"
-                exit 1
-              fi
+              [[ -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]] || { echo "::error::Missing dir: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"; exit 1; }
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
               ;;
 
             *)
-              echo "::error::Unknown RELEASE_NAME: $RELEASE_NAME"
+              echo "::error::Unknown release: $RELEASE_NAME"
               exit 1
               ;;
           esac
 
           (cd temp && zip -r "../artifacts/${RELEASE_NAME}.zip" .)
-
           sha256sum "artifacts/${RELEASE_NAME}.zip" > "artifacts/${RELEASE_NAME}.sha256.txt"
-
-          echo "zip_path=artifacts/${RELEASE_NAME}.zip" >> "$GITHUB_OUTPUT"
-          echo "sha_path=artifacts/${RELEASE_NAME}.sha256.txt" >> "$GITHUB_OUTPUT"
 
       - name: 📝 Extract Changelog Section
         id: changelog
@@ -218,15 +237,12 @@ jobs:
           RELEASE_NAME: ${{ matrix.release_name }}
         run: |
           set -euo pipefail
-
           if [[ ! -f CHANGELOG.md ]]; then
             echo "body=No CHANGELOG.md found in repository root." >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           section="## ${RELEASE_NAME}"
-
-          # Extract lines between "## RELEASE_NAME" and next "## "
           body="$(awk -v section="$section" '
             $0 == section {found=1; next}
             /^## / && found {exit}
@@ -237,21 +253,11 @@ jobs:
             body="No changelog available for ${RELEASE_NAME}."
           fi
 
-          # Multi-line output
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
           echo "$body" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: 🧾 Upload Build Artifacts (Actions)
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.release_name }}
-          path: |
-            artifacts/${{ matrix.release_name }}.zip
-            artifacts/${{ matrix.release_name }}.sha256.txt
-          retention-days: 30
-
-      - name: 🚀 Create/Update GitHub Release (and upload assets)
+      - name: 🚀 Create/Update GitHub Release (upload assets)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.version_tag }}
@@ -264,3 +270,13 @@ jobs:
             artifacts/${{ matrix.release_name }}.sha256.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Upload Build Artifacts (Actions)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.release_name }}
+          path: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.sha256.txt
+          retention-days: 30
