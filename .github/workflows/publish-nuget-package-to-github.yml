@@ -1,12 +1,9 @@
-name: Publish NuGet Package to GitHub (nupkg + nuspec validation)
+name: Publish NuGet Package to GitHub (Tag/Release Versioning)
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "**/*"
-      - "sysadmin-prosuite.nuspec"
-      - ".github/workflows/publish-nuget-package-to-github.yml"
+    tags:
+      - "v*"
   release:
     types: [published, prerelease]
   workflow_dispatch:
@@ -31,7 +28,6 @@ jobs:
       OUT_DIR: "nupkg-out"
       STAGE_DIR: "tmp-sysadmin-prosuite"
       NUGET_SOURCE: "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-      SARIF_IGNORE: "true"
 
     steps:
       - name: 🧾 Checkout repository
@@ -39,6 +35,35 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: 🏷️ Resolve package version (tag or release)
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Prefer tag name when available (push tags), otherwise use release tag
+          tag="${GITHUB_REF_NAME:-}"
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            tag="${{ github.event.release.tag_name }}"
+          fi
+
+          if [[ -z "${tag:-}" ]]; then
+            echo "::error::Could not resolve version tag from event."
+            exit 1
+          fi
+
+          # Accept v1.2.3, also allow prerelease/build: v1.2.3-rc.1
+          ver="${tag#v}"
+
+          if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version derived from tag: '$ver' (tag='$tag'). Expected vMAJOR.MINOR.PATCH (optionally -prerelease)."
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $ver"
 
       - name: 🧰 Install dependencies
         shell: bash
@@ -65,6 +90,7 @@ jobs:
           [[ -f "$nuspec" ]] || { echo "::error file=$nuspec::$nuspec not found"; exit 1; }
           [[ -f "README.md" ]] || { echo "::error file=README.md::README.md not found"; exit 1; }
           [[ -f "LICENSE.txt" ]] || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
+          [[ -f "icon.png" ]] || { echo "::error file=icon.png::icon.png not found (required by <icon> in nuspec)"; exit 1; }
 
       - name: 📁 Prepare and stage files
         shell: bash
@@ -86,12 +112,22 @@ jobs:
           cp "$nuspec" "${STAGE_DIR}/${PKG_ID}.nuspec"
           cp README.md "${STAGE_DIR}/README.md"
           cp LICENSE.txt "${STAGE_DIR}/LICENSE.txt"
+          cp icon.png "${STAGE_DIR}/icon.png"
 
-          if [[ -f "icon.png" ]]; then
-            cp icon.png "${STAGE_DIR}/icon.png"
-          else
-            echo "::notice::icon.png not found at repo root (OK only if nuspec icon is not required)."
-          fi
+      - name: ✍️ Patch .nuspec version to tag version
+        shell: bash
+        run: |
+          set -euo pipefail
+          nuspec="${STAGE_DIR}/${PKG_ID}.nuspec"
+          NS="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
+
+          xmlstarlet ed -P -L -N n="$NS" \
+            -u "//n:package/n:metadata/n:version" -v "${{ steps.ver.outputs.version }}" \
+            "$nuspec"
+
+          echo "Nuspec version patched to: ${{ steps.ver.outputs.version }}"
+          # Show patched value (sanity check)
+          xmlstarlet sel -N n="$NS" -t -v "normalize-space(//n:package/n:metadata/n:version)" "$nuspec" && echo ""
 
       - name: 🔎 Validate .nuspec metadata (readme / repository / license / icon)
         shell: bash
@@ -101,9 +137,7 @@ jobs:
           nuspec="${STAGE_DIR}/${PKG_ID}.nuspec"
           NS="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
 
-          read_xpath() {
-            xmlstarlet sel -N n="$NS" -t -v "$1" "$nuspec" 2>/dev/null || true
-          }
+          read_xpath() { xmlstarlet sel -N n="$NS" -t -v "$1" "$nuspec" 2>/dev/null || true; }
 
           readme="$(read_xpath 'normalize-space(//n:package/n:metadata/n:readme)')"
           license_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:license/@type)' "$nuspec" 2>/dev/null || true)"
@@ -112,51 +146,21 @@ jobs:
           repo_url="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@url)' "$nuspec" 2>/dev/null || true)"
           repo_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@type)' "$nuspec" 2>/dev/null || true)"
 
-          if [[ -z "${readme}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Missing <readme> in nuspec metadata."
-            exit 1
-          fi
-          if [[ ! -f "${STAGE_DIR}/${readme}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::<readme>${readme}</readme> file not found in staging: ${STAGE_DIR}/${readme}"
-            exit 1
-          fi
+          [[ -n "$readme" ]] || { echo "::error file=${PKG_ID}.nuspec::Missing <readme> in nuspec metadata."; exit 1; }
+          [[ -f "${STAGE_DIR}/${readme}" ]] || { echo "::error file=${PKG_ID}.nuspec::<readme>${readme}</readme> not found in staging."; exit 1; }
 
-          if [[ "${license_type}" != "file" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::<license> must use type=\"file\" (found: '${license_type:-empty}')."
-            exit 1
-          fi
-          if [[ -z "${license_file}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Missing <license> value (expected a file name like LICENSE.txt)."
-            exit 1
-          fi
-          if [[ ! -f "${STAGE_DIR}/${license_file}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::<license>${license_file}</license> file not found in staging: ${STAGE_DIR}/${license_file}"
-            exit 1
-          fi
+          [[ "$license_type" == "file" ]] || { echo "::error file=${PKG_ID}.nuspec::<license> must use type=\"file\"."; exit 1; }
+          [[ -n "$license_file" ]] || { echo "::error file=${PKG_ID}.nuspec::Missing <license> value."; exit 1; }
+          [[ -f "${STAGE_DIR}/${license_file}" ]] || { echo "::error file=${PKG_ID}.nuspec::<license>${license_file}</license> not found in staging."; exit 1; }
 
-          if [[ -z "${icon}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Missing <icon> in nuspec metadata."
-            exit 1
-          fi
-          if [[ ! -f "${STAGE_DIR}/${icon}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::<icon>${icon}</icon> file not found in staging: ${STAGE_DIR}/${icon}"
-            exit 1
-          fi
+          [[ -n "$icon" ]] || { echo "::error file=${PKG_ID}.nuspec::Missing <icon> in nuspec metadata."; exit 1; }
+          [[ -f "${STAGE_DIR}/${icon}" ]] || { echo "::error file=${PKG_ID}.nuspec::<icon>${icon}</icon> not found in staging."; exit 1; }
 
-          if [[ -z "${repo_url}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Missing <repository url=\"...\" /> in nuspec metadata."
-            exit 1
-          fi
-          if [[ -z "${repo_type}" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Missing <repository type=\"git\" ... /> in nuspec metadata."
-            exit 1
-          fi
-          if [[ "${repo_type}" != "git" ]]; then
-            echo "::error file=${PKG_ID}.nuspec::Expected repository type=\"git\" (found: '${repo_type}')."
-            exit 1
-          fi
+          [[ -n "$repo_url" ]] || { echo "::error file=${PKG_ID}.nuspec::Missing <repository url=\"...\" /> in nuspec metadata."; exit 1; }
+          [[ "$repo_type" == "git" ]] || { echo "::error file=${PKG_ID}.nuspec::Expected repository type=\"git\"."; exit 1; }
 
           echo "Validated nuspec metadata:"
+          echo "  version:  ${{ steps.ver.outputs.version }}"
           echo "  readme:   $readme"
           echo "  license:  type=$license_type file=$license_file"
           echo "  icon:     $icon"
@@ -169,10 +173,7 @@ jobs:
 
           cd "${STAGE_DIR}"
 
-          shopt -s nullglob
-          # If you ever add binaries + PDBs, this automatically enables snupkg.
           pdb_count="$(find . -type f -iname "*.pdb" | wc -l | tr -d ' ')"
-
           if [[ "$pdb_count" != "0" ]]; then
             echo "PDBs detected ($pdb_count) -> generating .snupkg"
             mono /usr/local/bin/nuget pack "${PKG_ID}.nuspec" \
@@ -192,6 +193,7 @@ jobs:
           echo "Generated outputs:"
           ls -la "${OUT_DIR}" || true
 
+          shopt -s nullglob
           nupkgs=("${OUT_DIR}"/*.nupkg)
           if [[ ${#nupkgs[@]} -lt 1 ]]; then
             echo "::error::No .nupkg generated."
@@ -219,7 +221,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages
+          name: nuget-packages-${{ steps.ver.outputs.version }}
           path: |
             ${{ env.OUT_DIR }}/*.nupkg
             ${{ env.OUT_DIR }}/*.snupkg
