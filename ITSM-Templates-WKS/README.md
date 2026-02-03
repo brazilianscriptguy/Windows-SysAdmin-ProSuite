@@ -203,14 +203,6 @@ Includes:
 
 ---
 
-## 📌 Document Classification
-
-**RESTRICTED:** Internal use only. Confidential to IT management teams.
-
-© 2025 Luiz Hamilton. All rights reserved.
-
----
-
 ## ❓ Need Help?
 
 Check each folder’s `README.md` or contact support:
@@ -221,3 +213,9 @@ Check each folder’s `README.md` or contact support:
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge\&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
 [![WhatsApp](https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge\&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
 [![GitHub Issues](https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge\&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues)
+
+## 📌 Document Classification
+
+**RESTRICTED:** Internal use only. Confidential to IT management teams.
+
+© 2026 Luiz Hamilton. All rights reserved.
