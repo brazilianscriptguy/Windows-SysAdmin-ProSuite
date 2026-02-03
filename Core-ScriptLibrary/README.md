@@ -113,4 +113,4 @@ The scripts in this library are designed to be modular and adaptable. For help, 
 
 ---
 
-© 2025 Luiz Hamilton. All rights reserved.
+© 2026 Luiz Hamilton. All rights reserved.
