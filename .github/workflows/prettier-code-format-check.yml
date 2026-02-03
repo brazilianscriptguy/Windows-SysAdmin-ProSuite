@@ -49,7 +49,6 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # Enterprise default:
       # "true"  => report-only (never fail)
       # "false" => enforce formatting (fail on violations)
       ALLOW_WARNINGS: "true"
@@ -57,6 +56,12 @@ jobs:
       PRETTIER_REPORT: "prettier-report.txt"
       PRETTIER_SUMMARY: "prettier-summary.md"
       NPM_DEBUG_LOG: "npm-debug.log"
+
+      # Enterprise behavior:
+      # If Prettier is not installed in devDependencies, install a pinned version just for CI.
+      # (You can later remove this and commit Prettier to package.json when ready.)
+      BOOTSTRAP_PRETTIER_IF_MISSING: "true"
+      PRETTIER_VERSION: "3.3.3"
 
     steps:
       - name: 📦 Checkout Repository
@@ -84,6 +89,7 @@ jobs:
           fi
 
       - name: 📥 Install Dependencies (deterministic when possible)
+        id: install
         shell: bash
         run: |
           set -euo pipefail
@@ -106,29 +112,48 @@ jobs:
             fi
           fi
 
-      - name: 🔍 Run Prettier (robust execution)
+      - name: 🧰 Ensure Prettier Available (CI bootstrap)
+        id: ensure-prettier
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -x "node_modules/.bin/prettier" ]]; then
+            echo "prettier_present=true" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=project" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${BOOTSTRAP_PRETTIER_IF_MISSING}" != "true" ]]; then
+            echo "prettier_present=false" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::notice::Prettier not found in devDependencies. Bootstrapping Prettier v${PRETTIER_VERSION} for CI only."
+          npm install --no-save "prettier@${PRETTIER_VERSION}"
+
+          if [[ -x "node_modules/.bin/prettier" ]]; then
+            echo "prettier_present=true" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=ci-bootstrap" >> "$GITHUB_OUTPUT"
+          else
+            echo "prettier_present=false" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🔍 Run Prettier
         id: prettier
         shell: bash
         run: |
           set -euo pipefail
 
-          # Why this exists:
-          # You hit: "npm error could not determine executable to run"
-          # That usually happens when:
-          # - prettier is not installed (devDependencies missing), OR
-          # - lockfile/install didn't run, OR
-          # - npx can't find a local binary.
-          #
-          # Enterprise approach: require a local prettier dependency,
-          # and run it via node_modules/.bin to avoid npx ambiguity.
-
           report="${PRETTIER_REPORT}"
+          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
 
-          if [[ ! -x "node_modules/.bin/prettier" ]]; then
-            echo "::error::Prettier not found in node_modules. Add it to devDependencies: npm i -D prettier"
+          if [[ "${prettier_present}" != "true" ]]; then
+            echo "Prettier not available. Skipping formatting check."
+            printf '%s\n' "Prettier not available in CI run." > "$report"
             echo "exit_code=2" >> "$GITHUB_OUTPUT"
-            echo "prettier_present=false" >> "$GITHUB_OUTPUT"
-            printf '%s\n' "Prettier not installed. Add it to devDependencies." > "$report"
             exit 0
           fi
 
@@ -138,7 +163,6 @@ jobs:
           set -e
 
           echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
-          echo "prettier_present=true" >> "$GITHUB_OUTPUT"
           echo "Prettier exit code: $ec"
 
       - name: 🧾 Capture npm debug log (if any)
@@ -146,7 +170,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # NPM stores logs in ~/.npm/_logs/*.log; capture latest if exists
           if compgen -G "/home/runner/.npm/_logs/*-debug-0.log" > /dev/null; then
             latest="$(ls -t /home/runner/.npm/_logs/*-debug-0.log | head -n 1)"
             cp "$latest" "${NPM_DEBUG_LOG}" || true
@@ -161,7 +184,8 @@ jobs:
           set -euo pipefail
 
           exit_code="${{ steps.prettier.outputs.exit_code }}"
-          prettier_present="${{ steps.prettier.outputs.prettier_present }}"
+          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
+          prettier_source="${{ steps.ensure-prettier.outputs.prettier_source }}"
 
           {
             echo "### 💅 Prettier Format Summary"
@@ -170,17 +194,20 @@ jobs:
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Exit code:** \`${exit_code}\`"
             echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
-            echo "- **Prettier installed:** \`${prettier_present}\`"
+            echo "- **Prettier available:** \`${prettier_present}\`"
+            echo "- **Prettier source:** \`${prettier_source}\`"
             echo
 
             if [[ "${prettier_present}" != "true" ]]; then
-              echo "❗ Prettier was not found in \`node_modules\`."
+              echo "⚠️ Prettier was not available. This run did not enforce formatting."
               echo
-              echo "**Fix:** add Prettier to devDependencies:"
+              echo "**Recommended fix (preferred):** commit Prettier into devDependencies:"
               echo
               echo '```bash'
               echo 'npm i -D prettier'
               echo '```'
+              echo
+              echo "**CI fallback used:** \`${BOOTSTRAP_PRETTIER_IF_MISSING}\` (version \`${PRETTIER_VERSION}\`)."
               echo
             elif [[ "$exit_code" != "0" ]]; then
               echo "⚠️ Formatting issues detected."
@@ -219,11 +246,11 @@ jobs:
             exit 0
           fi
 
-          prettier_present="${{ steps.prettier.outputs.prettier_present }}"
+          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
           exit_code="${{ steps.prettier.outputs.exit_code }}"
 
           if [[ "${prettier_present}" != "true" ]]; then
-            echo "❌ Prettier is missing from node_modules. Enforced mode requires it."
+            echo "❌ Prettier is not available. Enforced mode requires it."
             exit 1
           fi
 
