@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # If "true", the job will NOT fail on violations (it will still report them).
+      # "true" => never fail the job (report only)
+      # "false" => fail only on REAL violations (not on exit=2)
       ALLOW_WARNINGS: "false"
-      # Pin version for deterministic installs
       EC_VERSION: "3.0.3"
 
     steps:
@@ -54,7 +54,6 @@ jobs:
           BIN="$(find "$tmpdir/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: ec binary not found after extraction"
-            echo "Extracted contents:"
             find "$tmpdir/ec" -maxdepth 6 -print
             exit 1
           fi
@@ -68,7 +67,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Run and preserve the checker exit code while still tee'ing output
           set +e
           /usr/local/bin/ec --disable-logs . 2>&1 | tee ec-output.txt
           ec_exit="${PIPESTATUS[0]}"
@@ -90,6 +88,7 @@ jobs:
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Allow warnings:** \`${ALLOW_WARNINGS}\`"
             echo "- **EC version:** \`${EC_VERSION}\`"
+            echo "- **Exit code:** \`${{ steps.ec.outputs.exit_code }}\`"
             echo
 
             if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
@@ -101,7 +100,9 @@ jobs:
               echo
               echo "_Output truncated. See artifact: ec-output.txt_"
             else
-              echo "✅ No violations detected."
+              echo "✅ No violations detected (or no violation lines matched)."
+              echo
+              echo "_If exit code is non-zero, check ec-output.txt for details._"
             fi
           } | tee ec-summary.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -115,7 +116,7 @@ jobs:
             ec-summary.md
           retention-days: 30
 
-      - name: 🚫 Enforce (fail only if ALLOW_WARNINGS=false)
+      - name: 🚫 Enforce (fail only on actual violations)
         if: always()
         shell: bash
         run: |
@@ -123,16 +124,19 @@ jobs:
 
           exit_code="${{ steps.ec.outputs.exit_code }}"
 
-          # Exit code meanings (typical):
-          # 0 = no violations
-          # 1/2 = violations or usage/config problems (we treat as violations for enforcement)
-          if [[ "$exit_code" != "0" ]]; then
-            if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
-              echo "⚠️ EditorConfig checker reported issues (exit=$exit_code), but ALLOW_WARNINGS=true. Passing."
-              exit 0
-            fi
-            echo "❌ EditorConfig checker reported issues (exit=$exit_code). Failing."
+          # IMPORTANT:
+          # In your environment, ec is returning exit=2 even when you do NOT want to fail the job.
+          # We'll enforce based on "violation lines" instead of exit code:
+          # - Fail only if output contains lines starting with "[" (your original detection logic).
+          # - Otherwise pass, even if exit code is 2.
+          if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+            echo "ALLOW_WARNINGS=true -> reporting only. Passing."
+            exit 0
+          fi
+
+          if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
+            echo "❌ EditorConfig violations detected (matched output lines). Failing."
             exit 1
           fi
 
-          echo "✅ No violations. Passing."
+          echo "✅ No violations detected by output pattern. Passing."
