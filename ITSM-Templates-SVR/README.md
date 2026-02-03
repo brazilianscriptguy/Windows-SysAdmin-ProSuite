@@ -109,4 +109,4 @@ These scripts are highly adaptable for custom infrastructures. Check embedded sc
 
 **RESTRICTED:** For internal use within the organization's network only.
 
-© 2025 Luiz Hamilton. All rights reserved.
+© 2026 Luiz Hamilton. All rights reserved.
