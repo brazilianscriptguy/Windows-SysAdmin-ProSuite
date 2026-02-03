@@ -4,111 +4,160 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - '.editorconfig'
-      - '**/.editorconfig'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.vbs'
-      - '**/*.hta'
-      - '**/*.xml'
-      - '**/*.json'
-      - '**/*.jsonc'
-      - '**/*.md'
-      - '**/*.rst'
-      - '**/*.txt'
-      - '**/*.csv'
-      - '**/*.log'
-      - '**/*.sh'
-      - '**/*.bash'
-      - '**/*.bat'
-      - '**/*.cmd'
-      - '**/*.html'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - '**/*.toml'
-      - '**/*.ini'
-      - '**/*.conf'
-      - '**/*.config'
-      - '**/*.nuspec'
-      - '**/*.csproj'
-      - '**/*.reg'
-      - '**/*.env'
-      - '**/.eslintrc'
-      - '**/.eslintrc.json'
-      - '**/.stylelintrc'
-      - '**/.prettierrc'
-      - '**/.prettierrc.json'
-      - '**/*.lock'
-
+      - ".editorconfig"
+      - "**/.editorconfig"
+      - "**/*"
   pull_request:
     branches: [main, develop]
     paths:
-      - '.editorconfig'
-      - '**/.editorconfig'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.vbs'
-      - '**/*.hta'
-      - '**/*.xml'
-      - '**/*.json'
-      - '**/*.jsonc'
-      - '**/*.md'
-      - '**/*.rst'
-      - '**/*.txt'
-      - '**/*.csv'
-      - '**/*.log'
-      - '**/*.sh'
-      - '**/*.bash'
-      - '**/*.bat'
-      - '**/*.cmd'
-      - '**/*.html'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - '**/*.toml'
-      - '**/*.ini'
-      - '**/*.conf'
-      - '**/*.config'
-      - '**/*.nuspec'
-      - '**/*.csproj'
-      - '**/*.reg'
-      - '**/*.env'
-      - '**/.eslintrc'
-      - '**/.eslintrc.json'
-      - '**/.stylelintrc'
-      - '**/.prettierrc'
-      - '**/.prettierrc.json'
-      - '**/*.lock'
-
+      - ".editorconfig"
+      - "**/.editorconfig"
+      - "**/*"
   workflow_dispatch:
+
+concurrency:
+  group: editorconfig-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   editorconfig-check:
     name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # "true"  => never fail the job (report-only mode)
+      # "false" => fail only when violations are detected in output
+      ALLOW_WARNINGS: "false"
+
+      # Pin for deterministic installs (update intentionally)
+      EC_VERSION: "3.0.3"
+
+      # Output files
+      EC_OUTPUT: "ec-output.txt"
+      EC_SUMMARY: "ec-summary.md"
 
     steps:
       - name: 📦 Checkout Repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
-      - name: 📥 Download EditorConfig Checker
+      - name: 📥 Install EditorConfig Checker (pinned)
         shell: bash
         run: |
-          wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
-          mkdir ec-checker
-          tar -xzf ec-linux-amd64.tar.gz -C ec-checker
+          set -euo pipefail
 
-          BIN=$(find ec-checker -type f -executable -name "ec*" | head -n 1)
-          if [ -n "$BIN" ]; then
-            chmod +x "$BIN"
-            sudo mv "$BIN" /usr/local/bin/ec
-          else
-            echo "❌ Error: ec binary not found after extraction"
+          URL="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
+          echo "Downloading EditorConfig Checker v${EC_VERSION}..."
+          echo "URL: ${URL}"
+
+          TMPDIR="$(mktemp -d)"
+          curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
+
+          mkdir -p "${TMPDIR}/ec"
+          tar -xzf "${TMPDIR}/ec.tar.gz" -C "${TMPDIR}/ec"
+
+          BIN="$(find "${TMPDIR}/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
+          if [[ -z "${BIN:-}" ]]; then
+            echo "❌ Error: 'ec' binary not found after extraction."
+            echo "Extracted contents:"
+            find "${TMPDIR}/ec" -maxdepth 6 -print
             exit 1
           fi
 
-      - name: ▶️ Run EditorConfig Checker
+          sudo install -m 0755 "${BIN}" /usr/local/bin/ec
+
+          echo "Installed:"
+          /usr/local/bin/ec --version
+
+      - name: ▶️ Run EditorConfig Checker (capture output + exit code)
+        id: ec
+        shell: bash
         run: |
-          ec --version
-          ec --disable-logs || true  # Avoid failure on style warnings
+          set -euo pipefail
+
+          # We do NOT hard-fail on non-zero exit codes because
+          # ec can return 2 in some environments even when we
+          # prefer policy-based enforcement via output parsing.
+          set +e
+          /usr/local/bin/ec --disable-logs . 2>&1 | tee "${EC_OUTPUT}"
+          EC_EXIT="${PIPESTATUS[0]}"
+          set -e
+
+          echo "exit_code=${EC_EXIT}" >> "${GITHUB_OUTPUT}"
+          echo "EditorConfig Checker exit code: ${EC_EXIT}"
+
+      - name: 🧾 Compute Violation Signal (policy-based)
+        id: policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Enterprise-safe: decide pass/fail from output signal, not from ec exit codes.
+          # Your known-good signal: lines starting with "[".
+          if [[ -f "${EC_OUTPUT}" ]] && grep -q "^\[" "${EC_OUTPUT}"; then
+            echo "violations=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "violations=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: 📋 Generate Markdown Summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### 🔍 EditorConfig Check Summary"
+            echo
+            echo "- **Workflow:** \`${{ github.workflow }}\`"
+            echo "- **Ref:** \`${{ github.ref }}\`"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo "- **EC version:** \`${EC_VERSION}\`"
+            echo "- **Exit code:** \`${{ steps.ec.outputs.exit_code }}\`"
+            echo "- **Violations detected:** \`${{ steps.policy.outputs.violations }}\`"
+            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
+            echo
+
+            if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+              echo "**Violations found (top 40 lines):**"
+              echo
+              echo '```text'
+              head -n 40 "${EC_OUTPUT}" || true
+              echo '```'
+              echo
+              echo "_Output truncated. Download artifact '${EC_OUTPUT}' for full details._"
+            else
+              echo "✅ No violations detected."
+            fi
+          } | tee "${EC_SUMMARY}" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: 📦 Upload Artifacts (output + summary)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorconfig-check
+          path: |
+            ${{ env.EC_OUTPUT }}
+            ${{ env.EC_SUMMARY }}
+          retention-days: 30
+
+      - name: 🚫 Enforce Policy (fail only on violations)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            exit 0
+          fi
+
+          if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+            echo "❌ EditorConfig violations detected. Failing."
+            exit 1
+          fi
+
+          echo "✅ No violations. Passing."
