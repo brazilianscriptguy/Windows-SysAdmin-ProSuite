@@ -141,4 +141,4 @@
     </tbody>
   </table>
 </section>
-<p align="center" style="color: #777;">&copy; 2025 Luiz Hamilton. All rights reserved.</p>
+<p align="center" style="color: #777;">&copy; 2026 Luiz Hamilton. All rights reserved.</p>
