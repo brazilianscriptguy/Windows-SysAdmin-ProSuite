@@ -1,58 +1,67 @@
-name: Analyze PowerShell Scripts
+name: Analyze PowerShell Scripts (PSScriptAnalyzer + SARIF)
 
 on:
   push:
     branches: [main, develop]
-    paths: ['**/*.ps1', '.psscriptanalyzer']
+    paths:
+      - "**/*.ps1"
+      - ".psscriptanalyzer"
   pull_request:
     branches: [main, develop]
-    paths: ['**/*.ps1', '.psscriptanalyzer']
+    paths:
+      - "**/*.ps1"
+      - ".psscriptanalyzer"
   workflow_dispatch:
+
+concurrency:
+  group: psscriptanalyzer-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   psscriptanalyzer:
     name: 🧪 PowerShell Code Quality Check
     runs-on: ubuntu-latest
+
     permissions:
-      actions: write
-      contents: write
-      security-events: write
-      statuses: write
+      contents: write          # needed only if auto-fix PR is enabled
+      security-events: write   # required for SARIF upload
+      pull-requests: write     # needed only if auto-fix PR is enabled
 
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
-
-      - name: 🕒 Capture Metadata
-        id: metadata
-        shell: bash
-        run: |
-          echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
-          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "commit_msg<<EOF" >> $GITHUB_OUTPUT
-          git log -1 --pretty=%B >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+        with:
+          fetch-depth: 0
 
       - name: 🔍 Check for PowerShell Files
         id: check-ps1
         shell: bash
         run: |
-          count=$(find . -type f -name "*.ps1" | wc -l)
+          count=$(find . -type f -name "*.ps1" | wc -l | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Found $count PowerShell script(s)."
-          echo "count=$count" >> $GITHUB_OUTPUT
-          if [ "$count" -eq 0 ]; then
-            echo "No .ps1 files to analyze. Skipping."
-            exit 0
-          fi
 
-      - name: 🛠️ Auto-Fix Indentation and Whitespace
+      - name: 🛠️ Install PSScriptAnalyzer
+        if: steps.check-ps1.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
             Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -RequiredVersion 1.24.0
           }
-          $htPSA = @{
+          Import-Module PSScriptAnalyzer -Force
+          (Get-Module PSScriptAnalyzer).Version.ToString() | Write-Output
+
+      - name: 🧹 Auto-Fix (Indentation + Whitespace)
+        if: steps.check-ps1.outputs.count != '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $htFix = @{
             Path = '.'
             Recurse = $true
             Fix = $true
@@ -75,31 +84,34 @@ jobs:
               }
             }
           }
-          Invoke-ScriptAnalyzer @htPSA
-          Write-Output "Auto-fix completed for indentation and whitespace."
 
-      - name: 📝 Commit Auto-Fixed Files
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
-          git add .
-          git diff --cached --quiet || git commit -m "Auto-fix PSScriptAnalyzer indentation and whitespace issues"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          Invoke-ScriptAnalyzer @htFix | Out-Null
+
+      # Best-practice: DO NOT push to main/develop from CI.
+      # Instead, open a PR with autofix changes (only on push events).
+      - name: 🔁 Create Auto-Fix PR
+        if: github.event_name == 'push' && steps.check-ps1.outputs.count != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: auto-fix PSScriptAnalyzer formatting"
+          title: "chore: auto-fix PSScriptAnalyzer formatting"
+          body: |
+            This PR applies automated formatting fixes:
+            - PSUseConsistentIndentation
+            - PSUseConsistentWhitespace
+          branch: "ci/autofix/psscriptanalyzer-${{ github.run_id }}"
+          delete-branch: true
 
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
+        if: steps.check-ps1.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $sarifFile = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -RequiredVersion 1.24.0
-          }
-          $version = (Get-Module -ListAvailable PSScriptAnalyzer)[0].Version.ToString()
-          Write-Output "PSScriptAnalyzer version: $version"
+
+          $sarifFile = Join-Path $env:GITHUB_WORKSPACE 'psscriptanalyzer-results.sarif'
+          $version = (Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -First 1).Version.ToString()
+
           $htPSA = @{
             Path = '.'
             Recurse = $true
@@ -129,39 +141,57 @@ jobs:
               }
             }
           }
+
           $results = Invoke-ScriptAnalyzer @htPSA
-          if ($results | Where-Object { $_.Severity -eq 'Error' }) {
-            Write-Error "PSScriptAnalyzer found errors"
-            exit 1
-          }
+
+          # Always write a SARIF file (even if empty) so upload steps never fail.
+          $sarifResults = @()
           if ($results) {
-            Write-Output "Found $($results.Count) issue(s)."
             $sarifResults = $results | ForEach-Object {
+              $rel = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '').Replace("$env:GITHUB_WORKSPACE\", '')
               @{
                 ruleId = $_.RuleName
-                level = $_.Severity.ToString().ToLower()
+                level  = $_.Severity.ToString().ToLower()
                 message = @{ text = $_.Message }
                 locations = @(
                   @{
                     physicalLocation = @{
-                      artifactLocation = @{ uri = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '') }
+                      artifactLocation = @{ uri = $rel }
                       region = @{ startLine = $_.Line; startColumn = $_.Column }
                     }
                   }
                 )
               }
             }
-            $sarif = @{
-              '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
-              version = '2.1.0'
-              runs = @(@{ tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }; results = $sarifResults })
-            }
-            $sarif | ConvertTo-Json -Depth 10 | Out-File -FilePath $sarifFile -Encoding utf8
-          } else {
-            '{"$schema": "http://json.schemastore.org/sarif-2.1.0", "version": "2.1.0", "runs": []}' | Out-File -FilePath $sarifFile -Encoding utf8
           }
 
-      - name: 📊 Upload Analysis Results
+          $sarif = @{
+            '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
+            version = '2.1.0'
+            runs = @(
+              @{
+                tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }
+                results = $sarifResults
+              }
+            )
+          }
+
+          $sarif | ConvertTo-Json -Depth 12 | Out-File -FilePath $sarifFile -Encoding utf8
+
+          if ($results | Where-Object { $_.Severity -eq 'Error' }) {
+            Write-Error "PSScriptAnalyzer found error-level findings."
+            exit 1
+          }
+
+      - name: 🧾 Create Empty SARIF (No .ps1 Files)
+        if: steps.check-ps1.outputs.count == '0'
+        shell: bash
+        run: |
+          cat > psscriptanalyzer-results.sarif <<'EOF'
+          {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
+          EOF
+
+      - name: 📊 Upload SARIF Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -169,54 +199,56 @@ jobs:
           path: ${{ github.workspace }}/psscriptanalyzer-results.sarif
           retention-days: 30
 
-      - name: 📄 Upload SARIF to GitHub
+      - name: 🛰️ Upload SARIF to GitHub Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ github.workspace }}/psscriptanalyzer-results.sarif
-          checkout_path: ${{ github.workspace }}
           wait-for-processing: true
 
-      - name: 📅 Generate Markdown Summary
+      - name: 📄 Generate Markdown Summary
         if: always()
         shell: pwsh
         run: |
           $summaryPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-summary.md"
-          $sarifPath = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
-          $timestamp = '${{ steps.metadata.outputs.timestamp }}'
-          $commit = '${{ steps.metadata.outputs.commit_sha }}'
-          $commitMsg = '${{ steps.metadata.outputs.commit_msg }}'
-          $repo = "${{ github.repository }}"
+          $sarifPath   = Join-Path $env:GITHUB_WORKSPACE "psscriptanalyzer-results.sarif"
 
-          $summaryLines = @()
-          $summaryLines += "### 🧪 PowerShell Lint Summary"
-          $summaryLines += "- 🕒 **Timestamp:** $timestamp"
-          $summaryLines += "- 🔗 **Commit:** [$commit](https://github.com/$repo/commit/$commit)"
-          $summaryLines += "- 📝 **Message:** $commitMsg"
-          $summaryLines += "- 📦 **Repository:** [$repo](https://github.com/$repo)"
-          $summaryLines += ""
+          $repo  = "${{ github.repository }}"
+          $sha   = "${{ github.sha }}"
+          $runId = "${{ github.run_id }}"
+
+          $lines = @()
+          $lines += "### 🧪 PowerShell Lint Summary"
+          $lines += "- 🔗 **Repo:** $repo"
+          $lines += "- 🧷 **Commit:** $sha"
+          $lines += "- 🧾 **Run:** $runId"
+          $lines += ""
 
           if (Test-Path $sarifPath) {
             $sarif = Get-Content $sarifPath -Raw | ConvertFrom-Json
-            $issues = $sarif.runs[0].results
+            $issues = @()
+            if ($sarif.runs.Count -gt 0 -and $sarif.runs[0].results) {
+              $issues = @($sarif.runs[0].results)
+            }
+
             if ($issues.Count -gt 0) {
-              $summaryLines += "**Detected $($issues.Count) issue(s):**"
-              foreach ($i in $issues | Select-Object -First 10) {
+              $lines += "**Detected $($issues.Count) issue(s):**"
+              foreach ($i in $issues | Select-Object -First 15) {
                 $file = $i.locations[0].physicalLocation.artifactLocation.uri
                 $line = $i.locations[0].physicalLocation.region.startLine
-                $link = "https://github.com/$repo/blob/$commit/$file#L$line"
-                $summaryLines += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))"
+                $link = "https://github.com/$repo/blob/$sha/$file#L$line"
+                $lines += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))"
               }
             } else {
-              $summaryLines += "✅ No issues found."
+              $lines += "✅ No issues found."
             }
           } else {
-            $summaryLines += "❗ SARIF results not found."
+            $lines += "❗ SARIF results not found."
           }
 
-          $summary = $summaryLines -join "`n"
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-          $summary | Out-File -FilePath $summaryPath -Encoding utf8
+          $out = ($lines -join "`n")
+          $out | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          $out | Out-File -FilePath $summaryPath -Encoding utf8
 
       - name: 🗂️ Upload Markdown Summary Artifact
         if: always()
