@@ -4,61 +4,103 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - '.editorconfig'
-      - '**/.editorconfig'
-      - '**/*'
+      - ".editorconfig"
+      - "**/.editorconfig"
+      - "**/*"
   pull_request:
     branches: [main, develop]
     paths:
-      - '.editorconfig'
-      - '**/.editorconfig'
-      - '**/*'
+      - ".editorconfig"
+      - "**/.editorconfig"
+      - "**/*"
   workflow_dispatch:
+
+concurrency:
+  group: editorconfig-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   editorconfig-check:
     name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
     env:
-      ALLOW_WARNINGS: false
+      # Set to "true" if you want the job to pass even when violations exist
+      ALLOW_WARNINGS: "false"
+      # Pin a version to avoid breaking changes from "latest"
+      EC_VERSION: "3.0.3"
 
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 📥 Download EditorConfig Checker
+      - name: 📥 Install EditorConfig Checker
         shell: bash
         run: |
-          wget -q https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/ec-linux-amd64.tar.gz
-          mkdir ec-checker
-          tar -xzf ec-linux-amd64.tar.gz -C ec-checker
-          BIN=$(find ec-checker -type f -executable -name "ec*" | head -n 1)
-          if [ -n "$BIN" ]; then
-            chmod +x "$BIN"
-            sudo mv "$BIN" /usr/local/bin/ec
-          else
+          set -euo pipefail
+
+          url="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
+          echo "Downloading: $url"
+
+          tmpdir="$(mktemp -d)"
+          curl -fsSL "$url" -o "$tmpdir/ec.tar.gz"
+
+          mkdir -p "$tmpdir/ec"
+          tar -xzf "$tmpdir/ec.tar.gz" -C "$tmpdir/ec"
+
+          BIN="$(find "$tmpdir/ec" -maxdepth 2 -type f -name "ec-linux-amd64" -o -name "ec" | head -n 1 || true)"
+          if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: ec binary not found after extraction"
             exit 1
           fi
 
-      - name: ▶️ Run EditorConfig Checker
-        run: |
+          chmod +x "$BIN"
+          sudo mv "$BIN" /usr/local/bin/ec
           ec --version
-          ec --disable-logs 2>&1 | tee ec-output.txt || true
+
+      - name: ▶️ Run EditorConfig Checker (capture output + exit code)
+        id: ec
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Run checker, capture output, preserve exit code
+          set +e
+          ec --disable-logs . 2>&1 | tee ec-output.txt
+          exit_code="${PIPESTATUS[0]}"
+          set -e
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "EditorConfig Checker exit code: $exit_code"
 
       - name: 📋 Generate Markdown Summary
         if: always()
         shell: bash
         run: |
-          echo "### 🔍 EditorConfig Check Summary" > ec-summary.md
-          if grep -q "^\[" ec-output.txt; then
-            echo "**Violations found:**" >> ec-summary.md
-            head -n 20 ec-output.txt >> ec-summary.md
-            echo "\n...output truncated..." >> ec-summary.md
-          else
-            echo "✅ No violations detected." >> ec-summary.md
-          fi
-          cat ec-summary.md >> $GITHUB_STEP_SUMMARY
+          set -euo pipefail
+
+          {
+            echo "### 🔍 EditorConfig Check Summary"
+            echo
+            echo "- **Branch/Ref:** \`${GITHUB_REF}\`"
+            echo "- **Commit:** \`${GITHUB_SHA}\`"
+            echo "- **Allow warnings:** \`${ALLOW_WARNINGS}\`"
+            echo
+
+            if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
+              echo "**Violations found (top 30 lines):**"
+              echo
+              echo '```text'
+              head -n 30 ec-output.txt
+              echo '```'
+              echo
+              echo "_Output truncated. See artifact: ec-output.txt_"
+            else
+              echo "✅ No violations detected."
+            fi
+          } | tee ec-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: 📂 Upload Lint Results as Artifacts
         if: always()
@@ -74,7 +116,18 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [ "$ALLOW_WARNINGS" != "true" ] && grep -q "^\[" ec-output.txt; then
-            echo "❌ Failing the job due to EditorConfig violations."
+          set -euo pipefail
+
+          exit_code="${{ steps.ec.outputs.exit_code }}"
+
+          # ec returns non-zero when violations exist
+          if [[ "$exit_code" != "0" ]]; then
+            if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+              echo "⚠️ Violations detected, but ALLOW_WARNINGS=true. Passing."
+              exit 0
+            fi
+            echo "❌ Failing due to EditorConfig violations."
             exit 1
           fi
+
+          echo "✅ No violations. Passing."
