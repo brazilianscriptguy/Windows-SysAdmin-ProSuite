@@ -28,18 +28,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
-
-      - name: 📦 Install Python Dependencies (if requirements.txt exists)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f ".github/scripts/requirements.txt" ]]; then
-            python -m pip install --upgrade pip
-            pip install -r .github/scripts/requirements.txt
-          else
-            echo "No requirements.txt found at .github/scripts/requirements.txt (skipping pip install)."
-          fi
 
       - name: ✅ Validate generator script exists
         shell: bash
@@ -60,7 +48,7 @@ jobs:
           python -V
           python .github/scripts/generate_readme_cards.py
 
-      - name: 🧾 Commit & push if changed
+      - name: 🧾 Commit & push if changed (safe rebase)
         shell: bash
         run: |
           set -euo pipefail
@@ -76,5 +64,8 @@ jobs:
           fi
 
           git commit -m "chore: update README cards"
+
+          # Avoid non-fast-forward failures (safe for scheduled jobs)
           git pull --rebase origin "${GITHUB_REF_NAME}"
+
           git push origin "HEAD:${GITHUB_REF_NAME}"
