@@ -1,4 +1,4 @@
-name: Search for Specific Word in Repositorys
+name: Search for Specific Word in Repository
 
 on:
   push:
