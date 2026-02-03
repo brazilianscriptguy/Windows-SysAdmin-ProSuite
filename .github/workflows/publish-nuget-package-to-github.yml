@@ -1,76 +1,235 @@
-name: Publish NuGet Package to GitHub
+name: Publish NuGet Package to GitHub (nupkg + snupkg + nuspec validation)
 
 on:
   push:
     branches: [main]
+    paths:
+      - "**/*"
+      - "sysadmin-prosuite.nuspec"
+      - ".github/workflows/publish-nuget-package-to-github.yml"
   release:
     types: [published, prerelease]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-nuget-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
   publish-nuget:
+    name: 📦 Publish NuGet Package (GitHub Packages)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      PKG_ID: "sysadmin-prosuite"
+      NUGET_VERSION: "6.11.0"
+      OUT_DIR: "nupkg-out"
+      STAGE_DIR: "tmp-sysadmin-prosuite"
+      NUGET_SOURCE: "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
 
     steps:
       - name: 🧾 Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 📦 Install dependencies
+      - name: 🧰 Install dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y mono-complete xmlstarlet
-          wget -O nuget.exe https://dist.nuget.org/win-x86-commandline/v6.11.0/nuget.exe
+          sudo apt-get install -y mono-complete xmlstarlet curl ca-certificates
+
+          url="https://dist.nuget.org/win-x86-commandline/v${NUGET_VERSION}/nuget.exe"
+          echo "Downloading nuget.exe: $url"
+          curl -fsSL "$url" -o nuget.exe
           chmod +x nuget.exe
           sudo mv nuget.exe /usr/local/bin/nuget
 
-      - name: 📁 Prepare and stage files
-        run: |
-          pkg="sysadmin-prosuite"
-          nuspec="$pkg.nuspec"
-          mkdir -p nupkg-out "tmp-$pkg"
+          mono --version
+          nuget help | head -n 5 || true
 
-          # Copy each directory if it exists
+      - name: ✅ Validate required repo files
+        shell: bash
+        run: |
+          set -euo pipefail
+          nuspec="${PKG_ID}.nuspec"
+          [[ -f "$nuspec" ]] || { echo "::error file=$nuspec::$nuspec not found"; exit 1; }
+          [[ -f "README.md" ]] || { echo "::error file=README.md::README.md not found"; exit 1; }
+          [[ -f "LICENSE.txt" ]] || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
+
+      - name: 📁 Prepare and stage files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${OUT_DIR}" "${STAGE_DIR}"
+          nuspec="${PKG_ID}.nuspec"
+
           for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
-            if [ -d "$dir" ]; then
-              cp -r "$dir/." "tmp-$pkg/$dir/"
+            if [[ -d "$dir" ]]; then
+              mkdir -p "${STAGE_DIR}/${dir}"
+              cp -r "${dir}/." "${STAGE_DIR}/${dir}/"
+            else
+              echo "::notice::Skipping missing directory: $dir"
             fi
           done
 
-          # Copy required metadata and assets
-          cp "$nuspec" "tmp-$pkg/$pkg.nuspec"
-          cp README.md "tmp-$pkg/README.md" || { echo "::error file=README.md::README.md not found"; exit 1; }
-          cp LICENSE.txt "tmp-$pkg/LICENSE.txt" || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
-          cp icon.png "tmp-$pkg/icon.png" || true
+          cp "$nuspec" "${STAGE_DIR}/${PKG_ID}.nuspec"
+          cp README.md "${STAGE_DIR}/README.md"
+          cp LICENSE.txt "${STAGE_DIR}/LICENSE.txt"
 
-      - name: 🛠️ Pack NuGet package
+          if [[ -f "icon.png" ]]; then
+            cp icon.png "${STAGE_DIR}/icon.png"
+          else
+            echo "::notice::icon.png not found at repo root (allowed only if nuspec icon is not required)."
+          fi
+
+      - name: 🔎 Validate .nuspec metadata (readme / repository / license / icon)
+        shell: bash
         run: |
-          pkg="sysadmin-prosuite"
-          cd "tmp-$pkg"
-          mono /usr/local/bin/nuget pack "$pkg.nuspec" \
-            -OutputDirectory ../nupkg-out \
-            -NonInteractive
+          set -euo pipefail
 
-      - name: 🚀 Push to GitHub Packages
+          nuspec="${STAGE_DIR}/${PKG_ID}.nuspec"
+
+          # Nuspec has a default XML namespace; use xmlstarlet with namespace prefix.
+          NS="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
+
+          # Helpers
+          read_xpath() {
+            xmlstarlet sel -N n="$NS" -t -v "$1" "$nuspec" 2>/dev/null || true
+          }
+
+          # Extract required fields
+          readme="$(read_xpath 'normalize-space(//n:package/n:metadata/n:readme)')"
+          license_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:license/@type)' "$nuspec" 2>/dev/null || true)"
+          license_file="$(read_xpath 'normalize-space(//n:package/n:metadata/n:license)')"
+          icon="$(read_xpath 'normalize-space(//n:package/n:metadata/n:icon)')"
+          repo_url="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@url)' "$nuspec" 2>/dev/null || true)"
+          repo_type="$(xmlstarlet sel -N n="$NS" -t -v 'normalize-space(//n:package/n:metadata/n:repository/@type)' "$nuspec" 2>/dev/null || true)"
+
+          # Validate readme
+          if [[ -z "${readme}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Missing <readme> in nuspec metadata."
+            exit 1
+          fi
+          if [[ ! -f "${STAGE_DIR}/${readme}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::<readme>${readme}</readme> file not found in staging: ${STAGE_DIR}/${readme}"
+            exit 1
+          fi
+
+          # Validate license
+          if [[ "${license_type}" != "file" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::<license> must use type=\"file\" (found: '${license_type:-empty}')."
+            exit 1
+          fi
+          if [[ -z "${license_file}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Missing <license> value (expected a file name like LICENSE.txt)."
+            exit 1
+          fi
+          if [[ ! -f "${STAGE_DIR}/${license_file}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::<license>${license_file}</license> file not found in staging: ${STAGE_DIR}/${license_file}"
+            exit 1
+          fi
+
+          # Validate icon
+          if [[ -z "${icon}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Missing <icon> in nuspec metadata."
+            exit 1
+          fi
+          if [[ ! -f "${STAGE_DIR}/${icon}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::<icon>${icon}</icon> file not found in staging: ${STAGE_DIR}/${icon}"
+            exit 1
+          fi
+
+          # Validate repository
+          if [[ -z "${repo_url}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Missing <repository url=\"...\" /> in nuspec metadata."
+            exit 1
+          fi
+          if [[ -z "${repo_type}" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Missing <repository type=\"git\" ... /> in nuspec metadata."
+            exit 1
+          fi
+          if [[ "${repo_type}" != "git" ]]; then
+            echo "::error file=${PKG_ID}.nuspec::Expected repository type=\"git\" (found: '${repo_type}')."
+            exit 1
+          fi
+
+          echo "Validated nuspec metadata:"
+          echo "  readme:   $readme"
+          echo "  license:  type=$license_type file=$license_file"
+          echo "  icon:     $icon"
+          echo "  repo:     type=$repo_type url=$repo_url"
+
+      - name: 🛠️ Pack NuGet package (.nupkg + .snupkg)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "${STAGE_DIR}"
+
+          # Create .nupkg + .snupkg (symbols) in one pass
+          mono /usr/local/bin/nuget pack "${PKG_ID}.nuspec" \
+            -OutputDirectory "../${OUT_DIR}" \
+            -NonInteractive \
+            -Symbols \
+            -SymbolPackageFormat snupkg
+
+          cd ..
+
+          echo "Generated packages:"
+          ls -la "${OUT_DIR}" || true
+
+          shopt -s nullglob
+          nupkgs=("${OUT_DIR}"/*.nupkg)
+          snupkgs=("${OUT_DIR}"/*.snupkg)
+
+          if [[ ${#nupkgs[@]} -lt 1 ]]; then
+            echo "::error::No .nupkg generated."
+            exit 1
+          fi
+          if [[ ${#snupkgs[@]} -lt 1 ]]; then
+            echo "::error::No .snupkg generated."
+            exit 1
+          fi
+
+      - name: 🚀 Push .nupkg to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          for pkg_path in nupkg-out/*.nupkg; do
-            if [ -f "$pkg_path" ]; then
-              mono /usr/local/bin/nuget push "$pkg_path" \
-                -Source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-                -ApiKey "$GITHUB_TOKEN" \
-                -NonInteractive \
-                -SkipDuplicate
-            fi
+          set -euo pipefail
+          shopt -s nullglob
+
+          for pkg_path in "${OUT_DIR}"/*.nupkg; do
+            echo "Pushing: $pkg_path"
+            mono /usr/local/bin/nuget push "$pkg_path" \
+              -Source "${NUGET_SOURCE}" \
+              -ApiKey "${GITHUB_TOKEN}" \
+              -NonInteractive \
+              -SkipDuplicate
           done
+
+      - name: 📦 Upload packages as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: |
+            ${{ env.OUT_DIR }}/*.nupkg
+            ${{ env.OUT_DIR }}/*.snupkg
+          retention-days: 30
 
       - name: 🧹 Clean up
         if: always()
+        shell: bash
         run: |
-          rm -rf "tmp-sysadmin-prosuite" nupkg-out || true
+          set -euo pipefail
+          rm -rf "${STAGE_DIR}" "${OUT_DIR}" || true
