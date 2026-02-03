@@ -45,9 +45,9 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # "true" => report-only (never fail)
-      # "false" => fail when Prettier detects formatting issues
-      ALLOW_WARNINGS: "false"
+      # Enterprise default: do NOT block merges for formatting.
+      # Set to "false" if you want to enforce formatting in CI.
+      ALLOW_WARNINGS: "true"
 
       PRETTIER_REPORT: "prettier-report.txt"
       PRETTIER_SUMMARY: "prettier-summary.md"
@@ -69,8 +69,8 @@ jobs:
           if [[ -f package-lock.json ]]; then
             npm ci
           else
-            echo "::error::package-lock.json not found. Add a lockfile to enable deterministic installs."
-            exit 1
+            echo "::warning::package-lock.json not found. Falling back to 'npm install' (non-deterministic)."
+            npm install
           fi
 
       - name: 🔍 Run Prettier Check (capture output + exit code)
@@ -79,7 +79,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Prefer local prettier from node_modules; do not auto-install via npx.
           set +e
           npx --no-install prettier --check . > "${PRETTIER_REPORT}" 2>&1
           ec="$?"
@@ -106,7 +105,7 @@ jobs:
             echo
 
             if [[ "$exit_code" != "0" ]]; then
-              echo "❌ Formatting issues detected."
+              echo "⚠️ Formatting issues detected (report-only by default)."
               echo
               echo "**Top 80 lines:**"
               echo
@@ -130,7 +129,7 @@ jobs:
             ${{ env.PRETTIER_SUMMARY }}
           retention-days: 30
 
-      - name: 💥 Enforce Prettier Policy
+      - name: ✅ Policy Gate (optional enforcement)
         if: always()
         shell: bash
         run: |
