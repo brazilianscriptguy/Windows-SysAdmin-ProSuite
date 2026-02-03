@@ -1,4 +1,4 @@
-name: List Package Contentss
+name: List Package Contents
 
 on:
   workflow_dispatch:
