@@ -5,36 +5,76 @@ on:
     - cron: "17 2 * * *" # daily 02:17 UTC
   workflow_dispatch:
 
+concurrency:
+  group: readme-cards-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   build-cards:
+    name: 🧩 Generate README Cards
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    timeout-minutes: 15
 
-      - name: Setup Python
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
-      - name: Generate SVG cards
+      - name: 📦 Install Python Dependencies (if requirements.txt exists)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f ".github/scripts/requirements.txt" ]]; then
+            python -m pip install --upgrade pip
+            pip install -r .github/scripts/requirements.txt
+          else
+            echo "No requirements.txt found at .github/scripts/requirements.txt (skipping pip install)."
+          fi
+
+      - name: ✅ Validate generator script exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ".github/scripts/generate_readme_cards.py" || {
+            echo "::error file=.github/scripts/generate_readme_cards.py::Generator script not found."
+            exit 1
+          }
+
+      - name: 🧠 Generate SVG cards
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: brazilianscriptguy
+        shell: bash
         run: |
+          set -euo pipefail
+          python -V
           python .github/scripts/generate_readme_cards.py
 
-      - name: Commit & push if changed
+      - name: 🧾 Commit & push if changed
+        shell: bash
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add -A
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "chore: update README cards"
-            git push
+            exit 0
           fi
+
+          git commit -m "chore: update README cards"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
