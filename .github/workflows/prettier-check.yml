@@ -15,8 +15,6 @@ on:
       - ".prettierignore"
       - "package.json"
       - "package-lock.json"
-      - "pnpm-lock.yaml"
-      - "yarn.lock"
   pull_request:
     branches: [main, develop]
     paths:
@@ -31,8 +29,6 @@ on:
       - ".prettierignore"
       - "package.json"
       - "package-lock.json"
-      - "pnpm-lock.yaml"
-      - "yarn.lock"
   workflow_dispatch:
 
 concurrency:
@@ -48,6 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      # "true" => report-only (never fail)
+      # "false" => fail when Prettier detects formatting issues
+      ALLOW_WARNINGS: "false"
+
+      PRETTIER_REPORT: "prettier-report.txt"
+      PRETTIER_SUMMARY: "prettier-summary.md"
+
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
@@ -58,7 +62,7 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: 📥 Install Dependencies (lockfile required)
+      - name: 📥 Install Dependencies (deterministic)
         shell: bash
         run: |
           set -euo pipefail
@@ -75,16 +79,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          report="prettier-report.txt"
-          echo "Running Prettier..."
+          # Prefer local prettier from node_modules; do not auto-install via npx.
           set +e
-          npx --no-install prettier --check . > "$report" 2>&1
+          npx --no-install prettier --check . > "${PRETTIER_REPORT}" 2>&1
           ec="$?"
           set -e
 
           echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
-          echo "Exit code: $ec"
-          echo "report=$report" >> "$GITHUB_OUTPUT"
+          echo "Prettier exit code: $ec"
 
       - name: 📄 Generate GitHub Job Summary
         if: always()
@@ -92,7 +94,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          report="prettier-report.txt"
           exit_code="${{ steps.prettier.outputs.exit_code }}"
 
           {
@@ -101,22 +102,23 @@ jobs:
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Exit code:** \`${exit_code}\`"
+            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo
 
-            if [[ -f "$report" ]] && [[ "$exit_code" != "0" ]]; then
+            if [[ "$exit_code" != "0" ]]; then
               echo "❌ Formatting issues detected."
               echo
-              echo "**Top 60 lines:**"
+              echo "**Top 80 lines:**"
               echo
               echo '```text'
-              head -n 60 "$report" || true
+              head -n 80 "${PRETTIER_REPORT}" || true
               echo '```'
               echo
               echo "_Output truncated. Download the artifact for the full report._"
             else
               echo "✅ No formatting issues found."
             fi
-          } | tee prettier-summary.md >> "$GITHUB_STEP_SUMMARY"
+          } | tee "${PRETTIER_SUMMARY}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 📊 Upload Prettier Report Artifact
         if: always()
@@ -124,18 +126,26 @@ jobs:
         with:
           name: prettier-format-report
           path: |
-            prettier-report.txt
-            prettier-summary.md
+            ${{ env.PRETTIER_REPORT }}
+            ${{ env.PRETTIER_SUMMARY }}
           retention-days: 30
 
-      - name: 💥 Enforce Prettier (fail on violations)
+      - name: 💥 Enforce Prettier Policy
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+
           exit_code="${{ steps.prettier.outputs.exit_code }}"
+
+          if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            exit 0
+          fi
+
           if [[ "$exit_code" != "0" ]]; then
             echo "❌ Failing due to Prettier formatting violations."
             exit 1
           fi
+
           echo "✅ Prettier passed."
