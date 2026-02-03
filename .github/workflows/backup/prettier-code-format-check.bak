@@ -1,0 +1,275 @@
+name: Prettier Code Format Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.jsx"
+      - "**/*.tsx"
+      - "**/*.css"
+      - "**/*.json"
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.jsx"
+      - "**/*.tsx"
+      - "**/*.css"
+      - "**/*.json"
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+  workflow_dispatch:
+
+concurrency:
+  group: prettier-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    name: 💅 Prettier Code Format Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # "true"  => report-only (never fail CI)
+      # "false" => enforce formatting (fail CI on issues)
+      ALLOW_WARNINGS: "true"
+
+      # If Prettier is missing from devDependencies, CI can install a pinned version temporarily.
+      # Recommended long-term: add prettier to devDependencies.
+      BOOTSTRAP_PRETTIER_IF_MISSING: "true"
+      PRETTIER_VERSION: "3.3.3"
+
+      PRETTIER_REPORT: "prettier-report.txt"
+      PRETTIER_SUMMARY: "prettier-summary.md"
+      NPM_DEBUG_LOG: "npm-debug.log"
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 🧾 Detect Package Manager
+        id: pm
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f pnpm-lock.yaml ]]; then
+            echo "manager=pnpm" >> "$GITHUB_OUTPUT"
+          elif [[ -f yarn.lock ]]; then
+            echo "manager=yarn" >> "$GITHUB_OUTPUT"
+          elif [[ -f package-lock.json ]]; then
+            echo "manager=npm" >> "$GITHUB_OUTPUT"
+          else
+            # No lockfile -> still attempt npm install, but warn in summary.
+            echo "manager=npm" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 📥 Install Dependencies (deterministic when possible)
+        id: install
+        shell: bash
+        run: |
+          set -euo pipefail
+          mgr="${{ steps.pm.outputs.manager }}"
+
+          if [[ "$mgr" == "pnpm" ]]; then
+            corepack enable
+            pnpm --version
+            pnpm install --frozen-lockfile
+          elif [[ "$mgr" == "yarn" ]]; then
+            corepack enable
+            yarn --version
+            # Yarn Berry uses --immutable; Yarn classic ignores it but won't break
+            yarn install --immutable || yarn install
+          else
+            if [[ -f package-lock.json ]]; then
+              npm ci
+            else
+              echo "::warning::No lockfile found (package-lock.json). Using 'npm install' (non-deterministic)."
+              npm install
+            fi
+          fi
+
+      - name: 🧰 Ensure Prettier Available
+        id: ensure_prettier
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -x "node_modules/.bin/prettier" ]]; then
+            echo "prettier_present=true" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=project" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${BOOTSTRAP_PRETTIER_IF_MISSING}" != "true" ]]; then
+            echo "prettier_present=false" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::notice::Prettier not found in node_modules. Bootstrapping Prettier v${PRETTIER_VERSION} for CI-only run."
+          # CI-only install. This will NOT commit anything (runner workspace only).
+          npm install --no-save "prettier@${PRETTIER_VERSION}"
+
+          if [[ -x "node_modules/.bin/prettier" ]]; then
+            echo "prettier_present=true" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=ci-bootstrap" >> "$GITHUB_OUTPUT"
+          else
+            echo "prettier_present=false" >> "$GITHUB_OUTPUT"
+            echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🔍 Run Prettier Check
+        id: run_prettier
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          report="${PRETTIER_REPORT}"
+          : > "$report"
+
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          if [[ "${prettier_present}" != "true" ]]; then
+            echo "Prettier not available in this run." > "$report"
+            echo "exit_code=2" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Run local prettier directly (avoid npx ambiguity)
+          set +e
+          node_modules/.bin/prettier --check . > "$report" 2>&1
+          ec="$?"
+          set -e
+
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          echo "Prettier exit code: $ec"
+
+      - name: 🧾 Capture npm debug log (if any)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G "/home/runner/.npm/_logs/*-debug-0.log" > /dev/null; then
+            latest="$(ls -t /home/runner/.npm/_logs/*-debug-0.log | head -n 1)"
+            cp "$latest" "${NPM_DEBUG_LOG}" || true
+          else
+            echo "No npm debug log found." > "${NPM_DEBUG_LOG}"
+          fi
+
+      - name: 📄 Generate Job Summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          exit_code="${{ steps.run_prettier.outputs.exit_code }}"
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          prettier_source="${{ steps.ensure_prettier.outputs.prettier_source }}"
+          mgr="${{ steps.pm.outputs.manager }}"
+
+          {
+            echo "### 💅 Prettier Format Summary"
+            echo
+            echo "- **Ref:** \`${GITHUB_REF}\`"
+            echo "- **Commit:** \`${GITHUB_SHA}\`"
+            echo "- **Package manager:** \`${mgr}\`"
+            echo "- **Exit code:** \`${exit_code}\`"
+            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
+            echo "- **Prettier available:** \`${prettier_present}\`"
+            echo "- **Prettier source:** \`${prettier_source}\`"
+            echo
+
+            if [[ "${prettier_present}" != "true" ]]; then
+              echo "❗ Prettier was not available, so formatting was not checked."
+              echo
+              echo "**Fix (recommended):** add Prettier to devDependencies:"
+              echo
+              echo '```bash'
+              echo 'npm i -D prettier'
+              echo '```'
+            elif [[ "$exit_code" != "0" ]]; then
+              echo "⚠️ Formatting issues detected."
+              echo
+              echo "**Top 80 lines:**"
+              echo
+              echo '```text'
+              head -n 80 "${PRETTIER_REPORT}" || true
+              echo '```'
+              echo
+              echo "_Output truncated. Download artifacts for the full report._"
+              echo
+              echo "**Fix locally:**"
+              echo
+              echo '```bash'
+              echo 'npx prettier --write .'
+              echo '```'
+            else
+              echo "✅ No formatting issues found."
+            fi
+          } | tee "${PRETTIER_SUMMARY}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 📦 Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prettier-format-report
+          path: |
+            ${{ env.PRETTIER_REPORT }}
+            ${{ env.PRETTIER_SUMMARY }}
+            ${{ env.NPM_DEBUG_LOG }}
+          retention-days: 30
+
+      - name: ✅ Policy Gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            exit 0
+          fi
+
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          exit_code="${{ steps.run_prettier.outputs.exit_code }}"
+
+          if [[ "${prettier_present}" != "true" ]]; then
+            echo "❌ Enforced mode requires Prettier available in node_modules."
+            echo "   Add it: npm i -D prettier"
+            exit 1
+          fi
+
+          if [[ "$exit_code" != "0" ]]; then
+            echo "❌ Failing due to Prettier formatting violations."
+            exit 1
+          fi
+
+          echo "✅ Prettier passed."
