@@ -29,7 +29,7 @@ jobs:
     env:
       # Set to "true" if you want the job to pass even when violations exist
       ALLOW_WARNINGS: "false"
-      # Pin a version to avoid breaking changes from "latest"
+      # Pin a version to avoid "latest" surprises
       EC_VERSION: "3.0.3"
 
     steps:
@@ -50,15 +50,20 @@ jobs:
           mkdir -p "$tmpdir/ec"
           tar -xzf "$tmpdir/ec.tar.gz" -C "$tmpdir/ec"
 
-          BIN="$(find "$tmpdir/ec" -maxdepth 2 -type f -name "ec-linux-amd64" -o -name "ec" | head -n 1 || true)"
+          # Locate the binary reliably (tar layout changes across versions)
+          BIN="$(find "$tmpdir/ec" -maxdepth 4 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: ec binary not found after extraction"
+            echo "Contents:"
+            find "$tmpdir/ec" -maxdepth 4 -print
             exit 1
           fi
 
-          chmod +x "$BIN"
-          sudo mv "$BIN" /usr/local/bin/ec
-          ec --version
+          # Install as /usr/local/bin/ec (avoid mv edge cases)
+          sudo install -m 0755 "$BIN" /usr/local/bin/ec
+
+          # Use absolute path to avoid PATH issues
+          /usr/local/bin/ec --version
 
       - name: ▶️ Run EditorConfig Checker (capture output + exit code)
         id: ec
@@ -66,9 +71,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Run checker, capture output, preserve exit code
           set +e
-          ec --disable-logs . 2>&1 | tee ec-output.txt
+          /usr/local/bin/ec --disable-logs . 2>&1 | tee ec-output.txt
           exit_code="${PIPESTATUS[0]}"
           set -e
 
@@ -84,7 +88,7 @@ jobs:
           {
             echo "### 🔍 EditorConfig Check Summary"
             echo
-            echo "- **Branch/Ref:** \`${GITHUB_REF}\`"
+            echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Allow warnings:** \`${ALLOW_WARNINGS}\`"
             echo
@@ -120,7 +124,6 @@ jobs:
 
           exit_code="${{ steps.ec.outputs.exit_code }}"
 
-          # ec returns non-zero when violations exist
           if [[ "$exit_code" != "0" ]]; then
             if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
               echo "⚠️ Violations detected, but ALLOW_WARNINGS=true. Passing."
