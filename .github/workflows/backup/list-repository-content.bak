@@ -1,4 +1,4 @@
-name: list-itsm-templates-wks
+name: list-itsm-templates-wkss
 
 on:
   workflow_dispatch:
