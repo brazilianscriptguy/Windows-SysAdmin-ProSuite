@@ -26,10 +26,11 @@ jobs:
   editorconfig-check:
     name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
+
     env:
-      # Set to "true" if you want the job to pass even when violations exist
+      # If "true", the job will NOT fail on violations (it will still report them).
       ALLOW_WARNINGS: "false"
-      # Pin a version to avoid "latest" surprises
+      # Pin version for deterministic installs
       EC_VERSION: "3.0.3"
 
     steps:
@@ -50,19 +51,15 @@ jobs:
           mkdir -p "$tmpdir/ec"
           tar -xzf "$tmpdir/ec.tar.gz" -C "$tmpdir/ec"
 
-          # Locate the binary reliably (tar layout changes across versions)
-          BIN="$(find "$tmpdir/ec" -maxdepth 4 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
+          BIN="$(find "$tmpdir/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: ec binary not found after extraction"
-            echo "Contents:"
-            find "$tmpdir/ec" -maxdepth 4 -print
+            echo "Extracted contents:"
+            find "$tmpdir/ec" -maxdepth 6 -print
             exit 1
           fi
 
-          # Install as /usr/local/bin/ec (avoid mv edge cases)
           sudo install -m 0755 "$BIN" /usr/local/bin/ec
-
-          # Use absolute path to avoid PATH issues
           /usr/local/bin/ec --version
 
       - name: ▶️ Run EditorConfig Checker (capture output + exit code)
@@ -71,13 +68,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Run and preserve the checker exit code while still tee'ing output
           set +e
           /usr/local/bin/ec --disable-logs . 2>&1 | tee ec-output.txt
-          exit_code="${PIPESTATUS[0]}"
+          ec_exit="${PIPESTATUS[0]}"
           set -e
 
-          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
-          echo "EditorConfig Checker exit code: $exit_code"
+          echo "exit_code=$ec_exit" >> "$GITHUB_OUTPUT"
+          echo "EditorConfig Checker exit code: $ec_exit"
 
       - name: 📋 Generate Markdown Summary
         if: always()
@@ -91,6 +89,7 @@ jobs:
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Allow warnings:** \`${ALLOW_WARNINGS}\`"
+            echo "- **EC version:** \`${EC_VERSION}\`"
             echo
 
             if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
@@ -116,7 +115,7 @@ jobs:
             ec-summary.md
           retention-days: 30
 
-      - name: 🚫 Fail if Violations Exist and Not Allowed
+      - name: 🚫 Enforce (fail only if ALLOW_WARNINGS=false)
         if: always()
         shell: bash
         run: |
@@ -124,12 +123,15 @@ jobs:
 
           exit_code="${{ steps.ec.outputs.exit_code }}"
 
+          # Exit code meanings (typical):
+          # 0 = no violations
+          # 1/2 = violations or usage/config problems (we treat as violations for enforcement)
           if [[ "$exit_code" != "0" ]]; then
             if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
-              echo "⚠️ Violations detected, but ALLOW_WARNINGS=true. Passing."
+              echo "⚠️ EditorConfig checker reported issues (exit=$exit_code), but ALLOW_WARNINGS=true. Passing."
               exit 0
             fi
-            echo "❌ Failing due to EditorConfig violations."
+            echo "❌ EditorConfig checker reported issues (exit=$exit_code). Failing."
             exit 1
           fi
 
