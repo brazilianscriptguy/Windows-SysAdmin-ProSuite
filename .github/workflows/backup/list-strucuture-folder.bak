@@ -1,4 +1,4 @@
-name: Show Folder Structure
+name: Show Folder Structures
 
 on:
   workflow_dispatch:
