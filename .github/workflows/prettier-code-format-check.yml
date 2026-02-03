@@ -11,6 +11,8 @@ on:
       - "**/*.css"
       - "**/*.json"
       - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
       - ".prettierrc"
       - ".prettierignore"
       - "package.json"
@@ -27,6 +29,8 @@ on:
       - "**/*.css"
       - "**/*.json"
       - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
       - ".prettierrc"
       - ".prettierignore"
       - "package.json"
@@ -49,19 +53,18 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # "true"  => report-only (never fail)
-      # "false" => enforce formatting (fail on violations)
+      # "true"  => report-only (never fail CI)
+      # "false" => enforce formatting (fail CI on issues)
       ALLOW_WARNINGS: "true"
+
+      # If Prettier is missing from devDependencies, CI can install a pinned version temporarily.
+      # Recommended long-term: add prettier to devDependencies.
+      BOOTSTRAP_PRETTIER_IF_MISSING: "true"
+      PRETTIER_VERSION: "3.3.3"
 
       PRETTIER_REPORT: "prettier-report.txt"
       PRETTIER_SUMMARY: "prettier-summary.md"
       NPM_DEBUG_LOG: "npm-debug.log"
-
-      # Enterprise behavior:
-      # If Prettier is not installed in devDependencies, install a pinned version just for CI.
-      # (You can later remove this and commit Prettier to package.json when ready.)
-      BOOTSTRAP_PRETTIER_IF_MISSING: "true"
-      PRETTIER_VERSION: "3.3.3"
 
     steps:
       - name: 📦 Checkout Repository
@@ -85,6 +88,7 @@ jobs:
           elif [[ -f package-lock.json ]]; then
             echo "manager=npm" >> "$GITHUB_OUTPUT"
           else
+            # No lockfile -> still attempt npm install, but warn in summary.
             echo "manager=npm" >> "$GITHUB_OUTPUT"
           fi
 
@@ -97,23 +101,24 @@ jobs:
 
           if [[ "$mgr" == "pnpm" ]]; then
             corepack enable
-            pnpm -v
+            pnpm --version
             pnpm install --frozen-lockfile
           elif [[ "$mgr" == "yarn" ]]; then
             corepack enable
-            yarn -v
-            yarn install --frozen-lockfile
+            yarn --version
+            # Yarn Berry uses --immutable; Yarn classic ignores it but won't break
+            yarn install --immutable || yarn install
           else
             if [[ -f package-lock.json ]]; then
               npm ci
             else
-              echo "::warning::No lockfile found. Falling back to 'npm install' (non-deterministic)."
+              echo "::warning::No lockfile found (package-lock.json). Using 'npm install' (non-deterministic)."
               npm install
             fi
           fi
 
-      - name: 🧰 Ensure Prettier Available (CI bootstrap)
-        id: ensure-prettier
+      - name: 🧰 Ensure Prettier Available
+        id: ensure_prettier
         shell: bash
         run: |
           set -euo pipefail
@@ -130,7 +135,8 @@ jobs:
             exit 0
           fi
 
-          echo "::notice::Prettier not found in devDependencies. Bootstrapping Prettier v${PRETTIER_VERSION} for CI only."
+          echo "::notice::Prettier not found in node_modules. Bootstrapping Prettier v${PRETTIER_VERSION} for CI-only run."
+          # CI-only install. This will NOT commit anything (runner workspace only).
           npm install --no-save "prettier@${PRETTIER_VERSION}"
 
           if [[ -x "node_modules/.bin/prettier" ]]; then
@@ -141,22 +147,23 @@ jobs:
             echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 🔍 Run Prettier
-        id: prettier
+      - name: 🔍 Run Prettier Check
+        id: run_prettier
         shell: bash
         run: |
           set -euo pipefail
 
           report="${PRETTIER_REPORT}"
-          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
+          : > "$report"
 
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
           if [[ "${prettier_present}" != "true" ]]; then
-            echo "Prettier not available. Skipping formatting check."
-            printf '%s\n' "Prettier not available in CI run." > "$report"
+            echo "Prettier not available in this run." > "$report"
             echo "exit_code=2" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          # Run local prettier directly (avoid npx ambiguity)
           set +e
           node_modules/.bin/prettier --check . > "$report" 2>&1
           ec="$?"
@@ -177,21 +184,23 @@ jobs:
             echo "No npm debug log found." > "${NPM_DEBUG_LOG}"
           fi
 
-      - name: 📄 Generate GitHub Job Summary
+      - name: 📄 Generate Job Summary
         if: always()
         shell: bash
         run: |
           set -euo pipefail
 
-          exit_code="${{ steps.prettier.outputs.exit_code }}"
-          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
-          prettier_source="${{ steps.ensure-prettier.outputs.prettier_source }}"
+          exit_code="${{ steps.run_prettier.outputs.exit_code }}"
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          prettier_source="${{ steps.ensure_prettier.outputs.prettier_source }}"
+          mgr="${{ steps.pm.outputs.manager }}"
 
           {
             echo "### 💅 Prettier Format Summary"
             echo
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
+            echo "- **Package manager:** \`${mgr}\`"
             echo "- **Exit code:** \`${exit_code}\`"
             echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo "- **Prettier available:** \`${prettier_present}\`"
@@ -199,16 +208,13 @@ jobs:
             echo
 
             if [[ "${prettier_present}" != "true" ]]; then
-              echo "⚠️ Prettier was not available. This run did not enforce formatting."
+              echo "❗ Prettier was not available, so formatting was not checked."
               echo
-              echo "**Recommended fix (preferred):** commit Prettier into devDependencies:"
+              echo "**Fix (recommended):** add Prettier to devDependencies:"
               echo
               echo '```bash'
               echo 'npm i -D prettier'
               echo '```'
-              echo
-              echo "**CI fallback used:** \`${BOOTSTRAP_PRETTIER_IF_MISSING}\` (version \`${PRETTIER_VERSION}\`)."
-              echo
             elif [[ "$exit_code" != "0" ]]; then
               echo "⚠️ Formatting issues detected."
               echo
@@ -218,13 +224,19 @@ jobs:
               head -n 80 "${PRETTIER_REPORT}" || true
               echo '```'
               echo
-              echo "_Output truncated. Download artifacts for full report._"
+              echo "_Output truncated. Download artifacts for the full report._"
+              echo
+              echo "**Fix locally:**"
+              echo
+              echo '```bash'
+              echo 'npx prettier --write .'
+              echo '```'
             else
               echo "✅ No formatting issues found."
             fi
           } | tee "${PRETTIER_SUMMARY}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 📊 Upload Artifacts
+      - name: 📦 Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -235,7 +247,7 @@ jobs:
             ${{ env.NPM_DEBUG_LOG }}
           retention-days: 30
 
-      - name: ✅ Policy Gate (optional enforcement)
+      - name: ✅ Policy Gate
         if: always()
         shell: bash
         run: |
@@ -246,11 +258,12 @@ jobs:
             exit 0
           fi
 
-          prettier_present="${{ steps.ensure-prettier.outputs.prettier_present }}"
-          exit_code="${{ steps.prettier.outputs.exit_code }}"
+          prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          exit_code="${{ steps.run_prettier.outputs.exit_code }}"
 
           if [[ "${prettier_present}" != "true" ]]; then
-            echo "❌ Prettier is not available. Enforced mode requires it."
+            echo "❌ Enforced mode requires Prettier available in node_modules."
+            echo "   Add it: npm i -D prettier"
             exit 1
           fi
 
