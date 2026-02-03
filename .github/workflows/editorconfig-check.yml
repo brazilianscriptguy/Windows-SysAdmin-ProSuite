@@ -26,39 +26,50 @@ jobs:
   editorconfig-check:
     name: 🔍 EditorConfig Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     env:
-      # "true" => never fail the job (report only)
-      # "false" => fail only on REAL violations (not on exit=2)
+      # "true"  => never fail the job (report-only mode)
+      # "false" => fail only when violations are detected in output
       ALLOW_WARNINGS: "false"
+
+      # Pin for deterministic installs (update intentionally)
       EC_VERSION: "3.0.3"
+
+      # Output files
+      EC_OUTPUT: "ec-output.txt"
+      EC_SUMMARY: "ec-summary.md"
 
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 📥 Install EditorConfig Checker
+      - name: 📥 Install EditorConfig Checker (pinned)
         shell: bash
         run: |
           set -euo pipefail
 
-          url="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
-          echo "Downloading: $url"
+          URL="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
+          echo "Downloading EditorConfig Checker v${EC_VERSION}..."
+          echo "URL: ${URL}"
 
-          tmpdir="$(mktemp -d)"
-          curl -fsSL "$url" -o "$tmpdir/ec.tar.gz"
+          TMPDIR="$(mktemp -d)"
+          curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
 
-          mkdir -p "$tmpdir/ec"
-          tar -xzf "$tmpdir/ec.tar.gz" -C "$tmpdir/ec"
+          mkdir -p "${TMPDIR}/ec"
+          tar -xzf "${TMPDIR}/ec.tar.gz" -C "${TMPDIR}/ec"
 
-          BIN="$(find "$tmpdir/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
+          BIN="$(find "${TMPDIR}/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
-            echo "❌ Error: ec binary not found after extraction"
-            find "$tmpdir/ec" -maxdepth 6 -print
+            echo "❌ Error: 'ec' binary not found after extraction."
+            echo "Extracted contents:"
+            find "${TMPDIR}/ec" -maxdepth 6 -print
             exit 1
           fi
 
-          sudo install -m 0755 "$BIN" /usr/local/bin/ec
+          sudo install -m 0755 "${BIN}" /usr/local/bin/ec
+
+          echo "Installed:"
           /usr/local/bin/ec --version
 
       - name: ▶️ Run EditorConfig Checker (capture output + exit code)
@@ -67,13 +78,30 @@ jobs:
         run: |
           set -euo pipefail
 
+          # We do NOT hard-fail on non-zero exit codes because
+          # ec can return 2 in some environments even when we
+          # prefer policy-based enforcement via output parsing.
           set +e
-          /usr/local/bin/ec --disable-logs . 2>&1 | tee ec-output.txt
-          ec_exit="${PIPESTATUS[0]}"
+          /usr/local/bin/ec --disable-logs . 2>&1 | tee "${EC_OUTPUT}"
+          EC_EXIT="${PIPESTATUS[0]}"
           set -e
 
-          echo "exit_code=$ec_exit" >> "$GITHUB_OUTPUT"
-          echo "EditorConfig Checker exit code: $ec_exit"
+          echo "exit_code=${EC_EXIT}" >> "${GITHUB_OUTPUT}"
+          echo "EditorConfig Checker exit code: ${EC_EXIT}"
+
+      - name: 🧾 Compute Violation Signal (policy-based)
+        id: policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Enterprise-safe: decide pass/fail from output signal, not from ec exit codes.
+          # Your known-good signal: lines starting with "[".
+          if [[ -f "${EC_OUTPUT}" ]] && grep -q "^\[" "${EC_OUTPUT}"; then
+            echo "violations=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "violations=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: 📋 Generate Markdown Summary
         if: always()
@@ -84,59 +112,52 @@ jobs:
           {
             echo "### 🔍 EditorConfig Check Summary"
             echo
-            echo "- **Ref:** \`${GITHUB_REF}\`"
-            echo "- **Commit:** \`${GITHUB_SHA}\`"
-            echo "- **Allow warnings:** \`${ALLOW_WARNINGS}\`"
+            echo "- **Workflow:** \`${{ github.workflow }}\`"
+            echo "- **Ref:** \`${{ github.ref }}\`"
+            echo "- **Commit:** \`${{ github.sha }}\`"
             echo "- **EC version:** \`${EC_VERSION}\`"
             echo "- **Exit code:** \`${{ steps.ec.outputs.exit_code }}\`"
+            echo "- **Violations detected:** \`${{ steps.policy.outputs.violations }}\`"
+            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo
 
-            if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
-              echo "**Violations found (top 30 lines):**"
+            if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+              echo "**Violations found (top 40 lines):**"
               echo
               echo '```text'
-              head -n 30 ec-output.txt
+              head -n 40 "${EC_OUTPUT}" || true
               echo '```'
               echo
-              echo "_Output truncated. See artifact: ec-output.txt_"
+              echo "_Output truncated. Download artifact '${EC_OUTPUT}' for full details._"
             else
-              echo "✅ No violations detected (or no violation lines matched)."
-              echo
-              echo "_If exit code is non-zero, check ec-output.txt for details._"
+              echo "✅ No violations detected."
             fi
-          } | tee ec-summary.md >> "$GITHUB_STEP_SUMMARY"
+          } | tee "${EC_SUMMARY}" >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: 📂 Upload Lint Results as Artifacts
+      - name: 📦 Upload Artifacts (output + summary)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: editorconfig-lint-results
+          name: editorconfig-check
           path: |
-            ec-output.txt
-            ec-summary.md
+            ${{ env.EC_OUTPUT }}
+            ${{ env.EC_SUMMARY }}
           retention-days: 30
 
-      - name: 🚫 Enforce (fail only on actual violations)
+      - name: 🚫 Enforce Policy (fail only on violations)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
 
-          exit_code="${{ steps.ec.outputs.exit_code }}"
-
-          # IMPORTANT:
-          # In your environment, ec is returning exit=2 even when you do NOT want to fail the job.
-          # We'll enforce based on "violation lines" instead of exit code:
-          # - Fail only if output contains lines starting with "[" (your original detection logic).
-          # - Otherwise pass, even if exit code is 2.
           if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
-            echo "ALLOW_WARNINGS=true -> reporting only. Passing."
+            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
             exit 0
           fi
 
-          if [[ -f ec-output.txt ]] && grep -q "^\[" ec-output.txt; then
-            echo "❌ EditorConfig violations detected (matched output lines). Failing."
+          if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+            echo "❌ EditorConfig violations detected. Failing."
             exit 1
           fi
 
-          echo "✅ No violations detected by output pattern. Passing."
+          echo "✅ No violations. Passing."
