@@ -1,4 +1,4 @@
-name: Generate README Cards (No External Services)
+name: Generate README Cards (No External Services
 
 on:
   schedule:
