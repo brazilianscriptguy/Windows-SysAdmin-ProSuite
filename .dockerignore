@@ -1,62 +1,103 @@
-# Exclude unnecessary files from Docker context
-
-# Git and version control
+# =====================================
+# 🧱 Version Control & CI
+# =====================================
 .git
 .gitignore
+.github
+.gitattributes
 
-# Logs and temporary files
+# =====================================
+# 🔍 Logs and Temporary Files
+# =====================================
 *.log
 *.tmp
 *.bak
+*.old
 .cache/
 Logs/
 Logs-TEMP/
+temp/
+tmp/
 
-# Build and output directories
+# =====================================
+# 🛠️ Build Outputs
+# =====================================
 bin/
 obj/
 artifacts/
 out/
 
-# System and IDE files
-.vscode/
-.idea/
-*.suo
-*.user
-*.sdf
-*.sln.docstates
-*.vs/
-
-# Test, backup, documentation drafts
-tests/
-docs/
-*.md.bak
-*.bak.md
-
-# NuGet and dependency outputs
-NuGet/
+# =====================================
+# 📦 NuGet & Package Artifacts (NEVER in image)
+# =====================================
 .nuget/
+NuGet/
 *.nupkg
 *.snupkg
 *.nuspec
 NuGetPackageContent/
 
-# Environment and secrets
+# =====================================
+# 📚 Docs, Tests, Drafts
+# =====================================
+docs/
+tests/
+*.md.bak
+*.bak.md
+
+# =====================================
+# 🧱 IDE / Editor / Local Tooling
+# =====================================
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+*.sdf
+*.vsconfig
+
+# =====================================
+# 🔐 Secrets & Environment
+# =====================================
 *.env
 *.env.*
+*.pfx
+*.cert
+*.key
 secrets.*
 
-# Platform-specific
+# =====================================
+# 🟢 Node.js
+# =====================================
+node_modules/
+npm-debug.log*
+
+# =====================================
+# 🐍 Python
+# =====================================
+__pycache__/
+*.py[cod]
+.venv/
+env/
+
+# =====================================
+# 🐘 PHP
+# =====================================
+vendor/
+
+# =====================================
+# 💻 OS Metadata
+# =====================================
 Thumbs.db
 .DS_Store
 desktop.ini
 ehthumbs.db
 Icon?
 
-# Others
-*.ps1~
-*.swp
-*.directory
+# =====================================
+# 🧪 Dev & Analysis Tools
+# =====================================
+*.coverage
+*.dotCover
 *.ncrunch*
 _ReSharper*/
-*.resharper
