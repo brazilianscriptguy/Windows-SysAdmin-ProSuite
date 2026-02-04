@@ -4,7 +4,6 @@ root = true
 #######################
 # 🌍 Global Defaults
 #######################
-
 [*]
 end_of_line = lf
 insert_final_newline = true
@@ -14,7 +13,6 @@ trim_trailing_whitespace = true
 #########################
 # ⚙️ Scripting Languages
 #########################
-
 [*.{ps1,psm1,vbs}]
 indent_style = space
 indent_size = 4
@@ -23,7 +21,6 @@ charset = utf-8-bom
 #########################
 # 🌐 HTA: HTML Applications
 #########################
-
 [*.hta]
 indent_style = space
 indent_size = 2
@@ -32,7 +29,6 @@ charset = utf-8
 #########################
 # 🧱 Structured Data
 #########################
-
 [*.{yaml,yml,json,jsonc,toml}]
 indent_style = space
 indent_size = 2
@@ -40,32 +36,7 @@ indent_size = 2
 #########################
 # 🥪 Config / Linter / RC Files
 #########################
-
 [.*rc]
-indent_style = space
-indent_size = 2
-
-[.editorconfig]
-indent_style = space
-indent_size = 2
-
-[.eslintrc]
-indent_style = space
-indent_size = 2
-
-[.eslintrc.json]
-indent_style = space
-indent_size = 2
-
-[.stylelintrc]
-indent_style = space
-indent_size = 2
-
-[.prettierrc]
-indent_style = space
-indent_size = 2
-
-[.prettierrc.json]
 indent_style = space
 indent_size = 2
 
@@ -76,13 +47,7 @@ indent_size = 2
 #########################
 # 📝 Markdown / ReStructuredText
 #########################
-
-[*.md]
-indent_style = space
-indent_size = 2
-trim_trailing_whitespace = false
-
-[*.rst]
+[*.{md,rst}]
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = false
@@ -90,7 +55,6 @@ trim_trailing_whitespace = false
 #########################
 # 📄 Plain Text & Env
 #########################
-
 [*.txt]
 indent_style = space
 indent_size = 2
@@ -103,7 +67,6 @@ insert_final_newline = true
 #########################
 # 📁 Logs & Data Exports
 #########################
-
 [*.csv]
 end_of_line = lf
 charset = utf-8
@@ -117,7 +80,6 @@ trim_trailing_whitespace = false
 #########################
 # 🧰 Registry Scripts
 #########################
-
 [*.reg]
 indent_style = space
 indent_size = 4
@@ -127,19 +89,13 @@ end_of_line = crlf
 #########################
 # 🌐 Web & XML Files
 #########################
-
-[*.{html,xml}]
-indent_style = space
-indent_size = 2
-
-[*.{config,nuspec,csproj}]
+[*.{html,xml,config,nuspec,csproj}]
 indent_style = space
 indent_size = 2
 
 #########################
 # 💻 Source Code Files
 #########################
-
 [*.py]
 indent_style = space
 indent_size = 4
@@ -160,7 +116,6 @@ charset = utf-8
 #########################
 # 👤 Shell & INI Configs
 #########################
-
 [*.{sh,bash,bat,cmd}]
 indent_style = space
 indent_size = 4
@@ -172,7 +127,6 @@ indent_size = 4
 #########################
 # 🧾 Git Metadata
 #########################
-
 [.gitignore]
 end_of_line = lf
 insert_final_newline = true
@@ -182,10 +136,3 @@ charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 charset = utf-8
-
-#########################
-# 📦 Binary & Artifacts
-#########################
-
-[*.{exe,pdf,zip,tar,gz,7z,iso,nupkg,bak,png}]
-charset = binary
