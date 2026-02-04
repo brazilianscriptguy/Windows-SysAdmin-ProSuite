@@ -1,76 +1,119 @@
-# ===============================
-# Enforce LF as line ending for all text/code files 
-# ===============================
+# ======================================================================================
+# .gitattributes
+# Enforce LF line endings for all text/code files and mark binaries to avoid corruption.
+# ======================================================================================
 
-# PowerShell, VBScript, and HTA
+# ----------------------------
+# Global default (recommended)
+# ----------------------------
+* text=auto eol=lf
+
+# ----------------------------
+# PowerShell / VBScript / HTA
+# ----------------------------
 *.ps1      text eol=lf
+*.psm1     text eol=lf
+*.psd1     text eol=lf
+*.ps1xml   text eol=lf
+*.psc1     text eol=lf
+*.pssc     text eol=lf
 *.vbs      text eol=lf
+*.vbe      text eol=lf
+*.wsf      text eol=lf
+*.wsc      text eol=lf
 *.hta      text eol=lf
 
-# YAML and JSON
+# ----------------------------
+# YAML / JSON / TOML
+# ----------------------------
 *.yaml     text eol=lf
 *.yml      text eol=lf
 *.json     text eol=lf
+*.toml     text eol=lf
 
-# Markdown and plain text
+# ----------------------------
+# Markdown / text / logs
+# ----------------------------
 *.md       text eol=lf
 *.txt      text eol=lf
+*.log      text eol=lf
+*.csv      text eol=lf
 
-# XML-based configs
+# ----------------------------
+# XML-based configs / NuGet / .NET metadata
+# ----------------------------
 *.xml      text eol=lf
 *.config   text eol=lf
 *.csproj   text eol=lf
+*.props    text eol=lf
+*.targets  text eol=lf
 *.nuspec   text eol=lf
+*.sln      text eol=lf
 
-# Web and scripting files
+# ----------------------------
+# Web / scripting files
+# ----------------------------
 *.html     text eol=lf
+*.css      text eol=lf
 *.js       text eol=lf
 *.ts       text eol=lf
+*.tsx      text eol=lf
+*.cmd      text eol=lf
+*.bat      text eol=lf
 
-# Shell scripts and Unix configs
+# ----------------------------
+# Shell / Unix configs
+# ----------------------------
 *.sh       text eol=lf
 *.bash     text eol=lf
+*.zsh      text eol=lf
 *.conf     text eol=lf
 *.ini      text eol=lf
 
+# ----------------------------
 # Python
+# ----------------------------
 *.py       text eol=lf
 
-# ===============================
-# Treat specific files as binary (no normalization)
-# ===============================
+# ======================================================================================
+# Binary files (no EOL normalization, no text diffs)
+# ======================================================================================
 
 # Executables and archives
 *.exe      binary
+*.dll      binary
+*.msi      binary
 *.zip      binary
 *.tar      binary
 *.gz       binary
 *.7z       binary
 *.iso      binary
 *.nupkg    binary
+*.snupkg   binary
 
-# Documents and static assets
+# Documents and assets
 *.pdf      binary
+
+# SVG: choose one policy:
+# - Keep as binary to avoid normalization and disable diffs (safe default):
 *.svg      binary
+# - Or, if you want diffs and you edit SVG by hand, replace the line above with:
+# *.svg    text eol=lf
 
 # Image formats
 *.png      binary
 *.jpg      binary
 *.jpeg     binary
 *.gif      binary
+*.webp     binary
+*.ico      binary
 
 # Backup files
 *.bak      binary
 
-# Fonts or binary blobs (if applicable)
+# Fonts or binary blobs
 *.woff     binary
 *.woff2    binary
 *.ttf      binary
 *.eot      binary
-
-# ===============================
-# Notes for consistency
-# ===============================
-# 'text' ensures Git normalizes line endings to LF (Linux-style)
-# 'eol=lf' forces files to use LF in working directory (no CRLF)
-# 'binary' disables line-ending conversion and diff for those files
+*.otf      binary
