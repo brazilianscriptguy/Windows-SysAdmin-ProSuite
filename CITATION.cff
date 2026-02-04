@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+title: "Windows-SysAdmin-ProSuite"
+message: >
+  If you use this software in academic work, technical reports,
+  or professional documentation, please cite it as below.
+type: software
+
+authors:
+  - family-names: "Silva"
+    given-names: "Luiz Hamilton"
+    email: "luizhamilton.lhr@gmail.com"
+    website: "https://github.com/brazilianscriptguy"
+    affiliation: "Independent Researcher and Windows Infrastructure Specialist"
+
+repository-code: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
+url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
+
+abstract: >
+  Windows-SysAdmin-ProSuite is an enterprise-grade collection of PowerShell
+  and VBScript automation tools for Windows Server and Windows 10/11
+  environments. The project focuses on ITSM-aligned provisioning, security
+  hardening, identity and access management, digital forensics readiness,
+  and compliance-driven automation, with strong emphasis on auditability,
+  reproducibility, and governance.
+
+keywords:
+  - PowerShell
+  - VBScript
+  - Windows Server
+  - ITSM
+  - Digital Forensics
+  - DFIR
+  - Active Directory
+  - Identity and Access Management
+  - Governance
+  - Automation
+  - Compliance
+  - Public Sector IT
+
+license: MIT
+
+version: "1.8.8"
+date-released: "2026-02-03"
+
+preferred-citation:
+  type: software
+  authors:
+    - family-names: "Silva"
+      given-names: "Luiz Hamilton"
+  title: "Windows-SysAdmin-ProSuite"
+  year: 2026
+  url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
