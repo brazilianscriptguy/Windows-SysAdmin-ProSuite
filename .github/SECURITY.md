@@ -1,193 +1,128 @@
-<div align="center">
-  <h1>🛡️ Security Policy</h1>
-  <p>
-    This repository contains enterprise automation toolsets for Windows environments, including PowerShell and VBScript assets.
-    Security updates and support are defined below.
-  </p>
-</div>
+# Security Policy
 
-<section>
-  <h2>📌 Supported Versions</h2>
-  <p>
-    The following versions of the <strong>Windows-SysAdmin-ProSuite</strong> project — including <strong>BlueTeam-Tools</strong>,
-    <strong>Core-ScriptLibrary</strong>, <strong>ITSM-Templates-SVR</strong>, <strong>ITSM-Templates-WKS</strong>, and
-    <strong>SysAdmin-Tools</strong> — are actively maintained and receive security updates.
-  </p>
+This repository contains enterprise automation toolsets for Windows environments, including PowerShell and VBScript assets.  
+Security updates, supported versions, and vulnerability reporting procedures are defined below.
 
-  <h3>💻 Repository Modules</h3>
-  <ul>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=flat-square&logo=security" alt="BlueTeam-Tools Badge">
-      </a>
-      <span> Security, monitoring, and incident response scripts for Windows Server and enterprise environments.</span>
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Framework-red?style=flat-square&logo=visualstudiocode" alt="Core-ScriptLibrary Badge">
-      </a>
-      <span> Shared PowerShell foundations for automation, reusable functions, GUIs, and backend logic.</span>
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=flat-square&logo=server" alt="ITSM-Templates-SVR Badge">
-      </a>
-      <span> Server templates for standardization, ITSM compliance, and operational automation.</span>
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=flat-square&logo=windows" alt="ITSM-Templates-WKS Badge">
-      </a>
-      <span> Workstation templates and procedures for Windows 10/11 endpoint configuration and compliance.</span>
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=flat-square&logo=powershell" alt="SysAdmin-Tools Badge">
-      </a>
-      <span> Tools for Active Directory, GPO operations, workstation provisioning, and infrastructure management.</span>
-    </li>
-  </ul>
+---
 
-  <h3>🔧 Release Support Policy</h3>
-  <p>
-    This repository uses <strong>tag/release versioning</strong>. Only the most recent <strong>2 minor lines</strong> are supported
-    (e.g., <code>v1.2.x</code> and <code>v1.3.x</code>). Older lines are considered unsupported unless explicitly stated in a release note.
-  </p>
+## Supported Versions
 
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
-    <caption><strong>Supported Release Lines (Policy)</strong></caption>
-    <thead>
-      <tr>
-        <th>Line</th>
-        <th>Status</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Latest minor line</td>
-        <td>✅ Supported</td>
-        <td>Receives security fixes, improvements, and CI updates.</td>
-      </tr>
-      <tr>
-        <td>Previous minor line</td>
-        <td>✅ Supported</td>
-        <td>Receives security fixes only (best-effort).</td>
-      </tr>
-      <tr>
-        <td>Older lines</td>
-        <td>❌ Unsupported</td>
-        <td>No guaranteed fixes; upgrade recommended.</td>
-      </tr>
-    </tbody>
-  </table>
+The following components of **Windows-SysAdmin-ProSuite** are actively maintained and receive security updates:
 
-  <h3>🖥️ Windows Workstation Compatibility</h3>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
-    <caption><strong>Supported Windows Workstation Versions</strong></caption>
-    <thead>
-      <tr><th>Version</th><th>Status</th><th>Notes</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Windows 11</td><td>✅ Supported</td><td>Supported for workstation scripts and templates.</td></tr>
-      <tr><td>Windows 10</td><td>✅ Supported</td><td>Supported for workstation scripts and templates.</td></tr>
-      <tr><td>Windows 8.x</td><td>❌ Unsupported</td><td>Not supported; upgrade required.</td></tr>
-      <tr><td>Windows 7</td><td>❌ Unsupported</td><td>Not supported; upgrade required.</td></tr>
-    </tbody>
-  </table>
+- **BlueTeam-Tools** – Security, monitoring, and incident response scripts
+- **Core-ScriptLibrary** – Shared PowerShell foundations and frameworks
+- **ITSM-Templates-SVR** – Server automation and ITSM compliance templates
+- **ITSM-Templates-WKS** – Windows workstation configuration templates
+- **SysAdmin-Tools** – Active Directory, GPO, and infrastructure management tools
 
-  <h3>🖥️ Windows Server Compatibility</h3>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
-    <caption><strong>Supported Windows Server Versions</strong></caption>
-    <thead>
-      <tr><th>Version</th><th>Status</th><th>Notes</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Windows Server 2022</td><td>✅ Supported</td><td>Supported for SysAdmin and BlueTeam toolsets.</td></tr>
-      <tr><td>Windows Server 2019</td><td>✅ Supported</td><td>Supported for SysAdmin and BlueTeam toolsets.</td></tr>
-      <tr><td>Windows Server 2016</td><td>✅ Supported</td><td>Supported on best-effort basis (older baseline).</td></tr>
-      <tr><td>Windows Server 2012</td><td>❌ Unsupported</td><td>Not supported; upgrade required.</td></tr>
-    </tbody>
-  </table>
-</section>
+---
 
-<section>
-  <h2>🕵️ Reporting a Vulnerability</h2>
-  <ol>
-    <li><strong>Contact:</strong> Send details to <a href="mailto:luizhamilton.lhr@gmail.com">luizhamilton.lhr@gmail.com</a></li>
-    <li><strong>Scope:</strong> Include affected module/folder, reproduction steps, logs, and expected impact.</li>
-    <li><strong>Response Time:</strong> Initial reply within <strong>3 business days</strong>.</li>
-    <li><strong>Fixes:</strong> Confirmed issues will be patched and released with notes and updated artifacts.</li>
-  </ol>
-  <p><strong>⚠️ Note:</strong> Please do not disclose vulnerabilities publicly until a patch or mitigation is published.</p>
-</section>
+## Release Support Policy
 
-<section>
-  <h2>🔒 Security Measures</h2>
-  <ul>
-    <li><strong>Secure CI:</strong> EditorConfig, Prettier, VBScript SARIF, and PowerShell SARIF pipelines enforce quality signals.</li>
-    <li><strong>Code Reviews:</strong> Changes are reviewed before merge when possible; CI gates reduce regressions.</li>
-    <li><strong>Least Privilege:</strong> GitHub Actions permissions are minimized and scoped per job.</li>
-    <li><strong>Traceability:</strong> Builds produce artifacts and summaries for auditing and reproducibility.</li>
-  </ul>
-</section>
+This repository uses **tag and release versioning**.
 
-<section>
-  <h2>📚 Additional Resources</h2>
-  <ul>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/BlueTeam-Tools/README.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/BlueTeam%20Tools-Docs-orange?style=flat-square&logo=readthedocs" alt="BlueTeam Docs">
-      </a>
-      BlueTeam forensic and threat monitoring documentation
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/Core-ScriptLibrary/README.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/Core%20ScriptLibrary-Docs-red?style=flat-square&logo=readthedocs" alt="Core Script Docs">
-      </a>
-      Core scripts and UI frameworks documentation
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-SVR/README.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/ITSM%20Templates-SVR%20Docs-purple?style=flat-square&logo=readthedocs" alt="ITSM SVR Docs">
-      </a>
-      ITSM templates for server automation
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/ITSM-Templates-WKS/README.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/ITSM%20Templates-WKS%20Docs-green?style=flat-square&logo=readthedocs" alt="ITSM WKS Docs">
-      </a>
-      Templates for endpoint configuration and security
-    </li>
-    <li>
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/SysAdmin-Tools/README.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/SysAdmin%20Tools-Docs-blue?style=flat-square&logo=readthedocs" alt="SysAdmin Docs">
-      </a>
-      Admin scripts for directory, servers, and workstation management
-    </li>
-  </ul>
-</section>
+Only the **two most recent minor release lines** are supported at any given time.
 
-<section>
-  <h2>🗂️ Version History</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
-    <caption><strong>Security Policy Versioning</strong></caption>
-    <thead>
-      <tr>
-        <th>Version</th>
-        <th>Date</th>
-        <th>Changes Made</th>
-        <th>Author</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td>3.0</td><td>2026-02-03</td><td>Policy refresh: tag/release support lines, updated module wording, CI/security measures section refined</td><td>Luiz Hamilton Silva</td></tr>
-      <tr><td>2.8</td><td>2025-07-21</td><td>Added tools for total Active Directory Services integration</td><td>Luiz Hamilton Silva</td></tr>
-      <tr><td>1.2</td><td>2024-04-27</td><td>Updated support tables and links</td><td>Luiz Hamilton Silva</td></tr>
-      <tr><td>1.1</td><td>2023-06-15</td><td>Added templates and Core library</td><td>Luiz Hamilton Silva</td></tr>
-      <tr><td>1.0</td><td>2023-01-01</td><td>Initial release</td><td>Luiz Hamilton Silva</td></tr>
-    </tbody>
-  </table>
-</section>
+| Release Line | Status | Notes |
+|-------------|--------|-------|
+| Latest minor line | ✅ Supported | Receives security fixes, improvements, and CI updates |
+| Previous minor line | ✅ Supported | Receives security fixes only (best-effort) |
+| Older lines | ❌ Unsupported | No guaranteed fixes; upgrade strongly recommended |
 
-<p align="center" style="color: #777;">&copy; 2026 Luiz Hamilton. All rights reserved.</p>
+---
+
+## Windows Compatibility
+
+### Windows Workstations
+
+| Version | Status | Notes |
+|-------|--------|------|
+| Windows 11 | ✅ Supported | Fully supported |
+| Windows 10 | ✅ Supported | Fully supported |
+| Windows 8.x | ❌ Unsupported | Upgrade required |
+| Windows 7 | ❌ Unsupported | Upgrade required |
+
+### Windows Server
+
+| Version | Status | Notes |
+|-------|--------|------|
+| Windows Server 2022 | ✅ Supported | Full support |
+| Windows Server 2019 | ✅ Supported | Full support |
+| Windows Server 2016 | ⚠️ Best-effort | Older baseline |
+| Windows Server 2012 | ❌ Unsupported | Upgrade required |
+
+---
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability, please report it responsibly.
+
+1. **Contact:**  
+   Send details to **luizhamilton.lhr@gmail.com**
+
+2. **Include:**  
+   - Affected module or folder  
+   - Reproduction steps (if possible)  
+   - Logs, screenshots, or proof-of-concept  
+   - Expected impact and severity assessment
+
+3. **Response Time:**  
+   You can expect an initial response within **3 business days**.
+
+4. **Fixes:**  
+   Confirmed vulnerabilities will be patched and released with appropriate notes and updated artifacts.
+
+> ⚠️ **Please do not disclose vulnerabilities publicly** until a fix or mitigation has been published.
+
+---
+
+## Security Measures
+
+This project applies multiple defense-in-depth measures:
+
+- **Secure CI pipelines**  
+  PowerShell SARIF, VBScript SARIF, EditorConfig, and formatting enforcement
+
+- **Code review process**  
+  Changes are reviewed when possible; CI gates reduce regressions
+
+- **Least privilege**  
+  GitHub Actions permissions are minimized and scoped per job
+
+- **Traceability**  
+  Builds generate artifacts, logs, and summaries for auditing and reproducibility
+
+---
+
+## Additional Resources
+
+- **BlueTeam-Tools documentation**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools
+
+- **Core-ScriptLibrary documentation**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary
+
+- **ITSM-Templates-SVR documentation**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR
+
+- **ITSM-Templates-WKS documentation**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS
+
+- **SysAdmin-Tools documentation**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools
+
+---
+
+## Policy Version History
+
+| Version | Date | Changes | Author |
+|-------|------|--------|--------|
+| 3.0 | 2026-02-03 | Policy refresh: tag/release support lines, updated module wording, refined CI/security measures | Luiz Hamilton Silva |
+| 2.8 | 2025-07-21 | Added Active Directory integration tools | Luiz Hamilton Silva |
+| 1.2 | 2024-04-27 | Updated support tables and links | Luiz Hamilton Silva |
+| 1.1 | 2023-06-15 | Added templates and Core library | Luiz Hamilton Silva |
+| 1.0 | 2023-01-01 | Initial release | Luiz Hamilton Silva |
+
+---
+
+© 2026 Luiz Hamilton. All rights reserved.
