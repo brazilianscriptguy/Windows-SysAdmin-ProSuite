@@ -1,21 +1,31 @@
-# Ignore artifacts and dependencies
+# Dependencies and build outputs
 node_modules/
 dist/
 build/
 coverage/
+artifacts/
 
-# Ignore package archives or zip bundles
+# Archives and packages
 *.zip
 *.nupkg
+*.snupkg
 
-# Ignore PowerShell, VBScript, and binary scripts
+# Logs and temp
+*.log
+*.tmp
+*.bak
+
+# Platform junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Generated test outputs
+*.test.json
+
+# Windows automation / legacy formats (Prettier doesn't handle these)
 *.ps1
+*.psm1
+*.psd1
 *.vbs
 *.hta
-
-# Ignore logs
-*.log
-
-# Ignore generated JSON or test outputs
-*.test.json
-artifacts/
