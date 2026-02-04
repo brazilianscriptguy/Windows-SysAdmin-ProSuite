@@ -117,13 +117,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 ## 🤝 Support & Contributions
 
-* 📧 Email: [luizhamilton.lhr@gmail.com](mailto:luizhamilton.lhr@gmail.com)
-* 🐞 Issues: [https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues)
-* 💙 Patreon: [https://www.patreon.com/brazilianscriptguy](https://www.patreon.com/brazilianscriptguy)
-* ☕ Buy Me a Coffee: [https://buymeacoffee.com/brazilianscriptguy](https://buymeacoffee.com/brazilianscriptguy)
-* 💠 Ko-fi: [https://ko-fi.com/brazilianscriptguy](https://ko-fi.com/brazilianscriptguy)
-* 🌐 GoFundMe: [https://www.gofundme.com/f/brazilianscriptguy](https://www.gofundme.com/f/brazilianscriptguy)
-* 📱 WhatsApp Channel: [https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![Patreon](https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
+[![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
 
 ---
 
