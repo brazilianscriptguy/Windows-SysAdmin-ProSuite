@@ -1,6 +1,6 @@
 {
   "name": "windows-sysadmin-prosuite",
-  "version": "1.0.0",
+  "version": "1.8.8",
   "description": "PowerShell & VBScript Automation Tools for Windows Server and ITSM Workstations — Secure, Scalable, and Enterprise-Ready.",
   "author": "Luiz Hamilton (@brazilianscriptguy)",
   "license": "MIT",
@@ -31,19 +31,8 @@
   "devDependencies": {
     "prettier": "^3.2.5"
   },
-  "prettier": {
-    "printWidth": 120,
-    "tabWidth": 4,
-    "useTabs": false,
-    "semi": true,
-    "singleQuote": true,
-    "trailingComma": "es5",
-    "bracketSpacing": true,
-    "arrowParens": "always",
-    "endOfLine": "lf"
-  },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "private": true
 }
