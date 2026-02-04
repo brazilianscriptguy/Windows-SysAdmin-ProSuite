@@ -1,0 +1,125 @@
+name: "🕾️ Bug Report"
+description: "Help us improve by reporting issues clearly and completely."
+title: "[Bug] "
+labels:
+  - "bug"
+  - "needs-investigation"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        🛠️ **Help us improve** by reporting issues clearly and completely.
+        Please provide reproducible steps and include environment details.
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: "🐛 Describe the bug"
+      description: "Clearly describe the problem, including observed behavior and impact."
+      placeholder: "What happened? What is the impact?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: "🚪 Steps to reproduce"
+      description: "Provide clear steps so we can reproduce the issue."
+      placeholder: |
+        1) Go to '...'
+        2) Click on '...'
+        3) Scroll down to '...'
+        4) See the error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: "📊 Expected behavior"
+      description: "What did you expect to happen instead?"
+      placeholder: "Describe the expected behavior."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: "📉 Actual behavior / error output"
+      description: "Paste the exact error message/output. Attach logs/screenshots if needed."
+      placeholder: |
+        Error output:
+        - ...
+
+        Logs (redacted):
+        - ...
+    validations:
+      required: false
+
+  - type: input
+    id: operating_system
+    attributes:
+      label: "🌐 Operating System"
+      placeholder: "Windows 11 / Windows Server 2022 / Ubuntu runner / etc."
+    validations:
+      required: true
+
+  - type: input
+    id: powershell_version
+    attributes:
+      label: "🧾 PowerShell Version"
+      placeholder: "5.1.x / 7.3.x / 7.4.x"
+    validations:
+      required: false
+
+  - type: input
+    id: affected_tool
+    attributes:
+      label: "🧰 Affected script or tool path"
+      description: "Provide the repository-relative path to the script/tool."
+      placeholder: "SysAdmin-Tools/.../ToolName.ps1"
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment_details
+    attributes:
+      label: "🔧 Environment details (optional)"
+      description: "Module versions, domain context, network setup, dependencies, runner/host info."
+      placeholder: |
+        - Module versions:
+        - Domain/forest context:
+        - Network/VPN:
+        - Execution method (GUI/GPO/manual):
+        - Anything else relevant:
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: "📃 Additional context"
+      description: "Anything else that helps reproduce or understand the issue."
+      placeholder: "Add any relevant context here."
+    validations:
+      required: false
+
+  - type: textarea
+    id: possible_fix
+    attributes:
+      label: "💡 Possible fix (optional)"
+      description: "If you already know what might fix it, describe it."
+      placeholder: "Suggested fix or approach..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: "✅ Confirmations"
+      options:
+        - label: "I confirm I removed or redacted secrets (passwords, tokens, private keys) from logs/screenshots."
+          required: true
+        - label: "I confirm this is not a security vulnerability (use the Security Advisory link for private reports)."
+          required: true
