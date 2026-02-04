@@ -2,7 +2,7 @@
 
 ## AD-SSO-APIs-Integration
 
-- ✅ Created secure LDAP and SSO authentication templates.
+- ✅ Created secure LDAP and SSO authentication templates;
 - ➕ Added ready-to-use integration examples for PHP, .NET, Flask, Node.js, and Spring Boot.
 - 🔐 Introduced environment-based credential storage and bind authentication options.
 - ⚙️ Implemented modular and cross-platform architecture with fallback strategies.
