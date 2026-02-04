@@ -106,12 +106,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 ### Logs and reports
 
-| Path                | Purpose                                |
-| ------------------- | -------------------------------------- |
-| `C:\ITSM-Logs-WKS\` | Workstation automation logs            |
-| `C:\ITSM-Logs-SVR\` | Server-side execution logs             |
-| `C:\Scripts-LOGS\`  | GPO sync, agents, and security tooling |
-| `C:\Logs-TEMP\`     | General-purpose and legacy outputs     |
+| Path                              | Purpose                                                                 |
+|-----------------------------------|-------------------------------------------------------------------------|
+| `C:\ITSM-Logs-WKS\`               | Workstation automation execution logs                                   |
+| `C:\ITSM-Logs-SVR\`               | Server-side automation and execution logs                                |
+| `C:\Scripts-LOGS\`                | GPO synchronization, agents, and security tooling logs                  |
+| `C:\Logs-TEMP\`                   | General-purpose, transient, and legacy script outputs                    |
+| `%USERPROFILE%\Documents\`        | CSV and exported reports for compliance, forensics, and ITSM workflows  |
 
 ---
 
