@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/discussions
+    about: Ask questions, request guidance, or discuss usage.
+
+  - name: 🔐 Security Vulnerability Report
+    url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/advisories/new
+    about: Report security issues privately and responsibly.
