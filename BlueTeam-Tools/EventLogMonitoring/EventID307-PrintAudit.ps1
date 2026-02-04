@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    PowerShell Script for Auditing Print Activities via Event ID 307 using Log Parser.
+    PowerShell Script for Auditing Print Activities via Event ID 307 using Log Parser..
 
 .DESCRIPTION
     This script audits print activities by analyzing Event ID 307 from either the live Microsoft-Windows-PrintService/Operational 
