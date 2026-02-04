@@ -39,8 +39,6 @@ jobs:
       PSA_VERSION: "1.24.0"
       SARIF_FILE: "psscriptanalyzer-results.sarif"
       SUMMARY_MD: "psscriptanalyzer-summary.md"
-      # Report-only mode is handled by failing only on Error-level findings.
-      # Warnings will be reported but won't fail the job.
 
     steps:
       - name: 📦 Checkout Repository
@@ -64,7 +62,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Exclude common vendored/build dirs to avoid noise
           count="$(find . \
             -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
             -o -type f -name "*.ps1" -print | wc -l | tr -d ' ')"
@@ -87,7 +84,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           $required = [version]'${{ env.PSA_VERSION }}'
-          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1
+          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
 
           if (-not $installed -or $installed.Version -ne $required) {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
@@ -128,7 +127,6 @@ jobs:
             }
           }
 
-          # Do not fail on fixer output; analysis step handles enforcement
           Invoke-ScriptAnalyzer @htFix | Out-Null
 
       - name: 🔁 Create Auto-Fix PR (push events only, only if changed)
@@ -193,9 +191,9 @@ jobs:
             $sarifResults = $results | ForEach-Object {
               $rel = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '').Replace("$env:GITHUB_WORKSPACE\", '')
               @{
-                ruleId   = $_.RuleName
-                level    = $_.Severity.ToString().ToLower()
-                message  = @{ text = $_.Message }
+                ruleId    = $_.RuleName
+                level     = $_.Severity.ToString().ToLower()
+                message   = @{ text = $_.Message }
                 locations = @(
                   @{
                     physicalLocation = @{
@@ -221,19 +219,50 @@ jobs:
 
           $sarif | ConvertTo-Json -Depth 12 | Out-File -FilePath $sarifFile -Encoding utf8
 
-          # Fail only on Error-level findings
+          if (-not (Test-Path $sarifFile)) {
+            throw "SARIF file was not created: $sarifFile"
+          }
+
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
             throw "PSScriptAnalyzer found error-level findings."
           }
 
-      - name: 🧾 Create Empty SARIF (No .ps1 Files)
+      - name: 🧾 Create Empty SARIF (No PowerShell Files Detected)
         if: steps.check_ps1.outputs.count == '0'
         shell: bash
         run: |
           set -euo pipefail
-          cat > "${{ env.SARIF_FILE }}" <<'EOF'
-          {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
+
+          WORKSPACE="${{ github.workspace }}"
+          SARIF_PATH="${WORKSPACE}/${{ env.SARIF_FILE }}"
+
+          echo "No .ps1 files detected. Generating empty SARIF report..."
+          echo "Target path: $SARIF_PATH"
+
+          cat > "$SARIF_PATH" <<'EOF'
+          {
+            "$schema": "http://json.schemastore.org/sarif-2.1.0",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "PSScriptAnalyzer",
+                    "version": "0"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
           EOF
+
+          if [[ ! -f "$SARIF_PATH" ]]; then
+            echo "::error::Failed to create SARIF file at $SARIF_PATH"
+            exit 1
+          fi
+
+          echo "Empty SARIF successfully created."
 
       - name: 📊 Upload SARIF Artifact
         if: always()
