@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>sysadmin-prosuite</id>
-    <version>1.0.0</version>
+    <version>1.8.8</version>
     <authors>brazilianscriptguy</authors>
     <owners>brazilianscriptguy</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
