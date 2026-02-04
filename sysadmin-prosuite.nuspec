@@ -3,39 +3,75 @@
   <metadata>
     <id>sysadmin-prosuite</id>
     <version>1.8.8</version>
-    <authors>brazilianscriptguy</authors>
+
+    <authors>Luiz Hamilton Silva (@brazilianscriptguy)</authors>
     <owners>brazilianscriptguy</owners>
+
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="file">LICENSE.txt</license>
-    <description>
-      Comprehensive suite of tools for Windows Server Administration and Workstation ITSM Templates, including AD, SSO, GPOs, Logging, Incident Response, and NuGet packaging.
-    </description>
-    <tags>SysAdmin ITSM PowerShell AD GPO SSO VBScript Windows NuGet</tags>
-    <readme>README.md</readme>
-    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
-    <icon>icon.png</icon>
-    <repository type="git" url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite" />
-  </metadata>
-  <files>
-    <file src="LICENSE.txt" target="" />
-    <file src="icon.png" target="" />
-    <file src="README.md" target="" />
 
-    <!-- All tool folders and readmes -->
-    <file src="SysAdmin-Tools\**\*.*" target="tools\SysAdmin-Tools" />
+    <title>Windows SysAdmin ProSuite</title>
+
+    <description>
+Comprehensive suite of PowerShell and VBScript automation tools for Windows Server
+administration and ITSM workstation management.
+
+Includes Active Directory management, SSO integrations, GPO templates,
+logging frameworks, incident response utilities, and enterprise-ready
+NuGet-distributed tooling.
+    </description>
+
+    <summary>
+Enterprise-grade Windows SysAdmin and ITSM automation toolkit.
+    </summary>
+
+    <tags>
+sysadmin itsm powershell vbscript windows-server
+active-directory gpo sso automation blueteam forensics nuget
+    </tags>
+
+    <readme>README.md</readme>
+
+    <projectUrl>
+https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite
+    </projectUrl>
+
+    <icon>icon.png</icon>
+
+    <repository
+      type="git"
+      url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
+    />
+  </metadata>
+
+  <files>
+    <!-- Root metadata -->
+    <file src="LICENSE.txt" target="" />
+    <file src="README.md" target="" />
+    <file src="icon.png" target="" />
+
+    <!-- SysAdmin Tools -->
+    <file src="SysAdmin-Tools\**\*" target="tools\SysAdmin-Tools" />
     <file src="SysAdmin-Tools\README.md" target="docs\SysAdmin-Tools\README.md" />
 
-    <file src="ITSM-Templates-WKS\**\*.*" target="tools\ITSM-Templates-WKS" />
+    <!-- ITSM Templates - Workstations -->
+    <file src="ITSM-Templates-WKS\**\*" target="tools\ITSM-Templates-WKS" />
     <file src="ITSM-Templates-WKS\README.md" target="docs\ITSM-Templates-WKS\README.md" />
-    <file src="ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf" target="docs\ITSM-Templates-WKS" />
+    <file
+      src="ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf"
+      target="docs\ITSM-Templates-WKS"
+    />
 
-    <file src="ITSM-Templates-SVR\**\*.*" target="tools\ITSM-Templates-SVR" />
+    <!-- ITSM Templates - Servers -->
+    <file src="ITSM-Templates-SVR\**\*" target="tools\ITSM-Templates-SVR" />
     <file src="ITSM-Templates-SVR\README.md" target="docs\ITSM-Templates-SVR\README.md" />
 
-    <file src="Core-ScriptLibrary\**\*.*" target="tools\Core-ScriptLibrary" />
+    <!-- Core Script Library -->
+    <file src="Core-ScriptLibrary\**\*" target="tools\Core-ScriptLibrary" />
     <file src="Core-ScriptLibrary\README.md" target="docs\Core-ScriptLibrary\README.md" />
 
-    <file src="BlueTeam-Tools\**\*.*" target="tools\BlueTeam-Tools" />
+    <!-- Blue Team Tools -->
+    <file src="BlueTeam-Tools\**\*" target="tools\BlueTeam-Tools" />
     <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
   </files>
 </package>
