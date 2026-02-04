@@ -1,94 +1,124 @@
-<div>
-  <h1>🤝 Contributing to PowerShell ToolSet for Windows Server Administration and VBScript Repository</h1>
-  <p>
-    Thank you for considering contributing to this project! Contributions are welcome and appreciated. By following these guidelines, you help ensure the project remains high-quality, maintainable, and useful for all users.
-  </p>
+# 🤝 Contributing to Windows SysAdmin ProSuite
 
-  <h2>📝 How to Contribute</h2>
+Thank you for your interest in contributing to **Windows SysAdmin ProSuite**.  
+This repository contains **enterprise-grade PowerShell and VBScript automation tools** focused on Windows Server, Active Directory, ITSM workflows, and security operations.
 
-  <h3>1. 🐞 Reporting Issues</h3>
-  <ul>
-    <li>
-      <strong>Bug Reports:</strong> Use the <strong>Bug report</strong> template to report issues. Include steps to reproduce, system environment, and logs or screenshots when possible.
-    </li>
-    <li>
-      <strong>Feature Requests:</strong> Use the <strong>Feature request</strong> template to suggest improvements or new ideas. Please be specific and explain how the feature adds value.
-    </li>
-  </ul>
+Contributions are welcome and appreciated, provided they follow the guidelines below.
 
-  <h3>2. 🔀 Submitting Pull Requests</h3>
-  <ul>
-    <li><strong>Fork the Repository:</strong> Fork it to your GitHub account.</li>
-    <li><strong>Create a Branch:</strong> Use a descriptive branch name like <code>feature/add-new-tool</code> or <code>bugfix/remove-legacy-code</code>.</li>
-    <li><strong>Make Changes:</strong> Keep your code modular, clean, and follow existing conventions.</li>
-    <li><strong>Test Changes:</strong> Ensure your script works as intended and doesn't break other functions.</li>
-    <li><strong>Submit PR:</strong> Target your pull request to the <code>main</code> branch and provide a clear explanation of the changes.</li>
-  </ul>
+---
 
-  <h3>3. 💻 Coding Standards</h3>
-  <ul>
-    <li><strong>Style Consistency:</strong> Match the indentation, casing, and layout style already used.</li>
-    <li><strong>Comments:</strong> Use meaningful comments to explain non-obvious logic and structures.</li>
-    <li><strong>Commits:</strong> Write clear and meaningful commit messages that describe the "what" and "why" of your changes.</li>
-  </ul>
+## 📝 Ways to Contribute
 
-  <h3>4. ✨ Guidelines for New Features</h3>
-  <ul>
-    <li><strong>Project Alignment:</strong> Features must align with Windows Server and workstation management objectives.</li>
-    <li><strong>No Breaking Changes:</strong> Maintain compatibility with existing scripts and usage where possible.</li>
-  </ul>
+### 🐞 Reporting Bugs
+All issues **must** be submitted using the GitHub Issue Forms.
 
-  <h3>5. 👤 Communication</h3>
-  <ul>
-    <li><strong>Respect:</strong> Be courteous, inclusive, and constructive in all interactions.</li>
-    <li><strong>Open Questions:</strong> Raise questions by opening issues or joining ongoing discussions.</li>
-  </ul>
+- Use **Bug Report** for defects, errors, or unexpected behavior
+- Provide:
+  - Clear reproduction steps
+  - Expected vs actual behavior
+  - Environment details (OS, PowerShell version, tool path)
+  - Logs or screenshots when applicable
 
-  <h2>📚 Additional Resources</h2>
-  <ul>
-    <li>
-      <strong>📜 Code of Conduct:</strong> Read our
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CODE_OF_CONDUCT.md" target="_blank">Code of Conduct</a>
-      to understand the standards of behavior.
-    </li>
-    <li>
-      <strong>📖 Getting Started:</strong> Review the
-      <a href="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main" target="_blank">README.md</a>
-      for project structure and module details.
-    </li>
-  </ul>
+👉 Issue forms automatically apply labels and ensure consistent structure.
 
-  <hr />
+---
 
-  <h2>🗂️ Version History</h2>
-  <table border="1" style="border-collapse: collapse; width: 100%;">
-    <thead>
-      <tr>
-        <th>Version</th>
-        <th>Date</th>
-        <th>Changes Made</th>
-        <th>Author</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>1.0</td>
-        <td>2023-01-01</td>
-        <td>Initial creation</td>
-        <td>Luiz Hamilton Silva</td>
-      </tr>
-      <tr>
-        <td>1.1</td>
-        <td>2023-06-15</td>
-        <td>Added Core-ScriptLibrary and ITSM-Templates</td>
-        <td>Luiz Hamilton Silva</td>
-      </tr>
-      <tr>
-        <td>1.2</td>
-        <td>2024-04-27</td>
-        <td>Updated Supported Versions tables and links</td>
-        <td>Luiz Hamilton Silva</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+### ✨ Requesting Features
+Use the **Feature Request** issue form when proposing enhancements.
+
+Please include:
+- The problem being solved
+- The proposed solution
+- Alternatives considered
+- Expected impact or benefit
+
+Feature requests should align with:
+- Windows Server administration
+- Active Directory / IAM
+- ITSM automation
+- Security and compliance tooling
+
+---
+
+### 🔀 Submitting Pull Requests
+
+#### 1. Fork & Branch
+- Fork the repository
+- Create a branch from `main`
+- Use descriptive branch names:
+  - `feature/add-dhcp-tool`
+  - `bugfix/fix-null-check`
+  - `docs/update-readme`
+
+#### 2. Development Rules
+- Follow existing folder structure
+- Do **not** mix unrelated changes in a single PR
+- Do **not** modify version numbers inside PRs
+
+#### 3. Coding Standards (Mandatory)
+
+**PowerShell**
+- 4-space indentation
+- No `Write-Host`
+- Comment-based help headers required
+- Compatible with PowerShell 5.1+
+- Logging to `C:\Logs-TEMP`
+- No breaking changes without discussion
+
+**Linting / Formatting**
+- PSScriptAnalyzer rules enforced
+- Prettier formatting for Markdown, YAML, JSON
+- CI must pass before review
+
+#### 4. Testing
+Before submitting:
+- Test scripts locally
+- Validate GUI behavior if applicable
+- Ensure no regressions are introduced
+
+#### 5. Submit the PR
+- Target the `main` branch
+- Clearly describe:
+  - What was changed
+  - Why it was changed
+  - Any limitations or follow-ups
+
+---
+
+## ☑️ Pull Request Checklist
+
+Before submitting, confirm:
+
+- [ ] Code follows repository standards
+- [ ] Scripts were tested locally
+- [ ] No unrelated files were modified
+- [ ] Documentation updated when needed
+- [ ] No new warnings or errors introduced
+- [ ] CI checks pass
+
+---
+
+## 💬 Communication & Conduct
+
+- Be respectful and constructive
+- Keep discussions technical and objective
+- Use Issues for questions or clarifications
+
+Please read the **Code of Conduct** before contributing.
+
+---
+
+## 📚 Useful Links
+
+- 📄 **README:**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite
+
+- 📜 **Code of Conduct:**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CODE_OF_CONDUCT.md
+
+- 🔐 **Security Policy:**  
+  https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/SECURITY.md
+
+---
+
+Thank you for helping improve **Windows SysAdmin ProSuite** 🚀
