@@ -1,0 +1,70 @@
+name: ✨ Feature Request
+description: Suggest an idea for this project.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - feature
+  - triage
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest an improvement.
+        Please be specific and include context (why, where, who benefits).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🧩 Is your request related to a problem?
+      description: Describe the problem you want to solve.
+      placeholder: "Example: I'm frustrated when the script doesn't handle large user bases efficiently."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Describe the solution you'd like
+      description: What should be built/changed?
+      placeholder: "Example: Implement pagination in the user management module..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives you've considered
+      description: Other approaches you considered and why they are less ideal.
+      placeholder: "Example: Optimize existing script, but pagination is more scalable..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 📈 Impact / Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 📚 Additional context
+      description: Add screenshots, logs, links to code paths, or references.
+      placeholder: "Any extra details that help implement the feature."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: ✅ Confirmation
+      options:
+        - label: I confirm this is not a security vulnerability (those must be reported via Security Advisories).
+          required: true
