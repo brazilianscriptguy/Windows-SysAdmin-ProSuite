@@ -1,12 +1,12 @@
-name: Publish NuGet Package to GitHub (Tag/Release Versioning)
+name: Publish NuGet Package to GitHub (Manual Only)
 
 on:
-  push:
-    tags:
-      - "v*"
-  release:
-    types: [published, prerelease]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "NuGet version (e.g. 1.8.8 or 1.8.8-rc.1)"
+        required: true
+        type: string
 
 concurrency:
   group: publish-nuget-${{ github.ref }}
@@ -36,32 +36,26 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🏷️ Resolve package version (tag or release)
+      - name: 🏷️ Resolve package version (manual input)
         id: ver
         shell: bash
         run: |
           set -euo pipefail
 
-          # Prefer tag name when available (push tags), otherwise use release tag
-          tag="${GITHUB_REF_NAME:-}"
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            tag="${{ github.event.release.tag_name }}"
-          fi
+          ver="${{ github.event.inputs.version }}"
 
-          if [[ -z "${tag:-}" ]]; then
-            echo "::error::Could not resolve version tag from event."
+          if [[ -z "${ver:-}" ]]; then
+            echo "::error::Missing required input: version"
             exit 1
           fi
 
-          # Accept v1.2.3, also allow prerelease/build: v1.2.3-rc.1
-          ver="${tag#v}"
-
+          # Accept 1.2.3, also allow prerelease/build: 1.2.3-rc.1
           if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Invalid version derived from tag: '$ver' (tag='$tag'). Expected vMAJOR.MINOR.PATCH (optionally -prerelease)."
+            echo "::error::Invalid version: '$ver'. Expected MAJOR.MINOR.PATCH (optionally -prerelease)."
             exit 1
           fi
 
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "tag=" >> "$GITHUB_OUTPUT"
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $ver"
 
@@ -114,7 +108,7 @@ jobs:
           cp LICENSE.txt "${STAGE_DIR}/LICENSE.txt"
           cp icon.png "${STAGE_DIR}/icon.png"
 
-      - name: ✍️ Patch .nuspec version to tag version
+      - name: ✍️ Patch .nuspec version to input version
         shell: bash
         run: |
           set -euo pipefail
@@ -126,7 +120,6 @@ jobs:
             "$nuspec"
 
           echo "Nuspec version patched to: ${{ steps.ver.outputs.version }}"
-          # Show patched value (sanity check)
           xmlstarlet sel -N n="$NS" -t -v "normalize-space(//n:package/n:metadata/n:version)" "$nuspec" && echo ""
 
       - name: 🔎 Validate .nuspec metadata (readme / repository / license / icon)
