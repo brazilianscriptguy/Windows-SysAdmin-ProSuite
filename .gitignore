@@ -19,7 +19,7 @@ Logs/
 Logs-TEMP/
 
 # =====================================
-# ⚡ Cache and Backup Directories
+# ⚡ Cache and Temporary Directories
 # =====================================
 .cache/
 temp/
@@ -32,6 +32,7 @@ bin/
 obj/
 artifacts/
 out/
+
 *.dll
 *.exe
 *.app
@@ -40,18 +41,20 @@ out/
 *.lib
 
 # =====================================
-# 📦 NuGet Packages and Related Files
+# 📦 NuGet Packages and Outputs
 # =====================================
 .nuget/
 NuGet/
 *.nupkg
 *.snupkg
-*.nuspec
 NuGetPackageContent/
-NuGetPackageContent/lib/net*/**/*.dll
+
+# NOTE:
+# *.nuspec is NOT ignored here
+# Nuspec files are source-of-truth and versioned
 
 # =====================================
-# 🔐 Sensitive and Environment Files
+# 🔐 Secrets and Environment Files
 # =====================================
 *.pfx
 *.cert
@@ -74,12 +77,12 @@ secrets.*
 *.vsconfig
 
 # =====================================
-# ⚙️ PowerShell Metadata (ignore only generated files)
+# ⚙️ PowerShell Generated Metadata
 # =====================================
 *.ps1.xml
 
 # =====================================
-# ☕ Java / Spring Boot API
+# ☕ Java / Spring Boot
 # =====================================
 SpringBoot-API/target/
 SpringBoot-API/.classpath
@@ -88,20 +91,20 @@ SpringBoot-API/.settings/
 *.iml
 
 # =====================================
-# 🧩 .NET Core / DotNet API
+# 🧩 .NET Projects
 # =====================================
 DotNet-API/bin/
 DotNet-API/obj/
 
 # =====================================
-# 🟢 Node.js / NodeJS API
+# 🟢 Node.js
 # =====================================
 NodeJS-API/node_modules/
 NodeJS-API/package-lock.json
 NodeJS-API/npm-debug.log*
 
 # =====================================
-# 🐍 Python / Flask API
+# 🐍 Python
 # =====================================
 Flask-API/__pycache__/
 Flask-API/*.py[cod]
@@ -111,19 +114,19 @@ Flask-API/.mypy_cache/
 Flask-API/.pytest_cache/
 
 # =====================================
-# 🐘 PHP / PHP API
+# 🐘 PHP
 # =====================================
 PHP-API/vendor/
 PHP-API/composer.lock
 
 # =====================================
-# 🧪 Placeholder Projects
+# 🧪 Placeholder / Test Projects
 # =====================================
 PlaceholderDll/
 PlaceholderDll/*.csproj
 
 # =====================================
-# 📝 Config & Tooling Metadata
+# 📝 Tooling Config Overrides
 # =====================================
 config/.editorconfig
 config/.gitattributes
