@@ -1,4 +1,4 @@
-name: Generate README Cards (No External Services
+name: Generate README Cards (No External Services)
 
 on:
   schedule:
@@ -33,16 +33,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f ".github/scripts/generate_readme_cards.py" || {
+          if [[ ! -f ".github/scripts/generate_readme_cards.py" ]]; then
             echo "::error file=.github/scripts/generate_readme_cards.py::Generator script not found."
             exit 1
-          }
+          fi
 
       - name: 🧠 Generate SVG cards
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
-        shell: bash
         run: |
           set -euo pipefail
           python -V
@@ -53,12 +53,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Optional: avoid writing to unexpected branches on schedule
-          # Remove this block if you WANT schedule runs on non-default branches.
+          # Guard: avoid scheduled runs pushing to non-default branches
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             default_branch="${{ github.event.repository.default_branch }}"
             if [[ "${GITHUB_REF_NAME}" != "${default_branch}" ]]; then
               echo "Scheduled run on '${GITHUB_REF_NAME}', but default branch is '${default_branch}'. Skipping push."
+              echo "ℹ️ Scheduled run skipped (not default branch)." >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
           fi
@@ -67,6 +67,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add -A
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
             echo "✅ No README card changes detected." >> "$GITHUB_STEP_SUMMARY"
