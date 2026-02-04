@@ -1,10 +1,16 @@
 {
-  "IncludeRules": ["PSUseConsistentIndentation", "PSAvoidUsingWriteHost"],
+  "IncludeRules": [
+    "PSUseConsistentIndentation",
+    "PSAvoidUsingWriteHost"
+  ],
   "Rules": {
     "PSUseConsistentIndentation": {
       "Enable": true,
       "Kind": "space",
       "IndentationSize": 4
+    },
+    "PSAvoidUsingWriteHost": {
+      "Enable": true
     }
   }
 }
