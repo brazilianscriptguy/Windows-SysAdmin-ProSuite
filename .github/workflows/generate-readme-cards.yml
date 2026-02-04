@@ -41,7 +41,7 @@ jobs:
       - name: 🧠 Generate SVG cards
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: brazilianscriptguy
+          GITHUB_USERNAME: ${{ github.repository_owner }}
         shell: bash
         run: |
           set -euo pipefail
@@ -53,19 +53,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Optional: avoid writing to unexpected branches on schedule
+          # Remove this block if you WANT schedule runs on non-default branches.
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            default_branch="${{ github.event.repository.default_branch }}"
+            if [[ "${GITHUB_REF_NAME}" != "${default_branch}" ]]; then
+              echo "Scheduled run on '${GITHUB_REF_NAME}', but default branch is '${default_branch}'. Skipping push."
+              exit 0
+            fi
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add -A
-
           if git diff --cached --quiet; then
             echo "No changes to commit."
+            echo "✅ No README card changes detected." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           git commit -m "chore: update README cards"
 
-          # Avoid non-fast-forward failures (safe for scheduled jobs)
+          # Avoid non-fast-forward failures
           git pull --rebase origin "${GITHUB_REF_NAME}"
 
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          echo "✅ README cards updated and pushed to '${GITHUB_REF_NAME}'." >> "$GITHUB_STEP_SUMMARY"
