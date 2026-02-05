@@ -46,7 +46,7 @@ date-released: "2026-02-03"
 preferred-citation:
   type: software
   authors:
-    - family-names: "Silva"
+    - family-names: "Roberto da Silva"
       given-names: "Luiz Hamilton"
       orcid: "https://orcid.org/0000-0003-3705-7468"
   title: "Windows-SysAdmin-ProSuite"
