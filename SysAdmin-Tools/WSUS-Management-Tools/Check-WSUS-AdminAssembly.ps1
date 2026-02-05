@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    WSUS Admin API / UpdateServices availability and connectivity preflight.
+    WSUS Admin API / UpdateServices availability and connectivity preflight. 
 
 .DESCRIPTION
     Validates that the WSUS Administration API can be loaded and (optionally) that a WSUS server
