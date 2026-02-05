@@ -1,23 +1,18 @@
 cff-version: 1.2.0
 title: "Windows-SysAdmin-ProSuite"
-type: software
 message: >
   If you use this software in academic research, technical reports,
-  professional documentation, or compliance work, please cite it using
-  the metadata below (or the preferred-citation block).
+  professional documentation, or compliance work, please cite it as below.
+
+type: software
 
 authors:
-  - given-names: Luiz Hamilton
-    family-names: Roberto da Silva
+  - given-names: "Luiz Hamilton"
+    family-names: "Roberto da Silva"
     orcid: "https://orcid.org/0000-0003-3705-7468"
     email: "luizhamilton.lhr@gmail.com"
     website: "https://github.com/brazilianscriptguy"
     affiliation: "Independent Researcher in Computer Science and Digital Forensics"
-
-contact:
-  - given-names: Luiz Hamilton
-    family-names: Roberto da Silva
-    email: "luizhamilton.lhr@gmail.com"
 
 repository-code: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
 url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
@@ -51,18 +46,14 @@ license-url: "https://opensource.org/licenses/MIT"
 version: "1.8.8"
 date-released: "2026-02-03"
 
-identifiers:
-  - type: doi
-    value: "10.5281/zenodo.18487320"
-
-repository-artifact: "https://doi.org/10.5281/zenodo.18487320"
+doi: "10.5281/zenodo.18487320"
 
 preferred-citation:
   type: software
   title: "Windows-SysAdmin-ProSuite"
   authors:
-    - given-names: Luiz Hamilton
-      family-names: Roberto da Silva
+    - given-names: "Luiz Hamilton"
+      family-names: "Roberto da Silva"
       orcid: "https://orcid.org/0000-0003-3705-7468"
   year: 2026
   version: "1.8.8"
