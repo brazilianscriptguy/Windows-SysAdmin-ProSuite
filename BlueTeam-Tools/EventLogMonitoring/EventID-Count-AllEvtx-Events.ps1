@@ -2,7 +2,6 @@
 .SYNOPSIS
     PowerShell Script for Counting EventID Occurrences in EVTX Files using Log Parser.
     
-
 .DESCRIPTION
     This script counts occurrences of each EventID in EVTX files within a selected folder using 
     COM-based LogQuery, exporting the results to a CSV file with user-configurable paths via a GUI.
