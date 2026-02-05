@@ -1,161 +1,230 @@
-﻿<#
+<#
 .SYNOPSIS
-    Validates and loads Microsoft.UpdateServices.Administration.dll (WSUS Admin API).
+    WSUS Admin API / UpdateServices availability and connectivity preflight.
 
 .DESCRIPTION
-    - Prefers Import-Module UpdateServices (works when WSUS Management Tools are installed).
-    - If the module isn't available, attempts to load the WSUS Admin assembly from the GAC.
-    - Searches common GAC roots on modern and legacy systems.
-    - Falls back to a known explicit path if provided.
-    - Uses small WinForms message boxes for guidance/diagnostics.
-    - Hides the console window (comment out [Window]::Hide() while debugging).
+    Validates that the WSUS Administration API can be loaded and (optionally) that a WSUS server
+    can be reached via AdminProxy / Get-WsusServer. Designed to be used standalone or as a preflight
+    dependency check by the WSUS Maintenance GUI.
+
+    Hardened:
+      - StrictMode safe (param at top)
+      - Deterministic logging to C:\Logs-TEMP\WSUS-GUI\Logs
+      - Robust assembly resolution chain:
+          1) C:\Program Files\Update Services\Api\Microsoft.UpdateServices.Administration.dll
+          2) LoadWithPartialName (GAC)
+          3) UpdateServices module (if present)
+      - Structured output object
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: Sep 15, 2025
+    Last Updated: 2026-02-05  -03
+    Version: 1.20
 #>
 
-# ---------------- Console (hidden) ----------------
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() { var handle = GetConsoleWindow(); ShowWindow(handle, 0); }
-}
-"@
-[Window]::Hide()  # <-- comment this line while debugging to keep the console visible
+param(
+    [string]$ServerName = "localhost",
+    [int]$Port = 8530,
+    [switch]$UseSSL,
+    [switch]$TestConnection,
+    [switch]$Quiet,
+    [switch]$ShowConsole
+)
 
-# ---------------- UI + utils ----------------
-Add-Type -AssemblyName System.Windows.Forms
+#Requires -RunAsAdministrator
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
+
+# ----------------- Logging (single log per run) -----------------
+$scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$rootDir    = "C:\Logs-TEMP\WSUS-GUI"
+$logDir     = Join-Path $rootDir "Logs"
+$null = New-Item -Path $logDir -ItemType Directory -Force -ErrorAction SilentlyContinue
+$logPath    = Join-Path $logDir "$scriptName.log"
 
 function Write-Log {
     param(
-        [Parameter(Mandatory)][string]$Message,
-        [ValidateSet("INFO", "WARNING", "ERROR")] [string]$Level = "INFO"
+        [Parameter(Mandatory=$true)][string]$Message,
+        [ValidateSet("INFO","WARNING","ERROR","DEBUG")][string]$Level = "INFO"
     )
-    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Output "[$stamp] [$Level] $Message"
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[$ts] [$Level] $Message"
+    try { Add-Content -Path $logPath -Value $line -Encoding UTF8 -ErrorAction Stop } catch {}
 }
 
-function Show-MessageBox {
+function Show-Ui {
     param(
-        [Parameter(Mandatory)][string]$Message,
-        [string]$Title = "WSUS Administration Assembly Check",
-        [System.Windows.Forms.MessageBoxButtons]$Buttons = [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]$Icon = [System.Windows.Forms.MessageBoxIcon]::Information
+        [Parameter(Mandatory=$true)][string]$Message,
+        [string]$Title = "WSUS Admin API Check",
+        [ValidateSet("Information","Warning","Error")][string]$Icon = "Information"
     )
-    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon) | Out-Null
+    if ($Quiet) { return }
+    $mbIcon = [System.Windows.Forms.MessageBoxIcon]::$Icon
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, 'OK', $mbIcon) | Out-Null
 }
 
-# If you want to pin a known path (kept from your original script).
-$ExplicitAssemblyPath = "C:\Windows\Microsoft.Net\assembly\GAC_MSIL\Microsoft.UpdateServices.Administration\v4.0_4.0.0.0__31bf3856ad364e35\Microsoft.UpdateServices.Administration.dll"
+# ----------------- Console visibility (optional) -----------------
+function Set-ConsoleVisibility {
+    param([bool]$Visible)
 
-# Common GAC roots on modern/legacy systems
-# Common GAC roots on modern/legacy systems
-$GacRoots = @(
-    (Join-Path $env:WINDIR 'Microsoft.NET\assembly\GAC_MSIL')  # .NET 4+ (Win10/2016+)
-    (Join-Path $env:WINDIR 'assembly\GAC_MSIL')                 # legacy view
-)
-
-# ---------------- Helper: Is Assembly Loaded? ----------------
-function Test-AssemblyLoaded {
-    [OutputType([bool])]
-    param([string]$PartialName = "Microsoft.UpdateServices.Administration")
-    return [AppDomain]::CurrentDomain.GetAssemblies().FullName -match [regex]::Escape($PartialName)
-}
-
-# ---------------- Try 1: Import-Module UpdateServices ----------------
-try {
-    if ($PSVersionTable.PSEdition -eq 'Core') {
-        # PowerShell 7+: use Windows PowerShell compatibility shim if available
-        Import-Module -Name UpdateServices -UseWindowsPowerShell -ErrorAction Stop
-    } else {
-        Import-Module -Name UpdateServices -ErrorAction Stop
-    }
-
-    if (Test-AssemblyLoaded) {
-        Write-Log "WSUS Administration assembly available via UpdateServices module." -Level INFO
-        Show-MessageBox -Message "WSUS Administration assembly is available (loaded with UpdateServices module)."
-        return
-    }
-} catch {
-    Write-Log "UpdateServices module not available or failed to load: $($_.Exception.Message)" -Level WARNING
-}
-
-# ---------------- Try 2: Load from GAC (by partial name) ----------------
-try {
-    $asm = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
-    if ($asm -and (Test-AssemblyLoaded)) {
-        Write-Log "WSUS Administration assembly loaded from GAC via partial name." -Level INFO
-        Show-MessageBox -Message "WSUS Administration assembly loaded from the Global Assembly Cache (GAC)."
-        return
-    } else {
-        throw "LoadWithPartialName returned null."
-    }
-} catch {
-    Write-Log "Could not load WSUS assembly by partial name: $($_.Exception.Message)" -Level WARNING
-}
-
-# ---------------- Try 3: Probe known GAC folders and Add-Type ----------------
-$foundPath = $null
-foreach ($root in $GacRoots) {
-    if (-not (Test-Path $root)) { continue }
     try {
-        $candidate = Get-ChildItem -Path $root -Recurse -Filter "Microsoft.UpdateServices.Administration.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($candidate) { $foundPath = $candidate.FullName; break }
-    } catch { }
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinConsole {
+    [DllImport("kernel32.dll", SetLastError=true)]
+    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll", SetLastError=true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
+"@ -ErrorAction Stop
 
-if (-not $foundPath -and (Test-Path $ExplicitAssemblyPath)) {
-    $foundPath = $ExplicitAssemblyPath
-}
-
-if ($foundPath) {
-    try {
-        Add-Type -Path $foundPath -ErrorAction Stop
-        if (Test-AssemblyLoaded) {
-            Write-Log "WSUS Administration assembly loaded from: $foundPath" -Level INFO
-            Show-MessageBox -Message "WSUS Administration assembly loaded from:`n$foundPath"
-            return
-        } else {
-            throw "Add-Type succeeded but assembly not visible in current AppDomain."
+        $h = [WinConsole]::GetConsoleWindow()
+        if ($h -ne [IntPtr]::Zero) {
+            $cmd = if ($Visible) { 5 } else { 0 } # 5=SHOW, 0=HIDE
+            [void][WinConsole]::ShowWindow($h, $cmd)
         }
     } catch {
-        $msg = "Failed to load WSUS assembly from:`n$foundPath`n`nDetails: $($_.Exception.Message)"
-        Write-Log $msg -Level ERROR
-        Show-MessageBox -Message $msg -Icon 'Error'
-        exit 1
+        # best-effort
     }
 }
 
-# ---------------- Final guidance (not found) ----------------
-$help = @"
-WSUS Administration assembly was not found.
+if (-not $ShowConsole) { Set-ConsoleVisibility -Visible:$false }
 
-Install WSUS Management Tools (Administration Console) using one of the following:
+# ----------------- Helpers -----------------
+function Resolve-WsusAdminAssembly {
+    $apiPath = "C:\Program Files\Update Services\Api\Microsoft.UpdateServices.Administration.dll"
 
-1) Server Manager
-   - Add Roles and Features ➜ Features ➜ Windows Server Update Services ➜ WSUS Tools
+    # Already loaded?
+    $loaded = [AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq "Microsoft.UpdateServices.Administration" }
+    if ($loaded) { return @{ Loaded=$true; Method="AlreadyLoaded"; Path=$null } }
 
-2) PowerShell (Windows Server)
-   Install-WindowsFeature -Name UpdateServices-UI
+    # Prefer explicit API path
+    if (Test-Path $apiPath) {
+        try {
+            Add-Type -Path $apiPath -ErrorAction Stop
+            return @{ Loaded=$true; Method="AddTypePath"; Path=$apiPath }
+        } catch {
+            return @{ Loaded=$false; Method="AddTypePath"; Path=$apiPath; Error=$_.Exception.Message }
+        }
+    }
 
-3) Windows Client (RSAT on Windows 10/11)
-   DISM /Online /Enable-Feature /FeatureName:Rsat.WSUS.Tools~~~~0.0.1.0 /All
+    # GAC/PartialName fallback
+    try {
+        $asm = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")
+        if ($asm) { return @{ Loaded=$true; Method="LoadWithPartialName"; Path=$asm.Location } }
+    } catch {}
 
-After installing, re-run this script.
-"@
+    # UpdateServices module presence (not the same as Admin assembly, but good signal)
+    if (Get-Module -ListAvailable -Name UpdateServices) {
+        return @{ Loaded=$false; Method="UpdateServicesModulePresent"; Path=$null; Error="Admin assembly not found at API path; module exists but assembly still required for AdminProxy." }
+    }
 
-Write-Log "WSUS Administration assembly not found in GAC paths or explicit path." -Level ERROR
-Show-MessageBox -Message $help -Icon 'Error'
-exit 1
+    return @{ Loaded=$false; Method="NotFound"; Path=$null; Error="Microsoft.UpdateServices.Administration not found. Install WSUS Tools (UpdateServices-UI)." }
+}
+
+function Normalize-ServerName {
+    param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) { return "localhost" }
+    if ($Name -match '^(localhost|127\.0\.0\.1)$') { return "localhost" }
+    return $Name.Trim()
+}
+
+function Test-WsusAdminConnection {
+    param([string]$Name,[int]$Port,[bool]$UseSSL)
+
+    # AdminProxy supports port overload depending on version. Use safest available.
+    try {
+        # Try 3-arg overload (server, ssl, port)
+        $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($Name, $UseSSL, $Port)
+        return @{ Ok=$true; Name=$wsus.Name; Version=$wsus.Version.ToString(); Method="AdminProxy(ssl,port)" }
+    } catch {
+        try {
+            # Try classic 2-arg overload (server, ssl) - port is implied by IIS config
+            $wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer($Name, $UseSSL)
+            return @{ Ok=$true; Name=$wsus.Name; Version=$wsus.Version.ToString(); Method="AdminProxy(ssl)" }
+        } catch {
+            return @{ Ok=$false; Error=$_.Exception.Message }
+        }
+    }
+}
+
+# ----------------- Main -----------------
+Write-Log "========== WSUS Admin API CHECK START ==========" "INFO"
+
+$ServerName = Normalize-ServerName -Name $ServerName
+Write-Log "Target: Server=$ServerName Port=$Port SSL=$($UseSSL.IsPresent)" "INFO"
+
+$asmResult = Resolve-WsusAdminAssembly
+if (-not $asmResult.Loaded) {
+    Write-Log "Admin assembly load failed. Method=$($asmResult.Method) Error=$($asmResult.Error)" "ERROR"
+    Show-Ui -Message ("WSUS Admin API not available.`n`nMethod: {0}`nError: {1}" -f $asmResult.Method,$asmResult.Error) -Icon Error
+    [pscustomobject]@{
+        Success        = $false
+        Stage          = "LoadAssembly"
+        Method         = $asmResult.Method
+        AssemblyPath   = $asmResult.Path
+        Error          = $asmResult.Error
+        ServerName     = $ServerName
+        Port           = $Port
+        UseSSL         = [bool]$UseSSL
+        LogPath        = $logPath
+    }
+    return
+}
+
+Write-Log "Admin assembly loaded. Method=$($asmResult.Method) Path=$($asmResult.Path)" "INFO"
+
+$connection = $null
+if ($TestConnection) {
+    $connection = Test-WsusAdminConnection -Name $ServerName -Port $Port -UseSSL ([bool]$UseSSL)
+    if (-not $connection.Ok) {
+        Write-Log "Connection test failed: $($connection.Error)" "ERROR"
+        Show-Ui -Message ("Loaded Admin API, but failed to connect to WSUS.`n`nServer: {0}`nPort: {1}`nSSL: {2}`nError: {3}" -f $ServerName,$Port,[bool]$UseSSL,$connection.Error) -Icon Error
+        [pscustomobject]@{
+            Success        = $false
+            Stage          = "Connect"
+            Method         = $asmResult.Method
+            AssemblyPath   = $asmResult.Path
+            Error          = $connection.Error
+            ServerName     = $ServerName
+            Port           = $Port
+            UseSSL         = [bool]$UseSSL
+            LogPath        = $logPath
+        }
+        return
+    }
+    Write-Log "Connected OK. WSUSName=$($connection.Name) Version=$($connection.Version) Method=$($connection.Method)" "INFO"
+}
+
+Write-Log "========== WSUS Admin API CHECK END ==========" "INFO"
+
+if (-not $Quiet) {
+    $msg = if ($TestConnection) {
+        "OK.`nAdmin API loaded and WSUS connection succeeded.`n`nServer: $ServerName`nPort: $Port`nSSL: $([bool]$UseSSL)`nLog: $logPath"
+    } else {
+        "OK.`nAdmin API loaded successfully.`n`nLog: $logPath"
+    }
+    Show-Ui -Message $msg -Icon Information
+}
+
+[pscustomobject]@{
+    Success        = $true
+    Stage          = if ($TestConnection) { "Connect" } else { "LoadAssembly" }
+    Method         = $asmResult.Method
+    AssemblyPath   = $asmResult.Path
+    ServerName     = $ServerName
+    Port           = $Port
+    UseSSL         = [bool]$UseSSL
+    Connection     = $connection
+    LogPath        = $logPath
+}
 
 # End of script
