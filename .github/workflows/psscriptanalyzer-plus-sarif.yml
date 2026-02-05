@@ -46,6 +46,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # ✅ HARD GUARANTEE: create SARIF immediately, before any conditionals.
+      - name: ✅ Initialize SARIF (always create baseline file)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          cat > "$SARIF_FILE" <<'EOF'
+          {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
+          EOF
+          echo "Initialized: $GITHUB_WORKSPACE/$SARIF_FILE"
+          ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
+
       - name: 🕒 Capture Metadata
         id: metadata
         shell: bash
@@ -62,6 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           count="$(find . \
             -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
             -o -type f -name "*.ps1" -print | wc -l | tr -d ' ')"
@@ -82,11 +95,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
           $required  = [version]'${{ env.PSA_VERSION }}'
           $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
-            Sort-Object Version -Descending |
-            Select-Object -First 1
+            Sort-Object Version -Descending | Select-Object -First 1
 
           if (-not $installed -or $installed.Version -ne $required) {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
@@ -144,6 +155,7 @@ jobs:
           add-paths: |
             **/*.ps1
 
+      # Overwrite the baseline SARIF with real results (best-effort).
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         if: steps.check_ps1.outputs.count != '0'
         shell: pwsh
@@ -152,9 +164,6 @@ jobs:
 
           $sarifFile = Join-Path $env:GITHUB_WORKSPACE '${{ env.SARIF_FILE }}'
           $version   = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
-
-          # Create the file early (guarantees path exists even if later logic throws)
-          New-Item -ItemType File -Path $sarifFile -Force | Out-Null
 
           $rulesCommon = @{
             PSUseConsistentIndentation = @{
@@ -221,42 +230,32 @@ jobs:
 
           $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifFile -Encoding UTF8
 
-          if (-not (Test-Path $sarifFile)) {
-            throw "SARIF file was not created at: $sarifFile"
-          }
-
-          # Fail only on Error-level findings
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
             throw "PSScriptAnalyzer found error-level findings."
           }
 
-      - name: 🧾 Create Empty SARIF (No .ps1 Files)
-        if: steps.check_ps1.outputs.count == '0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > "${GITHUB_WORKSPACE}/${SARIF_FILE}" <<'EOF'
-          {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
-          EOF
-
-      - name: 🔎 Diagnose workspace + ensure SARIF exists
+      # ✅ This is the key: prove what exists RIGHT BEFORE upload-sarif.
+      - name: 🔎 Pre-upload diagnostics (must exist here)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          echo "PWD: $(pwd)"
-          echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
-          echo "Expect SARIF at: ${GITHUB_WORKSPACE}/${SARIF_FILE}"
-          ls -la "${GITHUB_WORKSPACE}"
-
-          if [ ! -f "${GITHUB_WORKSPACE}/${SARIF_FILE}" ]; then
-            echo "SARIF missing — creating minimal SARIF to prevent code scanning upload failure."
-            cat > "${GITHUB_WORKSPACE}/${SARIF_FILE}" <<'EOF'
+          echo "PWD=$(pwd)"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          echo "SARIF target=$GITHUB_WORKSPACE/$SARIF_FILE"
+          echo "Top-level workspace listing:"
+          ls -la "$GITHUB_WORKSPACE"
+          echo "SARIF file stat:"
+          if [ -f "$GITHUB_WORKSPACE/$SARIF_FILE" ]; then
+            ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
+          else
+            echo "SARIF is missing RIGHT BEFORE upload. Recreating baseline SARIF now."
+            cd "$GITHUB_WORKSPACE"
+            cat > "$SARIF_FILE" <<'EOF'
             {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
             EOF
+            ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
           fi
-
-          ls -la "${GITHUB_WORKSPACE}/${SARIF_FILE}"
 
       - name: 📊 Upload SARIF Artifact
         if: always()
