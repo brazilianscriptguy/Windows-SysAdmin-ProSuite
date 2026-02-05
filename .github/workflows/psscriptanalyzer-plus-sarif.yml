@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # Keep minimal defaults here; we'll elevate only where allowed.
     permissions:
       contents: write
       pull-requests: write
@@ -39,6 +40,7 @@ jobs:
       PSA_VERSION: "1.24.0"
       SARIF_FILE: "psscriptanalyzer-results.sarif"
       SUMMARY_MD: "psscriptanalyzer-summary.md"
+      PATCH_FILE: "psscriptanalyzer-autofix.patch"
 
     steps:
       - name: 📦 Checkout Repository
@@ -103,6 +105,9 @@ jobs:
           Import-Module PSScriptAnalyzer -Force
           Write-Host ("PSScriptAnalyzer version: " + (Get-Module PSScriptAnalyzer).Version)
 
+      # ----------------------------
+      # AUTO-FIX + CHANGE DETECTION
+      # ----------------------------
       - name: 🧹 Auto-Fix Formatting (Indentation + Whitespace)
         if: steps.check_ps1.outputs.count != '0'
         shell: pwsh
@@ -151,8 +156,18 @@ jobs:
             git --no-pager diff --stat -- "**/*.ps1" || true
           fi
 
-      - name: 🔁 Create Auto-Fix PR (push events only, only if changed)
-        if: github.event_name == 'push' && steps.check_ps1.outputs.count != '0' && steps.detect_changes.outputs.changed == 'true'
+      # ---------------------------------------------------------------------
+      # TRY PR ONLY WHEN IT'S A PUSH TO THIS REPO AND NOT FROM A FORK CONTEXT
+      # ---------------------------------------------------------------------
+      - name: 🔁 Create Auto-Fix PR (only when permitted)
+        id: cpr
+        if: |
+          github.event_name == 'push' &&
+          steps.check_ps1.outputs.count != '0' &&
+          steps.detect_changes.outputs.changed == 'true' &&
+          github.repository_owner == github.actor &&
+          !startsWith(github.ref, 'refs/heads/ci/autofix/')
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -170,6 +185,38 @@ jobs:
           add-paths: |
             **/*.ps1
 
+      # ---------------------------------------------------------
+      # FALLBACK: if PR creation is blocked, export a patch artifact
+      # ---------------------------------------------------------
+      - name: 🧩 Create Patch Artifact (when PR cannot be created)
+        if: |
+          github.event_name == 'push' &&
+          steps.check_ps1.outputs.count != '0' &&
+          steps.detect_changes.outputs.changed == 'true' &&
+          (steps.cpr.outcome == 'failure')
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          echo "create-pull-request was not permitted. Generating patch artifact instead."
+          git diff -- "**/*.ps1" > "$PATCH_FILE"
+          ls -la "$PATCH_FILE"
+
+      - name: 📦 Upload Auto-Fix Patch Artifact
+        if: |
+          github.event_name == 'push' &&
+          steps.check_ps1.outputs.count != '0' &&
+          steps.detect_changes.outputs.changed == 'true' &&
+          (steps.cpr.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: psscriptanalyzer-autofix-patch
+          path: ${{ github.workspace }}/${{ env.PATCH_FILE }}
+          retention-days: 30
+
+      # ----------------------------
+      # ANALYZE + SARIF
+      # ----------------------------
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         if: steps.check_ps1.outputs.count != '0'
         shell: pwsh
@@ -257,13 +304,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "PWD=$(pwd)"
           echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
           echo "SARIF target=$GITHUB_WORKSPACE/$SARIF_FILE"
           ls -la "$GITHUB_WORKSPACE"
 
           if [ -f "$GITHUB_WORKSPACE/$SARIF_FILE" ]; then
-            echo "SARIF exists:"
             ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
           else
             echo "SARIF missing — creating baseline SARIF now."
