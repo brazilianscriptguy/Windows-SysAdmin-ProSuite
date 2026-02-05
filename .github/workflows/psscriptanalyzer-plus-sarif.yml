@@ -38,7 +38,6 @@ jobs:
     env:
       PSA_VERSION: "1.24.0"
       SARIF_FILE: "psscriptanalyzer-results.sarif"
-      SARIF_PATH: "${{ github.workspace }}/psscriptanalyzer-results.sarif"
       SUMMARY_MD: "psscriptanalyzer-summary.md"
 
     steps:
@@ -63,7 +62,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Exclude common vendored/build dirs to avoid noise
           count="$(find . \
             -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
             -o -type f -name "*.ps1" -print | wc -l | tr -d ' ')"
@@ -85,8 +83,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $required = [version]'${{ env.PSA_VERSION }}'
-          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1
+          $required  = [version]'${{ env.PSA_VERSION }}'
+          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
 
           if (-not $installed -or $installed.Version -ne $required) {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
@@ -94,8 +94,7 @@ jobs:
           }
 
           Import-Module PSScriptAnalyzer -Force
-          $v = (Get-Module PSScriptAnalyzer).Version.ToString()
-          Write-Host "PSScriptAnalyzer version: $v"
+          Write-Host ("PSScriptAnalyzer version: " + (Get-Module PSScriptAnalyzer).Version)
 
       - name: 🧹 Auto-Fix Formatting (Indentation + Whitespace)
         if: steps.check_ps1.outputs.count != '0'
@@ -127,7 +126,6 @@ jobs:
             }
           }
 
-          # Do not fail on fixer output; analysis step handles enforcement
           Invoke-ScriptAnalyzer @htFix | Out-Null
 
       - name: 🔁 Create Auto-Fix PR (push events only, only if changed)
@@ -152,8 +150,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $sarifFile = $env:SARIF_PATH
+          $sarifFile = Join-Path $env:GITHUB_WORKSPACE '${{ env.SARIF_FILE }}'
           $version   = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
+
+          # Create the file early (guarantees path exists even if later logic throws)
+          New-Item -ItemType File -Path $sarifFile -Force | Out-Null
 
           $rulesCommon = @{
             PSUseConsistentIndentation = @{
@@ -218,7 +219,11 @@ jobs:
             )
           }
 
-          $sarif | ConvertTo-Json -Depth 12 | Out-File -FilePath $sarifFile -Encoding utf8
+          $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifFile -Encoding UTF8
+
+          if (-not (Test-Path $sarifFile)) {
+            throw "SARIF file was not created at: $sarifFile"
+          }
 
           # Fail only on Error-level findings
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
@@ -230,36 +235,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat > "${SARIF_PATH}" <<'EOF'
+          cat > "${GITHUB_WORKSPACE}/${SARIF_FILE}" <<'EOF'
           {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
           EOF
 
-      - name: ✅ Ensure SARIF exists (repair if missing)
+      - name: 🔎 Diagnose workspace + ensure SARIF exists
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f "${SARIF_PATH}" ]; then
-            echo "SARIF missing at ${SARIF_PATH} — creating minimal SARIF to avoid upload failure."
-            cat > "${SARIF_PATH}" <<'EOF'
+          echo "PWD: $(pwd)"
+          echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
+          echo "Expect SARIF at: ${GITHUB_WORKSPACE}/${SARIF_FILE}"
+          ls -la "${GITHUB_WORKSPACE}"
+
+          if [ ! -f "${GITHUB_WORKSPACE}/${SARIF_FILE}" ]; then
+            echo "SARIF missing — creating minimal SARIF to prevent code scanning upload failure."
+            cat > "${GITHUB_WORKSPACE}/${SARIF_FILE}" <<'EOF'
             {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
             EOF
           fi
-          ls -la "${SARIF_PATH}"
+
+          ls -la "${GITHUB_WORKSPACE}/${SARIF_FILE}"
 
       - name: 📊 Upload SARIF Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: ${{ env.SARIF_PATH }}
+          path: ${{ github.workspace }}/${{ env.SARIF_FILE }}
           retention-days: 30
 
       - name: 🛰️ Upload SARIF to GitHub Code Scanning
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: ${{ env.SARIF_PATH }}
+          sarif_file: ${{ github.workspace }}/${{ env.SARIF_FILE }}
           wait-for-processing: true
 
       - name: 📄 Generate Markdown Summary
@@ -267,7 +278,7 @@ jobs:
         shell: pwsh
         run: |
           $summaryPath = Join-Path $env:GITHUB_WORKSPACE '${{ env.SUMMARY_MD }}'
-          $sarifPath   = $env:SARIF_PATH
+          $sarifPath   = Join-Path $env:GITHUB_WORKSPACE '${{ env.SARIF_FILE }}'
 
           $repo  = "${{ github.repository }}"
           $sha   = "${{ github.sha }}"
