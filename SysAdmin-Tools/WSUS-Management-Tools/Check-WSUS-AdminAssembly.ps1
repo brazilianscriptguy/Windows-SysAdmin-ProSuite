@@ -2,7 +2,6 @@
 .SYNOPSIS
     WSUS Admin API / UpdateServices availability and connectivity preflight.
     
-
 .DESCRIPTION
     Validates that the WSUS Administration API can be loaded and (optionally) that a WSUS server
     can be reached via AdminProxy / Get-WsusServer. Designed to be used standalone or as a preflight
