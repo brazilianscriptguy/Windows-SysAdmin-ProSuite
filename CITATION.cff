@@ -1,28 +1,39 @@
 cff-version: 1.2.0
-title: "Windows-SysAdmin-ProSuite"
-message: >
-  If you use this software in academic research, technical reports,
-  professional documentation, or compliance work, please cite it as below.
 
+title: "Windows-SysAdmin-ProSuite"
 type: software
 
+message: >
+  If you use this software in academic research, technical reports,
+  professional documentation, compliance work, or derivative projects,
+  please cite it using the metadata below.
+
 authors:
-  - given-names: "Luiz Hamilton"
-    family-names: "Roberto da Silva"
+  - family-names: "Roberto da Silva"
+    given-names: "Luiz Hamilton"
     orcid: "https://orcid.org/0000-0003-3705-7468"
     email: "luizhamilton.lhr@gmail.com"
-    website: "https://github.com/brazilianscriptguy"
     affiliation: "Independent Researcher in Computer Science and Digital Forensics"
+    website: "https://github.com/brazilianscriptguy"
 
 repository-code: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
 url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
 
+doi: "10.5281/zenodo.18487320"
+
+version: "1.8.8"
+date-released: "2026-02-03"
+
+license: "MIT"
+license-url: "https://opensource.org/licenses/MIT"
+
 abstract: >
-  Windows-SysAdmin-ProSuite is a collection of enterprise-grade PowerShell
-  and VBScript automation tools designed for Windows Server and Windows 10/11
-  environments. It supports ITSM-aligned provisioning, security hardening,
-  identity & access management, digital forensics readiness, and audit/compliance
-  workflows with strong emphasis on reproducibility, governance, and traceability.
+  Windows-SysAdmin-ProSuite is an enterprise-grade collection of PowerShell
+  and VBScript automation tools for Windows Server and Windows 10/11
+  environments. The project supports ITSM-aligned provisioning, security
+  hardening, identity and access management (IAM), digital forensics readiness,
+  and audit/compliance workflows, with strong emphasis on reproducibility,
+  governance, traceability, and institutional realism.
 
 keywords:
   - PowerShell
@@ -39,21 +50,14 @@ keywords:
   - Automation
   - Compliance
   - Public Sector IT
-
-license: "MIT"
-license-url: "https://opensource.org/licenses/MIT"
-
-version: "1.8.8"
-date-released: "2026-02-03"
-
-doi: "10.5281/zenodo.18487320"
+  - Enterprise IT
 
 preferred-citation:
   type: software
   title: "Windows-SysAdmin-ProSuite"
   authors:
-    - given-names: "Luiz Hamilton"
-      family-names: "Roberto da Silva"
+    - family-names: "Roberto da Silva"
+      given-names: "Luiz Hamilton"
       orcid: "https://orcid.org/0000-0003-3705-7468"
   year: 2026
   version: "1.8.8"
