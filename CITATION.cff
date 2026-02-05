@@ -1,29 +1,29 @@
 cff-version: 1.2.0
 title: "Windows-SysAdmin-ProSuite"
+type: software
 message: >
   If you use this software in academic research, technical reports,
-  or professional documentation, please cite it as below.
-type: software
-
+  professional documentation or compliance work, please cite it using
+  the metadata below (or the preferred-citation block).
 authors:
-  - family-names: "Roberto da Silva"
-    given-names: "Luiz Hamilton"
-    orcid: "https://orcid.org/0000-0003-3705-7468"
-    email: "luizhamilton.lhr@gmail.com"
-    website: "https://github.com/brazilianscriptguy"
-    affiliation: "Independent Researcher in Computer Science and Digital Forensics"
-
-repository-code: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
-url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
-
+  - given-names: Luiz Hamilton
+    family-names: Roberto da Silva
+    orcid: https://orcid.org/0000-0003-3705-7468
+    email: luizhamilton.lhr@gmail.com
+    website: https://github.com/brazilianscriptguy
+    affiliation: Independent Researcher in Computer Science and Digital Forensics
+contact:
+  - given-names: Luiz Hamilton
+    family-names: Roberto da Silva
+    email: luizhamilton.lhr@gmail.com
+repository-code: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite
+url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite
 abstract: >
-  Windows-SysAdmin-ProSuite is an enterprise-grade collection of PowerShell
-  and VBScript automation tools for Windows Server and Windows 10/11
-  environments. The project supports ITSM-aligned provisioning, security
-  hardening, identity and access management, and digital forensics readiness,
-  with emphasis on auditability, reproducibility, and governance.
-  It is suitable for operational, academic, and compliance-oriented contexts.
-
+  Windows-SysAdmin-ProSuite is a collection of enterprise-grade PowerShell
+  and VBScript automation tools designed for Windows Server and Windows 10/11
+  environments. It supports ITSM-aligned provisioning, security hardening,
+  identity & access management, digital forensics readiness, and audit/compliance
+  workflows with strong emphasis on reproducibility, governance and traceability.
 keywords:
   - PowerShell
   - VBScript
@@ -37,18 +37,18 @@ keywords:
   - Automation
   - Compliance
   - Public Sector IT
-
 license: MIT
-
+license-url: https://opensource.org/licenses/MIT
 version: "1.8.8"
-date-released: "2026-02-03"
+date-released: 2026-02-03
 
 preferred-citation:
   type: software
-  authors:
-    - family-names: "Roberto da Silva"
-      given-names: "Luiz Hamilton"
-      orcid: "https://orcid.org/0000-0003-3705-7468"
   title: "Windows-SysAdmin-ProSuite"
+  authors:
+    - given-names: Luiz Hamilton
+      family-names: Roberto da Silva
+      orcid: https://orcid.org/0000-0003-3705-7468
   year: 2026
-  url: "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite"
+  url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite
+  version: "1.8.8"
