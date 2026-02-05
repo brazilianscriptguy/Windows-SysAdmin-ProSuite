@@ -46,15 +46,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ✅ HARD GUARANTEE: create SARIF immediately, before any conditionals.
+      # =====================================================================================
+      # HARD GUARANTEE: Create baseline SARIF immediately (no heredocs; avoids YAML indentation traps)
+      # =====================================================================================
       - name: ✅ Initialize SARIF (always create baseline file)
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          cat > "$SARIF_FILE" <<'EOF'
-          {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
-          EOF
+          printf '%s' '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}' > "$SARIF_FILE"
           echo "Initialized: $GITHUB_WORKSPACE/$SARIF_FILE"
           ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
 
@@ -75,6 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
+          # Exclude common vendored/build dirs to avoid noise
           count="$(find . \
             -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
             -o -type f -name "*.ps1" -print | wc -l | tr -d ' ')"
@@ -95,9 +96,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+
           $required  = [version]'${{ env.PSA_VERSION }}'
           $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
-            Sort-Object Version -Descending | Select-Object -First 1
+            Sort-Object Version -Descending |
+            Select-Object -First 1
 
           if (-not $installed -or $installed.Version -ne $required) {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
@@ -137,6 +140,7 @@ jobs:
             }
           }
 
+          # Do not fail on fixer output; analysis step handles enforcement
           Invoke-ScriptAnalyzer @htFix | Out-Null
 
       - name: 🔁 Create Auto-Fix PR (push events only, only if changed)
@@ -155,7 +159,6 @@ jobs:
           add-paths: |
             **/*.ps1
 
-      # Overwrite the baseline SARIF with real results (best-effort).
       - name: 🔎 Run PSScriptAnalyzer and Export SARIF
         if: steps.check_ps1.outputs.count != '0'
         shell: pwsh
@@ -230,11 +233,19 @@ jobs:
 
           $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifFile -Encoding UTF8
 
+          if (-not (Test-Path $sarifFile)) {
+            throw "SARIF file was not created at: $sarifFile"
+          }
+
+          # Fail only on Error-level findings
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
             throw "PSScriptAnalyzer found error-level findings."
           }
 
-      # ✅ This is the key: prove what exists RIGHT BEFORE upload-sarif.
+      # =====================================================================================
+      # PROVE + REPAIR: Right before uploads, verify SARIF exists; if missing, recreate baseline.
+      # (No heredocs - prevents the previous syntax error.)
+      # =====================================================================================
       - name: 🔎 Pre-upload diagnostics (must exist here)
         if: always()
         shell: bash
@@ -245,15 +256,14 @@ jobs:
           echo "SARIF target=$GITHUB_WORKSPACE/$SARIF_FILE"
           echo "Top-level workspace listing:"
           ls -la "$GITHUB_WORKSPACE"
-          echo "SARIF file stat:"
+
           if [ -f "$GITHUB_WORKSPACE/$SARIF_FILE" ]; then
+            echo "SARIF exists:"
             ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
           else
-            echo "SARIF is missing RIGHT BEFORE upload. Recreating baseline SARIF now."
+            echo "SARIF missing — creating baseline SARIF now."
             cd "$GITHUB_WORKSPACE"
-            cat > "$SARIF_FILE" <<'EOF'
-            {"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
-            EOF
+            printf '%s' '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}' > "$SARIF_FILE"
             ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
           fi
 
