@@ -96,11 +96,19 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 
 ## 🚀 Usage Instructions
 
-1. Run scripts via **Run with PowerShell** or an elevated console  
-2. Provide required parameters or interact via GUI (script-dependent)  
-3. Review generated outputs:
-   - Logs: `C:\Logs-TEMP\`
-   - Reports: `.csv` files per script  
+1. Run scripts using **Run with PowerShell** or from an **elevated PowerShell console**  
+2. Provide the required parameters or interact via the GUI (script-dependent)  
+3. Review the generated outputs  
+
+### 📂 Logs and Reports Locations
+
+| Path                        | Purpose                                                                 |
+|-----------------------------|-------------------------------------------------------------------------|
+| `C:\ITSM-Logs-WKS\`         | Workstation automation execution logs                                   |
+| `C:\ITSM-Logs-SVR\`         | Server-side automation and execution logs                               |
+| `C:\Scripts-LOGS\`          | GPO synchronization, agents, and security tooling logs                  |
+| `C:\Logs-TEMP\`             | General-purpose, transient, and legacy script outputs                   |
+| `%USERPROFILE%\Documents\`  | CSV and exported reports for compliance, forensics, and ITSM workflows  |
 
 ---
 
