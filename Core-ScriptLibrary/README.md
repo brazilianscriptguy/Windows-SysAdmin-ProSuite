@@ -1,11 +1,11 @@
 ## 🔧 Core Script Library  
 ### Modular Automation · Reusable Components · Packaging Engine
 
-[![Core](https://img.shields.io/badge/Core-Script%20Library-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)]
-[![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]
-[![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)]
-[![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]
-[![Packaging](https://img.shields.io/badge/NuGet-Packaging-004880?style=for-the-badge&logo=nuget&logoColor=white)]
+![Core](https://img.shields.io/badge/Core-Script%20Library-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)
+![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)
+![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)
+![Packaging](https://img.shields.io/badge/NuGet-Packaging-004880?style=for-the-badge&logo=nuget&logoColor=white)
 
 ---
 
