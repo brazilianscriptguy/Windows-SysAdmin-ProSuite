@@ -1,42 +1,94 @@
-name: Search for Specific Word in Repository
+name: Manual Keyword Search in Repository
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       search_term:
-        description: 'Term to search for in the repo'
+        description: "Term to search for across the repository"
         required: true
-        default: 'type here'
+        default: "TODO"
+      retention_days:
+        description: "How many days to keep the artifact (1–90)"
+        required: false
+        default: "14"
 
 jobs:
   search-keyword:
-    runs-on: ubuntu-latest
     name: Search Keyword in Files
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4.2.2
 
-      - name: Set Search Term from Input or Default
+      - name: Initialize search term
+        shell: bash
         run: |
-          echo "SEARCH_TERM=${{ github.event.inputs.search_term || 'TODO' }}" >> $GITHUB_ENV
+          set -euo pipefail
+          echo "SEARCH_TERM=${{ github.event.inputs.search_term }}" >> "$GITHUB_ENV"
 
-      - name: Search for Keyword in Repository Files
+      - name: Search and generate report files
+        shell: bash
         run: |
-          echo "🔍 Searching for '$SEARCH_TERM' in repository files..."
-          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . || echo "✅ No matches found for '$SEARCH_TERM'."
+          set -euo pipefail
 
-      - name: Save Matches to Artifact
-        run: |
           mkdir -p results
-          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . > results/matches.txt || echo "No matches found."
-        continue-on-error: true
 
-      - name: Upload Results as Artifact
+          echo "🔍 Searching for '${SEARCH_TERM}' in repository files..."
+          # Console output (nice for runtime visibility)
+          grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . || true
+
+          # Persisted outputs (artifact)
+          {
+            echo "Keyword Search Report"
+            echo "===================="
+            echo "Repository: ${{ github.repository }}"
+            echo "Ref:        ${{ github.ref }}"
+            echo "Run:        ${{ github.run_id }}"
+            echo "Search:     ${SEARCH_TERM}"
+            echo "Timestamp:  $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo
+            echo "Matches:"
+            echo "--------"
+          } > results/report.txt
+
+          if grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . > results/matches.txt; then
+            echo "✅ Matches found: $(wc -l < results/matches.txt)" | tee -a results/report.txt
+            echo >> results/report.txt
+            cat results/matches.txt >> results/report.txt
+          else
+            echo "✅ No matches found." | tee -a results/report.txt
+            : > results/matches.txt
+          fi
+
+      - name: Publish a permanent job summary (visible after the run)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## 🔎 Keyword Search Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Search term:** \`${SEARCH_TERM}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Artifact retention:** \`${{ github.event.inputs.retention_days }} day(s)\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -s results/matches.txt ]; then
+            echo "**Matches:** $(wc -l < results/matches.txt)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "<details><summary>Preview (first 200 lines)</summary>" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            head -n 200 results/matches.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Matches:** 0" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "⬇️ Download the **keyword-search-results** artifact from this workflow run page (Artifacts section)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results as an artifact (time-limited, not only runtime)
         uses: actions/upload-artifact@v4
         with:
           name: keyword-search-results
-          path: results/matches.txt
+          path: results/
+          if-no-files-found: error
+          retention-days: ${{ github.event.inputs.retention_days }}
