@@ -1,52 +1,57 @@
-## 📂 Modular PS1 Scripts Suite
 
-### 📝 Overview
+## 📂 Modular PS1 Scripts Suite  
+### Modular Automation · Reusable Components · GUI Templates
 
-The **Modular-PS1-Scripts** directory provides foundational **PowerShell scripts** that serve as building blocks for reusable modules and GUI-based tools. These templates help automate IT tasks, enforce consistency, and speed up tool development.
+![Suite](https://img.shields.io/badge/Suite-Modular%20PS1%20Scripts-FF6F00?style=for-the-badge&logo=code&logoColor=white) ![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white) ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) ![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge) ![Outputs](https://img.shields.io/badge/Outputs-LOG%20%7C%20CSV-success?style=for-the-badge)
 
-- 📦 **Reusable Components** — Designed to build modular scripts with standardized headers and bodies  
-- 🎛️ **Dynamic Menus** — GUI-based launchers simplify script execution  
-- 🪵 **Unified Logging** — All scripts generate `.log` files for audit and error tracing  
-- 📊 **Export Reports** — Structured `.csv` outputs where applicable for pipelines and documentation
+---
+
+## 🧭 Overview
+
+The **Modular-PS1-Scripts** directory provides foundational **PowerShell templates** that serve as building blocks for reusable modules and GUI-based tools. These scripts are designed to accelerate development, enforce consistency, and standardize operational execution across Windows environments.
+
+- 📦 **Reusable Components** — Modular functions and standardized script scaffolds  
+- 🎛️ **Dynamic Menus** — GUI launchers for faster navigation and execution  
+- 🪵 **Unified Logging** — Deterministic `.log` generation for audit and troubleshooting  
+- 📊 **Export Reports** — Structured `.csv` outputs for pipelines and documentation  
 
 ---
 
 ## 🛠️ Prerequisites
 
 1. ⚙️ **PowerShell Version**  
-   Ensure PowerShell 5.1+ is installed:  
+   Ensure PowerShell **5.1+** is available:
    ```powershell
    $PSVersionTable.PSVersion
    ```
 
 2. 🔑 **Administrator Privileges**  
-   Required for scripts modifying system settings or protected resources
+   Required for scripts that modify system settings or protected resources.
 
 3. 🖥️ **RSAT Tools**  
-   Required for AD/DNS/DHCP modules in other templates:  
+   Required when templates interact with **AD / DNS / DHCP**:
    ```powershell
    Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
    ```
 
-4. 🔧 **Execution Policy**  
-   Enable script execution in-process:  
+4. 🔧 **Execution Policy (Session Scoped)**  
+   Enable script execution for the current PowerShell session:
    ```powershell
-   Set-ExecutionPolicy RemoteSigned -Scope Process
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
    ```
 
 ---
 
-## 📄 Script Descriptions (Alphabetical)
+## 📄 Script Inventory (Alphabetical)
 
-| Script Name                                  | Description                                                                 |
-|----------------------------------------------|-----------------------------------------------------------------------------|
-| Create-Script-HeaderModel.ps1                | Generates standardized PowerShell script headers with metadata and proper documentation blocks |
-| Create-Script-LoggingMethod.ps1              | Implements a reusable, universal logging function for consistent audit trails and error tracking |
-| Create-Script-MainCodeStructure-Body.ps1     | Builds a clean, structured script body scaffold following PowerShell best practices |
-| Export-MarkdownCompilationReport.ps1         | Recursively collects all `.md` files into one normalized, structured compilation report with TOC |
-| Extract-Script-TextHeaders.ps1               | Extracts comment-based header blocks from `.ps1` files and exports them to plain text files |
-| Launch-Script-AutomaticMenu.ps1              | Provides a GUI-based script launcher with tabbed folder navigation, search, and execution controls |
-                       |
+| Script Name | Description |
+|------------|-------------|
+| **Create-Script-HeaderModel.ps1** | Generates standardized PowerShell script headers with metadata and comment-based help blocks. |
+| **Create-Script-LoggingMethod.ps1** | Implements a reusable, universal logging method for consistent audit trails and error tracking. |
+| **Create-Script-MainCodeStructure-Body.ps1** | Builds a clean, structured script body scaffold aligned with PowerShell best practices. |
+| **Export-MarkdownCompilationReport.ps1** | Recursively collects `.md` files into a normalized compilation report with a table of contents. |
+| **Extract-Script-TextHeaders.ps1** | Extracts comment-based header blocks from `.ps1` files and exports them to plain text. |
+| **Launch-Script-AutomaticMenu.ps1** | GUI-based script launcher with tabbed navigation, search, and execution controls. |
 
 ---
 
@@ -57,54 +62,50 @@ The **Modular-PS1-Scripts** directory provides foundational **PowerShell scripts
    git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
    ```
 
-2. **Navigate to Folder**  
-   `Windows-SysAdmin-ProSuite/Modular-PS1-Scripts/`
+2. **Navigate to Folder**
+   ```bash
+   cd Windows-SysAdmin-ProSuite/Core-ScriptLibrary/Modular-PS1-Scripts
+   ```
 
 3. **Review Documentation**  
-   Each folder includes a `README.md` with usage notes
+   Each tool includes usage notes in its local `README.md`.
 
-4. **Run Scripts**  
+4. **Run Scripts**
    ```powershell
    .\ScriptName.ps1
    ```
 
 5. **Check Logs and Outputs**  
-   Inspect generated `.log` and `.csv` files
+   Review generated `.log` and `.csv` artifacts for traceability and reporting.
 
 ---
 
 ## 📝 Logging and Output
 
-- 📄 **Logs** — Store runtime info, user actions, and errors in `.log` format  
-- 📊 **Reports** — Where applicable, structured `.csv` exports for analysis
+- 📄 **Logs** — Runtime flow, warnings, user actions, and errors (`.log`)  
+- 📊 **Reports** — Structured data exports (`.csv`) where applicable  
 
 ---
 
 ## 💡 Optimization Tips
 
-- ⏲️ **Automate** — Use Task Scheduler or remote agents to trigger scripts  
-- 🧩 **Customize** — Modify headers and bodies to fit your organization’s coding standards  
-- 📁 **Centralize Logs** — Store `.log` and `.csv` in a shared network directory
+- ⏲️ **Automate** — Use Task Scheduler or remote execution to trigger scripts  
+- 🧩 **Customize** — Adapt scaffolds to match internal coding standards  
+- 📁 **Centralize Logs** — Store `.log` and `.csv` artifacts in shared folders for audit and SOC visibility  
 
 ---
 
 ## ❓ Additional Assistance
 
-These scripting templates are designed for adaptation. Customize the header formats, logging behavior, and GUI presentation to match your environment.  
-Refer to the local `README.md` files in each script directory for detailed usage instructions.
+These templates are designed for adaptation. Customize header formats, logging behavior, and GUI layout to match your environment.  
+Refer to each tool’s local `README.md` for detailed usage guidance.
 
 ---
 
-## 📬 Support and Contribution
+## 🤝 Support & Community
 
-<div align="center">
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://patreon.com/brazilianscriptguy) [![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme)](https://gofund.me/4599d3e6) [![WhatsApp](https://img.shields.io/badge/WhatsApp-Join%20Us-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c) [![GitHub Issues](https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues)
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
-[![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://patreon.com/brazilianscriptguy)
-[![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
-[![GoFundMe](https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme)](https://gofund.me/4599d3e6)
-[![WhatsApp](https://img.shields.io/badge/WhatsApp-Join%20Us-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
-[![GitHub Issues](https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues)
+---
 
-</div>
+© 2026 Luiz Hamilton Silva. All rights reserved.
