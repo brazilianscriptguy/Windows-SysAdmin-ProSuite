@@ -1,54 +1,112 @@
-## 🔧 Core Script Library Folder
 
-Welcome to the **Core Script Library repository**, a cornerstone of the `Windows-SysAdmin-ProSuite/Core-ScriptLibrary/` folder. This library includes two subfolders: **Modular-PS1-Scripts** and **Nuget-Package-Publisher**, both offering advanced **PowerShell automation scripts** to streamline administration, optimize workflows, and publish NuGet packages. 
+## 🔧 Core Script Library  
+### Modular Automation · Reusable Components · Packaging Engine
 
----
-
-## 🌟 Key Features
-
-- 🖥️ **User-Friendly Interfaces:** Both modules include intuitive GUIs.  
-- 📝 **Detailed Logging:** All executions generate `.log` files for auditing.  
-- 📤 **Exportable Outputs:** Generate `.csv` or `.txt` for reports and integrations.
+[![Core](https://img.shields.io/badge/Core-Script%20Library-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)]
+[![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]
+[![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)]
+[![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]
+[![Packaging](https://img.shields.io/badge/NuGet-Packaging-004880?style=for-the-badge&logo=nuget&logoColor=white)]
 
 ---
 
-## 📁 Introducing the Subfolders
+## 🧭 Overview
+
+The **Core Script Library** is a foundational component of the  
+`Windows-SysAdmin-ProSuite/Core-ScriptLibrary/` directory.
+
+It provides **enterprise-grade PowerShell building blocks** used across the entire repository, enabling:
+
+- Reusable script scaffolding  
+- GUI-driven administrative tools  
+- Centralized logging and reporting  
+- Automated NuGet packaging and publishing  
+
+All components are designed with **determinism**, **auditability**, and **reuse** as first‑class principles.
+
+---
+
+## 🌟 Key Capabilities
+
+- 🧩 **Modular Architecture** — Reusable functions, helpers, and UI components  
+- 🎛️ **GUI-Ready Templates** — Windows Forms–based execution models  
+- 📝 **Structured Logging** — Deterministic `.log` generation  
+- 📊 **Exportable Outputs** — `.csv` and `.txt` artifacts  
+- 📦 **Packaging Engine** — Automated NuGet creation and publishing  
+
+---
+
+## 📁 Repository Structure
 
 | Subfolder | Purpose | Documentation |
-|-----------|---------|----------------|
-| **Modular-PS1-Scripts** | PowerShell scaffolds for automating tasks with reusable functions, GUI menus, and centralized logging. | [![Modular Scripts](https://img.shields.io/badge/Modular%20Scripts-README-blue?style=for-the-badge&logo=github)](Modular-PS1-Scripts/README.md) |
-| **Nuget-Package-Publisher** | Automates creation and publishing of NuGet packages using `Generate-NuGet-Package.ps1`, complete with GUI. | [![NuGet Publisher](https://img.shields.io/badge/NuGet%20Publisher-README-blue?style=for-the-badge&logo=github)](Nuget-Package-Publisher/README.md) |
+|----------|---------|---------------|
+| **Modular-PS1-Scripts** | PowerShell scaffolds for reusable automation, GUI menus, standardized headers, and centralized logging. | [![Docs](https://img.shields.io/badge/README-Modular%20Scripts-blue?style=for-the-badge&logo=github)](Modular-PS1-Scripts/README.md) |
+| **Nuget-Package-Publisher** | End‑to‑end automation for building and publishing NuGet packages using PowerShell and GUI workflows. | [![Docs](https://img.shields.io/badge/README-NuGet%20Publisher-blue?style=for-the-badge&logo=github)](Nuget-Package-Publisher/README.md) |
 
 ---
 
-## 🛠️ Prerequisites
+## 🛠️ Requirements & Environment
 
-1. 🖥️ **PowerShell 5.1 or Later**  
-   ```powershell
-   $PSVersionTable.PSVersion
-   ```
+### 1️⃣ PowerShell
 
-2. 🔑 **Admin Privileges**  
-   Required for filesystem access, package deployment, and service configuration.
+```powershell
+$PSVersionTable.PSVersion
+```
 
-3. 🖥️ **RSAT (for Modular-PS1-Scripts)**  
-   ```powershell
-   Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
-   ```
+- Minimum: **PowerShell 5.1**  
+- Recommended: **PowerShell 7+**
 
-4. 🔧 **NuGet CLI (for Nuget-Package-Publisher)**  
-   Place `nuget.exe` in the script folder or add to PATH.  
-   ```powershell
-   Test-Path (Join-Path $ScriptDir "nuget.exe")
-   ```
+---
 
-5. 🔑 **GitHub PAT (for Nuget-Package-Publisher)**  
-   Requires `package:write` scope.
+### 2️⃣ Administrative Privileges
 
-6. ⚙️ **Execution Policy**  
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-   ```
+Administrator rights are required for:
+
+- File system access  
+- Service interaction  
+- Package publishing  
+- Registry and system configuration  
+
+---
+
+### 3️⃣ RSAT (Required for Modular-PS1-Scripts)
+
+```powershell
+Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+```
+
+RSAT is required when scripts interact with:
+
+- Active Directory  
+- DNS / DHCP  
+- Group Policy Objects  
+
+---
+
+### 4️⃣ NuGet CLI (Nuget-Package-Publisher)
+
+- Place `nuget.exe` in the script directory **or** ensure it is available in `PATH`.
+
+```powershell
+Test-Path (Join-Path $PSScriptRoot "nuget.exe")
+```
+
+---
+
+### 5️⃣ GitHub Personal Access Token (PAT)
+
+Required for publishing packages:
+
+- Scope: `package:write`  
+- Used by the NuGet publishing workflow  
+
+---
+
+### 6️⃣ Execution Policy (Session Scoped)
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+```
 
 ---
 
@@ -58,52 +116,50 @@ Welcome to the **Core Script Library repository**, a cornerstone of the `Windows
 git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 ```
 
-1. **Navigate to Core Script Library:**  
-   `Windows-SysAdmin-ProSuite/Core-ScriptLibrary/`
+```bash
+cd Windows-SysAdmin-ProSuite/Core-ScriptLibrary
+```
 
-2. **Review Documentation:**  
-   Each subfolder has a detailed `README.md`.
+### Recommended Workflow
 
-3. **Run the Scripts:**  
-   ```powershell
-   .\ScriptName.ps1
-   ```
+1. Review the README of the target subfolder  
+2. Customize templates or configuration files  
+3. Execute the script:
 
-4. **Review Logs and Outputs:**  
-   - Logs (`.log`) in script directory or `%LOCALAPPDATA%\NuGetPublisher\Logs`  
-   - Artifacts in `artifacts` folder (NuGet)  
-   - Reports in `.csv` or `.txt` formats
+```powershell
+.\ScriptName.ps1
+```
+
+4. Review generated logs and artifacts  
 
 ---
 
-## 📝 Logging and Reporting
+## 📝 Logging & Outputs
 
-- **Logs:**  
-  - `Modular-PS1-Scripts`: local `.log` files  
+- **Logs**
+  - `Modular-PS1-Scripts`: Local `.log` files
   - `Nuget-Package-Publisher`: `%LOCALAPPDATA%\NuGetPublisher\Logs`
 
-- **Reports:**  
-  - `Modular-PS1-Scripts`: `.csv` exports  
-  - `Nuget-Package-Publisher`: `NuGetReport_*.txt`
+- **Reports & Artifacts**
+  - `.csv` exports
+  - `.txt` execution summaries
+  - `.nupkg` and `.snupkg` files
 
 ---
 
-## 💡 Optimization Tips
+## 💡 Operational Best Practices
 
-- 🔁 **Automate Deployment:** Use Task Scheduler or remote push (Modular-PS1-Scripts)  
-- 🧩 **Customize Templates:** Adapt headers and logic to your enterprise  
-- 📁 **Centralize Outputs:** Store logs/reports on a shared directory  
-- 📦 **Automate Publishing:** Schedule `Generate-NuGet-Package.ps1`  
-- 🧾 **Custom Metadata:** Adjust `config.json` or use GUI  
-- 📤 **Centralize Artifacts:** Redirect build paths to shared folders
+- 🔁 Schedule executions via **Task Scheduler**
+- 📁 Centralize logs on shared storage for audits
+- 🧪 Validate scripts in test environments first
+- 🧾 Maintain standardized headers and metadata
+- 📦 Automate package publishing via CI/CD
 
 ---
 
-## ❓ Support & Customization
+## 🤝 Support & Community
 
-The scripts in this library are designed to be modular and adaptable. For help, check the respective `README.md` files or reach out via the support channels below.
-
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-Donate-green?style=for-the-badge&logo=gofundme)](https://gofund.me/4599d3e6) [![WhatsApp](https://img.shields.io/badge/Join%20Us-WhatsApp-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c) [![GitHub Issues](https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/ISSUE_TEMPLATE/CUSTOM_ISSUE_TEMPLATE.md)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Support-Patreon-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge&logo=gofundme)](https://gofund.me/4599d3e6) [![GitHub Issues](https://img.shields.io/badge/Report%20Issues-GitHub-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues)
 
 ---
 
