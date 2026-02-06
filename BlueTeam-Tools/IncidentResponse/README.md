@@ -1,6 +1,9 @@
-## 🔵 BlueTeam-Tools: Incident Response Suite
+## 🔵 BlueTeam-Tools: Incident Response Suite  
+### DFIR · Live Response · Evidence Preservation
 
-### 📌 Overview
+[![BlueTeam](https://img.shields.io/badge/BlueTeam-Incident%20Response-orange?style=for-the-badge&logo=protonmail&logoColor=white)]() [![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]() [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)]() [![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge)]() [![Security](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge)]()
+
+---
 
 The **IncidentResponse** folder contains focused **PowerShell scripts** designed for real-time **incident response** in **Active Directory** and **Windows Server** environments. These tools support security teams in rapid assessment, cleanup, and documentation — minimizing downtime while preserving forensic data.
 
@@ -49,7 +52,10 @@ The **IncidentResponse** folder contains focused **PowerShell scripts** designed
 
 - ✅ PowerShell 5.1 or newer  
 - 🔐 Administrator rights  
-- 🖥️ RSAT installed (for AD-related tools)  
+- 🖥️ RSAT installed (for AD-related tools)
+  ```powershell
+  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+  ```
 - 📦 Active Directory module:  
   ```powershell
   Import-Module ActiveDirectory
@@ -72,4 +78,4 @@ The **IncidentResponse** folder contains focused **PowerShell scripts** designed
 
 ---
 
-© 2025 Luiz Hamilton. All rights reserved.
+© 2026 Luiz Hamilton Silva. All rights reserved.
