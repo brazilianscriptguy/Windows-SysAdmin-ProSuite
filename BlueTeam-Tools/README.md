@@ -65,7 +65,10 @@ Designed for professionals operating in:
 
 [![PS](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell)]() [![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
 
-- **PowerShell**  
+- **PowerShell**
+```powershell
+$PSVersionTable.PSVersion
+```
   Minimum **5.1** (PowerShell 7+ recommended)
 
 - **Administrative Privileges**  
