@@ -23,7 +23,8 @@ All tools follow the same engineering principles applied across **Windows-SysAdm
 
 ## 🧪 Core Capabilities
 
-[![Forensics](https://img.shields.io/badge/Forensics-Ready-black?style=for-the-badge)]() [![Logging](https://img.shields.io/badge/Logging-Structured-success?style=for-the-badge)]() [![Reports](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]() [![GUI](https://img.shields.io/badge/GUI-Available-blueviolet?style=for-the-badge)]() 
+[![Forensics](https://img.shields.io/badge/Forensics-Ready-black?style=for-the-badge)]() [![Logging](https://img.shields.io/badge/Logging-Structured-success?style=for-the-badge)]() [![Reports](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]() [![GUI](https://img.shields.io/badge/GUI-Available-blueviolet?style=for-the-badge)]()
+
 - 🔍 **Forensic Automation**  
   Extraction of Windows Event Logs, registry artifacts, network sessions, user activity, and volatile system state.
 
@@ -40,7 +41,7 @@ All tools follow the same engineering principles applied across **Windows-SysAdm
 [![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]() [![Pipeline](https://img.shields.io/badge/Integration-IR%20Pipelines-4B0082?style=for-the-badge)]()
 
 | Component | Purpose | Documentation |
-|---------|---------|--------|
+|-----------|---------|---------------|
 | **EventLogMonitoring** | Security-focused analysis of Windows Event Logs, including authentication failures, privilege escalation, lateral movement indicators, and policy violations. | [![Docs](https://img.shields.io/badge/View%20Docs-EventLogMonitoring-0A66C2?style=for-the-badge&logo=github)](EventLogMonitoring/README.md) |
 | **IncidentResponse** | Live-response and post-incident utilities for volatile artifacts, active sessions, system metadata, and threat indicators. | [![Docs](https://img.shields.io/badge/View%20Docs-IncidentResponse-0A66C2?style=for-the-badge&logo=github)](IncidentResponse/README.md) |
 
@@ -64,54 +65,47 @@ Designed for professionals operating in:
 
 [![PS](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell)]() [![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
 
-- **PowerShell:**  
+- **PowerShell**  
   Minimum **5.1** (PowerShell 7+ recommended)
 
-- **Administrative Privileges:**  
+- **Administrative Privileges**  
   Required to access protected system artifacts.
 
-- **RSAT (when applicable):**
-    ```powershel
-  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+- **RSAT (when applicable)**
 
-    ```
+```powershell
+Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+```
 
--   **Execution Policy (session-scoped):**
-    
-    ```powershell
-    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-    
-    ```
-    
--   **Optional Modules:**  
-    `ActiveDirectory`, `Defender`, `DHCPServer`
-    
+- **Execution Policy (session-scoped)**
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+```
+
+- **Optional Modules**  
+  `ActiveDirectory`, `Defender`, `DHCPServer`
 
 ---
 
 ## 🚀 Getting Started
 
-    ```powershel
-    git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-    
-    cd Windows-SysAdmin-ProSuite/BlueTeam-Tools
-    ```
-    
+```powershell
+git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/BlueTeam-Tools
+```
+
 **Recommended workflow:**
 
-1.  Select the appropriate category
-    
-2.  Review the local `README.md`
-    
-3.  Execute the script:
-    
-    ```powershell
-    .\Script-Name.ps1
-    
-    ```
-    
-4.  Review generated `.log` and `.csv` artifacts
-    
+1. Select the appropriate category  
+2. Review the local `README.md`  
+3. Execute the script:
+
+```powershell
+.\Script-Name.ps1
+```
+
+4. Review generated `.log` and `.csv` artifacts
 
 > ⚠️ Always validate execution context before running in production or investigative environments.
 
@@ -119,20 +113,15 @@ Designed for professionals operating in:
 
 ## 🔗 Integration & Interoperability
 
-[![GPO](https://img.shields.io/badge/Integration-GPOs-blue?style=for-the-badge)](https://chatgpt.com/c/69865ef3-2314-832b-bf49-c095b60862ae) [![Scheduled Tasks](https://img.shields.io/badge/Integration-Scheduled%20Tasks-4682B4?style=for-the-badge)](https://chatgpt.com/c/69865ef3-2314-832b-bf49-c095b60862ae) [![SIEM](https://img.shields.io/badge/Integration-SIEM-informational?style=for-the-badge)](https://chatgpt.com/c/69865ef3-2314-832b-bf49-c095b60862ae)
+[![GPO](https://img.shields.io/badge/Integration-GPOs-blue?style=for-the-badge)](https://chatgpt.com/) [![Scheduled Tasks](https://img.shields.io/badge/Integration-Scheduled%20Tasks-4682B4?style=for-the-badge)](https://chatgpt.com/) [![SIEM](https://img.shields.io/badge/Integration-SIEM-informational?style=for-the-badge)](https://chatgpt.com/)
 
 BlueTeam tools are designed to integrate with:
 
--   Incident response playbooks
-    
--   GPO-based execution models
-    
--   Scheduled forensic snapshots
-    
--   SIEM ingestion pipelines
-    
--   Compliance and audit evidence chains
-    
+- Incident response playbooks  
+- GPO-based execution models  
+- Scheduled forensic snapshots  
+- SIEM ingestion pipelines  
+- Compliance and audit evidence chains  
 
 ---
 
