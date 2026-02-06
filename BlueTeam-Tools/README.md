@@ -91,7 +91,7 @@ Designed for professionals operating in:
 
 ## 🚀 Getting Started
 
-    ```powershell
+    ```powershel
 git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 cd Windows-SysAdmin-ProSuite/BlueTeam-Tools
 
