@@ -1,41 +1,38 @@
-name: Search for Specific Word in Repository
+name: Manual Keyword Search in Repository
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       search_term:
-        description: 'Term to search for in the repo'
+        description: "Term to search for across the repository"
         required: true
-        default: 'type here'
+        default: "TODO"
 
 jobs:
   search-keyword:
-    runs-on: ubuntu-latest
     name: Search Keyword in Files
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4.2.2
 
-      - name: Set Search Term from Input or Default
+      - name: Initialize search term
         run: |
-          echo "SEARCH_TERM=${{ github.event.inputs.search_term || 'TODO' }}" >> $GITHUB_ENV
+          echo "SEARCH_TERM=${{ github.event.inputs.search_term }}" >> "$GITHUB_ENV"
 
-      - name: Search for Keyword in Repository Files
+      - name: Search for keyword in repository
         run: |
-          echo "🔍 Searching for '$SEARCH_TERM' in repository files..."
-          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . || echo "✅ No matches found for '$SEARCH_TERM'."
+          echo "🔍 Searching for '${SEARCH_TERM}' in repository files..."
+          grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . || \
+          echo "✅ No matches found for '${SEARCH_TERM}'."
 
-      - name: Save Matches to Artifact
+      - name: Save matches to artifact
         run: |
           mkdir -p results
-          grep -rIn --exclude-dir=.git --color=never "$SEARCH_TERM" . > results/matches.txt || echo "No matches found."
-        continue-on-error: true
+          grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . > results/matches.txt || true
 
-      - name: Upload Results as Artifact
+      - name: Upload search results
         uses: actions/upload-artifact@v4
         with:
           name: keyword-search-results
