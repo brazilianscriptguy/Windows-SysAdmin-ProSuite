@@ -69,7 +69,10 @@ The **EventLogMonitoring** folder includes a robust set of **PowerShell scripts*
 
 ## 🛠️ Requirements
 
-- ✅ PowerShell 5.1 or later  
+- ✅ PowerShell 5.1 or later
+```powershell
+$PSVersionTable.PSVersion
+```
 - 🔐 Administrator privileges  
 - 🖥️ RSAT Tools for AD filtering
    ```powershell
