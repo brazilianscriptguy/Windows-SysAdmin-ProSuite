@@ -71,7 +71,10 @@ The **EventLogMonitoring** folder includes a robust set of **PowerShell scripts*
 
 - ✅ PowerShell 5.1 or later  
 - 🔐 Administrator privileges  
-- 🖥️ RSAT Tools for AD filtering  
+- 🖥️ RSAT Tools for AD filtering
+   ```powershell
+  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+   ```
 - 🔎 **Log Parser 2.2**  
   [![Microsoft](https://img.shields.io/badge/Vendor-Microsoft-0078D6?style=for-the-badge&logo=microsoft&logoColor=white)](https://www.microsoft.com/en-us/download/details.aspx?id=24659)   [![Download](https://img.shields.io/badge/Download-Log%20Parser%202.2-blue?style=for-the-badge&logo=download&logoColor=white)](https://www.microsoft.com/en-us/download/details.aspx?id=24659)   [![Category](https://img.shields.io/badge/Category-Log%20Analysis-informational?style=for-the-badge)]()
 
