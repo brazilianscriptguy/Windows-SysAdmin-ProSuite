@@ -1,109 +1,123 @@
-## 🛠️ Active Directory Management Tools
+## 🛠️ Active Directory Management Tools  
+### Identity Administration · Domain Automation · AD Governance
 
-### 📝 Overview
-
-The **Active Directory Management** suite contains advanced PowerShell scripts for automating key tasks related to **Active Directory (AD)**. These tools streamline domain operations like user/computer account creation, OU organization, policy enforcement, and auditing.
-
-#### 🔑 Key Features
-
-- **Graphical Interfaces** — Several tools include GUIs to simplify user interaction and configuration  
-- **Comprehensive Logging** — All scripts generate structured `.log` files for traceability and diagnostics  
-- **Exportable Reports** — Many tools export `.csv` files for documentation and compliance  
-- **Efficient AD Automation** — Eliminates repetitive manual operations across domains
+![Suite](https://img.shields.io/badge/Suite-Active%20Directory%20Management-0A66C2?style=for-the-badge&logo=windows&logoColor=white) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white) ![Scope](https://img.shields.io/badge/Scope-Users%20%7C%20Computers%20%7C%20GPOs-informational?style=for-the-badge) ![Focus](https://img.shields.io/badge/Focus-AD%20Automation%20%7C%20Compliance-critical?style=for-the-badge)
 
 ---
 
-### 🛠️ Prerequisites
+## 🧭 Overview
 
-1. ⚙️ **PowerShell 5.1 or later**  
-   Check version:  
-   ```powershell
-   $PSVersionTable.PSVersion
-   ```
+The **Active Directory Management Tools** suite provides **enterprise-grade PowerShell automation** for managing and governing **Active Directory (AD)** environments.
 
-2. 📦 **Active Directory Module**  
-   Import it where needed:  
-   ```powershell
-   Import-Module ActiveDirectory
-   ```
+These tools are designed to streamline and standardize operations such as:
 
-3. 🔑 **Administrator Privileges**  
-   Required to modify AD objects and apply changes
+- User and computer provisioning  
+- OU structure creation and maintenance  
+- Password, expiration, and lifecycle enforcement  
+- GPO management and auditing  
+- Inventory, reporting, and compliance validation  
 
-4. 🖥️ **RSAT (Remote Server Administration Tools)**  
-   Must be installed and configured
-
-5. 🔧 **Execution Policy**  
-   Temporarily allow local scripts:  
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-   ```
+All scripts follow the same engineering standards used across **Windows-SysAdmin-ProSuite**, ensuring **deterministic execution, structured logging, and audit-ready outputs**.
 
 ---
 
-### 📄 Script Descriptions (Alphabetical)
+## 🌟 Key Features
+
+- 🖼️ **GUI-Enabled Tools** — Simplified workflows for complex AD operations  
+- 📝 **Comprehensive Logging** — Structured `.log` files for traceability and diagnostics  
+- 📊 **Exportable Reports** — `.csv` outputs for documentation, audits, and compliance  
+- ⚙️ **Efficient AD Automation** — Eliminates repetitive and error-prone manual tasks  
+
+---
+
+## 🛠️ Prerequisites
+
+- **⚙️ PowerShell** — Version **5.1 or later** (PowerShell 7.x supported)  
+  ```powershell
+  $PSVersionTable.PSVersion
+  ```
+
+- **📦 Active Directory Module** — Required for most scripts  
+  ```powershell
+  Import-Module ActiveDirectory
+  ```
+
+- **🖥️ RSAT Tools** — Required for AD administration  
+  ```powershell
+  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+  ```
+
+- **🔑 Administrative Privileges** — Required to modify AD objects and policies  
+
+- **🔧 Execution Policy** — Session-scoped execution  
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+  ```
+
+---
+
+## 📄 Script Catalog (Alphabetical)
 
 | Script Name | Description |
-|-------------|-------------|
+|------------|-------------|
 | **Add-ADComputers-GrantPermissions.ps1** | Adds AD computers to OUs and grants domain join permissions |
 | **Add-ADInetOrgPerson.ps1** | Creates `InetOrgPerson` objects with detailed attributes |
 | **Add-ADUserAccount.ps1** | GUI-based AD user creation in specific OUs |
 | **Adjust-ExpirationDate-ADUserAccount.ps1** | Updates expiration dates for AD user accounts |
-| **Check-Shorter-ADComputerNames.ps1** | Flags computer accounts with short/non-compliant names |
+| **Check-Shorter-ADComputerNames.ps1** | Flags computer accounts with short or non-compliant names |
 | **Cleanup-Inactive-ADComputerAccounts.ps1** | Deletes stale computer objects from AD |
-| **Cleanup-MetaData-ADForest-Tool.ps1** | Cleans orphaned metadata and synchronizes AD forest |
-| **Create-OUsDefaultADStructure.ps1** | Builds standard OU layout for a new or existing domain |
-| **Enforce-Expiration-ADUserPasswords.ps1** | Enables expiration policy for user passwords |
-| **Export-n-Import-GPOsTool.ps1** | GUI tool for GPO import/export |
-| **Fix-ADForest-DNSDelegation.ps1** | Resolves DNS delegation problems in the forest |
-| **Inventory-ADComputers-and-OUs.ps1** | GUI tool to export computers and OU structure |
+| **Cleanup-MetaData-ADForest-Tool.ps1** | Cleans orphaned metadata and synchronizes the AD forest |
+| **Create-OUsDefaultADStructure.ps1** | Builds a standard OU layout for a domain |
+| **Enforce-Expiration-ADUserPasswords.ps1** | Enforces password expiration policies |
+| **Export-n-Import-GPOsTool.ps1** | GUI tool for GPO export and import |
+| **Fix-ADForest-DNSDelegation.ps1** | Resolves DNS delegation issues in the forest |
+| **Inventory-ADComputers-and-OUs.ps1** | GUI inventory of computers and OU structure |
 | **Inventory-ADDomainComputers.ps1** | Exports a flat list of domain-joined computers |
 | **Inventory-ADGroups-their-Members.ps1** | Lists all AD groups and their members |
-| **Inventory-ADMemberServers.ps1** | Gathers info on all member servers in the domain |
-| **Inventory-ADUserAttributes.ps1** | Exports all attributes for users into CSV |
-| **Inventory-ADUserLastLogon.ps1** | Tracks user logon times |
-| **Inventory-ADUserWithNonExpiringPasswords.ps1** | Detects accounts without password expiration |
-| **Inventory-InactiveADComputerAccounts.ps1** | Finds unused computer accounts |
-| **Manage-Disabled-Expired-ADUserAccounts.ps1** | Disables expired user accounts |
-| **Manage-FSMOs-Roles.ps1** | View or transfer FSMO roles |
-| **Move-ADComputer-betweenOUs.ps1** | Moves computers across OUs based on logic |
-| **Move-ADUser-betweenOUs.ps1** | Moves users to other OUs with filtering |
-| **Reset-ADUserPasswordsToDefault.ps1** | Resets passwords in bulk to a secure default |
-| **Retrieve-ADComputer-SharedFolders.ps1** | Gets shared folders from AD computers |
-| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Extracts current domain audit settings |
-| **Retrieve-Elevated-ADForestInfo.ps1** | Lists admin groups, roles, and critical forest info |
-| **Synchronize-ADForestDCs.ps1** | Triggers replication across domain controllers |
+| **Inventory-ADMemberServers.ps1** | Collects information on all member servers |
+| **Inventory-ADUserAttributes.ps1** | Exports full AD user attributes to CSV |
+| **Inventory-ADUserLastLogon.ps1** | Tracks last logon timestamps |
+| **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies accounts with non-expiring passwords |
+| **Inventory-InactiveADComputerAccounts.ps1** | Detects unused computer accounts |
+| **Manage-Disabled-Expired-ADUserAccounts.ps1** | Manages expired and disabled user accounts |
+| **Manage-FSMOs-Roles.ps1** | Views and transfers FSMO roles |
+| **Move-ADComputer-betweenOUs.ps1** | Moves computers between OUs |
+| **Move-ADUser-betweenOUs.ps1** | Moves users between OUs with filtering |
+| **Reset-ADUserPasswordsToDefault.ps1** | Bulk password reset to secure defaults |
+| **Retrieve-ADComputer-SharedFolders.ps1** | Retrieves shared folders from AD computers |
+| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Extracts domain audit policy configuration |
+| **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves privileged forest and role information |
+| **Synchronize-ADForestDCs.ps1** | Forces replication across domain controllers |
 | **Unlock-SMBShareADUserAccess.ps1** | Restores SMB share access for users |
-| **Update-ADComputer-Descriptions.ps1** | Populates description fields with asset details |
-| **Update-ADUserDisplayName.ps1** | Applies naming format to user display names |
+| **Update-ADComputer-Descriptions.ps1** | Updates computer object descriptions |
+| **Update-ADUserDisplayName.ps1** | Applies standardized display name formats |
 
 ---
 
-### 🚀 Usage Instructions
+## 🚀 Usage Instructions
 
-1. **Run the Script**  
-   Use context menu → *Run with PowerShell* or launch in elevated console
-
-2. **Provide Inputs**  
-   Enter required data or interact via GUI (varies by script)
-
-3. **Review Outputs**  
-   Logs and `.csv` files will be saved in:
-   - Working folder  
-   - Or: `C:\Logs-TEMP\`
+1. Run scripts via **Run with PowerShell** or an elevated console  
+2. Provide required parameters or interact via GUI (script-dependent)  
+3. Review generated outputs:
+   - Logs: `C:\Logs-TEMP\`
+   - Reports: `.csv` files per script  
 
 ---
 
-### 📄 Complementary Files
+## 📄 Complementary Files
 
 - `GPO-Template-Backup.zip` — Sample GPO export archive  
-- `Default-AD-OUs.csv` — Reference list of default OUs used in provisioning  
-- `Password-Reset-Log.log` — Example log for password reset operations
+- `Default-AD-OUs.csv` — Reference OU structure used in provisioning  
+- `Password-Reset-Log.log` — Example password reset audit log  
 
 ---
 
-### 💡 Optimization Tips
+## 💡 Optimization Tips
 
-- **Automate Execution** — Use Windows Task Scheduler or GPO to run scripts regularly  
-- **Centralize Logs** — Forward logs to shared path or SIEM agent  
-- **Domain Customization** — Edit OU paths, naming logic, and group policies to reflect enterprise structure
+- 🔁 Automate execution using Task Scheduler or GPOs  
+- 🗂️ Centralize logs to a network share or SIEM pipeline  
+- 🧩 Customize OU paths, naming standards, and policies to match enterprise design  
+
+---
+
+© 2026 Luiz Hamilton Silva. All rights reserved.
