@@ -1,83 +1,108 @@
-## 🚀 Complete PowerShell and VBScript Toolkit
 
-### ITSM Compliance for Windows 10/11 Workstations and Windows Server 2019/2022
+# 🚀 Windows-SysAdmin-ProSuite  
+### Enterprise Automation · IAM · Cybersecurity · Forensic Readiness
 
-Welcome to **Windows-SysAdmin-ProSuite** — a comprehensive and enterprise-grade collection of **PowerShell** and **VBScript** automation tools by [`@brazilianscriptguy`](https://github.com/brazilianscriptguy), designed for **secure**, **compliant**, and **scalable** Windows infrastructure management.
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![Zenodo DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE) [![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell) [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
-> ✨ Most tools include intuitive **graphical user interfaces (GUI)**, generate structured `.log` files for auditing, and many also export `.csv` reports to support compliance, forensics, and ITSM workflows.
+**Windows-SysAdmin-ProSuite** is an **enterprise-grade**, **research-aligned**, and **auditable** collection of **PowerShell** and **VBScript** automation tools authored by **Luiz Hamilton Silva (@brazilianscriptguy)**.
+
+The project delivers **secure**, **compliant**, and **scalable** automation for **Windows Server (2019/2022)** and **Windows 10/11**, with strong focus on:
+
+- 🔐 Identity & Access Management (IAM)
+- 🛡️ Cybersecurity & Digital Forensics
+- 📋 ITSM & Governance
+- 📊 Auditability, reproducibility, and traceability
+
+> ✨ Most tools include **GUI-driven execution**, generate structured `.log` files, and export `.csv` reports suitable for **audits, investigations, and compliance workflows**.
+
+---
+
+## 🇺🇸 National Interest & Research Alignment
+
+[![Public Sector](https://img.shields.io/badge/Focus-Public%20Sector-blue?style=for-the-badge&logo=unitedstates)]() [![Cybersecurity](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge&logo=security)]() [![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge&logo=datadog)]() [![Governance](https://img.shields.io/badge/Domain-IT%20Governance-purple?style=for-the-badge&logo=databricks)]()
+
+This repository represents an **independent, ongoing engineering and research initiative** addressing **systemic challenges** in Windows-based infrastructures, particularly in:
+
+- 🏛️ Courts, universities, and government agencies  
+- 🏢 Enterprise and hybrid environments  
+- 🛡️ Blue Team / DFIR operations  
+
+The toolkit contributes to **national-scale objectives** related to:
+
+- Cybersecurity resilience  
+- Digital trust and auditability  
+- Secure identity governance  
+- Infrastructure reliability  
 
 ---
 
 ## 🧭 Scope & Target Audience
 
-This toolkit is purpose-built for:
+[![Audience](https://img.shields.io/badge/Audience-Public%20Sector-0047AB?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Enterprise%20IT-2E8B57?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-DFIR%20Teams-8B0000?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Researchers-6A5ACD?style=for-the-badge)]()
 
-* 🏛️ **Public-sector IT environments** (courts, universities, government agencies)
-* 🏢 **Enterprise Windows domains** (on-premises and hybrid)
-* 🛡️ **Blue Team / DFIR operations** (event logs, artifacts, investigations)
-* 📋 **ITSM-aligned provisioning** of servers and workstations
-* 📑 **Compliance-driven automation** (auditability, repeatability, governance)
+Designed for professionals working with:
 
----
-
-## 🛠️ Toolkit Overview
-
-**Organized by critical IT service domains:**
-
-| Folder | Description |
-|-------|-------------|
-| [![BlueTeam Tools](https://img.shields.io/badge/BlueTeam%20Tools-Forensics-orange?style=for-the-badge&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | PowerShell forensic tooling for DFIR, including **Event Log monitoring**, **incident response**, and investigative workflows aligned with digital evidence handling. |
-| [![Core ScriptLibrary](https://img.shields.io/badge/Core%20ScriptLibrary-Modules-red?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Foundational scripting modules for **reusability**, **helper functions**, **GUI backends**, CI/CD integration, and **NuGet packaging** automation. |
-| [![ITSM SVR](https://img.shields.io/badge/ITSM%20Templates-SVR-purple?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | Standardized **Windows Server 2019/2022** baselines: DNS, AD CS, GPO, DHCP, IIS, WSUS, and institutional compliance automation. |
-| [![ITSM WKS](https://img.shields.io/badge/ITSM%20Templates-WKS-green?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | ITSM automation for **Windows 10/11**: `BeforeJoinDomain`, `AfterJoinDomain`, asset tagging, security hardening, and workstation standardization routines. |
-| [![SysAdmin Tools](https://img.shields.io/badge/SysAdmin%20Tools-Management-blue?style=for-the-badge&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Centralized **PowerShell + VBScript GUIs** for AD, GPO, WSUS, DNS, DHCP, CA, and infrastructure orchestration, organized into multiple operational categories. |
+- IT infrastructure administration
+- Identity & Access Management
+- Security operations and investigations
+- ITSM-aligned provisioning
+- Compliance and audit preparation
 
 ---
 
-## 💻 Core Features
+## 🛠️ Repository Architecture
 
-* 🧪 **Forensic readiness:** Artifact collection, Event Log parsing, timeline support, and breach detection
-* ⚡ **PowerShell-driven automation:** Secure scripting patterns with modularity and CI/CD support
-* 🔐 **Server & workstation hardening:** Enforcement of institutional baselines (firewall, DNS, GPOs, services)
-* 👤 **IAM & domain readiness:** AD objects, logon behavior analysis, SID tracking, offline logon controls
-* 📋 **Registry + GPO integration:** Native use of `.reg`, `.vbs`, `.hta`, and PowerShell for policy enforcement
+[![BlueTeam](https://img.shields.io/badge/BlueTeam-Forensics-orange?style=for-the-badge&logo=protonmail)](BlueTeam-Tools) [![Core](https://img.shields.io/badge/Core-ScriptLibrary-red?style=for-the-badge&logo=visualstudiocode)](Core-ScriptLibrary) [![SysAdmin](https://img.shields.io/badge/SysAdmin-Tools-blue?style=for-the-badge&logo=microsoft)](SysAdmin-Tools) [![ITSM WKS](https://img.shields.io/badge/ITSM-WKS-green?style=for-the-badge&logo=windows)](ITSM-Templates-WKS) [![ITSM SVR](https://img.shields.io/badge/ITSM-SVR-purple?style=for-the-badge&logo=windows11)](ITSM-Templates-SVR)
+
+| Component | Description |
+|---------|-------------|
+| **BlueTeam-Tools** | DFIR tooling for Event Logs, artifacts, timelines |
+| **Core-ScriptLibrary** | Reusable modules, GUIs, helpers, NuGet engine |
+| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI automation |
+| **ITSM-Templates-WKS** | Windows 10/11 baseline & lifecycle scripts |
+| **ITSM-Templates-SVR** | Windows Server 2019/2022 compliance tooling |
 
 ---
 
-## 🌟 Key Highlights & Engineering Principles
+## 💻 Core Capabilities
 
-* 🖼️ **GUI-driven interfaces:** User-friendly tools with guided execution
-* 📝 **Standardized logging model:** Deterministic `.log` outputs in predefined directories
-* 📊 **CSV audit reports:** BIOS, SID, OS posture, update status, and software inventory exports
-* 🧩 **Modular architecture:** Reusable components, consistent naming, and parameterization
-* 🔁 **Release automation:** GitHub Actions for linting, SARIF analysis, packaging, and NuGet publishing
-* 🛡️ **Native Windows tooling only:** No bundled third-party binaries
+[![IAM](https://img.shields.io/badge/IAM-Automation-4682B4?style=for-the-badge)]() [![Forensics](https://img.shields.io/badge/Forensics-Ready-black?style=for-the-badge)]() [![Logs](https://img.shields.io/badge/Logging-Structured-success?style=for-the-badge)]() [![CSV](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]()
+
+- Event Log parsing and correlation  
+- AD object and logon behavior analysis  
+- GPO, registry, and baseline enforcement  
+- Modular PowerShell orchestration  
+- Audit-oriented outputs  
+
+---
+
+## 🌟 Engineering Principles
+
+[![GUI](https://img.shields.io/badge/GUI-Driven-blueviolet?style=for-the-badge)]() [![Modular](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]() [![CI/CD](https://img.shields.io/badge/CI%2FCD-Automated-2088FF?style=for-the-badge&logo=githubactions)]() [![SARIF](https://img.shields.io/badge/SARIF-Integrated-brightgreen?style=for-the-badge)]()
+
+- GUI-driven safe execution  
+- Deterministic logging model  
+- Modular, reusable design  
+- CI pipelines with linting & SARIF  
+- Native Windows tooling only  
 
 ---
 
 ## 🏛️ Governance, Quality & Security
 
-This repository follows **enterprise-grade governance standards**:
+[![Versioning](https://img.shields.io/badge/Versioning-Semantic-blue?style=for-the-badge)]() [![Releases](https://img.shields.io/badge/Releases-Tagged-success?style=for-the-badge)]() [![Security](https://img.shields.io/badge/Security-Policy-red?style=for-the-badge)]() [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)]()
 
-* Semantic versioning (`vMAJOR.MINOR.PATCH`)
-* Tag- and release-based distribution
-* CI pipelines with PowerShell and VBScript SARIF analysis
-* Documented **Security Policy**, **Code of Conduct**, and **Contribution Guidelines**
-* Responsible vulnerability disclosure process
-* MIT License (SPDX compatible)
+- Semantic versioning (`vMAJOR.MINOR.PATCH`)
+- Release-based distribution
+- CI for PowerShell, VBScript, Markdown
+- SARIF security reporting
+- MIT License
 
 ---
 
-## ⚙️ Requirements & Environment Setup
+## ⚙️ Requirements
 
-| Requirement | Minimum Version / Notes |
-|------------|--------------------------|
-| **PowerShell** | Windows PowerShell **5.1** or **PowerShell 7.x** (recommended) |
-| **Operating System** | Windows **10/11**, Windows Server **2019/2022** |
-| **Execution Policy** | Recommended: `RemoteSigned` |
-| **Administrator Rights** | Required for most automation tasks |
-| **.NET Framework** | **4.8** recommended (legacy GUI compatibility) |
-| **Optional Tools** | Git, Visual Studio Code, Task Scheduler |
+[![PS](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell)]() [![OS](https://img.shields.io/badge/OS-Windows%2010%2F11%20%7C%20Server-0078D6?style=for-the-badge&logo=windows)]() [![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
 
 ---
 
@@ -88,100 +113,56 @@ git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 cd Windows-SysAdmin-ProSuite
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 .\ITSM-Templates-WKS\BeforeJoinDomain\Initialize-WKSBaseline.ps1
-````
+```
 
-> ⚠️ Always review scripts before running them in production environments.
-
----
-
-## ▶️ How to Use
-
-### Run scripts
-
-| File Type | Execution Method                                                           |
-| --------- | -------------------------------------------------------------------------- |
-| `.ps1`    | Right-click → **Run with PowerShell** or execute from an elevated terminal |
-| `.vbs`    | Run via `cscript.exe` (recommended) or `wscript.exe`                       |
-| `.hta`    | Double-click (run as administrator when required)                          |
-
-### Logs and reports
-
-| Path                       | Purpose                                                                |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `C:\ITSM-Logs-WKS\`        | Workstation automation execution logs                                  |
-| `C:\ITSM-Logs-SVR\`        | Server-side automation and execution logs                              |
-| `C:\Scripts-LOGS\`         | GPO synchronization, agents, and security tooling logs                 |
-| `C:\Logs-TEMP\`            | General-purpose, transient, and legacy script outputs                  |
-| `%USERPROFILE%\Documents\` | CSV and exported reports for compliance, forensics, and ITSM workflows |
+> ⚠️ Review scripts before execution in production environments.
 
 ---
 
-## 🌍 Openness, Visibility, and Academic Alignment
+## 📘 Research Software & Citation
 
-This repository is intentionally maintained as an **open, transparent, and auditable body of work**, designed to serve multiple audiences:
+[![DOI](https://img.shields.io/badge/DOI-Zenodo-blue?style=for-the-badge\&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![CFF](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)]()
 
-* 🎓 **Academic and research communities**
-* 🧑‍💼 **Recruiters and technical evaluators**
-* 🏛️ **Public-sector and enterprise IT teams**
-* 🔐 **Security, forensics, and governance professionals**
+This repository may be cited in **academic**, **technical**, and **policy-oriented** works related to:
 
-All scripts, templates, workflows, and documentation emphasize:
-
-* 🔁 **Reproducibility:** Deterministic execution, structured logs, and traceable outputs
-* 📋 **Auditability:** Consistent logging, CSV exports, and evidence-oriented design
-* 📘 **Pedagogical clarity:** Readable code, descriptive naming, and documented intent
-* 🏗️ **Operational realism:** Solutions derived from real-world institutional environments
+* Cybersecurity engineering
+* Digital forensics (DFIR)
+* IT governance & compliance
+* Identity & Access Management
 
 ---
 
-### 🎓 Academic & Research Perspective
+## 🎓 Academic & Professional Use
 
-This repository may be referenced, studied, or cited in contexts involving:
+[![Academic](https://img.shields.io/badge/Use-Academic-6A5ACD?style=for-the-badge)]() [![Recruiters](https://img.shields.io/badge/Use-Technical%20Reviewers-2F4F4F?style=for-the-badge)]()
 
-* Windows systems administration and automation
-* Digital forensics and incident response (DFIR)
-* IT governance, ITSM, and compliance frameworks
-* Identity and Access Management (IAM)
-* Secure scripting and infrastructure-as-code practices
+The project emphasizes:
 
-The project prioritizes **clear structure**, **explainability**, and **engineering discipline**, aligning with academic evaluation and peer review standards.
-
----
-
-### 🧑‍💼 Recruiter & Technical Evaluation Note
-
-For recruiters and technical reviewers:
-
-* This repository reflects **production-grade automation patterns**
-* Emphasis is placed on **defensive coding**, **error handling**, and **operational safety**
-* Tooling mirrors **enterprise constraints**, including legacy compatibility and governance
-
-Each module corresponds to a **functional domain**, enabling targeted technical assessment.
+* Explainability
+* Operational realism
+* Engineering discipline
+* Reproducibility and auditability
 
 ---
 
-### 🤝 Collaboration & Attribution
+## 🤝 Collaboration & Attribution
 
-Contributions, forks, and academic references are welcome.
+[![Contributions](https://img.shields.io/badge/Contributions-Welcome-success?style=for-the-badge)]() [![Attribution](https://img.shields.io/badge/Attribution-Required-blue?style=for-the-badge)]()
 
-When reusing or referencing this work:
+When reusing or referencing:
 
 * Preserve attribution to **Luiz Hamilton Silva (@brazilianscriptguy)**
-* Respect the repository license, security policy, and contribution guidelines
-* Cite the repository URL in academic or technical materials when applicable
+* Respect license and security policy
+* Cite repository URL or DOI when applicable
 
 ---
 
-## 🤝 Support & Contributions
+## 🤝 Support
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge\&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
-[![Patreon](https://img.shields.io/badge/Support%20Me-Patreon-red?style=for-the-badge\&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge\&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge\&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
-[![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge\&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge\&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge\&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge\&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge\&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge\&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
 
 ---
 
-💼 Thank you for using **Windows-SysAdmin-ProSuite** — a professional toolkit for automating administrative tasks, enforcing security baselines, and sustaining ITSM excellence in enterprise and public-sector Windows environments.
+> 🚀 *Engineering secure, scalable, and auditable Windows automation for enterprise and public-sector environments.*
 
 © 2026 Luiz Hamilton Silva. All rights reserved.
