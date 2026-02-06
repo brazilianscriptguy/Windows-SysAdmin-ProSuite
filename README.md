@@ -111,6 +111,7 @@ Designed for professionals working with:
 ```powershell
 git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
 cd Windows-SysAdmin-ProSuite
+
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 .\ITSM-Templates-WKS\BeforeJoinDomain\Initialize-WKSBaseline.ps1
 ```
