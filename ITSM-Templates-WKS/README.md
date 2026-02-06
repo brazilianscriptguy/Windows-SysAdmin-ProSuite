@@ -123,7 +123,16 @@ This document includes step-by-step procedures across nine units: domain prepara
 ```text
 <LOC><EQUIP><UNIT><ASSET>
 Example: MIADSALESO11704
-```
+````
+
+**Meaning of the example:**
+
+* **MIA** — Location code (Miami)
+* **D** — Equipment type (Desktop)
+* **SALESO** — Organizational unit (Sales Office)
+* **11704** — Unique asset registration number
+
+➡️ This hostname identifies a **desktop workstation located in Miami, assigned to the Sales Office, with asset ID 11704**.
 
 | Component | Meaning |
 |----------|---------|
