@@ -52,7 +52,7 @@ The **IncidentResponse** folder contains focused **PowerShell scripts** designed
 
 - ✅ PowerShell 5.1 or newer
 ```powershell
-$PSVersionTable.PSVersion
+  $PSVersionTable.PSVersion
 ```  
 - 🔐 Administrator rights  
 - 🖥️ RSAT installed (for AD-related tools)
