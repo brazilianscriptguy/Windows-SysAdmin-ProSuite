@@ -95,9 +95,8 @@ Designed for professionals operating in:
     git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
     
     cd Windows-SysAdmin-ProSuite/BlueTeam-Tools
-
     ```
-
+    
 **Recommended workflow:**
 
 1.  Select the appropriate category
