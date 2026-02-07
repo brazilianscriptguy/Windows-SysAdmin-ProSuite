@@ -20,7 +20,7 @@ The repository consolidates **production-tested PowerShell and VBScript toolchai
 - ITSM-aligned provisioning and compliance
 - Auditability and operational traceability
 
-All tooling is engineered with **runtime safety**, **deterministic logging**, and **PowerShell 5.1 compatibility** as first-class requirements.
+> All tooling is engineered with **runtime safety**, **deterministic logging**, and **PowerShell 5.1 compatibility** as first-class requirements.
 
 ---
 
@@ -33,7 +33,7 @@ This repository targets **real-world Windows environments**, including:
 - 🛡️ Blue Team / DFIR operations  
 - 📋 Governance, risk, and compliance workflows  
 
-It is **not** a collection of demos or isolated scripts, but a **cohesive automation suite** designed to operate safely across **large Windows realms**.
+> It is **not** a collection of demos or isolated scripts, but a **cohesive automation suite** designed to operate safely across **large Windows realms**.
 
 ---
 
@@ -60,7 +60,7 @@ It is **not** a collection of demos or isolated scripts, but a **cohesive automa
 - ✅ Structured logging (`.log`) and exportable reports (`.csv`)  
 - ✅ No hidden state, no silent failure patterns  
 
-The suite is continuously evaluated using **PSScriptAnalyzer**, **SARIF reporting**, and CI pipelines configured in **report-only mode** to ensure **visibility without delivery interruption**.
+> The suite is continuously evaluated using **PSScriptAnalyzer**, **SARIF reporting**, and CI pipelines configured in **report-only mode** to ensure **visibility without delivery interruption**.
 
 ---
 
@@ -95,7 +95,7 @@ This repository is suitable for **academic, technical, and policy-oriented citat
 Senior IAM Analyst | Identity & Access Management | AD & Azure AD | Windows Server Architect | PowerShell Automation
 GitHub: `@brazilianscriptguy`
 
-This project reflects **long-term stewardship**, real operational use, and continuous refinement.
+> This project reflects **long-term stewardship**, real operational use, and continuous refinement.
 
 ---
 
