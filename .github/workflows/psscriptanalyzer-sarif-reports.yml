@@ -53,9 +53,18 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
+      # Subtree excluded due to long paths / GPO export content
       EXCLUDE_SUBTREE: "SysAdmin-Tools/GroupPolicyObjects-Templates"
+
+      # Directory prune (general)
       PRUNE_DIR_REGEX: '(?i)[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
+
+      # SARIF category (keeps runs distinct in Code Scanning)
       SARIF_CATEGORY: "powershell/psscriptanalyzer"
+
+      # GUI-only helper suppression for ShouldProcess
+      GUI_PATH_REGEX: '(?i)[\\/](GUI|WinForms|WindowsForms|WPF|ProSuite-Hub)[\\/]'
+      GUI_NAME_REGEX: '(?i)(-GUI\.ps1$|WinForms|WPF|Form\.ps1$|Launcher|Menu)'
 
     steps:
       - name: Checkout (sparse)
@@ -190,22 +199,36 @@ jobs:
               $all = New-Object System.Collections.Generic.List[object]
               $hadAnyInvocationError = $false
 
+              $guiPathRx = [regex]::new($env:GUI_PATH_REGEX)
+              $guiNameRx = [regex]::new($env:GUI_NAME_REGEX)
+
               foreach ($p in $paths) {
                 if ([string]::IsNullOrWhiteSpace($p)) { continue }
+
+                $isGui = ($p -match $guiPathRx) -or ($p -match $guiNameRx)
+
                 try {
-                  $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
+                  if ($isGui) {
+                    # GUI helper: keep quality/security rules, but do not flag ShouldProcess
+                    $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs -ExcludeRule 'PSUseShouldProcessForStateChangingFunctions'
+                  } else {
+                    # Non-GUI: enforce ShouldProcess
+                    $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
+                  }
+
                   if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
-                } catch {
+                }
+                catch {
                   $hadAnyInvocationError = $true
                   $_ | Out-String | Add-Content -Encoding UTF8 $failOut
                 }
               }
 
-              # ✅ CRITICAL FIX: convert List[object] -> object[]
+              # Critical: List[object] -> object[]
               $results = $all.ToArray()
 
               if ($hadAnyInvocationError -and -not (Test-Path $failOut)) {
-                "One or more file-level PSA invocations failed." | Set-Content -Encoding UTF8 $failOut
+                "One or more file-level PSScriptAnalyzer invocations failed." | Set-Content -Encoding UTF8 $failOut
               }
             } else {
               "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
