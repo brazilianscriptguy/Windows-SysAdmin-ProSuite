@@ -1,47 +1,62 @@
 # 🔹 PHP-API: Active Directory SSO Integration
 
+![PHP](https://img.shields.io/badge/PHP-8.0+-777BB4?style=for-the-badge&logo=php&logoColor=white)
+![LDAP](https://img.shields.io/badge/Auth-LDAP%20%7C%20AD-0A66C2?style=for-the-badge)
+![SSO](https://img.shields.io/badge/SSO-Active%20Directory-2E7D32?style=for-the-badge)
+![Security](https://img.shields.io/badge/Security-Enterprise--Grade-4CAF50?style=for-the-badge)
+
 ## 📌 Overview
 
-The **PHP-API** module implements **LDAP-based Single Sign-On (SSO)** with **Active Directory**, designed to work across an entire AD forest via **Global Catalog (GC)**.  
-It offers a lightweight, secure, and standardized approach to authenticating users via AD in legacy or modern PHP environments.
+The **PHP-API** module implements **LDAP-based Single Sign-On (SSO)** with **Active Directory**, designed to operate across an **entire AD forest** using the **Global Catalog (GC)**.
+
+It provides a **lightweight, auditable, and secure authentication layer** for both **legacy and modern PHP applications**, following the same security and design principles used across the **Windows-SysAdmin-ProSuite**.
+
+This integration is ideal for environments where:
+- IIS/Apache-based applications still rely on PHP
+- Forest-wide authentication is required
+- Minimal privileges and predictable behavior are mandatory
 
 ---
 
 ## 📁 Folder Structure
 
-```
+```text
 ActiveDirectory-SSO-Integrations/
 │
-├── 📂 PHP-API/                      # Parent folder for PHP API integration
-│   ├── 📂 public/                   # Publicly accessible endpoints
-│   │   ├── 📜 index.php             # Entry point with SSO detection via $_SERVER['REMOTE_USER']
-│   │   ├── 📜 login.php             # Manual login fallback
-│   │   ├── 📜 dashboard.php         # Protected user dashboard
-│   │   └── 📜 logout.php            # Destroys session and logs out
-│
-│   ├── 📂 config/                   # Configuration and LDAP logic
-│   │   ├── 📜 env.php               # Loads .env credentials into runtime
-│   │   └── 📜 ldap.php              # Handles LDAP connection and authentication
-│
-│   ├── 📜 .env.example              # Example file for LDAP credentials
-│   ├── 📜 composer.json             # Project dependencies
-│   └── 📜 README.md                 # Documentation for PHP-API integration
+├── PHP-API/
+│   ├── public/
+│   │   ├── index.php        # Entry point with SSO auto-detection
+│   │   ├── login.php        # Manual login fallback
+│   │   ├── dashboard.php   # Protected resource
+│   │   └── logout.php      # Session termination
+│   │
+│   ├── config/
+│   │   ├── env.php         # Loads environment variables
+│   │   └── ldap.php        # LDAP bind and authentication logic
+│   │
+│   ├── .env.example        # Environment template
+│   ├── composer.json      # Dependency definitions
+│   └── README.md           # Module documentation
 ```
 
 ---
 
 ## 🛠️ Prerequisites
 
-- **PHP 8.0+**
-- **OpenLDAP or Active Directory** with Global Catalog enabled
-- **Apache/Nginx with PHP support**
-- **Composer (dependency manager)**
+- **PHP 8.0 or later**
+- **Active Directory** with **Global Catalog enabled**
+- **Apache or Nginx** with PHP support
+- **Composer** (dependency manager)
+- PHP extensions:
+  - `ldap`
+  - `mbstring`
+  - `openssl`
 
 ---
 
 ## ⚙️ Configuration
 
-Edit `.env` file with your AD service account and forest-wide settings:
+Create a `.env` file based on `.env.example`:
 
 ```env
 LDAP_URL=ldap://ldap.headq.scriptguy:3268
@@ -50,56 +65,74 @@ LDAP_USERNAME=ad-sso-authentication@scriptguy
 LDAP_PASSWORD=YourSecurePassword
 ```
 
-Load it in runtime using `env.php` with `vlucas/phpdotenv` support.
+The configuration is loaded at runtime via `vlucas/phpdotenv`.
+
+> 🔐 **Best Practice**:  
+> The LDAP bind account must be **read-only**, non-interactive, and excluded from application logon.
 
 ---
 
 ## 🚀 How to Run
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/PHP-API
-   ```
+1. **Clone the repository**
+```bash
+git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/PHP-API
+```
 
-2. **Create your environment file:**
-   ```bash
-   cp .env.example .env
-   ```
+2. **Create environment file**
+```bash
+cp .env.example .env
+```
 
-3. **Install dependencies with Composer:**
-   ```bash
-   composer install
-   ```
+3. **Install dependencies**
+```bash
+composer install
+```
 
-4. **Run the development server:**
-   ```bash
-   php -S localhost:8000 -t public
-   ```
+4. **Start development server**
+```bash
+php -S localhost:8000 -t public
+```
 
----
-
-## 🔐 LDAP Authentication Highlights
-
-- Forest-wide querying using **Global Catalog (port 3268)**
-- **inetOrgPerson accounts are explicitly blocked** from logging in
-- **Account enable/disable status is ignored** (AD handles that)
-- Service account does not require elevated privileges (read-only)
+Access the application at:  
+`http://localhost:8000`
 
 ---
 
-## 💻 Sample Authentication Flow
+## 🔐 LDAP Authentication Design
+
+- Forest-wide authentication via **Global Catalog (TCP 3268)**
+- Explicit block of **service / inetOrgPerson accounts**
+- No password caching
+- No elevated directory permissions required
+- All validation handled server-side
+
+---
+
+## 🔄 Authentication Flow
 
 1. User accesses `index.php`
-2. If `$_SERVER['REMOTE_USER']` is available, SSO proceeds
-3. If not, fallback to `login.php` for manual credential input
-4. Authenticated users redirected to `dashboard.php`
+2. If `$_SERVER['REMOTE_USER']` exists → automatic SSO
+3. Otherwise → fallback to `login.php`
+4. Credentials validated against AD
+5. Authorized users redirected to `dashboard.php`
+6. Sessions destroyed via `logout.php`
+
+---
+
+## 🔒 Security Notes
+
+- No credentials stored in code or logs
+- Environment-based secret management
+- Compatible with reverse proxies and IIS rewrite rules
+- Safe for intranet and DMZ deployments
 
 ---
 
 ## 📜 License
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
+[![MIT License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
 
 ---
 
@@ -111,9 +144,11 @@ Load it in runtime using `env.php` with `vlucas/phpdotenv` support.
 
 ## 📩 Support
 
-[![Email Badge](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)  
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
 [![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
 
 ---
 
-<p align="center">🌐 <strong>Bring AD SSO to your PHP apps — Fast and Secure!</strong> 🔒</p>
+<p align="center">🌐 <strong>Enterprise‑grade AD SSO for PHP applications</strong> 🔒</p>
+
+© 2026 Luiz Hamilton Silva. All rights reserved.
