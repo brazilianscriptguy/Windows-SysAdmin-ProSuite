@@ -1,4 +1,4 @@
-# .psscriptanalyzer.psd1 
+# .psscriptanalyzer.psd1
 @{
     # IMPORTANT (PSScriptAnalyzer 1.24.0):
     # Valid top-level keys are:
