@@ -37,15 +37,15 @@ It is **not** a collection of demos or isolated scripts, but a **cohesive automa
 
 ---
 
-## 🏗️ Repository Architecture (High Level)
+## 🗂️ Repository Domains & Navigation Guide
 
-| Domain | Description |
-|------|-------------|
-| **BlueTeam-Tools** | DFIR, Event Log analysis, incident response tooling |
-| **Core-ScriptLibrary** | Shared modules, GUI frameworks, helpers, packaging |
-| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI, infrastructure automation |
-| **ITSM-Templates-WKS** | Windows 10/11 lifecycle and baseline enforcement |
-| **ITSM-Templates-SVR** | Windows Server compliance and hardening workflows |
+| Domain | Primary Purpose | Typical Users | Documentation |
+|------|-----------------|---------------|---------------|
+| **BlueTeam-Tools** | DFIR, Event Log analysis, incident response, forensic readiness | Blue Team, SOC, DFIR analysts | [View README](BlueTeam-Tools/README.md) |
+| **Core-ScriptLibrary** | Shared PowerShell modules, GUI frameworks, helpers, packaging logic | Script authors, maintainers | [View README](Core-ScriptLibrary/README.md) |
+| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI, infrastructure automation | Windows admins, IAM engineers | [View README](SysAdmin-Tools/README.md) |
+| **ITSM-Templates-WKS** | Windows 10/11 baseline, provisioning, lifecycle enforcement | Desktop engineering, ITSM teams | [View README](ITSM-Templates-WKS/README.md) |
+| **ITSM-Templates-SVR** | Windows Server hardening, compliance, service baselines | Server admins, compliance teams | [View README](ITSM-Templates-SVR/README.md) |
 
 > 📌 Each top-level directory contains its **own README.md** with domain-specific documentation and usage guidance.
 
