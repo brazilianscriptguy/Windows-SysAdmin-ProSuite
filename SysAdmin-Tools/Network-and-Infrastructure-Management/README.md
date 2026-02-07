@@ -71,8 +71,11 @@ The **Network and Infrastructure Management** folder provides a set of **PowerSh
 
 ## 📝 Logging and Output
 
-- **📄 Logs**: `.log` files at `C:\Logs-TEMP` or `C:\ITSM-Logs-WKS`  
-- **📊 Reports**: Exported `.csv` files for documentation and audits
+| Path                       | Purpose                                                                 |
+|----------------------------|-------------------------------------------------------------------------|
+| `C:\Scripts-LOGS\`         | GPO synchronization, agents, and security tooling logs                  |
+| `C:\Logs-TEMP\`            | General-purpose, transient, and legacy script outputs                   |
+| `%USERPROFILE%\Documents\` | CSV and exported reports for compliance, forensics, and ITSM workflows  |
 
 ---
 
