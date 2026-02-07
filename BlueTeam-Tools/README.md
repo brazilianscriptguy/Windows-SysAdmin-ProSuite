@@ -1,139 +1,118 @@
-## 🔵 BlueTeam-Tools Suite  
-### DFIR · Forensic Readiness · Security Visibility
+# 🛡️ BlueTeam-Tools  
+### DFIR · Event Logs · Incident Response · Forensic Readiness
 
-[![BlueTeam](https://img.shields.io/badge/BlueTeam-DFIR-orange?style=for-the-badge&logo=protonmail&logoColor=white)]() [![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]() [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)]() [![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge)]() [![Security](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge)]()
+[![Parent Repo](https://img.shields.io/badge/Parent-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]()
+[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server-0078D6?style=for-the-badge&logo=windows&logoColor=white)]()
+[![DFIR](https://img.shields.io/badge/Domain-DFIR-critical?style=for-the-badge)]()
+[![Security](https://img.shields.io/badge/Focus-Cybersecurity-red?style=for-the-badge&logo=security)]()
+[![Forensics](https://img.shields.io/badge/Focus-Digital%20Forensics-black?style=for-the-badge)]()
 
----
+**BlueTeam-Tools** is the defensive security and forensic analysis pillar of the  
+**Windows-SysAdmin-ProSuite**, providing enterprise-grade PowerShell tooling for:
 
-## 🧭 Overview
-
-The **BlueTeam-Tools Suite** is a **forensic-grade PowerShell toolkit** designed for **Blue Team**, **DFIR**, and **Cybersecurity Operations** within Windows enterprise and public-sector environments.
-
-It provides **repeatable**, **auditable**, and **incident-ready** tooling to support:
-
-- Live-response operations  
-- Event correlation and threat hunting  
-- Evidence collection and forensic readiness  
-- Security posture validation and audit support  
-
-All tools follow the same engineering principles applied across **Windows-SysAdmin-ProSuite**:  
-**deterministic execution, structured logging, and governance alignment**.
+- 🔍 Threat detection and investigation  
+- 🧾 Windows Event Log analysis  
+- 🕵️ Incident response support  
+- 📊 Audit-ready forensic reporting  
 
 ---
 
-## 🧪 Core Capabilities
+## 🎯 Operational Scope
 
-[![Forensics](https://img.shields.io/badge/Forensics-Ready-black?style=for-the-badge)]() [![Logging](https://img.shields.io/badge/Logging-Structured-success?style=for-the-badge)]() [![Reports](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]() [![GUI](https://img.shields.io/badge/GUI-Available-blueviolet?style=for-the-badge)]()
+[![Blue Team](https://img.shields.io/badge/Team-Blue%20Team-blue?style=for-the-badge)]()
+[![SOC](https://img.shields.io/badge/Environment-SOC-003366?style=for-the-badge)]()
+[![IR](https://img.shields.io/badge/Capability-Incident%20Response-darkred?style=for-the-badge)]()
+[![Audit](https://img.shields.io/badge/Use-Audit%20%26%20Compliance-success?style=for-the-badge)]()
 
-- 🔍 **Forensic Automation**  
-  Extraction of Windows Event Logs, registry artifacts, network sessions, user activity, and volatile system state.
-
-- 🛡️ **Incident Response Support**  
-  Live-response data capture, evidence preservation, and correlation during active or post-incident scenarios.
-
-- 📊 **Security Visibility & Auditability**  
-  Policy validation, configuration auditing, and exportable `.csv` / `.log` artifacts suitable for compliance and investigations.
-
----
-
-## 🧩 Script Categories & Architecture
-
-[![Architecture](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]() [![Pipeline](https://img.shields.io/badge/Integration-IR%20Pipelines-4B0082?style=for-the-badge)]()
-
-| Component | Purpose | Documentation |
-|-----------|---------|---------------|
-| **EventLogMonitoring** | Security-focused analysis of Windows Event Logs, including authentication failures, privilege escalation, lateral movement indicators, and policy violations. | [![Docs](https://img.shields.io/badge/View%20Docs-EventLogMonitoring-0A66C2?style=for-the-badge&logo=github)](EventLogMonitoring/README.md) |
-| **IncidentResponse** | Live-response and post-incident utilities for volatile artifacts, active sessions, system metadata, and threat indicators. | [![Docs](https://img.shields.io/badge/View%20Docs-IncidentResponse-0A66C2?style=for-the-badge&logo=github)](IncidentResponse/README.md) |
-
----
-
-## 🏛️ Scope & Target Audience
-
-[![Audience](https://img.shields.io/badge/Audience-Blue%20Team-orange?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-DFIR-darkred?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Public%20Sector-0047AB?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Enterprise%20SOC-2E8B57?style=for-the-badge)]()
-
-Designed for professionals operating in:
+Designed to support:
 
 - Security Operations Centers (SOC)
-- Digital Forensics & Incident Response (DFIR)
-- Identity & Access Management investigations
-- Compliance, audit, and governance workflows
-- Public-sector and regulated environments
+- DFIR teams
+- Judicial and public-sector investigations
+- Enterprise security audits
+- Post-incident technical reporting
 
 ---
 
-## ⚙️ Requirements & Environment
+## 🧠 Core Capabilities
 
-[![PS](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell)]() [![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
+[![Event Logs](https://img.shields.io/badge/EventLogs-EVTX%20Analysis-orange?style=for-the-badge)]()
+[![Timeline](https://img.shields.io/badge/Forensics-Timeline%20Reconstruction-black?style=for-the-badge)]()
+[![Correlation](https://img.shields.io/badge/Analysis-Correlation-informational?style=for-the-badge)]()
+[![Artifacts](https://img.shields.io/badge/Artifacts-Windows%20Artifacts-blueviolet?style=for-the-badge)]()
 
-- **PowerShell**
-```powershell
-$PSVersionTable.PSVersion
-```
-  Minimum **5.1** (PowerShell 7+ recommended)
-
-- **Administrative Privileges**  
-  Required to access protected system artifacts.
-
-- **RSAT (when applicable)**
-
-```powershell
-Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
-```
-
-- **Execution Policy (session-scoped)**
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-```
-
-- **Optional Modules**  
-  `ActiveDirectory`, `Defender`, `DHCPServer`
+- Parsing and querying Windows Event Logs (EVTX)
+- Detection of anomalous authentication behavior
+- Timeline reconstruction of user and system activity
+- Identification of lateral movement indicators
+- Correlation of logon, privilege, and service events
 
 ---
 
-## 🚀 Getting Started
+## 🧩 Directory Structure
 
-```powershell
-git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-cd Windows-SysAdmin-ProSuite/BlueTeam-Tools
+```text
+BlueTeam-Tools/
+│
+├─ EventLogMonitoring/
+│   ├─ Authentication analysis
+│   ├─ Privilege escalation detection
+│   └─ Logon/session correlation
+│
+├─ IncidentResponse/
+│   ├─ Rapid triage scripts
+│   ├─ Evidence-oriented collection
+│   └─ Post-incident review helpers
+│
+└─ README.md
 ```
 
-**Recommended workflow:**
+---
 
-1. Select the appropriate category  
-2. Review the local `README.md`  
-3. Execute the script:
+## 📤 Outputs & Evidence Handling
 
-```powershell
-.\Script-Name.ps1
-```
+[![Logs](https://img.shields.io/badge/Logs-Structured-success?style=for-the-badge)]()
+[![CSV](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]()
+[![Chain of Custody](https://img.shields.io/badge/Forensics-Chain%20of%20Custody-black?style=for-the-badge)]()
 
-4. Review generated `.log` and `.csv` artifacts
+Most tools generate:
 
-> ⚠️ Always validate execution context before running in production or investigative environments.
+- `.log` execution logs
+- `.csv` structured datasets
+- Timestamped artifacts
+- Reproducible outputs suitable for audits and investigations
 
 ---
 
-## 🔗 Integration & Interoperability
+## 🏛️ Governance & Forensic Principles
 
-[![GPO](https://img.shields.io/badge/Integration-GPOs-blue?style=for-the-badge)](https://chatgpt.com/) [![Scheduled Tasks](https://img.shields.io/badge/Integration-Scheduled%20Tasks-4682B4?style=for-the-badge)](https://chatgpt.com/) [![SIEM](https://img.shields.io/badge/Integration-SIEM-informational?style=for-the-badge)](https://chatgpt.com/)
+[![Forensic Soundness](https://img.shields.io/badge/Principle-Forensic%20Soundness-critical?style=for-the-badge)]()
+[![Auditability](https://img.shields.io/badge/Principle-Auditability-success?style=for-the-badge)]()
+[![Reproducibility](https://img.shields.io/badge/Principle-Reproducibility-blue?style=for-the-badge)]()
 
-BlueTeam tools are designed to integrate with:
-
-- Incident response playbooks  
-- GPO-based execution models  
-- Scheduled forensic snapshots  
-- SIEM ingestion pipelines  
-- Compliance and audit evidence chains  
-
----
-
-## 🤝 Support & Community
-
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Support-Patreon-red?style=for-the-badge&logo=patreon)](https://patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge&logo=gofundme)](https://gofundme.com/f/brazilianscriptguy) [![WhatsApp](https://img.shields.io/badge/Community-WhatsApp-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
+- Non-destructive data handling
+- Minimal system interaction
+- Explicit logging of all actions
+- Deterministic execution paths
 
 ---
 
-> 🛡️ _BlueTeam-Tools Suite is engineered for environments where **forensics, response, governance, and auditability converge**._
+## ⚙️ Requirements
 
-© 2026 Luiz Hamilton Silva. All rights reserved.
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20Required-5391FE?style=for-the-badge&logo=powershell)]()
+[![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
+[![OS](https://img.shields.io/badge/OS-Windows%20Only-0078D6?style=for-the-badge&logo=windows)]()
+
+---
+
+## 📬 Contact & Support
+
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
+[![Ko--fi](https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
+[![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
+
+---
+
+© 2026 Luiz Hamilton Silva — BlueTeam-Tools
