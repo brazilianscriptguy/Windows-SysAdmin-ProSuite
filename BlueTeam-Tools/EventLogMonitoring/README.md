@@ -1,43 +1,23 @@
 ## 🔵 BlueTeam-Tools: EventLog Monitoring Suite  
 ### Log Analysis · Threat Detection · Audit Readiness
 
-[![BlueTeam](https://img.shields.io/badge/BlueTeam-Event%20Log%20Analysis-orange?style=for-the-badge&logo=protonmail&logoColor=white)]()  
-[![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]()  
-[![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)]()  
-[![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge)]()  
-[![Security](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge)]()
+[![BlueTeam](https://img.shields.io/badge/BlueTeam-Event%20Log%20Analysis-orange?style=for-the-badge&logo=protonmail&logoColor=white)]() [![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]() [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)]() [![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge)]() [![Security](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge)]()
 
 ---
 
-The **EventLogMonitoring** directory contains **forensic‑grade PowerShell tooling** focused exclusively on **Windows Event Log (.evtx) analysis** for **Blue Team, DFIR, SOC, and audit workflows**.
+The **EventLogMonitoring** folder contains a specialized and forensic-oriented collection of **PowerShell scripts** designed to process, correlate, and audit **Windows Event Log (`.evtx`) data**.
 
-This layer is **capability‑scoped**: it does **not** describe the full BlueTeam suite nor individual script internals, but defines *what this folder delivers operationally*.
+These tools are intended for use by **Blue Team operators, DFIR analysts, security engineers, and Windows administrators** in enterprise and public-sector environments where **auditability, repeatability, and evidentiary integrity** are required.
 
-Core characteristics:
+Primary use cases include:
 
-- 🎛️ **GUI‑driven execution** for analyst usability  
-- 📈 **Structured CSV outputs** for correlation, dashboards, and SIEM ingestion  
-- 🧾 **Deterministic execution logs** for audit trails  
-- 🔎 **Security‑relevant detections** aligned with Windows native Event IDs  
+- Authentication and logon analysis  
+- Privilege escalation and group membership auditing  
+- Object lifecycle tracking in Active Directory  
+- Print activity and service usage auditing  
+- System restarts, crashes, and shutdown attribution  
 
-All scripts are **read‑only by design** (no state changes) and compatible with **PowerShell 5.1 corporate environments**.
-
----
-
-## 🧪 Capability Scope
-
-[![Scope](https://img.shields.io/badge/Scope-Event%20Logs-blue?style=for-the-badge)]()  
-[![ReadOnly](https://img.shields.io/badge/Mode-Read--Only-success?style=for-the-badge)]()  
-[![Audit](https://img.shields.io/badge/Use-Audit%20%26%20DFIR-informational?style=for-the-badge)]()
-
-This folder supports:
-
-- Authentication & logon auditing  
-- Failed logon and credential misuse detection  
-- Privileged group and object change tracking  
-- Kerberos authentication anomaly analysis  
-- System restart, shutdown, and crash auditing  
-- Print activity and operational event monitoring  
+All scripts generate **structured `.log` and `.csv` artifacts**, suitable for investigations, compliance reporting, and long-term forensic readiness.
 
 ---
 
@@ -45,59 +25,105 @@ This folder supports:
 
 | Script | Purpose |
 |------|---------|
-| **EventID-Count-AllEvtx-Events.ps1** | Counts Event IDs across `.evtx` files and exports summary statistics. |
-| **EventID307-PrintAudit.ps1** | Audits print activity (Event ID 307). |
-| **EventID4624-ADUserLoginViaRDP.ps1** | Tracks interactive logons via RDP (ID 4624). |
-| **EventID4624and4634-ADUserLoginTracking.ps1** | Correlates logon / logoff sessions. |
-| **EventID4625-ADUserLoginAccountFailed.ps1** | Reports failed authentication attempts. |
-| **EventID4648-ExplicitCredentialsLogon.ps1** | Detects explicit credential usage (lateral movement indicator). |
-| **EventID4663-TrackingObjectDeletions.ps1** | Identifies object deletions using AccessMask correlation. |
-| **EventID4720to4756-PrivilegedAccessTracking.ps1** | Monitors privileged account lifecycle and group changes. |
-| **EventID4771-KerberosPreAuthFailed.ps1** | Detects Kerberos pre‑authentication failures. |
-| **EventID4800and4801-WorkstationLockStatus.ps1** | Tracks workstation lock / unlock events. |
-| **EventID5136-5137-5141-ADObjectChanges.ps1** | Audits AD object create/modify/delete operations. |
-| **EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1** | Audits system restarts, crashes, and shutdown causes. |
-| **Migrate-WinEvtStructure-Tool.ps1** | Migrates Event Log storage location while preserving permissions. |
+| **EventID-Count-AllEvtx-Events.ps1** | Counts all Event IDs in selected `.evtx` files and exports a frequency summary to `.csv`. |
+| **EventID307-PrintAudit.ps1** | Audits print activity using Event ID 307. Complements `PrintService-Operational-EventLogs.md`. |
+| **EventID4624-ADUserLoginViaRDP.ps1** | Identifies successful logons (Event ID 4624) filtered specifically for RDP sessions. |
+| **EventID4624and4634-ADUserLoginTracking.ps1** | Correlates logon/logoff activity (Event IDs 4624 and 4634) into full user session timelines. |
+| **EventID4625-ADUserLoginAccountFailed.ps1** | Captures failed authentication attempts (Event ID 4625) with detailed failure reasons. |
+| **EventID4648-ExplicitCredentialsLogon.ps1** | Detects explicit credential usage (Event ID 4648), commonly associated with lateral movement. |
+| **EventID4663-TrackingObjectDeletions.ps1** | Tracks object deletions via Event ID 4663 with AccessMask `0x10000`. |
+| **EventID4720to4756-PrivilegedAccessTracking.ps1** | Monitors privileged account operations (creation, deletion, group changes, delegation). |
+| **EventID4771-KerberosPreAuthFailed.ps1** | Analyzes Kerberos pre-authentication failures (Event ID 4771). |
+| **EventID4800and4801-WorkstationLockStatus.ps1** | Records workstation lock and unlock events to infer user presence. |
+| **EventID5136-5137-5141-ADObjectChanges.ps1** | Audits Active Directory object creation, modification, and deletion events. |
+| **EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1** | Attributes system restarts, crashes, and shutdowns to users, services, or failures. |
+| **Migrate-WinEvtStructure-Tool.ps1** | Migrates the Windows Event Log storage path, updates registry settings, and preserves permissions. |
 
 ---
 
-## 🚀 Usage Model
+## 🧠 Migration Notes — `Migrate-WinEvtStructure-Tool.ps1`
 
-1. Execute via GUI or console  
-2. Select `.evtx` source files  
+> ⚠️ **This script performs low-level changes to the Windows Event Log infrastructure.**  
+> It must be executed carefully and only by qualified administrators.
+
+### Safe Mode Requirement
+
+To safely stop the Event Log service and migrate the `.evtx` structure:
+
+```powershell
+bcdedit /set {current} safeboot minimal
+shutdown /r /t 0
+```
+
+After completing the migration:
+
+```powershell
+bcdedit /deletevalue {current} safeboot
+shutdown /r /t 0
+```
+
+### Optional: DHCP Configuration Backup
+
+If executed on systems hosting DHCP services:
+
+```powershell
+netsh dhcp server export C:\Backup\dhcpconfig.dat all
+netsh dhcp server import C:\Backup\dhcpconfig.dat all
+```
+
+> 🔎 Always validate Event Log integrity and permissions after migration.
+
+---
+
+## 🚀 How to Use
+
+1. Execute the desired script:
+   - Right-click → **Run with PowerShell**, or
+   - Launch from an elevated PowerShell console.
+
+2. Select one or more `.evtx` files when prompted (GUI or file picker).
+
 3. Review generated artifacts:
-   - `.csv` → analytical data  
-   - `.log` → execution trace  
-
-> ⚠️ Always preserve original evidence. Work on copies of `.evtx` files during investigations.
+   - `.csv` — structured analytical output  
+   - `.log` — execution trace and warnings  
 
 ---
 
 ## 🛠️ Requirements
 
-[![PS](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?style=for-the-badge&logo=powershell)]()  
-[![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
+- **PowerShell 5.1 or later**
+```powershell
+$PSVersionTable.PSVersion
+```
 
-- PowerShell **5.1 minimum**  
-- Administrative privileges  
-- RSAT (when querying AD‑backed events)  
-- Optional: **Log Parser 2.2** (Microsoft)
+- **Administrator privileges** (mandatory)
+
+- **RSAT tools** (for Active Directory correlation)
+```powershell
+Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+```
+
+- **Microsoft Log Parser 2.2**
+  Required for advanced `.evtx` parsing operations.
 
 ---
 
-## 📊 Outputs
+## 📊 Logs and Exports
 
-- **`.log`** — execution trace & warnings  
-- **`.csv`** — structured analytical output  
-- Ready for Excel, SIEMs, dashboards, and reports
+- `.log` files  
+  Execution trace, warnings, and processing steps.
+
+- `.csv` files  
+  Structured output suitable for Excel, SIEM ingestion, or forensic timelines.
 
 ---
 
-## 💡 Operational Guidance
+## 💡 Operational Recommendations
 
-- Schedule periodic runs via **Task Scheduler**  
-- Centralize outputs to secured log repositories  
-- Combine with IncidentResponse tools for full timelines  
+- Schedule recurring analysis via **Task Scheduler**
+- Centralize outputs on secured file shares (e.g., `\\logserver\exports`)
+- Apply pre-filters to reduce noise and improve signal quality
+- Preserve original `.evtx` files for evidentiary integrity
 
 ---
 
