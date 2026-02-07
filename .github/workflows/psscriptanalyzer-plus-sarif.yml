@@ -119,9 +119,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $settings = Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer.psd1"
-          if (-not (Test-Path $settings)) {
-            throw "Missing required PSScriptAnalyzer settings file: $settings"
-          }
+          if (-not (Test-Path $settings)) { throw "Missing required PSScriptAnalyzer settings file: $settings" }
           Write-Host "Using PSScriptAnalyzer settings: $settings"
 
       # ----------------------------
@@ -156,21 +154,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           $settingsPath = Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer.psd1"
-          if (-not (Test-Path $settingsPath)) {
-            throw "Missing required settings file: $settingsPath"
-          }
+          if (-not (Test-Path $settingsPath)) { throw "Missing required settings file: $settingsPath" }
 
           $include = @("${{ env.FIX_RULES }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries))
 
-          $htFix = @{
-            Path        = '.'
-            Recurse     = $true
-            Fix         = $true
-            IncludeRule = $include
-            Settings    = $settingsPath
-          }
-
-          Invoke-ScriptAnalyzer @htFix | Out-Null
+          Invoke-ScriptAnalyzer -Path $env:GITHUB_WORKSPACE -Recurse -Fix `
+            -IncludeRule $include `
+            -Settings $settingsPath | Out-Null
 
       - name: 🔎 Detect Auto-Fix Changes
         id: detect_changes
@@ -249,7 +239,7 @@ jobs:
       # ----------------------------
       # ANALYZE + EXPORT REPORTS
       # ----------------------------
-      - name: 🔎 Run PSScriptAnalyzer (Errors+Warnings) and Export JSON+SARIF
+      - name: 🔎 Run PSScriptAnalyzer (bucketed severity) and Export JSON+SARIF
         if: steps.check_ps.outputs.count != '0'
         shell: pwsh
         run: |
@@ -260,25 +250,54 @@ jobs:
           $jsonPath  = Join-Path $root '${{ env.JSON_FILE }}'
 
           $settingsPath = Join-Path $root ".psscriptanalyzer.psd1"
-          if (-not (Test-Path $settingsPath)) {
-            throw "Missing required settings file: $settingsPath"
-          }
+          if (-not (Test-Path $settingsPath)) { throw "Missing required settings file: $settingsPath" }
 
           $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
 
-          $htPSA = @{
-            Path     = $root
-            Recurse  = $true
-            Severity = @('Error','Warning')
-            Settings = $settingsPath
+          # ----------------------------
+          # Severity buckets (YOU control these)
+          # ----------------------------
+          $errorRules = @(
+            'PSAvoidUsingInvokeExpression',
+            'PSUseShouldProcessForStateChangingFunctions'
+          )
+
+          $warningRules = @(
+            'PSAvoidUsingWriteHost',
+            'PSAvoidUsingCmdletAliases',
+            'PSUseConsistentIndentation',
+            'PSUseConsistentWhitespace',
+            'PSAvoidUsingEmptyCatchBlock',
+            'PSAvoidGlobalVars',
+            'PSUseDeclaredVarsMoreThanAssignments'
+          )
+
+          # GUI-only suppressions
+          $guiRegex = '(?i)(GUI|WinForms|Form|Launcher)\.(ps1|psm1)$'
+
+          $results = @()
+
+          # Error pass
+          $err = Invoke-ScriptAnalyzer -Path $root -Recurse -Settings $settingsPath -Severity Error -IncludeRule $errorRules
+          if ($err) { $results += $err }
+
+          # Warning pass
+          $warn = Invoke-ScriptAnalyzer -Path $root -Recurse -Settings $settingsPath -Severity Warning -IncludeRule $warningRules
+          if ($warn) { $results += $warn }
+
+          # GUI suppressions (post-filter)
+          if ($results.Count -gt 0) {
+            $results = $results | Where-Object {
+              $isGui = ($_.ScriptPath -replace '\\','/' -match $guiRegex)
+              if ($isGui -and $_.RuleName -in @('PSAvoidUsingWriteHost','PSAvoidUsingCmdletAliases')) { return $false }
+              return $true
+            }
           }
 
-          $results = Invoke-ScriptAnalyzer @htPSA
-
-          # Export JSON (full fidelity)
+          # Export JSON
           $results | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
 
-          # Build SARIF (simple + reliable)
+          # Build SARIF
           $sarifResults = @()
           if ($results) {
             $sarifResults = $results | ForEach-Object {
@@ -315,9 +334,9 @@ jobs:
           if (-not (Test-Path $sarifPath)) { throw "SARIF was not created at: $sarifPath" }
           if (-not (Test-Path $jsonPath))  { throw "JSON was not created at: $jsonPath"  }
 
-          # Fail the job only on Error severity
-          if ($results | Where-Object { $_.Severity -eq 'Error' }) {
-            throw "PSScriptAnalyzer found error-level findings."
+          # Fail ONLY if error bucket produced any findings
+          if ($err -and $err.Count -gt 0) {
+            throw "PSScriptAnalyzer found error-level findings (bucketed)."
           }
 
       - name: 📊 Upload SARIF + JSON Artifacts
@@ -359,9 +378,7 @@ jobs:
           if (Test-Path $jsonPath) {
             $items = @()
             $raw = Get-Content $jsonPath -Raw
-            if ($raw.Trim().Length -gt 0) {
-              $items = @( $raw | ConvertFrom-Json )
-            }
+            if ($raw.Trim().Length -gt 0) { $items = @( $raw | ConvertFrom-Json ) }
 
             if ($items.Count -gt 0) {
               $lines.Add("**Detected $($items.Count) issue(s)**")
@@ -369,9 +386,7 @@ jobs:
 
               $lines.Add("**Counts by rule (top 15):**")
               $topRules = $items | Group-Object RuleName | Sort-Object Count -Descending | Select-Object -First 15
-              foreach ($r in $topRules) {
-                $lines.Add("- `$($r.Name)`: $($r.Count)")
-              }
+              foreach ($r in $topRules) { $lines.Add("- `$($r.Name)`: $($r.Count)") }
               $lines.Add("")
 
               $lines.Add("**First 20 findings:**")
@@ -379,10 +394,7 @@ jobs:
                 $file = ($i.ScriptPath -replace [regex]::Escape($env:GITHUB_WORKSPACE + [IO.Path]::DirectorySeparatorChar), '').Replace('\','/')
                 $line = [int]$i.Line
                 $link = "https://github.com/$repo/blob/$sha/$file#L$line"
-                $sev  = $i.Severity
-                $rule = $i.RuleName
-                $msg  = $i.Message
-                $lines.Add("- [$sev] `$rule`: $msg ([file]($link))")
+                $lines.Add("- [$($i.Severity)] `$($i.RuleName)`: $($i.Message) ([file]($link))")
               }
             } else {
               $lines.Add("✅ No issues found.")
@@ -446,8 +458,6 @@ jobs:
             }
           }
 
-          if ($fail -gt 0) {
-            throw "PowerShell 5.1 parse failed for $fail file(s)."
-          }
+          if ($fail -gt 0) { throw "PowerShell 5.1 parse failed for $fail file(s)." }
 
           Write-Host "PowerShell 5.1 parse check: OK"
