@@ -46,8 +46,10 @@ jobs:
       OUT_MD: "psa-results.md"
       OUT_SARIF: "psa-results.sarif"
 
-      PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
+      # Prune folders from scanning (includes the path you asked to NOT operate on)
+      PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next|GroupPolicyObjects-Templates)[\\/]'
 
+      # Repo roots to scan (recursive)
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
         Core-ScriptLibrary
@@ -56,7 +58,10 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
+      # Gate policy: job FAILS if any findings exist with these severities
       FAIL_ON_SEVERITIES: "Error"
+
+      # Summary limits
       SUMMARY_TOP: "25"
       TOP_RULES: "20"
 
@@ -66,17 +71,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🔎 Discover PowerShell files
+      - name: 🔎 Discover PowerShell files (sanity)
         id: discover
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           count="$(find . \
-            -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
+            -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next -o -name GroupPolicyObjects-Templates \) -prune -false \
             -o -type f \( -name "*.ps1" -o -name "*.psm1" -o -name "*.psd1" \) -print | wc -l | tr -d ' ')"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "Found $count PowerShell file(s)."
+          echo "Found $count PowerShell file(s) (excluding GroupPolicyObjects-Templates)."
 
       - name: 🧱 Cache PowerShell modules
         if: steps.discover.outputs.count != '0'
@@ -132,7 +137,6 @@ jobs:
           set -euo pipefail
           echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$GITHUB_OUTPUT"
           echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "ref=${GITHUB_REF}" >> "$GITHUB_OUTPUT"
           echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
 
       - name: ✅ Ensure report folder + baseline SARIF exist
@@ -140,25 +144,17 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root    = $env:GITHUB_WORKSPACE
-          $outDir  = Join-Path $root '${{ env.OUT_DIR }}'
-          $sarif   = Join-Path $outDir '${{ env.OUT_SARIF }}'
+          $root   = $env:GITHUB_WORKSPACE
+          $outDir = Join-Path $root '${{ env.OUT_DIR }}'
+          $sarif  = Join-Path $outDir '${{ env.OUT_SARIF }}'
 
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # Keep SARIF strict/minimal: GitHub rejects extra fields like runAutomationDetails
-          $baseline = @{
-            '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
-            version   = '2.1.0'
-            runs      = @(
-              @{
-                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = '0' } }
-                results = @()
-              }
-            )
-          }
-
-          $baseline | ConvertTo-Json -Depth 12 | Set-Content -Path $sarif -Encoding UTF8
+          # IMPORTANT: keep SARIF minimal to satisfy GitHub upload validator (no extra properties)
+          $baseline = @"
+{"`$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}
+"@
+          $baseline | Set-Content -Path $sarif -Encoding UTF8
           if (-not (Test-Path $sarif)) { throw "Failed to create baseline SARIF: $sarif" }
 
       - name: 🔎 Run PSScriptAnalyzer + Build Reports (JSON/CSV/MD/SARIF)
@@ -177,14 +173,13 @@ jobs:
 
           $prune = [regex]::new('${{ env.PRUNE_DIR_REGEX }}')
 
-          $repo  = '${{ steps.meta.outputs.repo }}'
-          $sha   = '${{ steps.meta.outputs.sha }}'
-          $ts    = '${{ steps.meta.outputs.timestamp }}'
+          $repo = '${{ steps.meta.outputs.repo }}'
+          $sha  = '${{ steps.meta.outputs.sha }}'
+          $ts   = '${{ steps.meta.outputs.timestamp }}'
           $runId = '${{ github.run_id }}'
 
-          $rootNames = @("${{ env.ANALYZE_ROOTS }}" -split '\s+') | Where-Object { $_ -and $_.Trim().Length -gt 0 }
-
-          $roots = $rootNames |
+          # Resolve folder roots (strings only)
+          $roots = @("${{ env.ANALYZE_ROOTS }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) |
             ForEach-Object { Join-Path $root $_ } |
             Where-Object { (Test-Path $_) -and (-not $prune.IsMatch($_)) }
 
@@ -198,12 +193,16 @@ jobs:
           foreach ($r in $roots) {
             $rRel = $r.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '')
             Write-Host "Analyzing root: $rRel"
+
+            # Analyze per-root (do NOT pass string[] to -Path)
             $res = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity @('Error','Warning','Information')
             if ($res) { foreach ($x in $res) { $all.Add($x) } }
           }
 
+          # Normalize rows + hard-skip any findings under GroupPolicyObjects-Templates (belt + suspenders)
           $rows = New-Object System.Collections.Generic.List[object]
           foreach ($x in $all) {
+            if ($prune.IsMatch([string]$x.ScriptPath)) { continue }
             $rel = $x.ScriptPath.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '').Replace('\','/')
             $rows.Add([pscustomobject]@{
               Severity   = [string]$x.Severity
@@ -218,10 +217,12 @@ jobs:
             })
           }
 
+          # Always write JSON/CSV even if empty
           $rows | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
           $rows | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-          $sarifResults = New-Object System.Collections.Generic.List[object]
+          # SARIF (minimal schema)
+          $sarifResults = @()
           foreach ($r in $rows) {
             $sarifLevel = switch ($r.Severity.ToLowerInvariant()) {
               'error'   { 'error' }
@@ -229,7 +230,7 @@ jobs:
               default   { 'note' }
             }
 
-            $sarifResults.Add(@{
+            $sarifResults += @{
               ruleId  = $r.RuleName
               level   = $sarifLevel
               message = @{ text = $r.Message }
@@ -244,10 +245,10 @@ jobs:
                   }
                 }
               )
-            })
+            }
           }
 
-          $sarif = @{
+          $sarifObj = @{
             '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
             version   = '2.1.0'
             runs      = @(
@@ -257,9 +258,9 @@ jobs:
               }
             )
           }
+          $sarifObj | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifPath -Encoding UTF8
 
-          $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifPath -Encoding UTF8
-
+          # Markdown report
           $total  = $rows.Count
           $bySev  = $rows | Group-Object Severity | Sort-Object Name
           $byRule = $rows | Group-Object RuleName | Sort-Object Count -Descending
@@ -276,12 +277,10 @@ jobs:
           $md.Add("- **Run:** $runId")
           $md.Add("- **Analyzer:** PSScriptAnalyzer $psaVersion")
           $md.Add("")
-
           $md.Add("## Summary")
           $md.Add("- **Total findings:** $total")
           foreach ($g in $bySev) { $md.Add("- **$($g.Name):** $($g.Count)") }
           $md.Add("")
-
           $md.Add("## Top Rules (by count)")
           $md.Add("")
           $md.Add("| Rule | Count |")
@@ -290,7 +289,6 @@ jobs:
             $md.Add("| `$($r.Name)` | $($r.Count) |")
           }
           $md.Add("")
-
           $md.Add("## First $topN Findings")
           $md.Add("")
           $md.Add("| Severity | Rule | File | Line | Message |")
@@ -302,8 +300,9 @@ jobs:
             $md.Add("| $($i.Severity) | `$($i.RuleName)` | [$($i.File)]($fileLink) | $($i.Line) | $msg |")
           }
 
-          ([string]::Join([Environment]::NewLine, $md)) | Set-Content -Path $mdPath -Encoding UTF8
+          [string]::Join([Environment]::NewLine, $md) | Set-Content -Path $mdPath -Encoding UTF8
 
+          # Job summary
           $summary = New-Object System.Collections.Generic.List[string]
           $summary.Add("### 🧪 PowerShell Lint Summary")
           $summary.Add("- 🕒 **UTC:** $ts")
@@ -313,9 +312,9 @@ jobs:
           foreach ($g in $bySev) { $summary.Add("  - **$($g.Name):** $($g.Count)") }
           $summary.Add("")
           $summary.Add("Artifacts are in `${{ env.OUT_DIR }}`: JSON / CSV / MD / SARIF")
+          [string]::Join([Environment]::NewLine, $summary) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
-          ([string]::Join([Environment]::NewLine, $summary)) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-
+          # Gate: fail if any configured severities exist
           $failSev = @("${{ env.FAIL_ON_SEVERITIES }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries))
           if ($failSev.Count -gt 0) {
             $failHits = $rows | Where-Object { $_.Severity -in $failSev }
@@ -348,43 +347,29 @@ jobs:
     permissions:
       contents: read
 
-    defaults:
-      run:
-        shell: powershell
-
     steps:
-      # Short working directory to reduce path length
-      - name: 📁 Prepare short workspace (D:\ws)
-        run: |
-          New-Item -ItemType Directory -Force -Path 'D:\ws' | Out-Null
-
-      - name: 📦 Checkout (sparse, longpaths best-effort)
+      - name: 📦 Checkout (sparse) — exclude GroupPolicyObjects-Templates to avoid long paths
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-          path: 'D:\ws'
-          sparse-checkout: |
-            BlueTeam-Tools
-            Core-ScriptLibrary
-            ITSM-Templates-SVR
-            ITSM-Templates-WKS
-            ProSuite-Hub
-            SysAdmin-Tools
-            .psscriptanalyzer.psd1
+          fetch-depth: 0
           sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            BlueTeam-Tools/
+            Core-ScriptLibrary/
+            ITSM-Templates-SVR/
+            ITSM-Templates-WKS/
+            ProSuite-Hub/
+            SysAdmin-Tools/
+            .psscriptanalyzer.psd1
+            !SysAdmin-Tools/GroupPolicyObjects-Templates/
+            !SysAdmin-Tools/GroupPolicyObjects-Templates/**
 
-      - name: 🧷 Enable git long paths (best effort)
-        run: |
-          git config --system core.longpaths true
-          git config --global core.longpaths true
-          git config --show-origin --get-all core.longpaths
-
-      - name: ✅ Parse all PowerShell files with Windows PowerShell 5.1
-        working-directory: 'D:\ws'
+      - name: ✅ Parse all PowerShell files with Windows PowerShell 5.1 (excluding GroupPolicyObjects-Templates)
+        shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
 
-          $prune = '\\(\.git|node_modules|dist|build|artifacts|\.next)\\'
+          $prune = '\\(\.git|node_modules|dist|build|artifacts|\.next|GroupPolicyObjects-Templates)\\'
 
           $files = Get-ChildItem -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
             Where-Object { $_.FullName -notmatch $prune }
