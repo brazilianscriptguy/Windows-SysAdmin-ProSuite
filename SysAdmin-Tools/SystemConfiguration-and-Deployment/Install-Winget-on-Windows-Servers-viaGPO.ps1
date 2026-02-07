@@ -12,7 +12,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: March 24, 2025
+    Last Updated: 2026-02-07
 #>
 
 param (
