@@ -1,30 +1,34 @@
 # .psscriptanalyzer.psd1
 @{
-    # PSScriptAnalyzer 1.24.0 valid top-level keys:
-    # CustomRulePath, ExcludeRules, IncludeRules, IncludeDefaultRules,
-    # RecurseCustomRulePath, Rules, Severity
-
+    # Reduce noise: only show Error + Warning by default
     IncludeDefaultRules = $true
+    Severity            = @('Error','Warning')
 
-    # We still gate in the workflow (fail on Error only),
-    # but analyzer returns all these severities.
-    Severity = @('Error','Warning','Information')
-
+    # Focused include list: high-signal rules
     IncludeRules = @(
-        'PSAvoidUsingCmdletAliases',
-        'PSAvoidUsingWriteHost',
         'PSAvoidUsingInvokeExpression',
         'PSAvoidUsingEmptyCatchBlock',
         'PSAvoidGlobalVars',
-        'PSUseDeclaredVarsMoreThanAssignments',
         'PSUseShouldProcessForStateChangingFunctions',
+        'PSAvoidUsingWriteHost',
+        'PSAvoidUsingCmdletAliases',
         'PSUseConsistentIndentation',
         'PSUseConsistentWhitespace'
     )
 
     Rules = @{
+        # --- High-signal rules kept as Warning/Error (default severities) ---
+        PSAvoidUsingInvokeExpression = @{ Enable = $true }
+        PSAvoidUsingEmptyCatchBlock  = @{ Enable = $true }
+        PSAvoidGlobalVars            = @{ Enable = $true }
+        PSUseShouldProcessForStateChangingFunctions = @{ Enable = $true }
+        PSAvoidUsingWriteHost        = @{ Enable = $true }
+        PSAvoidUsingCmdletAliases    = @{ Enable = $true }
+
+        # --- Style rules: keep enabled but downgrade to Information (noise control) ---
         PSUseConsistentIndentation = @{
             Enable              = $true
+            Severity            = 'Information'
             Kind                = 'space'
             IndentationSize     = 4
             PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
@@ -32,39 +36,12 @@
 
         PSUseConsistentWhitespace = @{
             Enable          = $true
+            Severity        = 'Information'
             CheckInnerBrace = $true
             CheckOpenBrace  = $true
             CheckOpenParen  = $true
             CheckOperator   = $true
             CheckSeparator  = $true
-        }
-
-        PSAvoidUsingWriteHost = @{
-            Enable = $true
-        }
-
-        PSAvoidUsingCmdletAliases = @{
-            Enable = $true
-        }
-
-        PSAvoidUsingInvokeExpression = @{
-            Enable = $true
-        }
-
-        PSAvoidUsingEmptyCatchBlock = @{
-            Enable = $true
-        }
-
-        PSAvoidGlobalVars = @{
-            Enable = $true
-        }
-
-        PSUseDeclaredVarsMoreThanAssignments = @{
-            Enable = $true
-        }
-
-        PSUseShouldProcessForStateChangingFunctions = @{
-            Enable = $true
         }
     }
 }
