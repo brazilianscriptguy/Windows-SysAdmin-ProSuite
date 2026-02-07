@@ -52,17 +52,20 @@ The **IncidentResponse** folder contains focused **PowerShell scripts** designed
 
 - ✅ PowerShell 5.1 or newer
 ```powershell
-  $PSVersionTable.PSVersion
-```  
+$PSVersionTable.PSVersion
+```
+
 - 🔐 Administrator rights  
+
 - 🖥️ RSAT installed (for AD-related tools)
-  ```powershell
-  Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
-  ```
-- 📦 Active Directory module:  
-  ```powershell
-  Import-Module ActiveDirectory
-  ```
+```powershell
+Get-WindowsCapability -Name RSAT* -Online | Add-WindowsCapability -Online
+```
+
+- 📦 Active Directory module:
+```powershell
+Import-Module ActiveDirectory
+```
 
 ---
 
@@ -76,7 +79,7 @@ The **IncidentResponse** folder contains focused **PowerShell scripts** designed
 ## 💡 Optimization Tips
 
 - 🕓 **Automate Actions:** Use Task Scheduler to schedule regular cleanups  
-- 📁 **Centralize Outputs:** Store logs and reports in `\\server\IncidentResponseLogs` for SOC review  
+- 📁 **Centralize Outputs:** Store logs and reports in `\\server\\IncidentResponseLogs` for SOC review  
 - 🔧 **Customize Templates:** Adjust `.txt` config files for tailored remediation per incident type
 
 ---
