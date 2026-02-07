@@ -1,95 +1,57 @@
 @{
     # Corporate runtime-safety profile (low noise)
-    # Intent: catch high-risk patterns that can break or endanger execution across a Windows estate,
-    # while avoiding style/formatting and common GUI-state noise.
+    # Baseline: PowerShell 5.1 compatible estates.
+    # Goal: catch high-risk patterns (security + runtime safety) without style noise.
 
-    # Keep the ruleset curated (enterprise-friendly signal/noise)
     IncludeDefaultRules = $false
 
-    # Only meaningful severities
-    Severity = @('Error','Warning')
+    # Only meaningful severities for action (keep noise down)
+    Severity = @('Error', 'Warning')
 
-    # High-signal safety + security + operability rules
     IncludeRules = @(
-        # --- Execution / code injection risk ---
+        # --- Execution / injection risk ---
         'PSAvoidUsingInvokeExpression',
 
-        # --- Credential / secret handling safety ---
+        # --- Credential / secret handling ---
         'PSAvoidUsingPlainTextForPassword',
         'PSAvoidUsingConvertToSecureStringWithPlainText',
         'PSAvoidUsingUsernameAndPasswordParams',
 
-        # --- Reliability / observability ---
+        # --- Reliability ---
         'PSAvoidUsingEmptyCatchBlock',
 
-        # --- Operational professionalism (enterprise tooling standards) ---
+        # --- Operability / enterprise standards ---
         'PSAvoidUsingWriteHost',
         'PSAvoidUsingCmdletAliases',
 
-        # --- Safe change model (WhatIf/Confirm) ---
+        # --- Safe change model ---
         'PSUseShouldProcessForStateChangingFunctions',
 
-        # --- Legacy/compat risk (common in Windows estates) ---
+        # --- Legacy / compatibility risk ---
         'PSAvoidUsingWMICmdlet'
     )
 
     Rules = @{
-        # -------------------------
-        # ENABLED (high signal)
-        # -------------------------
+        PSAvoidUsingInvokeExpression = @{ Enable = $true }
 
-        PSAvoidUsingInvokeExpression = @{
-            Enable = $true
-        }
+        PSAvoidUsingPlainTextForPassword = @{ Enable = $true }
+        PSAvoidUsingConvertToSecureStringWithPlainText = @{ Enable = $true }
+        PSAvoidUsingUsernameAndPasswordParams = @{ Enable = $true }
 
-        PSAvoidUsingPlainTextForPassword = @{
-            Enable = $true
-        }
+        PSAvoidUsingEmptyCatchBlock = @{ Enable = $true }
 
-        PSAvoidUsingConvertToSecureStringWithPlainText = @{
-            Enable = $true
-        }
+        PSAvoidUsingWriteHost = @{ Enable = $true }
+        PSAvoidUsingCmdletAliases = @{ Enable = $true }
 
-        PSAvoidUsingUsernameAndPasswordParams = @{
-            Enable = $true
-        }
+        PSUseShouldProcessForStateChangingFunctions = @{ Enable = $true }
 
-        PSAvoidUsingEmptyCatchBlock = @{
-            Enable = $true
-        }
+        PSAvoidUsingWMICmdlet = @{ Enable = $true }
 
-        PSAvoidUsingWriteHost = @{
-            Enable = $true
-        }
+        # Disable style noise (keep this profile safety-focused)
+        PSUseConsistentWhitespace   = @{ Enable = $false }
+        PSUseConsistentIndentation  = @{ Enable = $false }
 
-        PSAvoidUsingCmdletAliases = @{
-            Enable = $true
-        }
-
-        PSUseShouldProcessForStateChangingFunctions = @{
-            Enable = $true
-        }
-
-        PSAvoidUsingWMICmdlet = @{
-            Enable = $true
-        }
-
-        # -------------------------
-        # DISABLED (noise / style)
-        # -------------------------
-
-        # Formatting/style noise (keep out of the safety report)
-        PSUseConsistentWhitespace = @{
-            Enable = $false
-        }
-
-        PSUseConsistentIndentation = @{
-            Enable = $false
-        }
-
-        # Common "GUI state" / large script patterns (too noisy for your repo today)
-        PSAvoidGlobalVars = @{
-            Enable = $false
-        }
+        # Often noisy in large corporate scripts; keep off unless you want it
+        PSAvoidGlobalVars           = @{ Enable = $false }
     }
 }
