@@ -1,4 +1,4 @@
-# .psscriptanalyzer.psd1 
+# .psscriptanalyzer.psd1
 @{
     # IMPORTANT (PSScriptAnalyzer 1.24.0):
     # Valid top-level keys are:
@@ -12,14 +12,14 @@
 
     # Keep this list focused and stable (corporate baseline).
     IncludeRules = @(
-        'PSAvoidUsingCmdletAliases'
-        'PSAvoidUsingWriteHost'
-        'PSAvoidUsingInvokeExpression'
-        'PSAvoidUsingEmptyCatchBlock'
-        'PSAvoidGlobalVars'
-        'PSUseDeclaredVarsMoreThanAssignments'
-        'PSUseShouldProcessForStateChangingFunctions'
-        'PSUseConsistentIndentation'
+        'PSAvoidUsingCmdletAliases',
+        'PSAvoidUsingWriteHost',
+        'PSAvoidUsingInvokeExpression',
+        'PSAvoidUsingEmptyCatchBlock',
+        'PSAvoidGlobalVars',
+        'PSUseDeclaredVarsMoreThanAssignments',
+        'PSUseShouldProcessForStateChangingFunctions',
+        'PSUseConsistentIndentation',
         'PSUseConsistentWhitespace'
     )
 
