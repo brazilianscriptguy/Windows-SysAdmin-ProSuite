@@ -1,5 +1,7 @@
 # ⚙️ WSUS Management Tools
 
+![WSUS](https://img.shields.io/badge/WSUS-Management-blue?style=for-the-badge&logo=microsoft) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=for-the-badge&logo=powershell&logoColor=white) ![Windows Server](https://img.shields.io/badge/Platform-Windows%20Server-0078D6?style=for-the-badge&logo=windows) ![GUI](https://img.shields.io/badge/Interface-GUI%20%7C%20Automation-4CAF50?style=for-the-badge) ![Database](https://img.shields.io/badge/SUSDB-WID%20%7C%20SQL-9C27B0?style=for-the-badge)
+
 ## 📝 Overview
 
 The **WSUS Management Tools** suite provides a comprehensive and enterprise-grade set of **PowerShell tools** for maintaining, auditing, and optimizing **Windows Server Update Services (WSUS)** and its **SUSDB (Windows Internal Database)**.
@@ -108,14 +110,8 @@ C:\Logs-TEMP\WSUS-GUI\Scripts\
 1. Right‑click **Maintenance-WSUS-Admin-Tool.ps1**
 2. Select **Run with PowerShell (Administrator)**
 3. Confirm WSUS server and port (default: local FQDN / `8530`)
-4. Select tasks:
-   - Decline superseded / expired / unapproved updates
-   - Cleanup obsolete computers and content
-   - SUSDB integrity and performance tasks
-5. Monitor:
-   - Status pane
-   - Progress bar
-   - Log file
+4. Select maintenance tasks
+5. Monitor execution via GUI and logs
 
 ---
 
@@ -125,11 +121,6 @@ C:\Logs-TEMP\WSUS-GUI\Scripts\
 .\Generate-WSUSReindexScript.ps1
 ```
 
-Automatically creates a **threshold‑based** reindex script:
-- REORGANIZE for medium fragmentation
-- REBUILD for high fragmentation
-- STATISTICS update included
-
 ---
 
 ### 🧩 Validate WSUS Assemblies
@@ -137,8 +128,6 @@ Automatically creates a **threshold‑based** reindex script:
 ```powershell
 .\Check-WSUS-AdminAssembly.ps1
 ```
-
-Validates WSUS Admin installation and prevents runtime failures.
 
 ---
 
@@ -153,55 +142,23 @@ C:\Logs-TEMP\WSUS-GUI\
 └── settings.json
 ```
 
-- **Scripts** → SQL & helper files
-- **Logs** → Execution traces
-- **CSV** → Decline / cleanup metrics
-- **Backups** → SUSDB safety exports
-- **settings.json** → GUI persistence
-
 ---
 
 ## 💡 Operational Best Practices
 
-- ⏰ **Schedule Maintenance**
-  - Run overnight using Task Scheduler or GPO
-
-- 🔐 **Least Privilege**
-  - Use a dedicated WSUS admin account
-
-- 📁 **Centralize Logs**
-  - Redirect `$LogDir` to a UNC share
-
-- 🧪 **Test First**
-  - Run CHECK / VERIFY before REBUILD operations
-
----
-
-## 🧰 Troubleshooting
-
-- **sqlcmd not found**
-  → Install SQL Server Command Line Utilities
-
-- **Get-WsusServer fails**
-  → Ensure WSUS Admin Console is installed
-
-- **Timeouts**
-  → Run heavy DB tasks outside business hours
-
-- **WinRM Issues**
-```powershell
-Enable-PSRemoting -Force
-```
+- ⏰ Schedule maintenance overnight
+- 🔐 Use least-privilege WSUS admin accounts
+- 📁 Centralize logs to a UNC path
+- 🧪 Always verify before rebuild
 
 ---
 
 ## 🔒 Security & Scheduling
 
-- Compatible with **Task Scheduler**
-- Compatible with **Computer GPO Startup Scripts**
-- Supports **headless execution**
-- Safe logging and rollback‑aware workflows
+- Task Scheduler compatible
+- GPO startup compatible
+- Headless execution supported
 
 ---
 
-© 2026 Luiz Hamilton. All rights reserved.
+© 2026 Luiz Hamilton Silva. All rights reserved.
