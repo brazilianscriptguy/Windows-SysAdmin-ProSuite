@@ -62,9 +62,12 @@ jobs:
       # SARIF category (keeps runs distinct in Code Scanning)
       SARIF_CATEGORY: "powershell/psscriptanalyzer"
 
-      # GUI-only helper suppression for ShouldProcess
-      GUI_PATH_REGEX: '(?i)[\\/](GUI|WinForms|WindowsForms|WPF|ProSuite-Hub)[\\/]'
-      GUI_NAME_REGEX: '(?i)(-GUI\.ps1$|WinForms|WPF|Form\.ps1$|Launcher|Menu)'
+      # Corporate-defensible UI wrapper naming conventions (only these can bypass ShouldProcess noise)
+      # - Show-* (UI display)
+      # - New-*Form / New-*Dialog / New-*Window
+      # - Initialize-*UI / Initialize-*Form
+      # - Update-*UI / Refresh-*UI
+      UI_WRAPPER_FN_REGEX: '^(Show-|New-.*(Form|Dialog|Window)$|Initialize-.*(UI|Form)$|Update-.*UI$|Refresh-.*UI$|Set-.*(UI|Form)$)'
 
     steps:
       - name: Checkout (sparse)
@@ -199,23 +202,11 @@ jobs:
               $all = New-Object System.Collections.Generic.List[object]
               $hadAnyInvocationError = $false
 
-              $guiPathRx = [regex]::new($env:GUI_PATH_REGEX)
-              $guiNameRx = [regex]::new($env:GUI_NAME_REGEX)
-
               foreach ($p in $paths) {
                 if ([string]::IsNullOrWhiteSpace($p)) { continue }
 
-                $isGui = ($p -match $guiPathRx) -or ($p -match $guiNameRx)
-
                 try {
-                  if ($isGui) {
-                    # GUI helper: keep quality/security rules, but do not flag ShouldProcess
-                    $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs -ExcludeRule 'PSUseShouldProcessForStateChangingFunctions'
-                  } else {
-                    # Non-GUI: enforce ShouldProcess
-                    $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
-                  }
-
+                  $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
                   if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
                 }
                 catch {
@@ -224,7 +215,6 @@ jobs:
                 }
               }
 
-              # Critical: List[object] -> object[]
               $results = $all.ToArray()
 
               if ($hadAnyInvocationError -and -not (Test-Path $failOut)) {
@@ -240,6 +230,60 @@ jobs:
           }
 
           if (-not $results) { $results = @() }
+
+          # Corporate-defensible suppression:
+          # Only suppress ShouldProcess findings when the finding is inside a UI wrapper function by naming convention.
+          $uiWrapperRx = [regex]::new($env:UI_WRAPPER_FN_REGEX, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+          function Get-ContainingFunctionName {
+            param(
+              [Parameter(Mandatory=$true)][string]$Path,
+              [Parameter(Mandatory=$true)][int]$Line
+            )
+
+            try {
+              if (-not (Test-Path $Path)) { return $null }
+              $lines = Get-Content -LiteralPath $Path -ErrorAction Stop
+              if ($Line -lt 1 -or $Line -gt $lines.Count) { return $null }
+
+              for ($i = $Line; $i -ge 1; $i--) {
+                $t = $lines[$i-1]
+                if ($t -match '^\s*function\s+([A-Za-z_][\w\-]*)\s*(\(|\{|\s)') {
+                  return $Matches[1]
+                }
+              }
+              return $null
+            }
+            catch {
+              return $null
+            }
+          }
+
+          $filtered = New-Object System.Collections.Generic.List[object]
+          foreach ($r in @($results)) {
+            if ([string]$r.RuleName -ne 'PSUseShouldProcessForStateChangingFunctions') {
+              $filtered.Add($r)
+              continue
+            }
+
+            $scriptPath = [string]$r.ScriptName
+            $lineNum    = 0
+            try { $lineNum = [int]$r.Line } catch { $lineNum = 0 }
+
+            $fn = $null
+            if (-not [string]::IsNullOrWhiteSpace($scriptPath) -and $lineNum -gt 0) {
+              $fn = Get-ContainingFunctionName -Path $scriptPath -Line $lineNum
+            }
+
+            if ($fn -and $uiWrapperRx.IsMatch($fn)) {
+              # Suppressed: UI wrapper function by approved naming convention
+              continue
+            }
+
+            $filtered.Add($r)
+          }
+
+          $results = $filtered.ToArray()
 
           # Always write reports (even if empty)
           $results | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $jsonOut
