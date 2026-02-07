@@ -1,10 +1,12 @@
-name: Analyze PowerShell Scripts (PSScriptAnalyzer + SARIF)
+name: Analyze PowerShell Scripts (PSScriptAnalyzer + SARIF + AutoFix)
 
 on:
   push:
     branches: [main, develop]
     paths:
       - "**/*.ps1"
+      - "**/*.psm1"
+      - "**/*.psd1"
       - ".psscriptanalyzer"
       - ".psscriptanalyzer.json"
       - ".psscriptanalyzer.psd1"
@@ -12,6 +14,8 @@ on:
     branches: [main, develop]
     paths:
       - "**/*.ps1"
+      - "**/*.psm1"
+      - "**/*.psd1"
       - ".psscriptanalyzer"
       - ".psscriptanalyzer.json"
       - ".psscriptanalyzer.psd1"
@@ -26,11 +30,10 @@ permissions:
 
 jobs:
   psscriptanalyzer:
-    name: 🧪 PowerShell Code Quality Check
+    name: 🧪 PowerShell Lint + Safe AutoFix + Reports
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
-    # Keep minimal defaults here; we'll elevate only where allowed.
     permissions:
       contents: write
       pull-requests: write
@@ -39,8 +42,14 @@ jobs:
     env:
       PSA_VERSION: "1.24.0"
       SARIF_FILE: "psscriptanalyzer-results.sarif"
+      JSON_FILE: "psscriptanalyzer-results.json"
       SUMMARY_MD: "psscriptanalyzer-summary.md"
       PATCH_FILE: "psscriptanalyzer-autofix.patch"
+
+      # Keep autofix conservative and deterministic
+      FIX_RULES: >-
+        PSUseConsistentIndentation
+        PSUseConsistentWhitespace
 
     steps:
       - name: 📦 Checkout Repository
@@ -48,16 +57,46 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: ✅ Initialize SARIF (always create baseline file)
+      - name: 🔍 Check for PowerShell Files
+        id: check_ps
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          printf '%s' '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}' > "$SARIF_FILE"
-          ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
+          count="$(find . \
+            -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
+            -o -type f \( -name "*.ps1" -o -name "*.psm1" -o -name "*.psd1" \) -print | wc -l | tr -d ' ')"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Found $count PowerShell file(s)."
+
+      - name: 🧱 Cache PowerShell Modules (PSScriptAnalyzer)
+        if: steps.check_ps.outputs.count != '0'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/powershell/Modules
+            ~/.config/powershell/Modules
+          key: psmodules-${{ runner.os }}-psa-${{ env.PSA_VERSION }}
+
+      - name: 🧩 Install / Import PSScriptAnalyzer
+        if: steps.check_ps.outputs.count != '0'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required  = [version]'${{ env.PSA_VERSION }}'
+          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1
+
+          if (-not $installed -or $installed.Version -ne $required) {
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
+            Install-Module -Name PSScriptAnalyzer -RequiredVersion $required -Scope CurrentUser -Force
+          }
+
+          Import-Module PSScriptAnalyzer -Force
+          "PSScriptAnalyzer version: $((Get-Module PSScriptAnalyzer).Version)" | Write-Host
 
       - name: 🕒 Capture Metadata
         id: metadata
+        if: steps.check_ps.outputs.count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -67,59 +106,69 @@ jobs:
           git log -1 --pretty=%B >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: 🔍 Check for PowerShell Files
-        id: check_ps1
+      - name: ✅ Ensure Baseline SARIF Exists
+        if: steps.check_ps.outputs.count != '0'
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          count="$(find . \
-            -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
-            -o -type f -name "*.ps1" -print | wc -l | tr -d ' ')"
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "Found $count PowerShell script(s)."
+          printf '%s' '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}' > "${{ env.SARIF_FILE }}"
 
-      - name: 🧱 Cache PowerShell Modules (PSScriptAnalyzer)
-        if: steps.check_ps1.outputs.count != '0'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/powershell/Modules
-            ~/.config/powershell/Modules
-          key: psmodules-${{ runner.os }}-psa-${{ env.PSA_VERSION }}
-
-      - name: 🧩 Install / Import PSScriptAnalyzer
-        if: steps.check_ps1.outputs.count != '0'
+      # ----------------------------
+      # SAFE AUTO-FIX (FORMAT FIRST)
+      # ----------------------------
+      - name: 🧽 Auto-Fix Formatting (Invoke-Formatter, PS7)
+        if: steps.check_ps.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $required  = [version]'${{ env.PSA_VERSION }}'
-          $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
-            Sort-Object Version -Descending | Select-Object -First 1
+          $root = $env:GITHUB_WORKSPACE
 
-          if (-not $installed -or $installed.Version -ne $required) {
-            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted | Out-Null
-            Install-Module -Name PSScriptAnalyzer -RequiredVersion $required -Scope CurrentUser -Force
+          # Format only script/module/data files
+          $files = Get-ChildItem -Path $root -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
+            Where-Object {
+              $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+              $_.FullName -notmatch '[\\/](node_modules|dist|build|artifacts|\.next)[\\/]'
+            }
+
+          foreach ($f in $files) {
+            try {
+              $formatted = Invoke-Formatter -Path $f.FullName
+              # Keep UTF-8 (no BOM). GitHub runners default to utf8 here.
+              $formatted | Set-Content -Path $f.FullName -Encoding utf8
+            } catch {
+              Write-Warning "Invoke-Formatter failed for: $($f.FullName) :: $($_.Exception.Message)"
+            }
           }
 
-          Import-Module PSScriptAnalyzer -Force
-          Write-Host ("PSScriptAnalyzer version: " + (Get-Module PSScriptAnalyzer).Version)
-
-      # ----------------------------
-      # AUTO-FIX + CHANGE DETECTION
-      # ----------------------------
-      - name: 🧹 Auto-Fix Formatting (Indentation + Whitespace)
-        if: steps.check_ps1.outputs.count != '0'
+      - name: 🧹 Auto-Fix Analyzer Fixable Rules (-Fix)
+        if: steps.check_ps.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+
+          # Prefer repo settings file if present
+          $settingsPath = @(
+            Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer.psd1"
+            Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer.json"
+            Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          $include = @("${{ env.FIX_RULES }}".Split(" ",[System.StringSplitOptions]::RemoveEmptyEntries))
 
           $htFix = @{
             Path        = '.'
             Recurse     = $true
             Fix         = $true
-            IncludeRule = @('PSUseConsistentIndentation','PSUseConsistentWhitespace')
-            Settings    = @{
+            IncludeRule = $include
+          }
+
+          if ($settingsPath) {
+            Write-Host "Using settings: $settingsPath"
+            $htFix.Settings = $settingsPath
+          } else {
+            # Deterministic defaults if you don't have a settings file
+            $htFix.Settings = @{
               Rules = @{
                 PSUseConsistentIndentation = @{
                   Enable              = $true
@@ -142,41 +191,42 @@ jobs:
 
       - name: 🔎 Detect Auto-Fix Changes
         id: detect_changes
-        if: github.event_name == 'push' && steps.check_ps1.outputs.count != '0'
+        if: steps.check_ps.outputs.count != '0'
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          if git diff --quiet -- "**/*.ps1"; then
+          if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No .ps1 changes after auto-fix."
+            echo "No changes after auto-fix."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Detected .ps1 changes after auto-fix."
-            git --no-pager diff --stat -- "**/*.ps1" || true
+            echo "Detected changes after auto-fix:"
+            git --no-pager diff --stat || true
           fi
 
-      # ---------------------------------------------------------------------
-      # TRY PR ONLY WHEN IT'S A PUSH TO THIS REPO AND NOT FROM A FORK CONTEXT
-      # ---------------------------------------------------------------------
-      - name: 🔁 Create Auto-Fix PR (only when permitted)
+      # ---------------------------------------------------------
+      # PR (BEST EFFORT) OR PATCH FALLBACK
+      # ---------------------------------------------------------
+      - name: 🔁 Create Auto-Fix PR (best effort)
         id: cpr
         if: |
           github.event_name == 'push' &&
-          steps.check_ps1.outputs.count != '0' &&
+          steps.check_ps.outputs.count != '0' &&
           steps.detect_changes.outputs.changed == 'true' &&
-          github.repository_owner == github.actor &&
           !startsWith(github.ref, 'refs/heads/ci/autofix/')
         continue-on-error: true
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: auto-fix PSScriptAnalyzer formatting"
-          title: "chore: auto-fix PSScriptAnalyzer formatting"
+          commit-message: "chore: auto-fix PowerShell formatting (PSScriptAnalyzer)"
+          title: "chore: auto-fix PowerShell formatting (PSScriptAnalyzer)"
           body: |
-            Automated formatting fixes from CI:
-            - PSUseConsistentIndentation
-            - PSUseConsistentWhitespace
+            Automated safe fixes applied by CI:
+            - Invoke-Formatter (PowerShell 7)
+            - PSScriptAnalyzer -Fix (rules: PSUseConsistentIndentation, PSUseConsistentWhitespace)
+
+            If the repo blocks CI PRs, a patch artifact is attached instead.
           branch: ci/autofix/psscriptanalyzer-${{ github.run_id }}
           delete-branch: true
           labels: |
@@ -184,28 +234,27 @@ jobs:
             psscriptanalyzer
           add-paths: |
             **/*.ps1
+            **/*.psm1
+            **/*.psd1
 
-      # ---------------------------------------------------------
-      # FALLBACK: if PR creation is blocked, export a patch artifact
-      # ---------------------------------------------------------
       - name: 🧩 Create Patch Artifact (when PR cannot be created)
         if: |
           github.event_name == 'push' &&
-          steps.check_ps1.outputs.count != '0' &&
+          steps.check_ps.outputs.count != '0' &&
           steps.detect_changes.outputs.changed == 'true' &&
           (steps.cpr.outcome == 'failure')
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          echo "create-pull-request was not permitted. Generating patch artifact instead."
-          git diff -- "**/*.ps1" > "$PATCH_FILE"
-          ls -la "$PATCH_FILE"
+          echo "PR creation not permitted. Generating patch artifact."
+          git diff > "${{ env.PATCH_FILE }}"
+          ls -la "${{ env.PATCH_FILE }}"
 
       - name: 📦 Upload Auto-Fix Patch Artifact
         if: |
           github.event_name == 'push' &&
-          steps.check_ps1.outputs.count != '0' &&
+          steps.check_ps.outputs.count != '0' &&
           steps.detect_changes.outputs.changed == 'true' &&
           (steps.cpr.outcome == 'failure')
         uses: actions/upload-artifact@v4
@@ -215,53 +264,73 @@ jobs:
           retention-days: 30
 
       # ----------------------------
-      # ANALYZE + SARIF
+      # ANALYZE + EXPORT REPORTS
       # ----------------------------
-      - name: 🔎 Run PSScriptAnalyzer and Export SARIF
-        if: steps.check_ps1.outputs.count != '0'
+      - name: 🔎 Run PSScriptAnalyzer (Errors+Warnings) and Export JSON+SARIF
+        if: steps.check_ps.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $sarifFile = Join-Path $env:GITHUB_WORKSPACE '${{ env.SARIF_FILE }}'
-          $version   = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
+          $root      = $env:GITHUB_WORKSPACE
+          $sarifPath = Join-Path $root '${{ env.SARIF_FILE }}'
+          $jsonPath  = Join-Path $root '${{ env.JSON_FILE }}'
 
-          $rulesCommon = @{
-            PSUseConsistentIndentation = @{
-              Enable              = $true
-              IndentationSize     = 4
-              PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
-            }
-            PSUseConsistentWhitespace = @{
-              Enable          = $true
-              CheckInnerBrace = $true
-              CheckOpenBrace  = $true
-              CheckOpenParen  = $true
-              CheckOperator   = $true
-              CheckSeparator  = $true
-            }
-          }
+          $settingsPath = @(
+            Join-Path $root ".psscriptanalyzer.psd1"
+            Join-Path $root ".psscriptanalyzer.json"
+            Join-Path $root ".psscriptanalyzer"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
 
           $htPSA = @{
-            Path        = '.'
-            Recurse     = $true
-            Severity    = @('Error','Warning')
-            IncludeRule = @(
+            Path     = $root
+            Recurse  = $true
+            Severity = @('Error','Warning')
+          }
+
+          if ($settingsPath) {
+            Write-Host "Using settings: $settingsPath"
+            $htPSA.Settings = $settingsPath
+          } else {
+            # Minimal defaults if no settings file
+            $htPSA.IncludeRule = @(
               'PSAvoidUsingCmdletAliases',
               'PSUseShouldProcessForStateChangingFunctions',
               'PSAvoidUsingWriteHost',
               'PSUseConsistentIndentation',
               'PSUseConsistentWhitespace'
             )
-            Settings    = @{ Rules = $rulesCommon }
+            $htPSA.Settings = @{
+              Rules = @{
+                PSUseConsistentIndentation = @{
+                  Enable              = $true
+                  IndentationSize     = 4
+                  PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+                }
+                PSUseConsistentWhitespace = @{
+                  Enable          = $true
+                  CheckInnerBrace = $true
+                  CheckOpenBrace  = $true
+                  CheckOpenParen  = $true
+                  CheckOperator   = $true
+                  CheckSeparator  = $true
+                }
+              }
+            }
           }
 
           $results = Invoke-ScriptAnalyzer @htPSA
 
+          # Export JSON (full fidelity)
+          $results | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
+
+          # Build SARIF (simple + reliable)
           $sarifResults = @()
           if ($results) {
             $sarifResults = $results | ForEach-Object {
-              $rel = $_.ScriptPath.Replace("$env:GITHUB_WORKSPACE/", '').Replace("$env:GITHUB_WORKSPACE\", '')
+              $rel = $_.ScriptPath.Replace("$root/", '').Replace("$root\", '')
               @{
                 ruleId    = $_.RuleName
                 level     = $_.Severity.ToString().ToLower()
@@ -283,46 +352,30 @@ jobs:
             version   = '2.1.0'
             runs      = @(
               @{
-                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $version } }
+                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $psaVersion } }
                 results = $sarifResults
               }
             )
           }
 
-          $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifFile -Encoding UTF8
+          $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifPath -Encoding UTF8
 
-          if (-not (Test-Path $sarifFile)) {
-            throw "SARIF file was not created at: $sarifFile"
-          }
+          if (-not (Test-Path $sarifPath)) { throw "SARIF was not created at: $sarifPath" }
+          if (-not (Test-Path $jsonPath))  { throw "JSON was not created at: $jsonPath"  }
 
+          # Fail the job only on Error severity
           if ($results | Where-Object { $_.Severity -eq 'Error' }) {
             throw "PSScriptAnalyzer found error-level findings."
           }
 
-      - name: 🔎 Pre-upload diagnostics (must exist here)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          echo "SARIF target=$GITHUB_WORKSPACE/$SARIF_FILE"
-          ls -la "$GITHUB_WORKSPACE"
-
-          if [ -f "$GITHUB_WORKSPACE/$SARIF_FILE" ]; then
-            ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
-          else
-            echo "SARIF missing — creating baseline SARIF now."
-            cd "$GITHUB_WORKSPACE"
-            printf '%s' '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}' > "$SARIF_FILE"
-            ls -la "$GITHUB_WORKSPACE/$SARIF_FILE"
-          fi
-
-      - name: 📊 Upload SARIF Artifact
+      - name: 📊 Upload SARIF + JSON Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: psscriptanalyzer-results
-          path: ${{ github.workspace }}/${{ env.SARIF_FILE }}
+          path: |
+            ${{ github.workspace }}/${{ env.SARIF_FILE }}
+            ${{ github.workspace }}/${{ env.JSON_FILE }}
           retention-days: 30
 
       - name: 🛰️ Upload SARIF to GitHub Code Scanning
@@ -332,46 +385,60 @@ jobs:
           sarif_file: ${{ github.workspace }}/${{ env.SARIF_FILE }}
           wait-for-processing: true
 
-      - name: 📄 Generate Markdown Summary
+      - name: 📄 Generate Markdown Summary (top issues + counts)
         if: always()
         shell: pwsh
         run: |
           $summaryPath = Join-Path $env:GITHUB_WORKSPACE '${{ env.SUMMARY_MD }}'
-          $sarifPath   = Join-Path $env:GITHUB_WORKSPACE '${{ env.SARIF_FILE }}'
+          $jsonPath    = Join-Path $env:GITHUB_WORKSPACE '${{ env.JSON_FILE }}'
 
           $repo  = "${{ github.repository }}"
           $sha   = "${{ github.sha }}"
           $runId = "${{ github.run_id }}"
 
-          $lines = @()
-          $lines += "### 🧪 PowerShell Lint Summary"
-          $lines += "- 🕒 **Timestamp (UTC):** ${{ steps.metadata.outputs.timestamp }}"
-          $lines += "- 🔗 **Repo:** $repo"
-          $lines += "- 🧷 **Commit:** $sha"
-          $lines += "- 📝 **Message:** ${{ steps.metadata.outputs.commit_msg }}"
-          $lines += "- 🧾 **Run:** $runId"
-          $lines += ""
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("### 🧪 PowerShell Lint Summary")
+          $lines.Add("- 🕒 **Timestamp (UTC):** ${{ steps.metadata.outputs.timestamp }}")
+          $lines.Add("- 🔗 **Repo:** $repo")
+          $lines.Add("- 🧷 **Commit:** $sha")
+          $lines.Add("- 🧾 **Run:** $runId")
+          $lines.Add("")
 
-          if (Test-Path $sarifPath) {
-            $sarif  = Get-Content $sarifPath -Raw | ConvertFrom-Json
-            $issues = @()
-            if ($sarif.runs.Count -gt 0 -and $sarif.runs[0].results) {
-              $issues = @($sarif.runs[0].results)
+          if (Test-Path $jsonPath) {
+            $items = @()
+            $raw = Get-Content $jsonPath -Raw
+            if ($raw.Trim().Length -gt 0) {
+              $items = @( $raw | ConvertFrom-Json )
             }
 
-            if ($issues.Count -gt 0) {
-              $lines += "**Detected $($issues.Count) issue(s):**"
-              foreach ($i in $issues | Select-Object -First 15) {
-                $file = $i.locations[0].physicalLocation.artifactLocation.uri
-                $line = $i.locations[0].physicalLocation.region.startLine
+            if ($items.Count -gt 0) {
+              $lines.Add("**Detected $($items.Count) issue(s)**")
+              $lines.Add("")
+
+              # Counts by rule
+              $lines.Add("**Counts by rule (top 15):**")
+              $topRules = $items | Group-Object RuleName | Sort-Object Count -Descending | Select-Object -First 15
+              foreach ($r in $topRules) {
+                $lines.Add("- `$($r.Name)`: $($r.Count)")
+              }
+              $lines.Add("")
+
+              # Show first 20 findings with deep links
+              $lines.Add("**First 20 findings:**")
+              foreach ($i in ($items | Select-Object -First 20)) {
+                $file = ($i.ScriptPath -replace [regex]::Escape($env:GITHUB_WORKSPACE + [IO.Path]::DirectorySeparatorChar), '').Replace('\','/')
+                $line = [int]$i.Line
                 $link = "https://github.com/$repo/blob/$sha/$file#L$line"
-                $lines += "- [$($i.level)] `$($i.ruleId)`: $($i.message.text) ([file]($link))"
+                $sev  = $i.Severity
+                $rule = $i.RuleName
+                $msg  = $i.Message
+                $lines.Add("- [$sev] `$rule`: $msg ([file]($link))")
               }
             } else {
-              $lines += "✅ No issues found."
+              $lines.Add("✅ No issues found.")
             }
           } else {
-            $lines += "❗ SARIF results not found."
+            $lines.Add("❗ JSON results not found.")
           }
 
           $out = ($lines -join "`n")
@@ -385,3 +452,52 @@ jobs:
           name: psscriptanalyzer-markdown-summary
           path: ${{ github.workspace }}/${{ env.SUMMARY_MD }}
           retention-days: 30
+
+  ps51-parse-check:
+    name: 🧩 PowerShell 5.1 Parse Compatibility Check (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: psscriptanalyzer
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ✅ Parse all scripts with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $files = Get-ChildItem -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
+            Where-Object {
+              $_.FullName -notmatch '\\\.git\\' -and
+              $_.FullName -notmatch '\\(node_modules|dist|build|artifacts|\.next)\\'
+            }
+
+          if (-not $files -or $files.Count -eq 0) {
+            Write-Host "No PowerShell files found. Skipping."
+            exit 0
+          }
+
+          $fail = 0
+          foreach ($f in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors -and $errors.Count -gt 0) {
+              $fail++
+              Write-Host "==== PARSE ERROR: $($f.FullName) ===="
+              $errors | ForEach-Object { Write-Host $_.Message }
+            }
+          }
+
+          if ($fail -gt 0) {
+            throw "PowerShell 5.1 parse failed for $fail file(s)."
+          }
+
+          Write-Host "PowerShell 5.1 parse check: OK"
