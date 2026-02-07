@@ -1,8 +1,19 @@
-# 🔹 Flask-API: Active Directory SSO Integration
+# 🔹 Flask-API — Active Directory SSO Integration
 
-## 📌 Overview
+![SSO](https://img.shields.io/badge/SSO-LDAP%20%7C%20Active%20Directory-blue?style=for-the-badge&logo=microsoft) ![Python](https://img.shields.io/badge/Python-Flask-3776AB?style=for-the-badge&logo=python&logoColor=white) ![API](https://img.shields.io/badge/Type-REST%20API-0A66C2?style=for-the-badge) ![Security](https://img.shields.io/badge/Security-Enterprise%20SSO-critical?style=for-the-badge)
 
-The **Flask-API** is a **Python-based REST API** built with **Flask** that enables **LDAP-based Single Sign-On (SSO) authentication** with **Active Directory** using the `ldap3` library.
+## 📝 Overview
+
+The **Flask-API** module is a **Python-based REST API** built with **Flask** that provides **LDAP-based Single Sign-On (SSO)** authentication against **Microsoft Active Directory**, using the `ldap3` library.
+
+This integration follows the same **security, configuration, and architectural standards** defined across the **ActiveDirectory-SSO-Integrations** suite, ensuring **consistent, auditable, and reusable SSO patterns** for enterprise environments.
+
+Primary goals:
+
+- Centralized authentication via Active Directory  
+- Secure LDAP bind using **service accounts (InetOrgPerson)**  
+- Middleware-enforced authentication flow  
+- Lightweight, extensible REST interface  
 
 ---
 
@@ -10,35 +21,35 @@ The **Flask-API** is a **Python-based REST API** built with **Flask** that enabl
 
 ```
 ActiveDirectory-SSO-Integrations/
-│
-├── 📂 Flask-API/                     # Parent folder for Flask API integration
-│   ├── 📜 requirements.txt           # Python dependencies
-│   ├── 📁 app.py                     # Main application file with LDAP logic
-│   ├── 📜 config.py                  # LDAP configuration settings
-│   ├── 📂 controllers/               # API endpoints
-│   │   ├── 📜 auth_controller.py     # Handles authentication
-│   │   ├── 📜 user_controller.py     # Fetches user details
-│   ├── 📂 middleware/                # Authentication middleware
-│   │   ├── 📜 ldap_auth_middleware.py # Enforces authentication
-│   ├── 📂 utils/                     # Helper functions
-│   │   ├── 📜 logger.py              # Logs authentication events
-│   ├── 📖 README.md                  # Documentation for Flask-API
+└── Flask-API/
+    ├── requirements.txt
+    ├── app.py
+    ├── config.py
+    ├── controllers/
+    │   ├── auth_controller.py
+    │   └── user_controller.py
+    ├── middleware/
+    │   └── ldap_auth_middleware.py
+    ├── utils/
+    │   └── logger.py
+    └── README.md
 ```
 
 ---
 
 ## 🛠️ Prerequisites
 
-- **Python 3.8+**
-- **Active Directory instance**
-- **LDAP access credentials**
-- **Postman or cURL** (for API testing)
+- Python **3.8+**  
+- Active Directory domain with LDAP enabled  
+- Dedicated LDAP bind account (InetOrgPerson, least privilege)  
+- pip / virtualenv  
+- Postman or curl for API testing  
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ LDAP Configuration
 
-Modify `config.py` with your **LDAP credentials**:
+Edit `config.py` and configure LDAP parameters:
 
 ```python
 LDAP_CONFIG = {
@@ -50,91 +61,47 @@ LDAP_CONFIG = {
 }
 ```
 
+> 🔐 **Security note:** never hardcode credentials. Always inject `LDAP_PASSWORD` via environment variables or a secure secret store.
+
 ---
 
-## 🚀 How to Run
+## 🚀 Running the API
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Flask-API
-   ```
+```bash
+git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/Flask-API
+```
 
-2. **Set the LDAP password as an environment variable**:
-   ```bash
-   export LDAP_PASSWORD='your-secure-password'
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application**:
-   ```bash
-   python app.py
-   ```
+```bash
+export LDAP_PASSWORD="your-secure-password"
+pip install -r requirements.txt
+python app.py
+```
 
 ---
 
 ## 🔄 API Endpoints
 
-### 1️⃣ Authenticate User
+### Authenticate User
+`POST /api/auth/login`
 
-- **Endpoint**: `POST /api/auth/login`
-- **Request Body**:
-  ```json
-  {
-    "username": "john.doe",
-    "password": "SuperSecretPassword"
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "message": "Authentication successful"
-  }
-  ```
+### Retrieve User Details
+`GET /api/user/{username}`
+
+Example:
+```bash
+curl -X GET http://localhost:5000/api/user/john.doe
+```
 
 ---
 
-### 2️⃣ Get User Details
+## 🔐 Security Notes
 
-- **Endpoint**: `GET /api/user/{username}`
-- **Example Request**:
-  ```bash
-  curl -X GET http://localhost:5000/api/user/john.doe
-  ```
-- **Response**:
-  ```json
-  {
-    "username": "john.doe",
-    "displayName": "John Doe",
-    "email": "john.doe@example.com",
-    "department": "IT",
-    "role": "User"
-  }
-  ```
+- LDAP bind uses **least-privilege service account**
+- Interactive logon disabled for bind account
+- Authentication enforced via middleware
+- Suitable for containerized and on-prem deployments
 
 ---
 
-## 📜 License
-
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
-
----
-
-## 🤝 Contributing
-
-[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md)
-
----
-
-## 📩 Support
-
-[![Email Badge](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
-[![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
-
----
-
-<p align="center">🚀 <strong>Enjoy Seamless SSO Integration!</strong> 🎯</p>
+© 2026 Luiz Hamilton Silva. All rights reserved.
