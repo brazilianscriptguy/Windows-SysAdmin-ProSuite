@@ -104,12 +104,14 @@ jobs:
 
           $baseline | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
           Write-Host "Baseline SARIF created: $sarifOut"
+          exit 0
 
       - name: Ensure module cache directories exist
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$HOME\Documents\PowerShell\Modules" | Out-Null
           New-Item -ItemType Directory -Force -Path "$HOME\Documents\WindowsPowerShell\Modules" | Out-Null
+          exit 0
 
       - name: Cache PowerShell modules
         uses: actions/cache@v4
@@ -135,6 +137,7 @@ jobs:
 
           Import-Module PSScriptAnalyzer -RequiredVersion $v -Force
           Write-Host "PSScriptAnalyzer version loaded: $((Get-Module PSScriptAnalyzer).Version)"
+          exit 0
 
       - name: PS 5.1 Compatibility Scan (report-only)
         if: always()
@@ -173,11 +176,10 @@ jobs:
           $files = @($files | Sort-Object FullName -Unique)
           $count = @($files).Count
 
-          # PS7-only / risky syntax patterns (for PS 5.1 baseline)
           $patterns = @(
             @{ Name = 'NullCoalescingOperator';    Rx = '\?\?' },
             @{ Name = 'NullConditionalOperator';   Rx = '\?\.' },
-            @{ Name = 'TernaryOperator';           Rx = '(?<!\?)\?(?!\?)[^\r\n:]+:' },  # heuristic
+            @{ Name = 'TernaryOperator';           Rx = '(?<!\?)\?(?!\?)[^\r\n:]+:' },
             @{ Name = 'PipelineChainAndOr';        Rx = '(?<!`)\&\&|(?<!`)\|\|' },
             @{ Name = 'ForEachObjectParallel';     Rx = 'ForEach-Object\s+-Parallel\b' }
           )
@@ -195,6 +197,7 @@ jobs:
           }
 
           $hitsTotal = 0
+
           foreach ($p in $patterns) {
             $name = $p.Name
             $rx   = [regex]::new($p.Rx)
@@ -205,20 +208,19 @@ jobs:
               try {
                 $content = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop
                 if ($rx.IsMatch($content)) {
-                  # lightweight line-level context:
                   $allLines = Get-Content -LiteralPath $f.FullName -ErrorAction Stop
                   for ($i=0; $i -lt $allLines.Count; $i++) {
                     if ($rx.IsMatch($allLines[$i])) {
                       $rel = $f.FullName.Replace("$env:GITHUB_WORKSPACE\", '').Replace("$env:GITHUB_WORKSPACE/", '')
-                      $hits.Add("$rel:$($i+1): $($allLines[$i].Trim())")
+                      # FIX: ${rel} avoids "$rel:" variable parsing error
+                      $hits.Add("${rel}:$($i+1): $($allLines[$i].Trim())")
                       $hitsTotal++
-                      # cap per file/pattern to avoid huge output
                       if ($hits.Count -ge 20) { break }
                     }
                   }
                 }
               } catch {
-                # do not fail; just record inability to read
+                # keep report-only behavior
               }
             }
 
@@ -233,7 +235,7 @@ jobs:
 
           $lines.Add("Total hits (all patterns): $hitsTotal")
           $lines.Add("")
-          $lines.Add("> This scan is informational only. It does not fail CI. Fix hits to maintain PS 5.1 compatibility.")
+          $lines.Add("> Informational only. Fix hits to preserve PS 5.1 compatibility.")
           $lines | Set-Content -Encoding UTF8 $ps51Out
 
           exit 0
@@ -292,7 +294,6 @@ jobs:
             if ($count -gt 0) {
               $paths = @($files | ForEach-Object { [string]$_.FullName })
               $all = New-Object System.Collections.Generic.List[object]
-              $hadAnyInvocationError = $false
 
               foreach ($p in $paths) {
                 if ([string]::IsNullOrWhiteSpace($p)) { continue }
@@ -300,16 +301,11 @@ jobs:
                   $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
                   if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
                 } catch {
-                  $hadAnyInvocationError = $true
                   $_ | Out-String | Add-Content -Encoding UTF8 $failOut
                 }
               }
 
               $results = $all.ToArray()
-
-              if ($hadAnyInvocationError -and -not (Test-Path $failOut)) {
-                "One or more file-level PSScriptAnalyzer invocations failed." | Set-Content -Encoding UTF8 $failOut
-              }
             } else {
               "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
             }
@@ -320,8 +316,7 @@ jobs:
 
           if (-not $results) { $results = @() }
 
-          # Corporate-defensible suppression:
-          # Only suppress ShouldProcess findings when they occur inside a UI wrapper function by naming convention.
+          # Corporate-defensible suppression: only suppress ShouldProcess when inside UI wrapper function name convention.
           $uiWrapperRx = [regex]::new($env:UI_WRAPPER_FN_REGEX, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
           function Get-ContainingFunctionName {
@@ -370,7 +365,7 @@ jobs:
 
           $results = $filtered.ToArray()
 
-          # Always write reports (even if empty)
+          # Always write reports
           $results | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $jsonOut
 
           $results |
@@ -383,27 +378,27 @@ jobs:
           $md = New-Object System.Collections.Generic.List[string]
           $md.Add("# PSScriptAnalyzer Report (Report-Only)")
           $md.Add("")
-          $md.Add("**Files scanned:** $count")
-          $md.Add("**Settings file used:** $useSettings ($($env:SETTINGS_FILE))")
-          $md.Add("**Total findings:** $(@($results).Count)")
+          $md.Add("Files scanned: $count")
+          $md.Add("Settings file used: $useSettings ($($env:SETTINGS_FILE))")
+          $md.Add("Total findings: $(@($results).Count)")
           $md.Add("")
           $md.Add("## Findings by Severity")
           if ($bySev.Count -eq 0) { $md.Add("- None") }
-          else { foreach ($g in $bySev) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
+          else { foreach ($g in $bySev) { $md.Add("- $($g.Name): $($g.Count)") } }
           $md.Add("")
           $md.Add("## Top Rules")
           $top = $byRule | Select-Object -First 20
           if ($top.Count -eq 0) { $md.Add("- None") }
-          else { foreach ($g in $top) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
+          else { foreach ($g in $top) { $md.Add("- $($g.Name): $($g.Count)") } }
           $md.Add("")
           $md.Add("## PS 5.1 Compatibility Scan")
           if (Test-Path $ps51Out) {
-            $md.Add("- See artifact: `$($env:OUT_PS51)`")
+            $md.Add("- See artifact file: $($env:OUT_PS51)")
           } else {
-            $md.Add("- No PS 5.1 scan report found.")
+            $md.Add("- PS 5.1 scan report not found.")
           }
           $md.Add("")
-          $md.Add("> Note: This workflow is report-only. Findings do not fail the job. Artifacts are always uploaded.")
+          $md.Add("> Report-only: findings never fail CI. Artifacts are uploaded for review.")
           $md | Set-Content -Encoding UTF8 $mdOut
 
           $summary = New-Object System.Collections.Generic.List[string]
@@ -422,7 +417,7 @@ jobs:
             }
           }
 
-          # Update SARIF file (baseline exists already)
+          # Write SARIF
           try {
             $sarif = @{
               '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
@@ -498,6 +493,8 @@ jobs:
             }
             $baseline | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
           }
+
+          exit 0
 
       - name: Upload lint artifacts (never fail if empty)
         if: always()
