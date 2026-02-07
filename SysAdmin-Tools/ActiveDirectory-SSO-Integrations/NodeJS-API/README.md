@@ -1,9 +1,22 @@
-# 🔹 NodeJS-API: Active Directory SSO Integration
+# 🔹 NodeJS-API — Active Directory SSO Integration
 
-## 📌 Overview
+![SSO](https://img.shields.io/badge/SSO-LDAP%20%7C%20Active%20Directory-blue?style=for-the-badge&logo=microsoft)
+![NodeJS](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![API](https://img.shields.io/badge/Type-REST%20API-0A66C2?style=for-the-badge)
+![Security](https://img.shields.io/badge/Security-Enterprise%20SSO-critical?style=for-the-badge)
 
-The **NodeJS-API** module enables **LDAP-based Single Sign-On (SSO)** authentication with **Active Directory** using the `passport-ldapauth` strategy and Express.  
-It allows **secure authentication and user query operations** directly from an LDAP directory.
+## 📝 Overview
+
+The **NodeJS-API** module provides a **Node.js + Express–based REST API** that implements **LDAP-based Single Sign-On (SSO)** authentication against **Microsoft Active Directory** using the `passport-ldapauth` strategy.
+
+This module follows the same **security, configuration, and architectural standards** defined across the **ActiveDirectory-SSO-Integrations** suite, enabling **consistent, auditable, and reusable SSO integrations** across heterogeneous application stacks.
+
+Primary objectives:
+
+- Centralized authentication via Active Directory  
+- Secure LDAP bind using **least-privilege service accounts (InetOrgPerson)**  
+- Middleware-enforced authentication flow  
+- Token-ready API design for enterprise applications  
 
 ---
 
@@ -11,39 +24,38 @@ It allows **secure authentication and user query operations** directly from an L
 
 ```
 ActiveDirectory-SSO-Integrations/
-│
-├── 📂 NodeJS-API/                   # Parent folder for Node.js API integration
-│   ├── 📜 package.json              # Project dependencies and startup script
-│   ├── 📁 app.js                    # Main application file
-│   ├── 📂 config/                   # Configuration folder
-│   │   ├── 📜 ldap.config.json      # LDAP configuration
-│   ├── 📂 controllers/              # API controllers
-│   │   ├── 📜 authController.js     # Authentication logic
-│   │   ├── 📜 userController.js     # User info retrieval
-│   ├── 📂 middleware/               # Middleware logic
-│   │   ├── 📜 ldapAuthMiddleware.js # Enforces authentication
-│   ├── 📂 routes/                   # Express routes
-│   │   ├── 📜 authRoutes.js         # Routes for login
-│   │   ├── 📜 userRoutes.js         # Routes for user data
-│   ├── 📂 utils/                    # Utility functions
-│   │   ├── 📜 logger.js             # Event logging
-│   ├── 📖 README.md                 # Documentation
+└── NodeJS-API/
+    ├── package.json
+    ├── app.js
+    ├── config/
+    │   └── ldap.config.json
+    ├── controllers/
+    │   ├── authController.js
+    │   └── userController.js
+    ├── middleware/
+    │   └── ldapAuthMiddleware.js
+    ├── routes/
+    │   ├── authRoutes.js
+    │   └── userRoutes.js
+    ├── utils/
+    │   └── logger.js
+    └── README.md
 ```
 
 ---
 
 ## 🛠️ Prerequisites
 
-- **Node.js 16+ and npm**
-- **Active Directory instance** accessible via LDAP
-- **LDAP credentials with read permissions**
-- **Postman or cURL** (for API testing)
+- Node.js **16+** and npm  
+- Active Directory domain with LDAP enabled  
+- Dedicated LDAP bind account (InetOrgPerson, least privilege)  
+- Postman or curl for API testing  
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ LDAP Configuration
 
-Modify `config/ldap.config.json` with your **LDAP credentials**:
+Edit `config/ldap.config.json` and configure LDAP parameters:
 
 ```json
 {
@@ -57,94 +69,49 @@ Modify `config/ldap.config.json` with your **LDAP credentials**:
 }
 ```
 
+> 🔐 **Security note:** never store credentials in source code. Inject `LDAP_PASSWORD` via environment variables or a secure secrets manager.
+
 ---
 
-## 🚀 How to Run
+## 🚀 Running the API
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/NodeJS-API
-   ```
+```bash
+git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
+cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/NodeJS-API
+```
 
-2. **Set the LDAP password as an environment variable**:
-   ```bash
-   export LDAP_PASSWORD='your-secure-password'
-   ```
+```bash
+export LDAP_PASSWORD="your-secure-password"
+npm install
+npm start
+```
 
-3. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-4. **Start the application**:
-   ```bash
-   npm start
-   ```
-
-5. The API will be available at `http://localhost:3000`.
+The API will be available at `http://localhost:3000`.
 
 ---
 
 ## 🔄 API Endpoints
 
-### 1️⃣ Authenticate User
+### Authenticate User
+`POST /api/auth/login`
 
-- **Endpoint**: `POST /api/auth/login`
-- **Request Body**:
-  ```json
-  {
-    "username": "john.doe",
-    "password": "SuperSecretPassword"
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "message": "Authentication successful",
-    "token": "eyJhbGciOiJIUzI1..."
-  }
-  ```
+### Retrieve User Details
+`GET /api/user/:username`
+
+Example:
+```bash
+curl -X GET http://localhost:3000/api/user/john.doe
+```
 
 ---
 
-### 2️⃣ Get User Details
+## 🔐 Security Notes
 
-- **Endpoint**: `GET /api/user/:username`
-- **Example Request**:
-  ```bash
-  curl -X GET http://localhost:3000/api/user/john.doe
-  ```
-- **Response**:
-  ```json
-  {
-    "username": "john.doe",
-    "displayName": "John Doe",
-    "email": "john.doe@example.com",
-    "department": "IT",
-    "role": "User"
-  }
-  ```
+- LDAP bind uses **least-privilege service account**
+- Interactive logon disabled for bind account
+- Authentication enforced via middleware
+- Designed for on‑premises, hybrid, or containerized deployments
 
 ---
 
-## 📜 License
-
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
-
----
-
-## 🤝 Contributing
-
-[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md)
-
----
-
-## 📩 Support
-
-[![Email Badge](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)  
-[![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
-
----
-
-<p align="center">🚀 <strong>Enjoy Seamless SSO Integration!</strong> 🎯</p>
+© 2026 Luiz Hamilton Silva. All rights reserved.
