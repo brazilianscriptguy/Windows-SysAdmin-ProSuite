@@ -91,7 +91,7 @@ This repository is suitable for **academic, technical, and policy-oriented citat
 ## 👤 Author & Stewardship
 
 **Luiz Hamilton Silva**  
-Cybersecurity · IAM · Windows Infrastructure · Digital Forensics  
+Senior IAM Analyst | Identity & Access Management | AD & Azure AD | Windows Server Architect | PowerShell Automation
 GitHub: `@brazilianscriptguy`
 
 This project reflects **long-term stewardship**, real operational use, and continuous refinement.
