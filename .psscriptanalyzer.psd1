@@ -1,31 +1,36 @@
+# .psscriptanalyzer.psd1
+# VALID for PSScriptAnalyzer 1.24.0
+# Notes:
+# - No RuleSeverity (NOT supported by PSA 1.24.0 settings hashtable)
+# - Repo-wide rules live here; “severity buckets” are enforced by your YAML (two-pass PSA run)
+# - GUI-only suppressions and folder scoping are enforced by your YAML (post-filter), not here
+
 @{
     # =========================================================================
-    # Global behavior
-    # =========================================================================
-    EnableExit = $true  # makes Invoke-ScriptAnalyzer exit non-zero when it finds Error severity findings
-
-    # =========================================================================
-    # Baseline rule set (applies repo-wide)
+    # What rules are active across the repo (all folders + subfolders)
     # =========================================================================
     IncludeRules = @(
-        # Formatting
+        # --- Formatting (safe autofix) ---
         'PSUseConsistentIndentation'
         'PSUseConsistentWhitespace'
 
-        # Style / maintainability
+        # --- Style / maintainability ---
         'PSAvoidUsingCmdletAliases'
         'PSUseDeclaredVarsMoreThanAssignments'
         'PSAvoidGlobalVars'
 
-        # Security / safety
+        # --- Safety / security ---
         'PSAvoidUsingWriteHost'
         'PSAvoidUsingInvokeExpression'
         'PSAvoidUsingEmptyCatchBlock'
 
-        # Correctness for state-changing commands
+        # --- Correctness / state-changing ---
         'PSUseShouldProcessForStateChangingFunctions'
     )
 
+    # =========================================================================
+    # Rule configuration (only valid keys for PSA 1.24.0)
+    # =========================================================================
     Rules = @{
         # -------------------------
         # Formatting config
@@ -49,97 +54,46 @@
         # -------------------------
         # Hygiene / maintainability
         # -------------------------
-        PSAvoidUsingCmdletAliases = @{ Enable = $true }
-        PSUseDeclaredVarsMoreThanAssignments = @{ Enable = $true }
-        PSAvoidGlobalVars = @{ Enable = $true }
+        PSAvoidUsingCmdletAliases = @{
+            Enable = $true
+        }
+
+        PSUseDeclaredVarsMoreThanAssignments = @{
+            Enable = $true
+        }
+
+        PSAvoidGlobalVars = @{
+            Enable = $true
+        }
 
         # -------------------------
-        # Security / safety
+        # Safety / security
         # -------------------------
-        PSAvoidUsingWriteHost = @{ Enable = $true }
-        PSAvoidUsingInvokeExpression = @{ Enable = $true }
-        PSAvoidUsingEmptyCatchBlock = @{ Enable = $true }
+        PSAvoidUsingWriteHost = @{
+            Enable = $true
+        }
+
+        PSAvoidUsingInvokeExpression = @{
+            Enable = $true
+        }
+
+        PSAvoidUsingEmptyCatchBlock = @{
+            Enable = $true
+        }
 
         # -------------------------
         # Correctness
         # -------------------------
-        PSUseShouldProcessForStateChangingFunctions = @{ Enable = $true }
+        PSUseShouldProcessForStateChangingFunctions = @{
+            Enable = $true
+        }
     }
 
     # =========================================================================
-    # Severity control (Error vs Warning)
+    # Optional repo-wide Severity gate (supported key)
     # =========================================================================
-    RuleSeverity = @{
-        # Formatting: warnings
-        PSUseConsistentIndentation = 'Warning'
-        PSUseConsistentWhitespace  = 'Warning'
-
-        # Hygiene: warnings
-        PSAvoidUsingCmdletAliases                 = 'Warning'
-        PSUseDeclaredVarsMoreThanAssignments      = 'Warning'
-        PSAvoidGlobalVars                         = 'Warning'
-        PSAvoidUsingEmptyCatchBlock               = 'Warning'
-
-        # Security: make IEX an Error
-        PSAvoidUsingInvokeExpression              = 'Error'
-
-        # Behavior: choose Warning (you can flip to Error later if you want)
-        PSAvoidUsingWriteHost                     = 'Warning'
-
-        # Best practice gate: Error
-        PSUseShouldProcessForStateChangingFunctions = 'Error'
-    }
-
-    # =========================================================================
-    # Path scoping (GUI-only suppressions, repo-wide scanning otherwise)
-    # =========================================================================
-    #
-    # PSA still scans everything; these blocks only adjust rules for matching files.
-    #
-    # IMPORTANT: These regex paths assume Linux-style forward slashes (GitHub ubuntu runner).
-    #
-    Settings = @(
-        # ---------------------------------------------------------------------
-        # GUI scripts: suppress console-focused or noisy rules
-        # ---------------------------------------------------------------------
-        @{
-            Include = @(
-                # SysAdmin tools with GUI / WinForms naming
-                '^SysAdmin-Tools/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.ps1$',
-                '^SysAdmin-Tools/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.psm1$',
-
-                # Core library GUI helpers / launchers (adjust if needed)
-                '^Core-ScriptLibrary/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.ps1$',
-                '^Core-ScriptLibrary/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.psm1$',
-
-                # ITSM GUI scripts
-                '^ITSM-Templates-(WKS|SVR)/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.ps1$',
-                '^ITSM-Templates-(WKS|SVR)/.+/(.+GUI.+|.+WinForms.+|.+Form.+)\.psm1$',
-
-                # ProSuite Hub launchers often are UI-ish
-                '^ProSuite-Hub/.+/(.+GUI.+|.+WinForms.+|.+Form.+|.+Launcher.+)\.ps1$',
-                '^ProSuite-Hub/.+/(.+GUI.+|.+WinForms.+|.+Form.+|.+Launcher.+)\.psm1$'
-            )
-
-            # In GUI tools, console output rules can be counterproductive.
-            ExcludeRules = @(
-                'PSAvoidUsingWriteHost'
-            )
-
-            # Optionally relax ShouldProcess for GUI-only wrappers (uncomment if needed)
-            # ExcludeRules = @('PSAvoidUsingWriteHost','PSUseShouldProcessForStateChangingFunctions')
-        }
-
-        # ---------------------------------------------------------------------
-        # ProSuite-Hub: often orchestration; keep strict but practical
-        # ---------------------------------------------------------------------
-        @{
-            Include = @('^ProSuite-Hub/')
-
-            # Keep full baseline rules; just adjust severity if desired
-            RuleSeverity = @{
-                PSAvoidUsingWriteHost = 'Warning'
-            }
-        }
-    )
+    # This controls which severities PSA emits when *you* do not pass -Severity.
+    # Your YAML already runs PSA in two passes (Error pass + Warning pass),
+    # so this is mostly a safe default.
+    Severity = @('Error','Warning')
 }
