@@ -12,14 +12,14 @@
 
     # Keep this list focused and stable (corporate baseline).
     IncludeRules = @(
-        'PSAvoidUsingCmdletAliases',
-        'PSAvoidUsingWriteHost',
-        'PSAvoidUsingInvokeExpression',
-        'PSAvoidUsingEmptyCatchBlock',
-        'PSAvoidGlobalVars',
-        'PSUseDeclaredVarsMoreThanAssignments',
-        'PSUseShouldProcessForStateChangingFunctions',
-        'PSUseConsistentIndentation',
+        'PSAvoidUsingCmdletAliases'
+        'PSAvoidUsingWriteHost'
+        'PSAvoidUsingInvokeExpression'
+        'PSAvoidUsingEmptyCatchBlock'
+        'PSAvoidGlobalVars'
+        'PSUseDeclaredVarsMoreThanAssignments'
+        'PSUseShouldProcessForStateChangingFunctions'
+        'PSUseConsistentIndentation'
         'PSUseConsistentWhitespace'
     )
 
