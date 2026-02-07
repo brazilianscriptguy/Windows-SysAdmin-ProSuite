@@ -1,47 +1,64 @@
-# .psscriptanalyzer.psd1
 @{
-    # Reduce noise: only show Error + Warning by default
-    IncludeDefaultRules = $true
-    Severity            = @('Error','Warning')
+    # Goal: high-signal findings only (quality/security). No style noise.
+    # This settings file is intended for "report-only" CI runs.
 
-    # Focused include list: high-signal rules
+    # Do NOT include the full default ruleset (too noisy for large repos)
+    IncludeDefaultRules = $false
+
+    # Only report these severities
+    Severity = @('Error','Warning')
+
+    # Curated high-signal rules (quality/security)
     IncludeRules = @(
+        # Security / execution safety
         'PSAvoidUsingInvokeExpression',
+
+        # Reliability / observability
         'PSAvoidUsingEmptyCatchBlock',
-        'PSAvoidGlobalVars',
-        'PSUseShouldProcessForStateChangingFunctions',
+
+        # Professional output (avoid Write-Host in tooling)
         'PSAvoidUsingWriteHost',
+
+        # Maintainability / correctness
         'PSAvoidUsingCmdletAliases',
-        'PSUseConsistentIndentation',
-        'PSUseConsistentWhitespace'
+
+        # Safety for state-changing functions (WhatIf/Confirm)
+        'PSUseShouldProcessForStateChangingFunctions'
     )
 
     Rules = @{
-        # --- High-signal rules kept as Warning/Error (default severities) ---
-        PSAvoidUsingInvokeExpression = @{ Enable = $true }
-        PSAvoidUsingEmptyCatchBlock  = @{ Enable = $true }
-        PSAvoidGlobalVars            = @{ Enable = $true }
-        PSUseShouldProcessForStateChangingFunctions = @{ Enable = $true }
-        PSAvoidUsingWriteHost        = @{ Enable = $true }
-        PSAvoidUsingCmdletAliases    = @{ Enable = $true }
-
-        # --- Style rules: keep enabled but downgrade to Information (noise control) ---
-        PSUseConsistentIndentation = @{
-            Enable              = $true
-            Severity            = 'Information'
-            Kind                = 'space'
-            IndentationSize     = 4
-            PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+        PSAvoidUsingInvokeExpression = @{
+            Enable = $true
         }
 
+        PSAvoidUsingEmptyCatchBlock = @{
+            Enable = $true
+        }
+
+        PSAvoidUsingWriteHost = @{
+            Enable = $true
+        }
+
+        PSAvoidUsingCmdletAliases = @{
+            Enable = $true
+        }
+
+        PSUseShouldProcessForStateChangingFunctions = @{
+            Enable = $true
+        }
+
+        # Explicitly disable style rules (noise)
         PSUseConsistentWhitespace = @{
-            Enable          = $true
-            Severity        = 'Information'
-            CheckInnerBrace = $true
-            CheckOpenBrace  = $true
-            CheckOpenParen  = $true
-            CheckOperator   = $true
-            CheckSeparator  = $true
+            Enable = $false
+        }
+
+        PSUseConsistentIndentation = @{
+            Enable = $false
+        }
+
+        # Explicitly disable common GUI/script-state noise (optional but recommended for your goal)
+        PSAvoidGlobalVars = @{
+            Enable = $false
         }
     }
 }
