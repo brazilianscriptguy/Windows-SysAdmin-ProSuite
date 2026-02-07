@@ -1,169 +1,123 @@
+# 🚀 Windows-SysAdmin-ProSuite
+### Enterprise Windows Automation · IAM · Cybersecurity · Forensic Readiness
 
-# 🚀 Windows-SysAdmin-ProSuite  
-### Enterprise Automation · IAM · Cybersecurity · Forensic Readiness
-
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![Zenodo DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE) [![PowerShell](https://img.shields.io/badge/PowerShell-Primary-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell) [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-
-**Windows-SysAdmin-ProSuite** is an **enterprise-grade**, **research-aligned**, and **auditable** collection of **PowerShell** and **VBScript** automation tools authored by **Luiz Hamilton Silva (@brazilianscriptguy)**.
-
-The project delivers **secure**, **compliant**, and **scalable** automation for **Windows Server (2019/2022)** and **Windows 10/11**, with strong focus on:
-
-- 🔐 Identity & Access Management (IAM)
-- 🛡️ Cybersecurity & Digital Forensics
-- 📋 ITSM & Governance
-- 📊 Auditability, reproducibility, and traceability
-
-> ✨ Most tools include **GUI-driven execution**, generate structured `.log` files, and export `.csv` reports suitable for **audits, investigations, and compliance workflows**.
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite)
+[![CI](https://img.shields.io/badge/CI-PowerShell%20Linting-2088FF?style=for-the-badge&logo=githubactions)]()
+[![SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge)]()
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)]()
+[![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)]
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE)
 
 ---
 
-## 🇺🇸 National Interest & Research Alignment
+## 🧭 Executive Overview
 
-[![Public Sector](https://img.shields.io/badge/Focus-Public%20Sector-blue?style=for-the-badge&logo=unitedstates)]() [![Cybersecurity](https://img.shields.io/badge/Domain-Cybersecurity-critical?style=for-the-badge&logo=security)]() [![Forensics](https://img.shields.io/badge/Domain-Digital%20Forensics-black?style=for-the-badge&logo=datadog)]() [![Governance](https://img.shields.io/badge/Domain-IT%20Governance-purple?style=for-the-badge&logo=databricks)]()
+**Windows-SysAdmin-ProSuite** is an **enterprise-grade, research-aligned automation platform** for **Windows infrastructures**, authored and maintained by **Luiz Hamilton Silva (@brazilianscriptguy)**.
 
-This repository represents an **independent, ongoing engineering and research initiative** addressing **systemic challenges** in Windows-based infrastructures, particularly in:
+The repository consolidates **production-tested PowerShell and VBScript toolchains** designed for:
 
-- 🏛️ Courts, universities, and government agencies  
-- 🏢 Enterprise and hybrid environments  
+- Identity & Access Management (IAM)
+- Secure Windows administration
+- Cybersecurity and forensic readiness
+- ITSM-aligned provisioning and compliance
+- Auditability and operational traceability
+
+All tooling is engineered with **runtime safety**, **deterministic logging**, and **PowerShell 5.1 compatibility** as first-class requirements.
+
+---
+
+## 🎯 Scope & Intended Use
+
+This repository targets **real-world Windows environments**, including:
+
+- 🏛️ Public sector and judicial institutions  
+- 🏢 Enterprise and hybrid infrastructures  
 - 🛡️ Blue Team / DFIR operations  
+- 📋 Governance, risk, and compliance workflows  
 
-The toolkit contributes to **national-scale objectives** related to:
-
-- Cybersecurity resilience  
-- Digital trust and auditability  
-- Secure identity governance  
-- Infrastructure reliability  
+It is **not** a collection of demos or isolated scripts, but a **cohesive automation suite** designed to operate safely across **large Windows realms**.
 
 ---
 
-## 🧭 Scope & Target Audience
+## 🏗️ Repository Architecture (High Level)
 
-[![Audience](https://img.shields.io/badge/Audience-Public%20Sector-0047AB?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Enterprise%20IT-2E8B57?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-DFIR%20Teams-8B0000?style=for-the-badge)]() [![Audience](https://img.shields.io/badge/Audience-Researchers-6A5ACD?style=for-the-badge)]()
+| Domain | Description |
+|------|-------------|
+| **BlueTeam-Tools** | DFIR, Event Log analysis, incident response tooling |
+| **Core-ScriptLibrary** | Shared modules, GUI frameworks, helpers, packaging |
+| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI, infrastructure automation |
+| **ITSM-Templates-WKS** | Windows 10/11 lifecycle and baseline enforcement |
+| **ITSM-Templates-SVR** | Windows Server compliance and hardening workflows |
 
-Designed for professionals working with:
-
-- IT infrastructure administration
-- Identity & Access Management
-- Security operations and investigations
-- ITSM-aligned provisioning
-- Compliance and audit preparation
-
----
-
-## 🛠️ Repository Architecture
-
-[![BlueTeam](https://img.shields.io/badge/BlueTeam-Forensics-orange?style=for-the-badge&logo=protonmail)](BlueTeam-Tools) [![Core](https://img.shields.io/badge/Core-ScriptLibrary-red?style=for-the-badge&logo=visualstudiocode)](Core-ScriptLibrary) [![SysAdmin](https://img.shields.io/badge/SysAdmin-Tools-blue?style=for-the-badge&logo=microsoft)](SysAdmin-Tools) [![ITSM WKS](https://img.shields.io/badge/ITSM-WKS-green?style=for-the-badge&logo=windows)](ITSM-Templates-WKS) [![ITSM SVR](https://img.shields.io/badge/ITSM-SVR-purple?style=for-the-badge&logo=windows11)](ITSM-Templates-SVR)
-
-| Component | Description |
-|---------|-------------|
-| **BlueTeam-Tools** | DFIR tooling for Event Logs, artifacts, timelines |
-| **Core-ScriptLibrary** | Reusable modules, GUIs, helpers, NuGet engine |
-| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI automation |
-| **ITSM-Templates-WKS** | Windows 10/11 baseline & lifecycle scripts |
-| **ITSM-Templates-SVR** | Windows Server 2019/2022 compliance tooling |
+> 📌 Each top-level directory contains its **own README.md** with domain-specific documentation and usage guidance.
 
 ---
 
-## 💻 Core Capabilities
+## 🛡️ Engineering & Safety Principles
 
-[![IAM](https://img.shields.io/badge/IAM-Automation-4682B4?style=for-the-badge)]() [![Forensics](https://img.shields.io/badge/Forensics-Ready-black?style=for-the-badge)]() [![Logs](https://img.shields.io/badge/Logging-Structured-success?style=for-the-badge)]() [![CSV](https://img.shields.io/badge/Reports-CSV-informational?style=for-the-badge)]()
+- ✅ **PowerShell 5.1 first**, PowerShell 7.x compatible where applicable  
+- ✅ No destructive action without explicit intent (`ShouldProcess` enforced in core logic)  
+- ✅ GUI-driven execution for operator safety when appropriate  
+- ✅ Structured logging (`.log`) and exportable reports (`.csv`)  
+- ✅ No hidden state, no silent failure patterns  
 
-- Event Log parsing and correlation  
-- AD object and logon behavior analysis  
-- GPO, registry, and baseline enforcement  
-- Modular PowerShell orchestration  
-- Audit-oriented outputs  
-
----
-
-## 🌟 Engineering Principles
-
-[![GUI](https://img.shields.io/badge/GUI-Driven-blueviolet?style=for-the-badge)]() [![Modular](https://img.shields.io/badge/Architecture-Modular-008080?style=for-the-badge)]() [![CI/CD](https://img.shields.io/badge/CI%2FCD-Automated-2088FF?style=for-the-badge&logo=githubactions)]() [![SARIF](https://img.shields.io/badge/SARIF-Integrated-brightgreen?style=for-the-badge)]()
-
-- GUI-driven safe execution  
-- Deterministic logging model  
-- Modular, reusable design  
-- CI pipelines with linting & SARIF  
-- Native Windows tooling only  
+The suite is continuously evaluated using **PSScriptAnalyzer**, **SARIF reporting**, and CI pipelines configured in **report-only mode** to ensure **visibility without delivery interruption**.
 
 ---
 
-## 🏛️ Governance, Quality & Security
+## 🔍 Quality, CI & Static Analysis
 
-[![Versioning](https://img.shields.io/badge/Versioning-Semantic-blue?style=for-the-badge)]() [![Releases](https://img.shields.io/badge/Releases-Tagged-success?style=for-the-badge)]() [![Security](https://img.shields.io/badge/Security-Policy-red?style=for-the-badge)]() [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)]()
+- PowerShell linting via **PSScriptAnalyzer**
+- SARIF output integrated with **GitHub Code Scanning**
+- Runtime-safety focused rule profile (low noise, high signal)
+- PowerShell 5.1 compatibility validation
+- Non-blocking CI: reports inform action, not gatekeeping
 
-- Semantic versioning (`vMAJOR.MINOR.PATCH`)
-- Release-based distribution
-- CI for PowerShell, VBScript, Markdown
-- SARIF security reporting
-- MIT License
-
----
-
-## ⚙️ Requirements
-
-[![PS](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell)]() [![OS](https://img.shields.io/badge/OS-Windows%2010%2F11%20%7C%20Server-0078D6?style=for-the-badge&logo=windows)]() [![Admin](https://img.shields.io/badge/Privileges-Administrator-critical?style=for-the-badge)]()
+> Findings are surfaced as **artifacts and dashboards**, enabling controlled remediation cycles.
 
 ---
 
-## 🚀 Quick Start
+## 📚 Research, Governance & Citation
 
-```powershell
-git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-cd Windows-SysAdmin-ProSuite
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
+[![CITATION.cff](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)]()
 
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
-.\ITSM-Templates-WKS\BeforeJoinDomain\Initialize-WKSBaseline.ps1
-```
+This repository is suitable for **academic, technical, and policy-oriented citation**, particularly in areas involving:
 
-> ⚠️ Review scripts before execution in production environments.
-
----
-
-## 📘 Research Software & Citation
-
-[![DOI](https://img.shields.io/badge/DOI-Zenodo-blue?style=for-the-badge\&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![CFF](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)]()
-
-This repository may be cited in **academic**, **technical**, and **policy-oriented** works related to:
-
-* Cybersecurity engineering
-* Digital forensics (DFIR)
-* IT governance & compliance
-* Identity & Access Management
+- Cybersecurity engineering
+- Digital forensics (DFIR)
+- Identity governance
+- IT governance and compliance
 
 ---
 
-## 🎓 Academic & Professional Use
+## 👤 Author & Stewardship
 
-[![Academic](https://img.shields.io/badge/Use-Academic-6A5ACD?style=for-the-badge)]() [![Recruiters](https://img.shields.io/badge/Use-Technical%20Reviewers-2F4F4F?style=for-the-badge)]()
+**Luiz Hamilton Silva**  
+Cybersecurity · IAM · Windows Infrastructure · Digital Forensics  
+GitHub: `@brazilianscriptguy`
 
-The project emphasizes:
-
-* Explainability
-* Operational realism
-* Engineering discipline
-* Reproducibility and auditability
+This project reflects **long-term stewardship**, real operational use, and continuous refinement.
 
 ---
 
-## 🤝 Collaboration & Attribution
+## 🤝 Contribution & Reuse
 
-[![Contributions](https://img.shields.io/badge/Contributions-Welcome-success?style=for-the-badge)]() [![Attribution](https://img.shields.io/badge/Attribution-Required-blue?style=for-the-badge)]()
-
-When reusing or referencing:
-
-* Preserve attribution to **Luiz Hamilton Silva (@brazilianscriptguy)**
-* Respect license and security policy
-* Cite repository URL or DOI when applicable
+- Contributions are welcome via pull requests
+- Attribution is required under the MIT License
+- Reuse in academic or institutional contexts should cite the repository or DOI
 
 ---
 
-## 🤝 Support
+## 📬 Contact & Support
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge\&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge\&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-yellow?style=for-the-badge\&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-blue?style=for-the-badge\&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-green?style=for-the-badge\&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
+- 📧 Email: luizhamilton.lhr@gmail.com
+- ☕ Buy Me a Coffee: https://buymeacoffee.com/brazilianscriptguy
+- ❤️ Ko-fi: https://ko-fi.com/brazilianscriptguy
+- 💖 Patreon: https://www.patreon.com/brazilianscriptguy
 
 ---
 
-> 🚀 *Engineering secure, scalable, and auditable Windows automation for enterprise and public-sector environments.*
+> **Engineering secure, auditable, and scalable Windows automation for enterprise and public-sector environments.**
 
-© 2026 Luiz Hamilton Silva. All rights reserved.
+© 2026 Luiz Hamilton Silva
