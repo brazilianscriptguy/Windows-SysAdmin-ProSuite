@@ -102,6 +102,12 @@ jobs:
           $baseline | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
           Write-Host "Baseline SARIF created: $sarifOut"
 
+      - name: Ensure module cache directories exist
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$HOME\Documents\PowerShell\Modules" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$HOME\Documents\WindowsPowerShell\Modules" | Out-Null
+
       - name: Cache PowerShell modules
         uses: actions/cache@v4
         with:
@@ -178,7 +184,20 @@ jobs:
           $results = @()
           try {
             if ($count -gt 0) {
-              $results = Invoke-ScriptAnalyzer -Path $files.FullName -Recurse:$false @settingsArgs
+              # IMPORTANT: analyze one file at a time to avoid Path binding issues on runners
+              $paths = @($files | ForEach-Object { [string]$_.FullName })
+              $all = New-Object System.Collections.Generic.List[object]
+              foreach ($p in $paths) {
+                if ([string]::IsNullOrWhiteSpace($p)) { continue }
+                try {
+                  $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
+                  if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
+                } catch {
+                  # keep going; record failure details once
+                  $_ | Out-String | Add-Content -Encoding UTF8 $failOut
+                }
+              }
+              $results = @($all)
             } else {
               "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
             }
@@ -205,6 +224,7 @@ jobs:
           $md.Add("")
           $md.Add("**Files scanned:** $count")
           $md.Add("**Settings file used:** $useSettings ($($env:SETTINGS_FILE))")
+          $md.Add("**Total findings:** $(@($results).Count)")
           $md.Add("")
           $md.Add("## Findings by Severity")
           if ($bySev.Count -eq 0) { $md.Add("- None") }
@@ -254,7 +274,6 @@ jobs:
             }
 
             foreach ($r in $results) {
-              # Use relative path when possible (better GitHub code scanning display)
               $scriptRel = [string]$r.ScriptName
               if (-not [string]::IsNullOrWhiteSpace($scriptRel)) {
                 $scriptRel = $scriptRel.Replace("$env:GITHUB_WORKSPACE\", '').Replace("$env:GITHUB_WORKSPACE/", '')
@@ -282,7 +301,6 @@ jobs:
           }
           catch {
             $_ | Out-String | Add-Content -Encoding UTF8 $failOut
-            # Keep the baseline SARIF if update fails
           }
 
           exit 0
