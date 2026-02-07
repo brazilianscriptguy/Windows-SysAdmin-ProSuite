@@ -79,9 +79,19 @@ git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
    .\ScriptName.ps1
    ```
 
-4. Review outputs:
-   - Logs: `C:\Logs-TEMP\`, `C:\ITSM-Logs-WKS\`, or `C:\ITSM-Logs-SVR\`
-   - Reports: `.csv` files generated per tool
+4. **Review Outputs**
+
+- Run scripts using **Run with PowerShell** or from an **elevated PowerShell console**  
+- Provide the required parameters or interact via the GUI (script-dependent)  
+- Review the generated outputs  
+
+### 📂 Output Locations
+
+| Path                       | Purpose                                                                 |
+|----------------------------|-------------------------------------------------------------------------|
+| `C:\Scripts-LOGS\`         | GPO synchronization, agents, and security tooling logs                  |
+| `C:\Logs-TEMP\`            | General-purpose, transient, and legacy script outputs                   |
+| `%USERPROFILE%\Documents\` | CSV and exported reports for compliance, forensics, and ITSM workflows  |
 
 ---
 
