@@ -185,4 +185,4 @@ curl http://localhost:8080/api/user/john.doe
 
 ---
 
-
+© 2026 Luiz Hamilton Silva — @brazilianscriptguy
