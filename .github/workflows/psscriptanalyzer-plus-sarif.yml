@@ -47,7 +47,7 @@ jobs:
         PSUseConsistentIndentation
         PSUseConsistentWhitespace
 
-      # Bucket policy: keep CI stable; fail only on truly dangerous patterns
+      # Bucket policy: fail CI only on high-risk patterns
       ERROR_RULES: >-
         PSAvoidUsingInvokeExpression
 
@@ -69,8 +69,17 @@ jobs:
       # Heuristic for GUI scripts/modules
       GUI_PATH_REGEX: '(?i)(GUI|WinForms|Form|Launcher)\.(ps1|psm1)$'
 
-      # Ignore generated/vendor folders (analysis + autofix)
+      # Prune folders
       PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
+
+      # Your repo main roots (analyze these recursively)
+      ANALYZE_ROOTS: >-
+        BlueTeam-Tools
+        Core-ScriptLibrary
+        ITSM-Templates-SVR
+        ITSM-Templates-WKS
+        ProSuite-Hub
+        SysAdmin-Tools
 
     steps:
       - name: 📦 Checkout Repository
@@ -173,12 +182,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
           $settingsPath = Join-Path $env:GITHUB_WORKSPACE ".psscriptanalyzer.psd1"
-          if (-not (Test-Path $settingsPath)) { throw "Missing required settings file: $settingsPath" }
-
           $include = @("${{ env.FIX_RULES }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries))
 
+          # Run once at repo root (single string path, PSA-safe)
           Invoke-ScriptAnalyzer -Path $env:GITHUB_WORKSPACE -Recurse -Fix `
             -IncludeRule $include `
             -Settings $settingsPath | Out-Null
@@ -260,7 +267,7 @@ jobs:
       # ----------------------------
       # ANALYZE + EXPORT REPORTS
       # ----------------------------
-      - name: 🔎 Run PSScriptAnalyzer (bucketed) + Export JSON+SARIF (with error list)
+      - name: 🔎 Run PSScriptAnalyzer (bucketed) + Export JSON+SARIF
         if: steps.check_ps.outputs.count != '0'
         shell: pwsh
         run: |
@@ -269,9 +276,7 @@ jobs:
           $root      = $env:GITHUB_WORKSPACE
           $sarifPath = Join-Path $root '${{ env.SARIF_FILE }}'
           $jsonPath  = Join-Path $root '${{ env.JSON_FILE }}'
-
-          $settingsPath = Join-Path $root ".psscriptanalyzer.psd1"
-          if (-not (Test-Path $settingsPath)) { throw "Missing required settings file: $settingsPath" }
+          $settings  = Join-Path $root ".psscriptanalyzer.psd1"
 
           $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
 
@@ -282,41 +287,42 @@ jobs:
           $guiRegex = [regex]::new('${{ env.GUI_PATH_REGEX }}')
           $prune    = [regex]::new('${{ env.PRUNE_DIR_REGEX }}')
 
-          # Helper: run PSA for a subset of files only (skip pruned dirs)
-          function Invoke-PsaOnFiles {
-            param(
-              [string[]]$FilePaths,
-              [string]$Severity,
-              [string[]]$IncludeRule
-            )
-            if (-not $FilePaths -or $FilePaths.Count -eq 0) { return @() }
-            Invoke-ScriptAnalyzer -Path $FilePaths -Settings $settingsPath -Severity $Severity -IncludeRule $IncludeRule
+          # Roots to analyze (string paths only)
+          $roots = @("${{ env.ANALYZE_ROOTS }}".Split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)) |
+            ForEach-Object { Join-Path $root $_ } |
+            Where-Object { Test-Path $_ }
+
+          if (-not $roots -or $roots.Count -eq 0) {
+            throw "No ANALYZE_ROOTS found. Check env.ANALYZE_ROOTS paths."
           }
 
-          $allFiles = Get-ChildItem -Path $root -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
-            Where-Object { -not $prune.IsMatch($_.FullName) } |
-            Select-Object -ExpandProperty FullName
+          # Run PSA by root folder (single string path -> PSA-safe)
+          $errAll  = @()
+          $warnAll = @()
 
-          # Error pass
-          $err = Invoke-PsaOnFiles -FilePaths $allFiles -Severity 'Error' -IncludeRule $errorRules
-          if (-not $err) { $err = @() }
+          foreach ($r in $roots) {
+            if ($prune.IsMatch($r)) { continue }
 
-          # Warning pass
-          $warn = Invoke-PsaOnFiles -FilePaths $allFiles -Severity 'Warning' -IncludeRule $warningRules
-          if (-not $warn) { $warn = @() }
+            $e = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity Error -IncludeRule $errorRules
+            if ($e) { $errAll += $e }
 
-          $results = @($err + $warn)
+            $w = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity Warning -IncludeRule $warningRules
+            if ($w) { $warnAll += $w }
+          }
+
+          $results = @($errAll + $warnAll)
 
           # GUI suppressions (post-filter)
           if ($results.Count -gt 0) {
             $results = $results | Where-Object {
-              $isGui = $guiRegex.IsMatch(($_.ScriptPath -replace '\\','/'))
+              $p = ($_.ScriptPath -replace '\\','/')
+              $isGui = $guiRegex.IsMatch($p)
               if ($isGui -and $_.RuleName -in $guiSuppress) { return $false }
               return $true
             }
           }
 
-          # Export JSON (full fidelity)
+          # Export JSON
           $results | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
 
           # Build SARIF
@@ -356,19 +362,19 @@ jobs:
           if (-not (Test-Path $sarifPath)) { throw "SARIF was not created at: $sarifPath" }
           if (-not (Test-Path $jsonPath))  { throw "JSON was not created at: $jsonPath"  }
 
-          # Print error bucket findings (always actionable)
-          if ($err.Count -gt 0) {
+          # Print error bucket findings (actionable)
+          if ($errAll.Count -gt 0) {
             Write-Host ""
             Write-Host "==================== ERROR BUCKET FINDINGS ===================="
-            foreach ($e in $err) {
+            foreach ($e in $errAll) {
               $p = ($e.ScriptPath -replace [regex]::Escape($root + [IO.Path]::DirectorySeparatorChar), '').Replace('\','/')
               Write-Host ("[ERROR] {0} :: {1} :: {2}:{3}" -f $e.RuleName, $e.Message, $p, $e.Line)
             }
             Write-Host "==============================================================="
           }
 
-          # Fail ONLY if error bucket produced any findings
-          if ($err.Count -gt 0) {
+          # Fail only on error bucket
+          if ($errAll.Count -gt 0) {
             throw "PSScriptAnalyzer found error-level findings (bucketed)."
           }
 
