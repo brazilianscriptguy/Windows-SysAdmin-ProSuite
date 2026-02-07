@@ -7,10 +7,15 @@
 
     IncludeDefaultRules = $true
 
-    # Default severities to return (workflow gates on "Error" only)
+    # Return these severities; your workflow should "gate" only on Error.
     Severity = @('Error','Warning','Information')
 
-    # Keep this list focused and stable (corporate baseline).
+    # Optional: global exclusions (leave empty unless you truly never want a rule anywhere)
+    ExcludeRules = @(
+        # Example: 'PSAvoidUsingWriteHost'
+    )
+
+    # Corporate baseline (focused + stable)
     IncludeRules = @(
         'PSAvoidUsingCmdletAliases',
         'PSAvoidUsingWriteHost',
