@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   cleanup-github-releases:
-    name: 🧹 Cleanup Old Managed Releases & Tags (2026*)
+    name: 🧹 Cleanup Old Managed Releases & Tags (managed prefixes)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -34,79 +34,62 @@ jobs:
         READMEs-Files-Package
         SysAdmin-Tools
 
-      # Matches your requested "2026xxyyzzwwkk" style (2026 + extra digits).
-      # Also covers your current pattern: 2026MMDD (8 digits) + optional "-<sha>"
-      # Examples matched:
-      #   SysAdmin-Tools-20260206-6b43527
-      #   SysAdmin-Tools-20260206010203-6b43527
-      MANAGED_2026_VERSION_REGEX: '^2026[0-9]{4,10}(-[0-9a-f]{7})?$'
-
     steps:
-      - name: 🧰 Install Dependencies (gh)
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y gh
-
       - name: 🔐 Verify GitHub CLI Auth
         shell: bash
         run: |
           set -euo pipefail
           gh auth status
 
-      - name: 🗑️ Delete ALL matching Releases (tag prefix + 2026 version)
+      - name: 🗑️ Delete ALL matching Releases (tag_name starts with managed prefix)
         shell: bash
         run: |
           set -euo pipefail
 
-          owner="${GITHUB_REPOSITORY%/*}"
-          repo="${GITHUB_REPOSITORY#*/}"
+          repo="${GITHUB_REPOSITORY}"
+          owner="${repo%/*}"
+          name="${repo#*/}"
 
-          echo "Repository: ${owner}/${repo}"
+          echo "Repository: ${repo}"
           echo "Managed prefixes:"
           for p in ${MANAGED_TAG_PREFIXES}; do
             echo " - $p"
           done
-          echo "Version regex: ${MANAGED_2026_VERSION_REGEX}"
 
           deleted=0
 
-          # Stream tag_name for ALL releases (paginated)
+          # Stream tag_name for ALL releases (paginated; no fixed limit)
           mapfile -t release_tags < <(
-            gh api --paginate "repos/${owner}/${repo}/releases?per_page=100" --jq '.[].tag_name'
+            gh api --repo "$repo" --paginate "repos/${owner}/${name}/releases?per_page=100" --jq '.[].tag_name'
           )
 
           if [[ "${#release_tags[@]}" -eq 0 ]]; then
             echo "No releases found."
-          else
-            for tag in "${release_tags[@]}"; do
-              for prefix in ${MANAGED_TAG_PREFIXES}; do
-                # Expected tag formats:
-                #   <prefix>-<version>
-                # where <version> begins with 2026...
-                if [[ "$tag" == "${prefix}-"* ]]; then
-                  ver="${tag#${prefix}-}"
-                  if [[ "$ver" =~ ${MANAGED_2026_VERSION_REGEX} ]]; then
-                    echo "Deleting release: ${tag}"
-                    gh release delete "${tag}" -y || true
-                    deleted=$((deleted + 1))
-                  fi
-                  break
-                fi
-              done
-            done
+            exit 0
           fi
+
+          for tag in "${release_tags[@]}"; do
+            for prefix in ${MANAGED_TAG_PREFIXES}; do
+              # Delete ANY release whose tag_name begins with "<prefix>-"
+              if [[ "$tag" == "${prefix}-"* ]]; then
+                echo "Deleting release: ${tag}"
+                gh release delete "${tag}" --yes --repo "$repo" || true
+                deleted=$((deleted + 1))
+                break
+              fi
+            done
+          done
 
           echo "Deleted releases: ${deleted}"
 
-      - name: 🗑️ Delete ALL matching Tags (tag prefix + 2026 version)
+      - name: 🗑️ Delete ALL matching Tags (name starts with managed prefix)
         shell: bash
         run: |
           set -euo pipefail
 
-          owner="${GITHUB_REPOSITORY%/*}"
-          repo="${GITHUB_REPOSITORY#*/}"
+          repo="${GITHUB_REPOSITORY}"
+          owner="${repo%/*}"
+          name="${repo#*/}"
 
           deleted=0
 
@@ -115,19 +98,16 @@ jobs:
             echo "Scanning tags for prefix: ${prefix}-"
 
             mapfile -t refs < <(
-              gh api --paginate "repos/${owner}/${repo}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
+              gh api --repo "$repo" --paginate "repos/${owner}/${name}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
             )
 
             for ref in "${refs[@]}"; do
               # ref like: refs/tags/<tagname>
               tag="${ref#refs/tags/}"
-              ver="${tag#${prefix}-}"
 
-              if [[ "$ver" =~ ${MANAGED_2026_VERSION_REGEX} ]]; then
-                echo "Deleting tag ref: ${ref}"
-                gh api -X DELETE "repos/${owner}/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
-                deleted=$((deleted + 1))
-              fi
+              echo "Deleting tag ref: ${ref}"
+              gh api --repo "$repo" -X DELETE "repos/${owner}/${name}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+              deleted=$((deleted + 1))
             done
           done
 
