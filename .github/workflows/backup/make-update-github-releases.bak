@@ -1,0 +1,280 @@
+name: Make and Update GitHub Releases (Weekly Cleanup + Rebuild)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly (Monday 00:00 UTC)
+    - cron: "0 0 * * 1"
+
+concurrency:
+  group: releases-cleanup-rebuild
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-github-releases:
+    name: 🧹 Cleanup Old Managed Releases & Tags (managed prefixes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Workflow "ownership" prefixes (only these will be touched)
+      MANAGED_TAG_PREFIXES: >-
+        AD-SSO-APIs-Integration
+        All-Repository-Files
+        BlueTeam-Tools
+        Core-ScriptLibrary
+        GPOs-Templates
+        ITSM-Templates-SVR
+        ITSM-Templates-WKS
+        READMEs-Files-Package
+        SysAdmin-Tools
+
+    steps:
+      - name: 🧰 Install Dependencies (gh)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: 🔐 Verify GitHub CLI Auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth status
+
+      - name: 🗑️ Delete ALL matching Releases (tag_name starts with managed prefix)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="${GITHUB_REPOSITORY}"
+          owner="${repo%/*}"
+          name="${repo#*/}"
+
+          echo "Repository: ${repo}"
+          echo "Managed prefixes:"
+          for p in ${MANAGED_TAG_PREFIXES}; do
+            echo " - $p"
+          done
+
+          deleted=0
+
+          # Get ALL releases (paginated) and extract tag_name
+          mapfile -t release_tags < <(
+            gh api --paginate "repos/${owner}/${name}/releases?per_page=100" --jq '.[].tag_name'
+          )
+
+          if [[ "${#release_tags[@]}" -eq 0 ]]; then
+            echo "No releases found."
+            exit 0
+          fi
+
+          for tag in "${release_tags[@]}"; do
+            for prefix in ${MANAGED_TAG_PREFIXES}; do
+              # Delete ANY release whose tag_name begins with "<prefix>-"
+              if [[ "$tag" == "${prefix}-"* ]]; then
+                echo "Deleting release: ${tag}"
+                # IMPORTANT: release delete uses --repo to avoid "not a git repository"
+                gh release delete "${tag}" --yes --repo "${repo}" || true
+                deleted=$((deleted + 1))
+                break
+              fi
+            done
+          done
+
+          echo "Deleted releases: ${deleted}"
+
+      - name: 🗑️ Delete ALL matching Tags (name starts with managed prefix)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="${GITHUB_REPOSITORY}"
+          owner="${repo%/*}"
+          name="${repo#*/}"
+
+          deleted=0
+
+          # Use git/matching-refs for reliable pagination over tag refs
+          for prefix in ${MANAGED_TAG_PREFIXES}; do
+            echo "Scanning tags for prefix: ${prefix}-"
+
+            mapfile -t refs < <(
+              gh api --paginate "repos/${owner}/${name}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
+            )
+
+            for ref in "${refs[@]}"; do
+              # ref like: refs/tags/<tagname>
+              tag="${ref#refs/tags/}"
+              echo "Deleting tag ref: ${ref}"
+
+              # NOTE: gh api has NO --repo flag. Always use full endpoint.
+              gh api -X DELETE "repos/${owner}/${name}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+              deleted=$((deleted + 1))
+            done
+          done
+
+          echo "Deleted tags: ${deleted}"
+
+  update-github-releases:
+    name: 🚀 Rebuild Managed Releases
+    needs: cleanup-github-releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    strategy:
+      fail-fast: false
+      matrix:
+        release_name:
+          - AD-SSO-APIs-Integration
+          - All-Repository-Files
+          - BlueTeam-Tools
+          - Core-ScriptLibrary
+          - GPOs-Templates
+          - ITSM-Templates-SVR
+          - ITSM-Templates-WKS
+          - READMEs-Files-Package
+          - SysAdmin-Tools
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: 🧰 Install Dependencies (zip)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zip
+
+      - name: 🏷️ Compute Version Tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::7}"
+          date_tag="$(date -u +%Y%m%d)"
+          echo "version_tag=${{ matrix.release_name }}-${date_tag}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: 📦 Build Release Artifact
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
+        run: |
+          set -euo pipefail
+
+          rm -rf artifacts temp || true
+          mkdir -p artifacts temp
+
+          copy_root_meta() {
+            [[ -f README.md ]] && cp README.md temp/ || true
+            [[ -f LICENSE.txt ]] && cp LICENSE.txt temp/ || true
+            [[ -f LICENSE ]] && cp LICENSE temp/ || true
+            [[ -f CHANGELOG.md ]] && cp CHANGELOG.md temp/ || true
+          }
+
+          case "$RELEASE_NAME" in
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+              [[ -d "$RELEASE_NAME" ]] || { echo "::error::Missing dir: $RELEASE_NAME"; exit 1; }
+              cp -r "$RELEASE_NAME" temp/
+              copy_root_meta
+              ;;
+
+            GPOs-Templates)
+              [[ -d "SysAdmin-Tools/GroupPolicyObjects-Templates" ]] || { echo "::error::Missing dir: SysAdmin-Tools/GroupPolicyObjects-Templates"; exit 1; }
+              cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
+              [[ -f SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 ]] && \
+                cp SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 temp/ || true
+              copy_root_meta
+              ;;
+
+            READMEs-Files-Package)
+              [[ -f README.md ]] && cp README.md temp/main-README.md || true
+              find . -type f -iname "README.md" ! -path "./README.md" | while read -r file; do
+                dir="$(dirname "$file")"
+                name="$(basename "$dir")"
+                cp "$file" "temp/${name}-README.md"
+              done
+              ;;
+
+            All-Repository-Files)
+              for dir in BlueTeam-Tools Core-ScriptLibrary ITSM-Templates-SVR ITSM-Templates-WKS SysAdmin-Tools; do
+                [[ -d "$dir" ]] && cp -r "$dir" temp/ || echo "::warning::Missing dir (skipped): $dir"
+              done
+              copy_root_meta
+              ;;
+
+            AD-SSO-APIs-Integration)
+              [[ -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]] || { echo "::error::Missing dir: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"; exit 1; }
+              cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
+              copy_root_meta
+              ;;
+
+            *)
+              echo "::error::Unknown release: $RELEASE_NAME"
+              exit 1
+              ;;
+          esac
+
+          (cd temp && zip -r "../artifacts/${RELEASE_NAME}.zip" .)
+          sha256sum "artifacts/${RELEASE_NAME}.zip" > "artifacts/${RELEASE_NAME}.sha256.txt"
+
+      - name: 📝 Extract Changelog Section
+        id: changelog
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ matrix.release_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "body=No CHANGELOG.md found in repository root." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          section="## ${RELEASE_NAME}"
+          body="$(awk -v section="$section" '
+            $0 == section {found=1; next}
+            /^## / && found {exit}
+            found {print}
+          ' CHANGELOG.md | sed -e 's/[[:space:]]\+$//' )"
+
+          if [[ -z "${body// }" ]]; then
+            body="No changelog available for ${RELEASE_NAME}."
+          fi
+
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: 🚀 Create/Update GitHub Release (upload assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.version_tag }}
+          name: ${{ steps.tag.outputs.version_tag }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.sha256.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Upload Build Artifacts (Actions)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.release_name }}
+          path: |
+            artifacts/${{ matrix.release_name }}.zip
+            artifacts/${{ matrix.release_name }}.sha256.txt
+          retention-days: 30
