@@ -41,11 +41,11 @@ It is **not** a collection of demos or isolated scripts, but a **cohesive automa
 
 | Domain | Primary Purpose | Typical Users | Documentation |
 |------|-----------------|---------------|---------------|
-| **BlueTeam-Tools** | DFIR, Event Log analysis, incident response, forensic readiness | Blue Team, SOC, DFIR analysts | [View README](BlueTeam-Tools/README.md) |
-| **Core-ScriptLibrary** | Shared PowerShell modules, GUI frameworks, helpers, packaging logic | Script authors, maintainers | [View README](Core-ScriptLibrary/README.md) |
-| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI, infrastructure automation | Windows admins, IAM engineers | [View README](SysAdmin-Tools/README.md) |
-| **ITSM-Templates-WKS** | Windows 10/11 baseline, provisioning, lifecycle enforcement | Desktop engineering, ITSM teams | [View README](ITSM-Templates-WKS/README.md) |
-| **ITSM-Templates-SVR** | Windows Server hardening, compliance, service baselines | Server admins, compliance teams | [View README](ITSM-Templates-SVR/README.md) |
+| **BlueTeam-Tools** | DFIR, Event Log analysis, incident response, forensic readiness | Blue Team, SOC, DFIR analysts | [![Docs](https://img.shields.io/badge/Docs-BlueTeam--Tools-orange?style=for-the-badge&logo=github)](BlueTeam-Tools/README.md) |
+| **Core-ScriptLibrary** | Shared PowerShell modules, GUI frameworks, helpers, packaging logic | Script authors, maintainers | [![Docs](https://img.shields.io/badge/Docs-Core--ScriptLibrary-red?style=for-the-badge&logo=github)](Core-ScriptLibrary/README.md) |
+| **SysAdmin-Tools** | AD, GPO, WSUS, DNS, DHCP, PKI, infrastructure automation | Windows admins, IAM engineers | [![Docs](https://img.shields.io/badge/Docs-SysAdmin--Tools-blue?style=for-the-badge&logo=github)](SysAdmin-Tools/README.md) |
+| **ITSM-Templates-WKS** | Windows 10/11 baseline, provisioning, lifecycle enforcement | Desktop engineering, ITSM teams | [![Docs](https://img.shields.io/badge/Docs-ITSM--WKS-green?style=for-the-badge&logo=github)](ITSM-Templates-WKS/README.md) |
+| **ITSM-Templates-SVR** | Windows Server hardening, compliance, service baselines | Server admins, compliance teams | [![Docs](https://img.shields.io/badge/Docs-ITSM--SVR-purple?style=for-the-badge&logo=github)](ITSM-Templates-SVR/README.md) |
 
 > 📌 Each top-level directory contains its **own README.md** with domain-specific documentation and usage guidance.
 
