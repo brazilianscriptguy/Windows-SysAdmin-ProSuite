@@ -44,6 +44,7 @@ jobs:
       OUT_SARIF: "psa-results.sarif"
       OUT_FAILTXT: "psa-invocation-failed.txt"
       OUT_SUMMARY: "psa-summary.txt"
+      OUT_PS51: "ps51-compat.txt"
 
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
@@ -53,20 +54,11 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
-      # Subtree excluded due to long paths / GPO export content
       EXCLUDE_SUBTREE: "SysAdmin-Tools/GroupPolicyObjects-Templates"
-
-      # Directory prune (general)
       PRUNE_DIR_REGEX: '(?i)[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
-
-      # SARIF category (keeps runs distinct in Code Scanning)
       SARIF_CATEGORY: "powershell/psscriptanalyzer"
 
-      # Corporate-defensible UI wrapper naming conventions (only these can bypass ShouldProcess noise)
-      # - Show-* (UI display)
-      # - New-*Form / New-*Dialog / New-*Window
-      # - Initialize-*UI / Initialize-*Form
-      # - Update-*UI / Refresh-*UI
+      # UI wrapper naming conventions (suppress ShouldProcess noise ONLY for these wrappers)
       UI_WRAPPER_FN_REGEX: '^(Show-|New-.*(Form|Dialog|Window)$|Initialize-.*(UI|Form)$|Update-.*UI$|Refresh-.*UI$|Set-.*(UI|Form)$)'
 
     steps:
@@ -101,10 +93,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-
           $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
           $sarifOut = Join-Path $outDir $env:OUT_SARIF
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
           $baseline = @{
             '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
@@ -146,6 +136,108 @@ jobs:
           Import-Module PSScriptAnalyzer -RequiredVersion $v -Force
           Write-Host "PSScriptAnalyzer version loaded: $((Get-Module PSScriptAnalyzer).Version)"
 
+      - name: PS 5.1 Compatibility Scan (report-only)
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          $ps51Out = Join-Path $outDir $env:OUT_PS51
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $root  = $env:GITHUB_WORKSPACE
+          $prune = [regex]::new($env:PRUNE_DIR_REGEX)
+
+          $excludeSub = ($env:EXCLUDE_SUBTREE -replace '/', [IO.Path]::DirectorySeparatorChar)
+          $excludeSubEsc = [regex]::Escape($excludeSub)
+
+          $roots = @()
+          foreach ($token in ($env:ANALYZE_ROOTS -split '\s+')) {
+            if ([string]::IsNullOrWhiteSpace($token)) { continue }
+            $p = Join-Path $root $token
+            if (Test-Path $p) { $roots += $p }
+          }
+
+          $files = @()
+          if ($roots.Count -gt 0) {
+            $files = foreach ($r in $roots) {
+              Get-ChildItem -Path $r -Recurse -File -Include *.ps1,*.psm1,*.psd1 -ErrorAction SilentlyContinue |
+                Where-Object {
+                  ($_.FullName -notmatch $prune) -and
+                  ($_.FullName -notmatch $excludeSubEsc)
+                }
+            }
+          }
+
+          $files = @($files | Sort-Object FullName -Unique)
+          $count = @($files).Count
+
+          # PS7-only / risky syntax patterns (for PS 5.1 baseline)
+          $patterns = @(
+            @{ Name = 'NullCoalescingOperator';    Rx = '\?\?' },
+            @{ Name = 'NullConditionalOperator';   Rx = '\?\.' },
+            @{ Name = 'TernaryOperator';           Rx = '(?<!\?)\?(?!\?)[^\r\n:]+:' },  # heuristic
+            @{ Name = 'PipelineChainAndOr';        Rx = '(?<!`)\&\&|(?<!`)\|\|' },
+            @{ Name = 'ForEachObjectParallel';     Rx = 'ForEach-Object\s+-Parallel\b' }
+          )
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("PS 5.1 Compatibility Scan (Report-Only)")
+          $lines.Add("Files scanned: $count")
+          $lines.Add("Excluded subtree: $($env:EXCLUDE_SUBTREE)")
+          $lines.Add("")
+
+          if ($count -eq 0) {
+            $lines.Add("No PowerShell files found to scan.")
+            $lines | Set-Content -Encoding UTF8 $ps51Out
+            exit 0
+          }
+
+          $hitsTotal = 0
+          foreach ($p in $patterns) {
+            $name = $p.Name
+            $rx   = [regex]::new($p.Rx)
+
+            $hits = New-Object System.Collections.Generic.List[string]
+
+            foreach ($f in $files) {
+              try {
+                $content = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop
+                if ($rx.IsMatch($content)) {
+                  # lightweight line-level context:
+                  $allLines = Get-Content -LiteralPath $f.FullName -ErrorAction Stop
+                  for ($i=0; $i -lt $allLines.Count; $i++) {
+                    if ($rx.IsMatch($allLines[$i])) {
+                      $rel = $f.FullName.Replace("$env:GITHUB_WORKSPACE\", '').Replace("$env:GITHUB_WORKSPACE/", '')
+                      $hits.Add("$rel:$($i+1): $($allLines[$i].Trim())")
+                      $hitsTotal++
+                      # cap per file/pattern to avoid huge output
+                      if ($hits.Count -ge 20) { break }
+                    }
+                  }
+                }
+              } catch {
+                # do not fail; just record inability to read
+              }
+            }
+
+            $lines.Add("## $name")
+            if ($hits.Count -eq 0) {
+              $lines.Add("- None")
+            } else {
+              foreach ($h in $hits) { $lines.Add("- $h") }
+            }
+            $lines.Add("")
+          }
+
+          $lines.Add("Total hits (all patterns): $hitsTotal")
+          $lines.Add("")
+          $lines.Add("> This scan is informational only. It does not fail CI. Fix hits to maintain PS 5.1 compatibility.")
+          $lines | Set-Content -Encoding UTF8 $ps51Out
+
+          exit 0
+
       - name: Run PSScriptAnalyzer + Build Reports (REPORT-ONLY)
         if: always()
         shell: pwsh
@@ -161,6 +253,7 @@ jobs:
           $sarifOut = Join-Path $outDir $env:OUT_SARIF
           $failOut  = Join-Path $outDir $env:OUT_FAILTXT
           $sumOut   = Join-Path $outDir $env:OUT_SUMMARY
+          $ps51Out  = Join-Path $outDir $env:OUT_PS51
 
           $root  = $env:GITHUB_WORKSPACE
           $prune = [regex]::new($env:PRUNE_DIR_REGEX)
@@ -198,18 +291,15 @@ jobs:
           try {
             if ($count -gt 0) {
               $paths = @($files | ForEach-Object { [string]$_.FullName })
-
               $all = New-Object System.Collections.Generic.List[object]
               $hadAnyInvocationError = $false
 
               foreach ($p in $paths) {
                 if ([string]::IsNullOrWhiteSpace($p)) { continue }
-
                 try {
                   $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
                   if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
-                }
-                catch {
+                } catch {
                   $hadAnyInvocationError = $true
                   $_ | Out-String | Add-Content -Encoding UTF8 $failOut
                 }
@@ -223,8 +313,7 @@ jobs:
             } else {
               "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
             }
-          }
-          catch {
+          } catch {
             $_ | Out-String | Set-Content -Encoding UTF8 $failOut
             $results = @()
           }
@@ -232,7 +321,7 @@ jobs:
           if (-not $results) { $results = @() }
 
           # Corporate-defensible suppression:
-          # Only suppress ShouldProcess findings when the finding is inside a UI wrapper function by naming convention.
+          # Only suppress ShouldProcess findings when they occur inside a UI wrapper function by naming convention.
           $uiWrapperRx = [regex]::new($env:UI_WRAPPER_FN_REGEX, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
           function Get-ContainingFunctionName {
@@ -240,12 +329,10 @@ jobs:
               [Parameter(Mandatory=$true)][string]$Path,
               [Parameter(Mandatory=$true)][int]$Line
             )
-
             try {
               if (-not (Test-Path $Path)) { return $null }
               $lines = Get-Content -LiteralPath $Path -ErrorAction Stop
               if ($Line -lt 1 -or $Line -gt $lines.Count) { return $null }
-
               for ($i = $Line; $i -ge 1; $i--) {
                 $t = $lines[$i-1]
                 if ($t -match '^\s*function\s+([A-Za-z_][\w\-]*)\s*(\(|\{|\s)') {
@@ -253,8 +340,7 @@ jobs:
                 }
               }
               return $null
-            }
-            catch {
+            } catch {
               return $null
             }
           }
@@ -276,7 +362,6 @@ jobs:
             }
 
             if ($fn -and $uiWrapperRx.IsMatch($fn)) {
-              # Suppressed: UI wrapper function by approved naming convention
               continue
             }
 
@@ -310,6 +395,13 @@ jobs:
           $top = $byRule | Select-Object -First 20
           if ($top.Count -eq 0) { $md.Add("- None") }
           else { foreach ($g in $top) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
+          $md.Add("")
+          $md.Add("## PS 5.1 Compatibility Scan")
+          if (Test-Path $ps51Out) {
+            $md.Add("- See artifact: `$($env:OUT_PS51)`")
+          } else {
+            $md.Add("- No PS 5.1 scan report found.")
+          }
           $md.Add("")
           $md.Add("> Note: This workflow is report-only. Findings do not fail the job. Artifacts are always uploaded.")
           $md | Set-Content -Encoding UTF8 $mdOut
@@ -374,8 +466,7 @@ jobs:
             }
 
             $sarif | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $sarifOut
-          }
-          catch {
+          } catch {
             $_ | Out-String | Add-Content -Encoding UTF8 $failOut
           }
 
