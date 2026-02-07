@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    PowerShell Script for Installing PowerShell via GPO.
+    PowerShell Script for Installing PowerShell via GPO. 
 
 .DESCRIPTION
     This script simplifies the deployment of PowerShell to workstations and servers via Group Policy (GPO).
