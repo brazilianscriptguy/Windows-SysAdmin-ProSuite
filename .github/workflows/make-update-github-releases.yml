@@ -35,6 +35,13 @@ jobs:
         SysAdmin-Tools
 
     steps:
+      - name: 🧰 Install Dependencies (gh)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gh
+
       - name: 🔐 Verify GitHub CLI Auth
         shell: bash
         run: |
@@ -58,9 +65,9 @@ jobs:
 
           deleted=0
 
-          # Stream tag_name for ALL releases (paginated; no fixed limit)
+          # Get ALL releases (paginated) and extract tag_name
           mapfile -t release_tags < <(
-            gh api --repo "$repo" --paginate "repos/${owner}/${name}/releases?per_page=100" --jq '.[].tag_name'
+            gh api --paginate "repos/${owner}/${name}/releases?per_page=100" --jq '.[].tag_name'
           )
 
           if [[ "${#release_tags[@]}" -eq 0 ]]; then
@@ -73,7 +80,8 @@ jobs:
               # Delete ANY release whose tag_name begins with "<prefix>-"
               if [[ "$tag" == "${prefix}-"* ]]; then
                 echo "Deleting release: ${tag}"
-                gh release delete "${tag}" --yes --repo "$repo" || true
+                # IMPORTANT: release delete uses --repo to avoid "not a git repository"
+                gh release delete "${tag}" --yes --repo "${repo}" || true
                 deleted=$((deleted + 1))
                 break
               fi
@@ -98,15 +106,16 @@ jobs:
             echo "Scanning tags for prefix: ${prefix}-"
 
             mapfile -t refs < <(
-              gh api --repo "$repo" --paginate "repos/${owner}/${name}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
+              gh api --paginate "repos/${owner}/${name}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
             )
 
             for ref in "${refs[@]}"; do
               # ref like: refs/tags/<tagname>
               tag="${ref#refs/tags/}"
-
               echo "Deleting tag ref: ${ref}"
-              gh api --repo "$repo" -X DELETE "repos/${owner}/${name}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+
+              # NOTE: gh api has NO --repo flag. Always use full endpoint.
+              gh api -X DELETE "repos/${owner}/${name}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
               deleted=$((deleted + 1))
             done
           done
