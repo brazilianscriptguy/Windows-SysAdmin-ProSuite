@@ -23,7 +23,6 @@ concurrency:
   group: powershell-lint-${{ github.ref }}
   cancel-in-progress: true
 
-# Report-only: do NOT block merges based on lint findings
 permissions:
   contents: read
   security-events: write
@@ -46,7 +45,6 @@ jobs:
       OUT_FAILTXT: "psa-invocation-failed.txt"
       OUT_SUMMARY: "psa-summary.txt"
 
-      # Roots to scan (recursive)
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
         Core-ScriptLibrary
@@ -55,13 +53,8 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
-      # Excluded subtree (long paths / GPO export content)
       EXCLUDE_SUBTREE: "SysAdmin-Tools/GroupPolicyObjects-Templates"
-
-      # Directory prune (general)
       PRUNE_DIR_REGEX: '(?i)[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
-
-      # SARIF category (keeps runs distinct in Code Scanning)
       SARIF_CATEGORY: "powershell/psscriptanalyzer"
 
     steps:
@@ -116,60 +109,26 @@ jobs:
           Import-Module PSScriptAnalyzer -RequiredVersion $v -Force
           Write-Host "PSScriptAnalyzer version loaded: $((Get-Module PSScriptAnalyzer).Version)"
 
-      - name: 🔎 Discover PowerShell files (respect excludes)
-        id: discover
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $root  = $env:GITHUB_WORKSPACE
-          $prune = [regex]::new($env:PRUNE_DIR_REGEX)
-
-          $excludeSub = ($env:EXCLUDE_SUBTREE -replace '/', [IO.Path]::DirectorySeparatorChar)
-          $excludeSubEsc = [regex]::Escape($excludeSub)
-
-          $roots = @()
-          foreach ($token in ($env:ANALYZE_ROOTS -split '\s+')) {
-            if ([string]::IsNullOrWhiteSpace($token)) { continue }
-            $p = Join-Path $root $token
-            if (Test-Path $p) { $roots += $p }
-          }
-
-          $files = @()
-          if ($roots.Count -gt 0) {
-            $files = foreach ($r in $roots) {
-              Get-ChildItem -Path $r -Recurse -File -Include *.ps1,*.psm1,*.psd1 -ErrorAction SilentlyContinue |
-                Where-Object {
-                  ($_.FullName -notmatch $prune) -and
-                  ($_.FullName -notmatch $excludeSubEsc)
-                }
-            }
-          }
-
-          $files = @($files | Sort-Object FullName -Unique)
-          $count = @($files).Count
-
-          "count=$count" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Found $count PowerShell file(s) to analyze."
-
       - name: 🔎 Run PSScriptAnalyzer + Build Reports (REPORT-ONLY)
-        # This step MUST NOT fail the job. We always produce artifacts.
         if: always()
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
 
-          $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
-          $jsonOut = Join-Path $outDir $env:OUT_JSON
-          $csvOut  = Join-Path $outDir $env:OUT_CSV
-          $mdOut   = Join-Path $outDir $env:OUT_MD
-          $sarifOut= Join-Path $outDir $env:OUT_SARIF
-          $failOut = Join-Path $outDir $env:OUT_FAILTXT
-          $sumOut  = Join-Path $outDir $env:OUT_SUMMARY
+          $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # Collect target files again (avoid relying on previous step output content)
+          $jsonOut  = Join-Path $outDir $env:OUT_JSON
+          $csvOut   = Join-Path $outDir $env:OUT_CSV
+          $mdOut    = Join-Path $outDir $env:OUT_MD
+          $sarifOut = Join-Path $outDir $env:OUT_SARIF
+          $failOut  = Join-Path $outDir $env:OUT_FAILTXT
+          $sumOut   = Join-Path $outDir $env:OUT_SUMMARY
+
+          # Discover target files
           $root  = $env:GITHUB_WORKSPACE
           $prune = [regex]::new($env:PRUNE_DIR_REGEX)
+
           $excludeSub = ($env:EXCLUDE_SUBTREE -replace '/', [IO.Path]::DirectorySeparatorChar)
           $excludeSubEsc = [regex]::Escape($excludeSub)
 
@@ -194,14 +153,11 @@ jobs:
           $files = @($files | Sort-Object FullName -Unique)
           $count = @($files).Count
 
-          # Settings are optional in report-only mode
+          # Settings (optional)
           $settingsPath = Join-Path $env:GITHUB_WORKSPACE $env:SETTINGS_FILE
-          $useSettings = (Test-Path $settingsPath)
-
+          $useSettings  = (Test-Path $settingsPath)
           $settingsArgs = @{}
-          if ($useSettings) {
-            $settingsArgs['Settings'] = $settingsPath
-          }
+          if ($useSettings) { $settingsArgs['Settings'] = $settingsPath }
 
           $results = @()
           try {
@@ -212,50 +168,40 @@ jobs:
             }
           }
           catch {
-            # DO NOT fail the workflow: write the exception to a report file
             $_ | Out-String | Set-Content -Encoding UTF8 $failOut
+            $results = @()
           }
 
-          # Always export at least empty results
           if (-not $results) { $results = @() }
 
-          # JSON
+          # Always write reports (even empty)
           $results | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $jsonOut
 
-          # CSV
           $results |
             Select-Object RuleName, Severity, Message, ScriptName, Line, Column |
             Export-Csv -Path $csvOut -NoTypeInformation -Encoding UTF8
 
-          # Markdown summary
-          $bySev = $results | Group-Object Severity | Sort-Object Name
+          $bySev  = $results | Group-Object Severity | Sort-Object Name
           $byRule = $results | Group-Object RuleName | Sort-Object Count -Descending
 
           $md = New-Object System.Collections.Generic.List[string]
           $md.Add("# PSScriptAnalyzer Report (Report-Only)")
           $md.Add("")
           $md.Add("**Files scanned:** $count")
-          $md.Add("**Settings file used:** $useSettings (`$($env:SETTINGS_FILE)`)") 
+          $md.Add("**Settings file used:** $useSettings ($($env:SETTINGS_FILE))")
           $md.Add("")
           $md.Add("## Findings by Severity")
-          if ($bySev.Count -eq 0) {
-            $md.Add("- None")
-          } else {
-            foreach ($g in $bySev) { $md.Add("- **$($g.Name)**: $($g.Count)") }
-          }
+          if ($bySev.Count -eq 0) { $md.Add("- None") }
+          else { foreach ($g in $bySev) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
           $md.Add("")
           $md.Add("## Top Rules")
           $top = $byRule | Select-Object -First 20
-          if ($top.Count -eq 0) {
-            $md.Add("- None")
-          } else {
-            foreach ($g in $top) { $md.Add("- **$($g.Name)**: $($g.Count)") }
-          }
+          if ($top.Count -eq 0) { $md.Add("- None") }
+          else { foreach ($g in $top) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
           $md.Add("")
-          $md.Add("> Note: This workflow is **report-only**. Findings do **not** fail the job. Reports and SARIF are always produced and uploaded.")
+          $md.Add("> Note: This workflow is **report-only**. Findings do **not** fail the job. Reports and SARIF are uploaded when present.")
           $md | Set-Content -Encoding UTF8 $mdOut
 
-          # Plain text summary (useful for quick artifact preview)
           $summary = New-Object System.Collections.Generic.List[string]
           $summary.Add("PSScriptAnalyzer (Report-Only)")
           $summary.Add("Files scanned: $count")
@@ -264,95 +210,73 @@ jobs:
           foreach ($g in $bySev) { $summary.Add("  $($g.Name): $($g.Count)") }
           $summary | Set-Content -Encoding UTF8 $sumOut
 
-          # SARIF: Always produce a SARIF file, even if empty or invocation failed.
+          # Always produce SARIF (even empty)
+          function Get-SarifLevel([string]$sev) {
+            switch -Regex ($sev) {
+              'Error'   { 'error' }
+              'Warning' { 'warning' }
+              default   { 'note' }
+            }
+          }
+
           try {
-            if ($results.Count -gt 0) {
-              # Build a minimal SARIF from the results (tool: PSScriptAnalyzer)
-              $sarif = @{
-                version = "2.1.0"
-                `$schema = "https://json.schemastore.org/sarif-2.1.0.json"
-                runs = @(
+            $sarif = @{
+              version   = "2.1.0"
+              '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
+              runs      = @(
+                @{
+                  tool    = @{
+                    driver = @{
+                      name            = "PSScriptAnalyzer"
+                      informationUri  = "https://github.com/PowerShell/PSScriptAnalyzer"
+                    }
+                  }
+                  results = @()
+                }
+              )
+            }
+
+            foreach ($r in $results) {
+              $sarif.runs[0].results += @{
+                ruleId   = [string]$r.RuleName
+                level    = (Get-SarifLevel ([string]$r.Severity))
+                message  = @{ text = [string]$r.Message }
+                locations = @(
                   @{
-                    tool = @{
-                      driver = @{
-                        name = "PSScriptAnalyzer"
-                        informationUri = "https://github.com/PowerShell/PSScriptAnalyzer"
-                        rules = @()
+                    physicalLocation = @{
+                      artifactLocation = @{ uri = [string]$r.ScriptName }
+                      region = @{
+                        startLine   = [int]$r.Line
+                        startColumn = [int]$r.Column
                       }
                     }
-                    results = @()
                   }
                 )
               }
-
-              # Map severities to SARIF levels
-              function Get-SarifLevel([string]$sev) {
-                switch -Regex ($sev) {
-                  'Error' { 'error' }
-                  'Warning' { 'warning' }
-                  default { 'note' }
-                }
-              }
-
-              foreach ($r in $results) {
-                $script = [string]$r.ScriptName
-                $line   = [int]$r.Line
-                $col    = [int]$r.Column
-                $ruleId = [string]$r.RuleName
-
-                $sarif.runs[0].results += @{
-                  ruleId = $ruleId
-                  level  = (Get-SarifLevel ([string]$r.Severity))
-                  message = @{ text = [string]$r.Message }
-                  locations = @(
-                    @{
-                      physicalLocation = @{
-                        artifactLocation = @{ uri = $script }
-                        region = @{
-                          startLine = $line
-                          startColumn = $col
-                        }
-                      }
-                    }
-                  )
-                }
-              }
-
-              $sarif | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $sarifOut
             }
-            else {
-              # Empty SARIF baseline
-              $empty = @{
-                version = "2.1.0"
-                `$schema = "https://json.schemastore.org/sarif-2.1.0.json"
-                runs = @(
-                  @{
-                    tool = @{
-                      driver = @{
-                        name = "PSScriptAnalyzer"
-                        informationUri = "https://github.com/PowerShell/PSScriptAnalyzer"
-                      }
-                    }
-                    results = @()
-                  }
-                )
-              }
-              $empty | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
-            }
+
+            $sarif | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $sarifOut
           }
           catch {
-            # Last-resort: still write a valid empty SARIF
-            $fallback = @{
-              version = "2.1.0"
-              `$schema = "https://json.schemastore.org/sarif-2.1.0.json"
-              runs = @(@{ tool = @{ driver = @{ name = "PSScriptAnalyzer" } }; results = @() })
-            }
-            $fallback | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 $sarifOut
             $_ | Out-String | Add-Content -Encoding UTF8 $failOut
+            $fallback = @{
+              version   = "2.1.0"
+              '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
+              runs      = @(@{ tool = @{ driver = @{ name = "PSScriptAnalyzer" } }; results = @() })
+            }
+            $fallback | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
           }
 
-          # IMPORTANT: report-only => always exit success
           exit 0
+
+      - name: 📋 Debug: list output directory
+        if: always()
+        shell: pwsh
+        run: |
+          $p = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          Write-Host "Listing: $p"
+          if (Test-Path $p) { Get-ChildItem -Recurse -Force $p | Format-Table FullName, Length }
+          else { Write-Host "Output dir not found." }
 
       - name: 📤 Upload lint artifacts
         if: always()
@@ -360,10 +284,11 @@ jobs:
         with:
           name: powershell-lint-reports
           path: ${{ env.OUT_DIR }}/**
+          if-no-files-found: warn
 
       - name: 🛡️ Upload SARIF to GitHub Code Scanning (Report-Only)
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles(format('{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
           category: ${{ env.SARIF_CATEGORY }}
