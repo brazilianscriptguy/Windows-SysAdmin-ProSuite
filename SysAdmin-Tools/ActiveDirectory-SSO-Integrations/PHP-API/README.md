@@ -154,23 +154,4 @@ The file is loaded at runtime by `config/env.php` using `phpdotenv`.
 
 ---
 
-## 📜 License
-
-![MIT License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
-
----
-
-## 🤝 Contributing
-
-![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge)
-
----
-
-## 📩 Support
-
-![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)
-![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)
-
----
-
 © 2026 Luiz Hamilton Silva — @brazilianscriptguy
