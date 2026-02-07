@@ -1,11 +1,11 @@
-name: Make and Update GitHub Releases (Cleanup + Rebuild)
+name: Make and Update GitHub Releases (Weekly Cleanup + Rebuild)
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 0 * * *" # daily 00:00 UTC
+    # Weekly (Sunday 00:00 UTC)
+    - cron: "0 0 * * 0"
 
-# Prevent overlapping runs (schedule + manual, or long matrices)
 concurrency:
   group: releases-cleanup-rebuild
   cancel-in-progress: false
@@ -15,15 +15,14 @@ permissions:
 
 jobs:
   cleanup-github-releases:
-    name: 🧹 Cleanup ALL Old Managed Releases & Tags
+    name: 🧹 Cleanup Old Managed Releases & Tags (2026*)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # These prefixes define what this workflow "owns".
-      # Anything whose tag starts with one of these prefixes will be deleted.
+      # Workflow "ownership" prefixes (only these will be touched)
       MANAGED_TAG_PREFIXES: >-
         AD-SSO-APIs-Integration
         All-Repository-Files
@@ -34,6 +33,13 @@ jobs:
         ITSM-Templates-WKS
         READMEs-Files-Package
         SysAdmin-Tools
+
+      # Matches your requested "2026xxyyzzwwkk" style (2026 + extra digits).
+      # Also covers your current pattern: 2026MMDD (8 digits) + optional "-<sha>"
+      # Examples matched:
+      #   SysAdmin-Tools-20260206-6b43527
+      #   SysAdmin-Tools-20260206010203-6b43527
+      MANAGED_2026_VERSION_REGEX: '^2026[0-9]{4,10}(-[0-9a-f]{7})?$'
 
     steps:
       - name: 🧰 Install Dependencies (gh)
@@ -49,7 +55,7 @@ jobs:
           set -euo pipefail
           gh auth status
 
-      - name: 🗑️ Delete ALL matching Releases (all pages)
+      - name: 🗑️ Delete ALL matching Releases (tag prefix + 2026 version)
         shell: bash
         run: |
           set -euo pipefail
@@ -62,45 +68,39 @@ jobs:
           for p in ${MANAGED_TAG_PREFIXES}; do
             echo " - $p"
           done
+          echo "Version regex: ${MANAGED_2026_VERSION_REGEX}"
 
-          # List releases via API (paginate), extract tag_name, delete if prefix matches.
-          # This deletes releases regardless of how many you have (no fixed limit).
-          page=1
           deleted=0
 
-          while :; do
-            # 100 per page (max)
-            json="$(gh api --paginate "repos/${owner}/${repo}/releases?per_page=100&page=${page}" || true)"
-            # If empty array or empty response -> stop
-            if [[ -z "${json}" ]] || [[ "${json}" == "[]" ]]; then
-              break
-            fi
+          # Stream tag_name for ALL releases (paginated)
+          mapfile -t release_tags < <(
+            gh api --paginate "repos/${owner}/${repo}/releases?per_page=100" --jq '.[].tag_name'
+          )
 
-            # Extract "tag_name" lines safely
-            mapfile -t tags < <(printf '%s' "${json}" | gh api --silent --input - --jq '.[].tag_name' 2>/dev/null || true)
-
-            # If no tags returned, stop
-            if [[ "${#tags[@]}" -eq 0 ]]; then
-              break
-            fi
-
-            for tag in "${tags[@]}"; do
+          if [[ "${#release_tags[@]}" -eq 0 ]]; then
+            echo "No releases found."
+          else
+            for tag in "${release_tags[@]}"; do
               for prefix in ${MANAGED_TAG_PREFIXES}; do
-                if [[ "$tag" == "${prefix}"* ]]; then
-                  echo "Deleting release: $tag"
-                  gh release delete "$tag" -y || true
-                  deleted=$((deleted + 1))
+                # Expected tag formats:
+                #   <prefix>-<version>
+                # where <version> begins with 2026...
+                if [[ "$tag" == "${prefix}-"* ]]; then
+                  ver="${tag#${prefix}-}"
+                  if [[ "$ver" =~ ${MANAGED_2026_VERSION_REGEX} ]]; then
+                    echo "Deleting release: ${tag}"
+                    gh release delete "${tag}" -y || true
+                    deleted=$((deleted + 1))
+                  fi
                   break
                 fi
               done
             done
-
-            page=$((page + 1))
-          done
+          fi
 
           echo "Deleted releases: ${deleted}"
 
-      - name: 🗑️ Delete ALL matching Tags (all pages)
+      - name: 🗑️ Delete ALL matching Tags (tag prefix + 2026 version)
         shell: bash
         run: |
           set -euo pipefail
@@ -110,16 +110,23 @@ jobs:
 
           deleted=0
 
-          # List all tags via API (paginate). Delete any tag that matches our prefixes.
-          gh api --paginate "repos/${owner}/${repo}/tags?per_page=100" --jq '.[].name' | while read -r tag; do
-            [[ -z "${tag}" ]] && continue
-            for prefix in ${MANAGED_TAG_PREFIXES}; do
-              if [[ "$tag" == "${prefix}"* ]]; then
-                echo "Deleting tag ref: refs/tags/${tag}"
-                # Delete tag reference
+          # Use git/matching-refs for reliable pagination over tag refs
+          for prefix in ${MANAGED_TAG_PREFIXES}; do
+            echo "Scanning tags for prefix: ${prefix}-"
+
+            mapfile -t refs < <(
+              gh api --paginate "repos/${owner}/${repo}/git/matching-refs/tags/${prefix}-" --jq '.[].ref'
+            )
+
+            for ref in "${refs[@]}"; do
+              # ref like: refs/tags/<tagname>
+              tag="${ref#refs/tags/}"
+              ver="${tag#${prefix}-}"
+
+              if [[ "$ver" =~ ${MANAGED_2026_VERSION_REGEX} ]]; then
+                echo "Deleting tag ref: ${ref}"
                 gh api -X DELETE "repos/${owner}/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
                 deleted=$((deleted + 1))
-                break
               fi
             done
           done
@@ -183,6 +190,7 @@ jobs:
             [[ -f README.md ]] && cp README.md temp/ || true
             [[ -f LICENSE.txt ]] && cp LICENSE.txt temp/ || true
             [[ -f LICENSE ]] && cp LICENSE temp/ || true
+            [[ -f CHANGELOG.md ]] && cp CHANGELOG.md temp/ || true
           }
 
           case "$RELEASE_NAME" in
@@ -219,6 +227,7 @@ jobs:
             AD-SSO-APIs-Integration)
               [[ -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]] || { echo "::error::Missing dir: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"; exit 1; }
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
+              copy_root_meta
               ;;
 
             *)
