@@ -104,8 +104,6 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 
 | Path                        | Purpose                                                                 |
 |-----------------------------|-------------------------------------------------------------------------|
-| `C:\ITSM-Logs-WKS\`         | Workstation automation execution logs                                   |
-| `C:\ITSM-Logs-SVR\`         | Server-side automation and execution logs                               |
 | `C:\Scripts-LOGS\`          | GPO synchronization, agents, and security tooling logs                  |
 | `C:\Logs-TEMP\`             | General-purpose, transient, and legacy script outputs                   |
 | `%USERPROFILE%\Documents\`  | CSV and exported reports for compliance, forensics, and ITSM workflows  |
