@@ -182,6 +182,4 @@ C:\Scripts\SUSDB\
 
 ---
 
-## 📄 License / Author
-
 © 2026 **Luiz Hamilton Silva** (@brazilianscriptguy). All rights reserved.
