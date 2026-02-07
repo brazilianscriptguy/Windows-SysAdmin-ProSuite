@@ -48,6 +48,7 @@ jobs:
       PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
 
       # Repo roots to scan (recursive)
+      # NOTE: runner env will present this as whitespace-separated; we split with -split '\s+'.
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
         Core-ScriptLibrary
@@ -62,6 +63,9 @@ jobs:
       # Summary limits
       SUMMARY_TOP: "25"
       TOP_RULES: "20"
+
+      # SARIF run identity (stable across runs)
+      SARIF_RUN_ID: "powershell/psscriptanalyzer"
 
     steps:
       - name: 📦 Checkout
@@ -141,7 +145,7 @@ jobs:
           echo "ref=${GITHUB_REF}" >> "$GITHUB_OUTPUT"
           echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
 
-      - name: ✅ Ensure report folder + baseline SARIF exist (VALID)
+      - name: ✅ Ensure report folder + baseline SARIF exist
         if: steps.discover.outputs.count != '0'
         shell: pwsh
         run: |
@@ -152,7 +156,8 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # IMPORTANT: Do NOT add runAutomationDetails (rejected by upload-sarif validator in some environments)
+          # IMPORTANT: GitHub upload-sarif rejects runAutomationDetails/runAutomationDetails-like fields.
+          # Keep baseline strictly valid SARIF 2.1.0 with minimal properties.
           $baseline = @{
             '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
             version   = '2.1.0'
@@ -188,10 +193,13 @@ jobs:
           $ts    = '${{ steps.meta.outputs.timestamp }}'
           $runId = '${{ github.run_id }}'
 
-          # Resolve folder roots
-          $roots = @("${{ env.ANALYZE_ROOTS }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) |
+          # Robust split for whitespace (spaces/newlines)
+          $rootNames = @("${{ env.ANALYZE_ROOTS }}" -split '\s+') | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+
+          # Resolve folder roots (string paths only; do NOT pass string[] to -Path)
+          $roots = $rootNames |
             ForEach-Object { Join-Path $root $_ } |
-            Where-Object { Test-Path $_ -and -not $prune.IsMatch($_) }
+            Where-Object { (Test-Path $_) -and (-not $prune.IsMatch($_)) }
 
           if (-not $roots -or $roots.Count -eq 0) {
             throw "No valid ANALYZE_ROOTS found. Check env.ANALYZE_ROOTS."
@@ -200,15 +208,18 @@ jobs:
           $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
 
           $all = New-Object System.Collections.Generic.List[object]
+
           foreach ($r in $roots) {
             $rRel = $r.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '')
             Write-Host "Analyzing root: $rRel"
 
             $res = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity @('Error','Warning','Information')
-            if ($res) { foreach ($x in $res) { $all.Add($x) } }
+            if ($res) {
+              foreach ($x in $res) { $all.Add($x) }
+            }
           }
 
-          # Normalize
+          # Normalize to report rows
           $rows = New-Object System.Collections.Generic.List[object]
           foreach ($x in $all) {
             $rel = $x.ScriptPath.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '').Replace('\','/')
@@ -225,11 +236,11 @@ jobs:
             })
           }
 
-          # Always write JSON/CSV
+          # Always write JSON/CSV even if empty
           $rows | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
           $rows | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-          # SARIF (VALID — no runAutomationDetails)
+          # Build SARIF (keep schema strict; do NOT add runAutomationDetails)
           $sarifResults = New-Object System.Collections.Generic.List[object]
           foreach ($r in $rows) {
             $sarifLevel = switch ($r.Severity.ToLowerInvariant()) {
@@ -261,21 +272,7 @@ jobs:
             version   = '2.1.0'
             runs      = @(
               @{
-                tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $psaVersion } }
-
-                # Accepted, helpful metadata (safe across validators)
-                invocations = @(
-                  @{
-                    executionSuccessful = $true
-                    properties = @{
-                      repository = $repo
-                      commit     = $sha
-                      run_id     = $runId
-                      timestamp  = $ts
-                    }
-                  }
-                )
-
+                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $psaVersion } }
                 results = $sarifResults
               }
             )
@@ -288,8 +285,8 @@ jobs:
           $bySev  = $rows | Group-Object Severity | Sort-Object Name
           $byRule = $rows | Group-Object RuleName | Sort-Object Count -Descending
 
-          $topN     = [int]'${{ env.SUMMARY_TOP }}'
-          $topRules = [int]'${{ env.TOP_RULES }}'
+          $topN      = [int]'${{ env.SUMMARY_TOP }}'
+          $topRules  = [int]'${{ env.TOP_RULES }}'
 
           $md = New-Object System.Collections.Generic.List[string]
           $md.Add("# PowerShell Static Analysis Report")
@@ -329,7 +326,7 @@ jobs:
           $mdText = [string]::Join([Environment]::NewLine, $md)
           $mdText | Set-Content -Path $mdPath -Encoding UTF8
 
-          # Job summary (short)
+          # Job Summary (short)
           $summary = New-Object System.Collections.Generic.List[string]
           $summary.Add("### 🧪 PowerShell Lint Summary")
           $summary.Add("- 🕒 **UTC:** $ts")
@@ -343,7 +340,7 @@ jobs:
           $summaryText = [string]::Join([Environment]::NewLine, $summary)
           $summaryText | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
-          # Gate
+          # Gate: fail if any configured severities exist
           $failSev = @("${{ env.FAIL_ON_SEVERITIES }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries))
           if ($failSev.Count -gt 0) {
             $failHits = $rows | Where-Object { $_.Severity -in $failSev }
