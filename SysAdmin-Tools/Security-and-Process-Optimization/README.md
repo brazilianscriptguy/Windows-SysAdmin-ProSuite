@@ -1,72 +1,83 @@
-## 🛡️ Security and Process Optimization Tools
+## 🛡️ Security and Process Optimization Tools  
+### Certificate Hygiene · Compliance Audits · Privileged Operations
 
-### 📝 Overview
+![Suite](https://img.shields.io/badge/Suite-Security%20%26%20Process%20Optimization-0A66C2?style=for-the-badge&logo=windows&logoColor=white) ![Scope](https://img.shields.io/badge/Scope-Certificates%20%7C%20Access%20%7C%20Storage-informational?style=for-the-badge) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white) ![Focus](https://img.shields.io/badge/Focus-Security%20Posture%20%7C%20Compliance-critical?style=for-the-badge)
 
-The **Security and Process Optimization** folder includes a refined suite of **PowerShell scripts** to improve certificate hygiene, file structure compliance, licensing visibility, and privileged access control. These tools enable safe automation of sensitive operations while reducing manual administrative overhead and enhancing security posture.
+---
 
-### 🔑 Key Features
+## 🧭 Overview
 
-- **Certificate Management**: Clean expired certs and organize shared certificate repositories  
-- **Access and Compliance Audits**: Retrieve product keys, elevated accounts, shared folders, and software lists  
-- **Storage and File Optimization**: Shorten overly long file names and clean up aged/empty files  
-- **Safe Offboarding**: Unjoin and clean computer metadata from AD
+The **Security and Process Optimization** suite provides a focused collection of **PowerShell automation tools** designed to improve **certificate hygiene**, **file system compliance**, **licensing visibility**, and **privileged access control**.
+
+These scripts enable **safe automation of sensitive operations**, reduce manual administrative overhead, and strengthen the overall **security posture** of Windows enterprise environments.
+
+---
+
+## 🌟 Key Features
+
+- 🔐 **Certificate Management** — Cleanup of expired certificates and organization of shared repositories  
+- 📋 **Access & Compliance Audits** — Inventory of product keys, elevated accounts, shared folders, and software  
+- 🗄️ **Storage & File Optimization** — Cleanup of empty, aged, or non-compliant files and long paths  
+- 🧹 **Safe Offboarding** — Secure domain unjoin with cleanup of AD, DNS, and metadata  
 
 ---
 
 ## 🛠️ Prerequisites
 
-1. **⚙️ PowerShell**
-   - Requires PowerShell 5.1 or newer
-   - Check version:
-     ```powershell
-     $PSVersionTable.PSVersion
-     ```
-2. **🔑 Administrator Access**  
-   Most scripts require elevated permissions, especially those accessing system certificates, disk, registry, or AD
+- **⚙️ PowerShell** — Version **5.1 or later** (PowerShell 7.x supported)  
+  ```powershell
+  $PSVersionTable.PSVersion
+  ```
 
-3. **📂 Execution Policy**  
-   Allow script execution:
-   ```powershell
-   Set-ExecutionPolicy RemoteSigned -Scope Process
-   ```
+- **🔑 Administrative Privileges** — Required for certificate stores, registry, disk, and AD operations  
+
+- **🔧 Execution Policy** — Session-scoped execution  
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+  ```
 
 ---
 
-## 📄 Script Descriptions (Alphabetical Order)
+## 📄 Script Catalog (Alphabetical)
 
-| **Script Name**                                 | **Description**                                                                 |
-|-------------------------------------------------|-----------------------------------------------------------------------------|
-| **Check-ServicesPort-Connectivity.ps1**         | Checks real-time connectivity status of specified service ports with logs  |
-| **Cleanup-CertificateAuthority-Tool.ps1**       | Removes expired certificate data from CA servers                           |
-| **Cleanup-Repository-ExpiredCertificates-Tool.ps1** | Scans shared repos and deletes expired certificates                    |
-| **Initiate-MultipleRDPSessions.ps1**            | Launches multiple RDP sessions on supported systems                        |
-| **Organize-CERTs-Repository.ps1**               | Organizes SSL/TLS certs by issuer or expiration                           |
-| **Purge-ExpiredInstalledCertificates-Tool.ps1**  | Cleans expired certificates from local machine store                       |
-| **Purge-ExpiredInstalledCertificates-viaGPO.ps1**| GPO-compatible cleanup of expired certs across domain computers            |
-| **Remove-EmptyFiles-or-DateRange.ps1**          | Deletes empty/old files for storage hygiene                                |
-| **Retrieve-Windows-ProductKey.ps1**             | Extracts local Windows product key for auditing                           |
-| **Shorten-LongFileNames-Tool.ps1**              | Shortens long file paths to avoid sync/backup issues                      |
-| **Unjoin-ADComputer-and-Cleanup.ps1**           | Unjoins machine from AD and cleans DNS, metadata, resets to Workgroup     |
+| Script Name | Description |
+|------------|-------------|
+| **Check-ServicesPort-Connectivity.ps1** | Tests real-time connectivity for specified service ports |
+| **Cleanup-CertificateAuthority-Tool.ps1** | Removes expired certificate data from CA servers |
+| **Cleanup-Repository-ExpiredCertificates-Tool.ps1** | Deletes expired certificates from shared repositories |
+| **Initiate-MultipleRDPSessions.ps1** | Initiates multiple RDP sessions on supported systems |
+| **Organize-CERTs-Repository.ps1** | Organizes SSL/TLS certificates by issuer or expiration |
+| **Purge-ExpiredInstalledCertificates-Tool.ps1** | Removes expired certificates from the local machine store |
+| **Purge-ExpiredInstalledCertificates-viaGPO.ps1** | GPO-compatible cleanup of expired certificates |
+| **Remove-EmptyFiles-or-DateRange.ps1** | Deletes empty or aged files based on defined criteria |
+| **Retrieve-Windows-ProductKey.ps1** | Extracts the local Windows product key for auditing |
+| **Shorten-LongFileNames-Tool.ps1** | Shortens long file paths to avoid backup or sync failures |
+| **Unjoin-ADComputer-and-Cleanup.ps1** | Securely unjoins systems from AD and cleans metadata |
 
 ---
 
 ## 🚀 Usage Instructions
 
-1. **Run the Script**: Right-click and select _Run with PowerShell_ or launch via elevated shell  
-2. **Provide Inputs**: Use input prompts or set parameters within the script  
-3. **Review Results**: Logs and reports saved in `C:\Logs-TEMP` or a custom path
+1. Run scripts using **Run with PowerShell** or from an **elevated PowerShell console**  
+2. Provide required parameters or respond to input prompts (script-dependent)  
+3. Review generated outputs and logs  
+
+### 📂 Logs and Reports Locations
+
+| Path | Purpose |
+|------|---------|
+| `C:\Scripts-LOGS\` | GPO synchronization, agents, and security tooling logs |
+| `C:\Logs-TEMP\` | General-purpose, transient, and legacy script outputs |
+| `%USERPROFILE%\Documents\` | CSV and exported reports for compliance and audits |
 
 ---
 
-## 📝 Logging and Output
+## 💡 Optimization Tips
 
-- **📄 Logs**: Step-by-step `.log` files saved locally  
-- **📊 Reports**: Where applicable, `.csv` exports for audits or inventory
+- 🏷️ Prefer **GPO-compatible scripts** for domain-wide enforcement  
+- 🔁 Schedule periodic cleanup using **Task Scheduler**  
+- 🗂️ Maintain structured repositories for certificates and shared files  
 
 ---
 
-## 💡 Tips for Optimization
-
-- **Use GPO-Compatible Scripts**: Automate cleanup actions domain-wide  
-- **Schedule Periodic Cleanup**: Use Task Scheduler for unattended tasks  
-- **Structure Repositories**: Organize certificate/files to reduce risk
+© 2026 Luiz Hamilton Silva. All rights reserved.
