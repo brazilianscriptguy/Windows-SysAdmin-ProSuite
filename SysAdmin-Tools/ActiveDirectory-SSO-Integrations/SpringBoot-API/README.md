@@ -172,17 +172,4 @@ curl http://localhost:8080/api/user/john.doe
 
 ---
 
-## 📜 License
-
-[![MIT License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
-
----
-
-## 📩 Support
-
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
-[![GitHub Issues](https://img.shields.io/badge/GitHub-Issues-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
-
----
-
 © 2026 Luiz Hamilton Silva — @brazilianscriptguy
