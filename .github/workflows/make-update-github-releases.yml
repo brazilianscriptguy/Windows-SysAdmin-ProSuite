@@ -3,8 +3,8 @@ name: Make and Update GitHub Releases (Weekly Cleanup + Rebuild)
 on:
   workflow_dispatch: {}
   schedule:
-    # Weekly (Sunday 00:00 UTC)
-    - cron: "0 0 * * 0"
+    # Weekly (Monday 00:00 UTC)
+    - cron: "0 0 * * 1"
 
 concurrency:
   group: releases-cleanup-rebuild
