@@ -47,7 +47,7 @@ jobs:
       # Prune folders from scanning
       PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
 
-      # Your repo “main roots” (scanned recursively)
+      # Repo roots to scan (recursive)
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
         Core-ScriptLibrary
@@ -56,11 +56,15 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
-      # Fail gate: job fails if ANY of these severities exist
+      # Gate policy: job FAILS if any findings exist with these severities
       FAIL_ON_SEVERITIES: "Error"
 
-      # Optional: cap the amount of findings shown in summary/report
+      # Summary limits
       SUMMARY_TOP: "25"
+      TOP_RULES: "20"
+
+      # SARIF run identity (stable across runs)
+      SARIF_RUN_ID: "powershell/psscriptanalyzer"
 
     steps:
       - name: 📦 Checkout
@@ -140,24 +144,15 @@ jobs:
           echo "ref=${GITHUB_REF}" >> "$GITHUB_OUTPUT"
           echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
 
-      - name: 🗂️ Ensure report folder exists
+      - name: ✅ Ensure report folder + baseline SARIF exist
         if: steps.discover.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $outDir = Join-Path $env:GITHUB_WORKSPACE '${{ env.OUT_DIR }}'
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          Write-Host "Report folder ready: $outDir"
+          $root    = $env:GITHUB_WORKSPACE
+          $outDir  = Join-Path $root '${{ env.OUT_DIR }}'
+          $sarif   = Join-Path $outDir '${{ env.OUT_SARIF }}'
 
-      # OPTION A: Always create a baseline SARIF so Code Scanning never breaks due to missing file
-      - name: ✅ Create baseline SARIF (always)
-        if: steps.discover.outputs.count != '0'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $root   = $env:GITHUB_WORKSPACE
-          $outDir = Join-Path $root '${{ env.OUT_DIR }}'
-          $sarif  = Join-Path $outDir '${{ env.OUT_SARIF }}'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
           $baseline = @{
@@ -165,13 +160,15 @@ jobs:
             version   = '2.1.0'
             runs      = @(
               @{
-                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = '${{ env.PSA_VERSION }}' } }
+                tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = '0' } }
+                runAutomationDetails = @{ id = '${{ env.SARIF_RUN_ID }}' }
                 results = @()
               }
             )
           }
-          $baseline | ConvertTo-Json -Depth 10 | Set-Content -Path $sarif -Encoding UTF8
-          Write-Host "Baseline SARIF created: $sarif"
+
+          $baseline | ConvertTo-Json -Depth 12 | Set-Content -Path $sarif -Encoding UTF8
+          if (-not (Test-Path $sarif)) { throw "Failed to create baseline SARIF: $sarif" }
 
       - name: 🔎 Run PSScriptAnalyzer + Build Reports (JSON/CSV/MD/SARIF)
         if: steps.discover.outputs.count != '0'
@@ -187,10 +184,14 @@ jobs:
           $mdPath     = Join-Path $outDir '${{ env.OUT_MD }}'
           $sarifPath  = Join-Path $outDir '${{ env.OUT_SARIF }}'
 
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-
           $prune = [regex]::new('${{ env.PRUNE_DIR_REGEX }}')
 
+          $repo = '${{ steps.meta.outputs.repo }}'
+          $sha  = '${{ steps.meta.outputs.sha }}'
+          $ts   = '${{ steps.meta.outputs.timestamp }}'
+          $runId = '${{ github.run_id }}'
+
+          # Resolve folder roots (string paths only; do NOT pass string[] to -Path)
           $roots = @("${{ env.ANALYZE_ROOTS }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) |
             ForEach-Object { Join-Path $root $_ } |
             Where-Object { Test-Path $_ -and -not $prune.IsMatch($_) }
@@ -199,19 +200,25 @@ jobs:
             throw "No valid ANALYZE_ROOTS found. Check env.ANALYZE_ROOTS."
           }
 
-          $results = @()
+          $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
+
+          $all = New-Object System.Collections.Generic.List[object]
+
           foreach ($r in $roots) {
             $rRel = $r.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '')
             Write-Host "Analyzing root: $rRel"
+
             $res = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity @('Error','Warning','Information')
-            if ($res) { $results += $res }
+            if ($res) {
+              foreach ($x in $res) { $all.Add($x) }
+            }
           }
 
-          # Normalize into structured rows
-          $rows = @()
-          foreach ($x in $results) {
+          # Normalize to report rows
+          $rows = New-Object System.Collections.Generic.List[object]
+          foreach ($x in $all) {
             $rel = $x.ScriptPath.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '').Replace('\','/')
-            $rows += [pscustomobject]@{
+            $rows.Add([pscustomobject]@{
               Severity   = [string]$x.Severity
               RuleName   = [string]$x.RuleName
               Message    = [string]$x.Message
@@ -221,19 +228,15 @@ jobs:
               EndLine    = [int]$x.EndLine
               EndColumn  = [int]$x.EndColumn
               ScriptName = [string]$x.ScriptName
-            }
+            })
           }
 
-          # JSON
+          # Always write JSON/CSV even if empty
           $rows | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
-
-          # CSV
           $rows | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-          # SARIF (overwrite baseline with actual results)
-          $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
-          $sarifResults = @()
-
+          # Build SARIF
+          $sarifResults = New-Object System.Collections.Generic.List[object]
           foreach ($r in $rows) {
             $sarifLevel = switch ($r.Severity.ToLowerInvariant()) {
               'error'   { 'error' }
@@ -241,22 +244,22 @@ jobs:
               default   { 'note' }
             }
 
-            $sarifResults += @{
-              ruleId    = $r.RuleName
-              level     = $sarifLevel
-              message   = @{ text = $r.Message }
+            $sarifResults.Add(@{
+              ruleId  = $r.RuleName
+              level   = $sarifLevel
+              message = @{ text = $r.Message }
               locations = @(
                 @{
                   physicalLocation = @{
                     artifactLocation = @{ uri = $r.File }
-                    region           = @{
+                    region = @{
                       startLine   = $r.Line
                       startColumn = $r.Column
                     }
                   }
                 }
               )
-            }
+            })
           }
 
           $sarif = @{
@@ -264,22 +267,22 @@ jobs:
             version   = '2.1.0'
             runs      = @(
               @{
-                tool    = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $psaVersion } }
+                tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = $psaVersion } }
+                runAutomationDetails = @{ id = '${{ env.SARIF_RUN_ID }}' }
                 results = $sarifResults
               }
             )
           }
+
           $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifPath -Encoding UTF8
 
           # Markdown report
-          $total  = $rows.Count
+          $total = $rows.Count
           $bySev  = $rows | Group-Object Severity | Sort-Object Name
           $byRule = $rows | Group-Object RuleName | Sort-Object Count -Descending
 
-          $repo = '${{ steps.meta.outputs.repo }}'
-          $sha  = '${{ steps.meta.outputs.sha }}'
-          $ts   = '${{ steps.meta.outputs.timestamp }}'
           $topN = [int]'${{ env.SUMMARY_TOP }}'
+          $topRules = [int]'${{ env.TOP_RULES }}'
 
           $md = New-Object System.Collections.Generic.List[string]
           $md.Add("# PowerShell Static Analysis Report")
@@ -287,6 +290,7 @@ jobs:
           $md.Add("- **Repo:** $repo")
           $md.Add("- **Commit:** $sha")
           $md.Add("- **Timestamp (UTC):** $ts")
+          $md.Add("- **Run:** $runId")
           $md.Add("- **Analyzer:** PSScriptAnalyzer $psaVersion")
           $md.Add("")
 
@@ -299,7 +303,7 @@ jobs:
           $md.Add("")
           $md.Add("| Rule | Count |")
           $md.Add("|---|---:|")
-          foreach ($r in ($byRule | Select-Object -First 20)) {
+          foreach ($r in ($byRule | Select-Object -First $topRules)) {
             $md.Add("| `$($r.Name)` | $($r.Count) |")
           }
           $md.Add("")
@@ -315,10 +319,10 @@ jobs:
             $md.Add("| $($i.Severity) | `$($i.RuleName)` | [$($i.File)]($fileLink) | $($i.Line) | $msg |")
           }
 
-          $mdText = ($md -join "`n")
+          $mdText = [string]::Join([Environment]::NewLine, $md)
           $mdText | Set-Content -Path $mdPath -Encoding UTF8
 
-          # Job summary (short) - SAFE join
+          # Job Summary (short) — avoid `-join "`n"` parser issues
           $summary = New-Object System.Collections.Generic.List[string]
           $summary.Add("### 🧪 PowerShell Lint Summary")
           $summary.Add("- 🕒 **UTC:** $ts")
@@ -327,9 +331,9 @@ jobs:
           $summary.Add("- 🧾 **Total findings:** $total")
           foreach ($g in $bySev) { $summary.Add("  - **$($g.Name):** $($g.Count)") }
           $summary.Add("")
-          $summary.Add("Artifacts: JSON / CSV / MD / SARIF are in `${{ env.OUT_DIR }}`")
+          $summary.Add("Artifacts are in `${{ env.OUT_DIR }}`: JSON / CSV / MD / SARIF")
 
-          $summaryText = ($summary -join "`n")
+          $summaryText = [string]::Join([Environment]::NewLine, $summary)
           $summaryText | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
           # Gate: fail if any configured severities exist
@@ -342,16 +346,15 @@ jobs:
           }
 
       - name: 📦 Upload Report Artifacts (Structured)
-        if: always() && hashFiles(format('{0}/{1}/*', github.workspace, env.OUT_DIR)) != ''
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: powershell-lint-reports
           path: ${{ github.workspace }}/${{ env.OUT_DIR }}
           retention-days: 30
 
-      # OPTION B: Only upload SARIF if it exists
       - name: 🛰️ Upload SARIF to GitHub Code Scanning
-        if: always() && hashFiles(format('{0}/{1}/{2}', github.workspace, env.OUT_DIR, env.OUT_SARIF)) != ''
+        if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ github.workspace }}/${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
