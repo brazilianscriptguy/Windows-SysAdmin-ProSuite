@@ -111,10 +111,10 @@ This project reflects **long-term stewardship**, real operational use, and conti
 
 ## 📬 Contact & Support
 
-- 📧 Email: luizhamilton.lhr@gmail.com
-- ☕ Buy Me a Coffee: https://buymeacoffee.com/brazilianscriptguy
-- ❤️ Ko-fi: https://ko-fi.com/brazilianscriptguy
-- 💖 Patreon: https://www.patreon.com/brazilianscriptguy
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
+[![Ko--fi](https://img.shields.io/badge/Ko--fi-Support-blue?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
+[![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
 
 ---
 
