@@ -46,7 +46,7 @@ jobs:
       OUT_MD: "psa-results.md"
       OUT_SARIF: "psa-results.sarif"
 
-      # Prune folders from scanning (includes the path you asked to NOT operate on)
+      # Prune folders from scanning (includes long-path GPO templates)
       PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next|GroupPolicyObjects-Templates)[\\/]'
 
       # Repo roots to scan (recursive)
@@ -151,25 +151,18 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           "timestamp=$([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "sha=${env:GITHUB_SHA}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "repo=${env:GITHUB_REPOSITORY}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha=$env:GITHUB_SHA" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "repo=$env:GITHUB_REPOSITORY" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "runid=$env:GITHUB_RUN_ID" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: ✅ Ensure report folder + baseline SARIF exist
+      - name: ✅ Ensure report folder exists
         if: steps.discover.outputs.count != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root   = $env:GITHUB_WORKSPACE
-          $outDir = Join-Path $root $env:OUT_DIR
-          $sarif  = Join-Path $outDir $env:OUT_SARIF
-
+          $outDir = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-
-          # Minimal SARIF (GitHub validator-friendly)
-          $baseline = '{"$schema":"http://json.schemastore.org/sarif-2.1.0","version":"2.1.0","runs":[{"tool":{"driver":{"name":"PSScriptAnalyzer","version":"0"}},"results":[]}]}'
-          $baseline | Set-Content -Path $sarif -Encoding UTF8
-
-          if (-not (Test-Path $sarif)) { throw "Failed to create baseline SARIF: $sarif" }
+          Write-Host "Report dir: $outDir"
 
       - name: 🔎 Run PSScriptAnalyzer + Build Reports (JSON/CSV/MD/SARIF)
         if: steps.discover.outputs.count != '0'
@@ -179,6 +172,7 @@ jobs:
 
           $root       = $env:GITHUB_WORKSPACE
           $settings   = Join-Path $root $env:SETTINGS_FILE
+
           $outDir     = Join-Path $root $env:OUT_DIR
           $jsonPath   = Join-Path $outDir $env:OUT_JSON
           $csvPath    = Join-Path $outDir $env:OUT_CSV
@@ -187,15 +181,21 @@ jobs:
 
           $prune = [regex]::new($env:PRUNE_DIR_REGEX)
 
-          $repo = '${{ steps.meta.outputs.repo }}'
-          $sha  = '${{ steps.meta.outputs.sha }}'
-          $ts   = '${{ steps.meta.outputs.timestamp }}'
-          $runId = '${{ github.run_id }}'
+          $repo  = '${{ steps.meta.outputs.repo }}'
+          $sha   = '${{ steps.meta.outputs.sha }}'
+          $ts    = '${{ steps.meta.outputs.timestamp }}'
+          $runId = '${{ steps.meta.outputs.runid }}'
 
-          # Resolve folder roots
-          $roots = @($env:ANALYZE_ROOTS.Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) |
-            ForEach-Object { Join-Path $root $_ } |
-            Where-Object { (Test-Path $_) -and (-not $prune.IsMatch($_)) }
+          # Resolve folder roots (and filter without "-and" binding bugs)
+          $rootsRaw = $env:ANALYZE_ROOTS.Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)
+          $roots = @()
+
+          foreach ($r in $rootsRaw) {
+            $p = Join-Path $root $r
+            if (Test-Path $p) {
+              if (-not $prune.IsMatch($p)) { $roots += $p }
+            }
+          }
 
           if (@($roots).Count -eq 0) {
             throw "No valid ANALYZE_ROOTS found. Check env.ANALYZE_ROOTS."
@@ -208,12 +208,11 @@ jobs:
             $rRel = $r.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '')
             Write-Host "Analyzing root: $rRel"
 
-            # Analyze per-root (never pass string[] to -Path)
             $res = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity @('Error','Warning','Information')
             if ($res) { foreach ($x in $res) { $all.Add($x) } }
           }
 
-          # Normalize rows (belt+suspenders prune)
+          # Normalize to report rows (exclude pruned paths)
           $rows = New-Object System.Collections.Generic.List[object]
           foreach ($x in $all) {
             if ($prune.IsMatch([string]$x.ScriptPath)) { continue }
@@ -231,11 +230,11 @@ jobs:
             })
           }
 
-          # JSON/CSV always
+          # JSON/CSV always (even empty)
           $rows | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
           $rows | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-          # SARIF minimal schema
+          # SARIF (GitHub-friendly: NO runAutomationDetails)
           $sarifResults = @()
           foreach ($r in $rows) {
             $sarifLevel = switch ($r.Severity.ToLowerInvariant()) {
@@ -307,13 +306,11 @@ jobs:
           $md.Add("")
           $md.Add("| Severity | Rule | File | Line | Message |")
           $md.Add("|---|---|---|---:|---|")
-
           foreach ($i in ($rows | Select-Object -First $topN)) {
             $fileLink = "https://github.com/$repo/blob/$sha/$($i.File)#L$($i.Line)"
             $msg = ($i.Message -replace '\|','/')
             $md.Add("| $($i.Severity) | `$($i.RuleName)` | [$($i.File)]($fileLink) | $($i.Line) | $msg |")
           }
-
           [string]::Join([Environment]::NewLine, $md) | Set-Content -Path $mdPath -Encoding UTF8
 
           # Step summary
@@ -325,7 +322,7 @@ jobs:
           $summary.Add("- 🧾 **Total findings:** $total")
           foreach ($g in $bySev) { $summary.Add("  - **$($g.Name):** $($g.Count)") }
           $summary.Add("")
-          $summary.Add("Artifacts are in `${env:OUT_DIR}`: JSON / CSV / MD / SARIF")
+          $summary.Add("Artifacts: $($env:OUT_DIR) (JSON / CSV / MD / SARIF)")
           [string]::Join([Environment]::NewLine, $summary) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
           # Gate: fail on configured severities
