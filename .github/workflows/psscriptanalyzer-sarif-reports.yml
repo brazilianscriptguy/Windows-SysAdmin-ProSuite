@@ -8,6 +8,7 @@ on:
       - "**/*.psm1"
       - "**/*.psd1"
       - ".psscriptanalyzer.psd1"
+      - ".github/workflows/psscriptanalyzer-sarif-reports.yml"
   pull_request:
     branches: [main, develop]
     paths:
@@ -15,6 +16,7 @@ on:
       - "**/*.psm1"
       - "**/*.psd1"
       - ".psscriptanalyzer.psd1"
+      - ".github/workflows/psscriptanalyzer-sarif-reports.yml"
   workflow_dispatch:
 
 concurrency:
@@ -44,11 +46,8 @@ jobs:
       OUT_MD: "psa-results.md"
       OUT_SARIF: "psa-results.sarif"
 
-      # Prune folders from scanning
       PRUNE_DIR_REGEX: '[\\/](\.git|node_modules|dist|build|artifacts|\.next)[\\/]'
 
-      # Repo roots to scan (recursive)
-      # NOTE: runner env will present this as whitespace-separated; we split with -split '\s+'.
       ANALYZE_ROOTS: >-
         BlueTeam-Tools
         Core-ScriptLibrary
@@ -57,15 +56,9 @@ jobs:
         ProSuite-Hub
         SysAdmin-Tools
 
-      # Gate policy: job FAILS if any findings exist with these severities
       FAIL_ON_SEVERITIES: "Error"
-
-      # Summary limits
       SUMMARY_TOP: "25"
       TOP_RULES: "20"
-
-      # SARIF run identity (stable across runs)
-      SARIF_RUN_ID: "powershell/psscriptanalyzer"
 
     steps:
       - name: 📦 Checkout
@@ -79,11 +72,9 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-
           count="$(find . \
             -type d \( -name .git -o -name node_modules -o -name dist -o -name build -o -name artifacts -o -name .next \) -prune -false \
             -o -type f \( -name "*.ps1" -o -name "*.psm1" -o -name "*.psd1" \) -print | wc -l | tr -d ' ')"
-
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Found $count PowerShell file(s)."
 
@@ -102,7 +93,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $required = [version]'${{ env.PSA_VERSION }}'
-
           $installed = Get-Module -ListAvailable -Name PSScriptAnalyzer |
             Sort-Object Version -Descending | Select-Object -First 1
 
@@ -156,8 +146,7 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # IMPORTANT: GitHub upload-sarif rejects runAutomationDetails/runAutomationDetails-like fields.
-          # Keep baseline strictly valid SARIF 2.1.0 with minimal properties.
+          # Keep SARIF strict/minimal: GitHub rejects extra fields like runAutomationDetails
           $baseline = @{
             '$schema' = 'http://json.schemastore.org/sarif-2.1.0'
             version   = '2.1.0'
@@ -193,10 +182,8 @@ jobs:
           $ts    = '${{ steps.meta.outputs.timestamp }}'
           $runId = '${{ github.run_id }}'
 
-          # Robust split for whitespace (spaces/newlines)
           $rootNames = @("${{ env.ANALYZE_ROOTS }}" -split '\s+') | Where-Object { $_ -and $_.Trim().Length -gt 0 }
 
-          # Resolve folder roots (string paths only; do NOT pass string[] to -Path)
           $roots = $rootNames |
             ForEach-Object { Join-Path $root $_ } |
             Where-Object { (Test-Path $_) -and (-not $prune.IsMatch($_)) }
@@ -208,18 +195,13 @@ jobs:
           $psaVersion = (Get-Module -ListAvailable PSScriptAnalyzer | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()
 
           $all = New-Object System.Collections.Generic.List[object]
-
           foreach ($r in $roots) {
             $rRel = $r.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '')
             Write-Host "Analyzing root: $rRel"
-
             $res = Invoke-ScriptAnalyzer -Path $r -Recurse -Settings $settings -Severity @('Error','Warning','Information')
-            if ($res) {
-              foreach ($x in $res) { $all.Add($x) }
-            }
+            if ($res) { foreach ($x in $res) { $all.Add($x) } }
           }
 
-          # Normalize to report rows
           $rows = New-Object System.Collections.Generic.List[object]
           foreach ($x in $all) {
             $rel = $x.ScriptPath.Replace("$root$([IO.Path]::DirectorySeparatorChar)", '').Replace('\','/')
@@ -236,11 +218,9 @@ jobs:
             })
           }
 
-          # Always write JSON/CSV even if empty
           $rows | ConvertTo-Json -Depth 8 | Set-Content -Path $jsonPath -Encoding UTF8
           $rows | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-          # Build SARIF (keep schema strict; do NOT add runAutomationDetails)
           $sarifResults = New-Object System.Collections.Generic.List[object]
           foreach ($r in $rows) {
             $sarifLevel = switch ($r.Severity.ToLowerInvariant()) {
@@ -280,13 +260,12 @@ jobs:
 
           $sarif | ConvertTo-Json -Depth 12 | Set-Content -Path $sarifPath -Encoding UTF8
 
-          # Markdown report
           $total  = $rows.Count
           $bySev  = $rows | Group-Object Severity | Sort-Object Name
           $byRule = $rows | Group-Object RuleName | Sort-Object Count -Descending
 
-          $topN      = [int]'${{ env.SUMMARY_TOP }}'
-          $topRules  = [int]'${{ env.TOP_RULES }}'
+          $topN     = [int]'${{ env.SUMMARY_TOP }}'
+          $topRules = [int]'${{ env.TOP_RULES }}'
 
           $md = New-Object System.Collections.Generic.List[string]
           $md.Add("# PowerShell Static Analysis Report")
@@ -323,10 +302,8 @@ jobs:
             $md.Add("| $($i.Severity) | `$($i.RuleName)` | [$($i.File)]($fileLink) | $($i.Line) | $msg |")
           }
 
-          $mdText = [string]::Join([Environment]::NewLine, $md)
-          $mdText | Set-Content -Path $mdPath -Encoding UTF8
+          ([string]::Join([Environment]::NewLine, $md)) | Set-Content -Path $mdPath -Encoding UTF8
 
-          # Job Summary (short)
           $summary = New-Object System.Collections.Generic.List[string]
           $summary.Add("### 🧪 PowerShell Lint Summary")
           $summary.Add("- 🕒 **UTC:** $ts")
@@ -337,10 +314,8 @@ jobs:
           $summary.Add("")
           $summary.Add("Artifacts are in `${{ env.OUT_DIR }}`: JSON / CSV / MD / SARIF")
 
-          $summaryText = [string]::Join([Environment]::NewLine, $summary)
-          $summaryText | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          ([string]::Join([Environment]::NewLine, $summary)) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 
-          # Gate: fail if any configured severities exist
           $failSev = @("${{ env.FAIL_ON_SEVERITIES }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries))
           if ($failSev.Count -gt 0) {
             $failHits = $rows | Where-Object { $_.Severity -in $failSev }
@@ -373,14 +348,39 @@ jobs:
     permissions:
       contents: read
 
+    defaults:
+      run:
+        shell: powershell
+
     steps:
-      - name: 📦 Checkout
+      # Short working directory to reduce path length
+      - name: 📁 Prepare short workspace (D:\ws)
+        run: |
+          New-Item -ItemType Directory -Force -Path 'D:\ws' | Out-Null
+
+      - name: 📦 Checkout (sparse, longpaths best-effort)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          path: 'D:\ws'
+          sparse-checkout: |
+            BlueTeam-Tools
+            Core-ScriptLibrary
+            ITSM-Templates-SVR
+            ITSM-Templates-WKS
+            ProSuite-Hub
+            SysAdmin-Tools
+            .psscriptanalyzer.psd1
+          sparse-checkout-cone-mode: false
+
+      - name: 🧷 Enable git long paths (best effort)
+        run: |
+          git config --system core.longpaths true
+          git config --global core.longpaths true
+          git config --show-origin --get-all core.longpaths
 
       - name: ✅ Parse all PowerShell files with Windows PowerShell 5.1
-        shell: powershell
+        working-directory: 'D:\ws'
         run: |
           $ErrorActionPreference = "Stop"
 
