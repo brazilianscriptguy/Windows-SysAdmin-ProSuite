@@ -78,7 +78,7 @@ jobs:
         run: |
           git config --global core.longpaths true
 
-      - name: Prepare output folder
+      - name: Ensure output folder exists
         shell: pwsh
         run: |
           $outDir = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
@@ -89,6 +89,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
+
           $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
           $sarifOut = Join-Path $outDir $env:OUT_SARIF
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
@@ -184,20 +185,28 @@ jobs:
           $results = @()
           try {
             if ($count -gt 0) {
-              # IMPORTANT: analyze one file at a time to avoid Path binding issues on runners
               $paths = @($files | ForEach-Object { [string]$_.FullName })
+
               $all = New-Object System.Collections.Generic.List[object]
+              $hadAnyInvocationError = $false
+
               foreach ($p in $paths) {
                 if ([string]::IsNullOrWhiteSpace($p)) { continue }
                 try {
                   $r = Invoke-ScriptAnalyzer -Path $p -Recurse:$false @settingsArgs
                   if ($r) { foreach ($item in @($r)) { $all.Add($item) } }
                 } catch {
-                  # keep going; record failure details once
+                  $hadAnyInvocationError = $true
                   $_ | Out-String | Add-Content -Encoding UTF8 $failOut
                 }
               }
-              $results = @($all)
+
+              # ✅ CRITICAL FIX: convert List[object] -> object[]
+              $results = $all.ToArray()
+
+              if ($hadAnyInvocationError -and -not (Test-Path $failOut)) {
+                "One or more file-level PSA invocations failed." | Set-Content -Encoding UTF8 $failOut
+              }
             } else {
               "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
             }
@@ -235,7 +244,7 @@ jobs:
           if ($top.Count -eq 0) { $md.Add("- None") }
           else { foreach ($g in $top) { $md.Add("- **$($g.Name)**: $($g.Count)") } }
           $md.Add("")
-          $md.Add("> Note: This workflow is report-only. Findings do not fail the job. Artifacts are uploaded when present.")
+          $md.Add("> Note: This workflow is report-only. Findings do not fail the job. Artifacts are always uploaded.")
           $md | Set-Content -Encoding UTF8 $mdOut
 
           $summary = New-Object System.Collections.Generic.List[string]
@@ -315,10 +324,10 @@ jobs:
 
           Write-Host "GITHUB_WORKSPACE=$env:GITHUB_WORKSPACE"
           Write-Host "OUT_DIR=$outDir"
+
           if (Test-Path $outDir) {
             Get-ChildItem -Recurse -Force $outDir | Format-Table FullName, Length
           } else {
-            Write-Host "Output dir missing; creating."
             New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           }
 
