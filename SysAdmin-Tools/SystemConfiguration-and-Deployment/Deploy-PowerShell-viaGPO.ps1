@@ -10,7 +10,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: November 12, 2024
+    Last Updated: 2026-02-07
 #>
 
 param (
