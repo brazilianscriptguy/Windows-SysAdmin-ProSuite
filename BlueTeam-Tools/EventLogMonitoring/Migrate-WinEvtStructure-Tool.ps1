@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Migrates Windows Event Log storage to a new target root and updates BOTH:  
+    Migrates Windows Event Log storage to a new target root and updates BOTH:
       - Classic EventLog registry paths (HKLM:\SYSTEM\CCS\Services\EventLog)
       - Modern WINEVT channel logFileName paths (via wevtutil)
 
