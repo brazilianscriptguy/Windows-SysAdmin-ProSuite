@@ -1,59 +1,99 @@
 # 🔹 SpringBoot-API: Active Directory SSO Integration
 
-## 📌 Overview
+![Java](https://img.shields.io/badge/Java-17+-ED8B00?style=for-the-badge&logo=java&logoColor=white)
+![Spring](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![LDAP](https://img.shields.io/badge/Auth-LDAP%20SSO-4CAF50?style=for-the-badge)
+![ActiveDirectory](https://img.shields.io/badge/Directory-Active%20Directory-0078D4?style=for-the-badge)
+![Enterprise](https://img.shields.io/badge/Grade-Enterprise-blueviolet?style=for-the-badge)
 
-The **SpringBoot-API** module provides a **Java-based REST API** that enables **LDAP-based Single Sign-On (SSO) authentication** with **Active Directory**.  
-It is built using **Spring Boot** and integrates seamlessly with LDAP for secure and scalable enterprise authentication.
+## 📝 Overview
+
+The **SpringBoot-API** module delivers an **enterprise-ready Java REST API** that implements **LDAP-based Single Sign-On (SSO)** authentication against **Microsoft Active Directory**.
+
+It follows the same **architecture, security posture, configuration model, and documentation standards** used across the **ActiveDirectory-SSO-Integrations** suite, ensuring predictable behavior, auditability, and ease of integration in corporate environments.
+
+This implementation is suitable for:
+- Enterprise backends
+- Microservices
+- Internal portals
+- Cross-domain / forest-wide authentication via **Global Catalog (GC)**
 
 ---
 
-## 📁 Folder Structure
+## ✅ Key Features
 
-```
-ActiveDirectory-SSO-Integrations/
-│
-├── 📂 SpringBoot-API/                     
-│   ├── 📜 pom.xml                           # Maven build and dependency config
-│   ├── 📂 src/
-│   │   ├── 📂 main/
-│   │   │   ├── 📂 java/com/example/springbootsso/
-│   │   │   │   ├── 📜 SpringBootSsoApplication.java     # Main application launcher
-│   │   │   │   ├── 📂 config/
-│   │   │   │   │   ├── 📜 SecurityConfig.java           # Spring Security config
-│   │   │   │   │   ├── 📜 LdapConfig.java               # LDAP setup
-│   │   │   │   ├── 📂 controllers/
-│   │   │   │   │   ├── 📜 AuthController.java           # Login/auth endpoints
-│   │   │   │   │   ├── 📜 UserController.java           # User info endpoints
-│   │   │   │   ├── 📂 services/
-│   │   │   │   │   ├── 📜 LdapService.java              # LDAP auth logic
-│   │   │   │   ├── 📂 models/
-│   │   │   │   │   ├── 📜 UserModel.java                # User schema model
-│   │   │   │   ├── 📂 middleware/
-│   │   │   │   │   ├── 📜 LdapAuthMiddleware.java       # Custom LDAP enforcement
-│   │   │   ├── 📂 resources/
-│   │   │   │   ├── 📜 application.yml                   # Base config
-│   │   │   │   ├── 📜 application-dev.yml               # Dev-specific settings
-│   │   │   │   ├── 📜 application-prod.yml              # Prod-specific settings
-│   ├── 📂 test/java/com/example/springbootsso/
-│   │   ├── 📜 SpringBootSsoApplicationTests.java        # Unit tests
-│   ├── 📖 README.md                        # Documentation
-```
+- 🔐 **LDAP / AD Authentication**
+  - Native Spring Security + LDAP integration
+  - Forest-wide authentication via **Global Catalog (3268)**
+
+- 🧩 **Modular & Profile-Based Configuration**
+  - `application.yml`, `application-dev.yml`, `application-prod.yml`
+  - Environment-variable driven secrets
+
+- 🏢 **Enterprise Security Design**
+  - Least-privilege service account
+  - No hardcoded credentials
+  - Separation of config, auth, and controllers
+
+- 🔄 **RESTful Endpoints**
+  - Authentication
+  - User identity lookup
+  - Ready for JWT or downstream SSO chaining
 
 ---
 
 ## 🛠️ Prerequisites
 
+### 1️⃣ Java Platform
 - **JDK 17+**
-- **Apache Maven**
-- **Active Directory (GC enabled)**
-- **LDAP service credentials**
-- **Postman or cURL** (for API testing)
+- Recommended distributions: Temurin, Oracle JDK, OpenJDK
+
+### 2️⃣ Build Tool
+- **Apache Maven 3.9+**
+
+### 3️⃣ Directory Services
+- Microsoft **Active Directory**
+- **Global Catalog enabled**
+- LDAP service account with **read-only permissions**
+
+### 4️⃣ Testing Tools
+- Postman or cURL
+
+---
+
+## 📁 Project Structure
+
+```
+SpringBoot-API/
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/com/example/springbootsso/
+│   │   │   ├── SpringBootSsoApplication.java
+│   │   │   ├── config/
+│   │   │   │   ├── SecurityConfig.java
+│   │   │   │   └── LdapConfig.java
+│   │   │   ├── controllers/
+│   │   │   │   ├── AuthController.java
+│   │   │   │   └── UserController.java
+│   │   │   ├── services/
+│   │   │   │   └── LdapService.java
+│   │   │   └── models/
+│   │   │       └── UserModel.java
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       ├── application-dev.yml
+│   │       └── application-prod.yml
+│   └── test/
+│       └── SpringBootSsoApplicationTests.java
+└── README.md
+```
 
 ---
 
 ## ⚙️ Configuration
 
-Edit `application.yml` with your domain-wide LDAP parameters:
+Configure LDAP and AD parameters in `application.yml`:
 
 ```yaml
 spring:
@@ -64,91 +104,85 @@ spring:
     password: ${LDAP_PASSWORD}
     user-search-filter: (sAMAccountName={0})
     group-search-base: dc=headq,dc=scriptguy
-    group-search-filter: (member={0})
 
 server:
   port: 8080
 ```
 
+> 🔐 **Security note:**  
+> Always inject `LDAP_PASSWORD` via environment variables or secret managers.
+
 ---
 
-## 🚀 How to Run
+## 🚀 Running the Application
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/SpringBoot-API
-   ```
+### 1️⃣ Set Environment Variable
 
-2. **Set LDAP credentials as environment variable:**
-   ```bash
-   export LDAP_PASSWORD='your-secure-password'
-   ```
+```bash
+export LDAP_PASSWORD='your-secure-password'
+```
 
-3. **Build and launch:**
-   ```bash
-   mvn clean package
-   java -jar target/SpringBootSSO-1.0.0.jar
-   ```
+### 2️⃣ Build the Project
+
+```bash
+mvn clean package
+```
+
+### 3️⃣ Start the API
+
+```bash
+java -jar target/SpringBootSSO-1.0.0.jar
+```
+
+The API will be available at:  
+`http://localhost:8080`
 
 ---
 
 ## 🔄 API Endpoints
 
-### 1️⃣ Authenticate User
+### 🔑 Authenticate User
 
-- **POST:** `/api/auth/login`
-- **Payload:**
-  ```json
-  {
-    "username": "john.doe",
-    "password": "SuperSecretPassword"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "message": "Authentication successful"
-  }
-  ```
+**POST** `/api/auth/login`
 
-### 2️⃣ Get User Details
+```json
+{
+  "username": "john.doe",
+  "password": "SuperSecretPassword"
+}
+```
 
-- **GET:** `/api/user/{username}`
-- **Example:**
-  ```bash
-  curl -X GET http://localhost:8080/api/user/john.doe
-  ```
-- **Sample Output:**
-  ```json
-  {
-    "username": "john.doe",
-    "displayName": "John Doe",
-    "email": "john.doe@example.com",
-    "department": "IT",
-    "role": "User"
-  }
-  ```
+### 👤 Retrieve User Details
+
+**GET** `/api/user/{username}`
+
+```bash
+curl http://localhost:8080/api/user/john.doe
+```
+
+---
+
+## 🔒 Security & Best Practices
+
+- Use **dedicated LDAP service accounts**
+- Never grant Domain Admin privileges
+- Prefer **Global Catalog** for multi-domain forests
+- Externalize secrets (Vault, Azure Key Vault, Kubernetes Secrets)
+- Add TLS (`ldaps://`) in production environments
 
 ---
 
 ## 📜 License
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
-
----
-
-## 🤝 Contributing
-
-[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md)
+[![MIT License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/LICENSE.txt)
 
 ---
 
 ## 📩 Support
 
-[![Email Badge](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)  
-[![GitHub Issues](https://img.shields.io/badge/GitHub%20Issues-Report%20Here-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr@gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![GitHub Issues](https://img.shields.io/badge/GitHub-Issues-blue?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/BUG_REPORT.md)
 
 ---
 
-<p align="center">💼 <strong>Powerful AD SSO in Enterprise Java Applications</strong> 🔐</p>
+
