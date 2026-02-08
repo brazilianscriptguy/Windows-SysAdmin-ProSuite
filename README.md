@@ -1,6 +1,6 @@
-# 🚀 Windows-SysAdmin-ProSuite  - v1.8.8 - DOI: 10.5281/zenodo.18487320
+# Windows-SysAdmin-ProSuite  - v1.8.8 - DOI: 10.5281/zenodo.18487320
 
-## Enterprise Windows Automation · IAM · Cybersecurity · Forensic Readiness
+## 🚀 Enterprise Windows Automation · IAM · Cybersecurity · Forensic Readiness
 
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#) [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE) [![CI - PowerShell Linting](https://img.shields.io/badge/CI-PowerShell%20Linting-2088FF?style=for-the-badge&logo=githubactions)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions)
 [![Code Scanning SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning)
