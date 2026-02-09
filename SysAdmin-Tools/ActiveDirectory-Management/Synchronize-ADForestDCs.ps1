@@ -17,7 +17,7 @@
     Functional Baseline + GUI Enhancements – 2026-02-09
 #>
 
-#region ── Hide Console Window (optional) ──
+#region --- Hide Console Window (optional) --- 
 param(
     [switch]$ShowConsole
 )
@@ -43,12 +43,12 @@ public class Window {
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-#region ── Load Required Types ──
+#region --- Load Required Types --- 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 #endregion
 
-#region ── Paths + Logging Setup ──
+#region --- Paths + Logging Setup --- 
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $logDir     = 'C:\Logs-TEMP'
 $logFile    = Join-Path -Path $logDir -ChildPath ("{0}.log" -f $scriptName)
@@ -155,7 +155,7 @@ function Show-UiMessage {
 }
 #endregion
 
-#region ── AD Discovery Helpers ──
+#region --- AD Discovery Helpers --- 
 function Ensure-Dependencies {
     # ActiveDirectory module
     try { Import-Module ActiveDirectory -ErrorAction Stop } catch {
@@ -272,7 +272,7 @@ function Get-SelectedDCNames {
 }
 #endregion
 
-#region ── Core Actions ──
+#region --- Core Actions --- 
 function Sync-AllDCs {
     if ($script:IsBusy) { return }
     $script:IsBusy = $true
@@ -456,7 +456,7 @@ function Save-LogAs {
 }
 #endregion
 
-#region ── GUI Setup ──
+#region --- GUI Setup --- 
 $form = New-Object System.Windows.Forms.Form -Property @{
     Text            = "AD Forest Sync Tool"
     StartPosition   = 'CenterScreen'
@@ -605,7 +605,7 @@ $grpLog.Controls.Add($btnSave)
 
 #endregion
 
-#region ── Bottom Action Buttons (aligned) ──
+#region --- Bottom Action Buttons (aligned) --- 
 # Bottom row buttons (outside groups)
 $btnY  = 630
 $btnH  = 45
@@ -677,4 +677,4 @@ $form.Add_Shown({
 
 [void]$form.ShowDialog()
 
-# ── End of Script ──
+# --- End of Script --- 
