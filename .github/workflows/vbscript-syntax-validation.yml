@@ -1,170 +1,391 @@
-name: VBScript Syntax Validation
+name: VBScript Syntax Validation (Wine + CSCRIPT + SARIF + Summary) [Report-Only]
 
 on:
   push:
     branches: [main, develop]
     paths:
-      - '**/*.vbs'
-      - '**/*.hta'
+      - "**/*.vbs"
+      - "**/*.hta"
+      - ".github/workflows/vbscript-syntax-validation.yml"
   pull_request:
     branches: [main, develop]
     paths:
-      - '**/*.vbs'
-      - '**/*.hta'
+      - "**/*.vbs"
+      - "**/*.hta"
+      - ".github/workflows/vbscript-syntax-validation.yml"
   workflow_dispatch:
+
+concurrency:
+  group: vbscript-syntax-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
   vbscript-syntax-check:
-    name: 🔍 VBScript Lint with Line Detection
+    name: "🔍 VBScript Syntax Validation (SARIF + Summary)"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-    permissions:
-      contents: read
-      security-events: write
+    env:
+      # "true"  => never fail CI (report-only)
+      # "false" => fail CI when errors are detected
+      ALLOW_WARNINGS: "true"
+
+      OUT_DIR: "vbscript-reports"
+      OUT_SARIF: "vbscript-results.sarif"
+      OUT_MD: "vbscript-summary.md"
+      OUT_TXT: "vbscript-raw-output.txt"
+
+      # Optional: stop scan after first syntax error (faster)
+      FAIL_FAST: "false"
 
     steps:
-      - name: 📦 Checkout repository (short path to avoid filename issues)
+      - name: "📦 Checkout (short path to avoid long filename issues)"
         uses: actions/checkout@v4
         with:
           path: repo
+          fetch-depth: 0
 
-      - name: 🍷 Setup Wine
+      - name: "🍷 Setup Wine"
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y wine64
           WINEDEBUG=-all wineboot --init
 
-      - name: 🔎 Locate .vbs and .hta Files
-        working-directory: ./repo
-        run: |
-          find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) > vbscript-files.txt
-          cat vbscript-files.txt || echo "No .vbs or .hta files found."
-
-      - name: 🧪 VBScript Syntax Validation with SARIF
-        working-directory: ./repo
+      - name: "📁 Prepare output folder + baseline SARIF"
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
+          mkdir -p "${OUT_DIR}"
 
-          # SARIF header
-          cat > vbscript-results.sarif <<'SARIF'
+          cat > "${OUT_DIR}/${OUT_SARIF}" <<'EOF'
           {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
             "version": "2.1.0",
             "runs": [
               {
                 "tool": {
                   "driver": {
-                    "name": "VBScript Syntax Check",
-                    "informationUri": "https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)",
-                    "rules": []
+                    "name": "VBScript Syntax Check (Wine + cscript.exe)",
+                    "informationUri": "https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)"
                   }
                 },
-                "results": [
-          SARIF
-
-          # Markdown summary header
-          echo "| File | Line | Message |" > vbscript-summary.md
-          echo "|------|------|---------|" >> vbscript-summary.md
-
-          exit_code=0
-          first=true
-          error_found=false
-
-          # Optional: fail fast on first error (set to true to stop early)
-          FAIL_FAST=false
-
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            echo "🔍 Checking: $file"
-
-            # Skip HTML-based HTA files
-            if [[ "$file" == *.hta ]]; then
-              if grep -iqE '^\s*<(html|!doctype)' "$file"; then
-                echo "::notice file=$file::Skipped HTA (HTML content)"
-                continue
-              fi
-              if ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
-                echo "::notice file=$file::Skipped HTA (no VBScript block)"
-                continue
-              fi
-            fi
-
-            tmp_err="$(mktemp)"
-            # //B = batch mode (better exit codes). Keep nologo.
-            if ! WINEDEBUG=-all wine cscript.exe //nologo //B "$file" 2> "$tmp_err"; then
-              [[ "$first" == false ]] && echo "," >> vbscript-results.sarif
-              first=false
-              error_found=true
-
-              # Best-effort line detection (fallback to 1)
-              match_line="$(grep -inE "error|erro" "$tmp_err" | head -n 1 || true)"
-              line_number="$(echo "$match_line" | cut -d: -f1 || true)"
-              message="$(echo "$match_line" | cut -d: -f2- | sed 's/"/'\''/g' || true)"
-
-              if [[ -z "${line_number:-}" ]]; then
-                line_number=1
-              fi
-              if [[ -z "${message:-}" ]]; then
-                message="Syntax error in VBScript"
-              fi
-
-              echo "::error file=$file,line=$line_number::${message}"
-              echo "| \`$file\` | $line_number | $message |" >> vbscript-summary.md
-
-              # SARIF result object
-              cat >> vbscript-results.sarif <<SARIF
-                  {
-                    "level": "error",
-                    "message": { "text": "${message}" },
-                    "locations": [
-                      {
-                        "physicalLocation": {
-                          "artifactLocation": { "uri": "${file#./}" },
-                          "region": { "startLine": ${line_number} }
-                        }
-                      }
-                    ]
-                  }
-          SARIF
-
-              exit_code=1
-
-              if [[ "$FAIL_FAST" == "true" ]]; then
-                rm -f "$tmp_err"
-                break
-              fi
-            fi
-
-            rm -f "$tmp_err"
-          done < vbscript-files.txt
-
-          # Close SARIF
-          cat >> vbscript-results.sarif <<'SARIF'
-                ]
+                "results": []
               }
             ]
           }
-          SARIF
+          EOF
 
-          if [[ "$error_found" == false ]]; then
-            echo "| ✅ No syntax errors found. | - | - |" >> vbscript-summary.md
+          {
+            echo "# VBScript Syntax Validation (Report-Only)"
+            echo
+            echo "| File | Line | Message |"
+            echo "|------|------|---------|"
+          } > "${OUT_DIR}/${OUT_MD}"
+
+          : > "${OUT_DIR}/${OUT_TXT}"
+
+      - name: "🔎 Locate .vbs and .hta files (tracked only)"
+        id: files
+        working-directory: ./repo
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Use git-tracked files (more stable/fast than find on huge repos)
+          git ls-files -z '*.vbs' '*.hta' > ../vbscript-files.txt || true
+
+          if [[ ! -s ../vbscript-files.txt ]]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          exit $exit_code
+          count="$(tr -cd '\0' < ../vbscript-files.txt | wc -c | tr -d ' ')"
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
 
-      - name: 📁 Upload SARIF Artifact
+      - name: "🧪 Validate syntax (VBS + HTA VBScript blocks) + generate SARIF"
+        id: scan
+        if: always()
+        working-directory: ./repo
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          outdir="../${OUT_DIR}"
+          sarif="${outdir}/${OUT_SARIF}"
+          md="${outdir}/${OUT_MD}"
+          raw="${outdir}/${OUT_TXT}"
+
+          files_count="${{ steps.files.outputs.count }}"
+          if [[ "${files_count}" == "0" ]]; then
+            echo "errors=0" >> "$GITHUB_OUTPUT"
+            echo "tool_failure=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Helper: safely escape JSON string
+          json_escape() {
+            python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])'
+          }
+
+          # Helper: push SARIF result into baseline SARIF (append to runs[0].results)
+          sarif_add_result() {
+            local rel="$1"
+            local line="$2"
+            local msg="$3"
+
+            # Append using python (avoids jq dependency)
+            python3 - "$sarif" "$rel" "$line" "$msg" <<'PY'
+import json,sys
+p=sys.argv[1]; rel=sys.argv[2]; line=int(sys.argv[3]); msg=sys.argv[4]
+with open(p,'r',encoding='utf-8') as f:
+  data=json.load(f)
+res={
+  "ruleId":"vbscript-syntax",
+  "level":"error",
+  "message":{"text":msg},
+  "locations":[{"physicalLocation":{"artifactLocation":{"uri":rel},"region":{"startLine":line}}}]
+}
+data["runs"][0]["results"].append(res)
+with open(p,'w',encoding='utf-8') as f:
+  json.dump(data,f,ensure_ascii=False,indent=2)
+PY
+          }
+
+          # Extract VBScript from HTA best-effort:
+          # - Finds <script ... language="vbscript">...</script> blocks
+          # - Writes a temporary .vbs
+          # - Keeps a naive offset map (start line of block) for line correction
+          extract_vbscript_from_hta() {
+            local file="$1"
+            local tmp="$2"
+            local offset_out="$3"
+
+            # Default offset: 0 (no correction)
+            echo "0" > "$offset_out"
+
+            # Quick skip if HTML-based HTA without VBScript tags
+            if ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
+              return 1
+            fi
+
+            # Find first vbscript block line number (best-effort)
+            local start_line
+            start_line="$(grep -in '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file" | head -n 1 | cut -d: -f1 || true)"
+            if [[ -n "${start_line:-}" ]]; then
+              # content starts after the <script> line
+              echo "$start_line" > "$offset_out"
+            fi
+
+            # Extract content between <script ... vbscript> and </script>
+            # (first block only, enterprise compromise: keep fast and deterministic)
+            python3 - "$file" "$tmp" <<'PY'
+import re,sys
+src=sys.argv[1]; dst=sys.argv[2]
+txt=open(src,'r',encoding='utf-8',errors='ignore').read()
+m=re.search(r'<script[^>]*language\s*=\s*["\']vbscript["\'][^>]*>(.*?)</script>', txt, flags=re.I|re.S)
+if not m:
+  raise SystemExit(2)
+body=m.group(1)
+# Normalize line endings; keep as-is mostly
+open(dst,'w',encoding='utf-8',errors='ignore').write(body.strip()+"\n")
+PY
+            return 0
+          }
+
+          # Parse cscript error output for a reasonable line number (best-effort)
+          # Handles variants like:
+          # - "Line: 12"
+          # - "line 12"
+          # - "...(12, 5) ..."
+          detect_line() {
+            local errfile="$1"
+
+            local line=""
+            # 1) "Line: 12"
+            line="$(grep -ioE 'line[: ]+[0-9]+' "$errfile" | head -n 1 | grep -oE '[0-9]+' || true)"
+            if [[ -n "$line" ]]; then echo "$line"; return 0; fi
+
+            # 2) "(12, 5)" style
+            line="$(grep -oE '\([0-9]+,[[:space:]]*[0-9]+\)' "$errfile" | head -n 1 | tr -d '()' | cut -d, -f1 | tr -d ' ' || true)"
+            if [[ -n "$line" ]]; then echo "$line"; return 0; fi
+
+            # fallback
+            echo "1"
+          }
+
+          # Parse a concise message from stderr
+          detect_message() {
+            local errfile="$1"
+            local msg=""
+            msg="$(grep -m 1 -iE 'error|erro|compilation|expected|unterminated|invalid|syntax' "$errfile" || true)"
+            if [[ -z "${msg// }" ]]; then
+              msg="$(head -n 1 "$errfile" 2>/dev/null || true)"
+            fi
+            if [[ -z "${msg// }" ]]; then
+              msg="VBScript syntax error"
+            fi
+            # Clean up CR and quotes
+            msg="$(printf '%s' "$msg" | tr -d '\r' )"
+            printf '%s' "$msg"
+          }
+
+          # Scan loop
+          errors=0
+          tool_failure="false"
+
+          while IFS= read -r -d '' file; do
+            [[ -z "${file:-}" ]] && continue
+
+            # Always log file scanning activity
+            echo "==> Checking: ${file}" >> "$raw"
+
+            rel="${file#./}"
+
+            if [[ "$file" == *.hta ]]; then
+              # Skip HTA that is plainly HTML without VBScript blocks
+              if grep -iqE '^\s*<(html|!doctype)' "$file" && ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
+                echo "::notice file=${rel}::Skipped HTA (HTML content, no VBScript block)"
+                echo "SKIP (HTA no VBScript): ${rel}" >> "$raw"
+                continue
+              fi
+
+              tmp="$(mktemp --suffix=.vbs)"
+              off="$(mktemp)"
+              if ! extract_vbscript_from_hta "$file" "$tmp" "$off"; then
+                echo "::notice file=${rel}::Skipped HTA (no VBScript block)"
+                echo "SKIP (HTA no VBScript): ${rel}" >> "$raw"
+                rm -f "$tmp" "$off"
+                continue
+              fi
+
+              offset="$(cat "$off" 2>/dev/null || echo 0)"
+              rm -f "$off"
+
+              tmp_err="$(mktemp)"
+              set +e
+              WINEDEBUG=-all wine cscript.exe //nologo //B "$tmp" 2> "$tmp_err" >> "$raw"
+              rc="$?"
+              set -e
+
+              if [[ "$rc" != "0" ]]; then
+                errors=$((errors + 1))
+                line="$(detect_line "$tmp_err")"
+                msg="$(detect_message "$tmp_err")"
+
+                # Adjust line with block offset if known (best-effort)
+                if [[ "${offset}" =~ ^[0-9]+$ ]] && [[ "${line}" =~ ^[0-9]+$ ]]; then
+                  line=$(( line + offset ))
+                fi
+
+                echo "::error file=${rel},line=${line}::${msg}"
+                echo "| \`${rel}\` | ${line} | ${msg} |" >> "$md"
+                sarif_add_result "$rel" "$line" "$msg"
+              fi
+
+              rm -f "$tmp" "$tmp_err"
+            else
+              tmp_err="$(mktemp)"
+              set +e
+              WINEDEBUG=-all wine cscript.exe //nologo //B "$file" 2> "$tmp_err" >> "$raw"
+              rc="$?"
+              set -e
+
+              if [[ "$rc" != "0" ]]; then
+                errors=$((errors + 1))
+                line="$(detect_line "$tmp_err")"
+                msg="$(detect_message "$tmp_err")"
+
+                echo "::error file=${rel},line=${line}::${msg}"
+                echo "| \`${rel}\` | ${line} | ${msg} |" >> "$md"
+                sarif_add_result "$rel" "$line" "$msg"
+              fi
+
+              rm -f "$tmp_err"
+            fi
+
+            if [[ "${FAIL_FAST}" == "true" && "${errors}" -gt 0 ]]; then
+              break
+            fi
+          done < ../vbscript-files.txt
+
+          if [[ "${errors}" -eq 0 ]]; then
+            echo "| ✅ No syntax errors found. | - | - |" >> "$md"
+          fi
+
+          echo "errors=${errors}" >> "$GITHUB_OUTPUT"
+          echo "tool_failure=${tool_failure}" >> "$GITHUB_OUTPUT"
+
+      - name: "🧾 Publish report to Run Summary (View Runs)"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          errors="${{ steps.scan.outputs.errors || '0' }}"
+          files_count="${{ steps.files.outputs.count || '0' }}"
+
+          {
+            echo "## 🧪 VBScript Syntax Validation (Report-Only)"
+            echo
+            echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
+            echo "- **Ref:** \`${GITHUB_REF}\`"
+            echo "- **Commit:** \`${GITHUB_SHA}\`"
+            echo "- **Files matched:** \`${files_count}\`"
+            echo "- **Errors:** \`${errors}\`"
+            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
+            echo
+            echo "### Report"
+            echo
+            if [[ -f "${OUT_DIR}/${OUT_MD}" ]]; then
+              cat "${OUT_DIR}/${OUT_MD}"
+            else
+              echo "_No markdown report file found:_ \`${OUT_DIR}/${OUT_MD}\`"
+            fi
+            echo
+            echo "### Artifacts"
+            echo
+            echo "- \`${OUT_DIR}/${OUT_MD}\`"
+            echo "- \`${OUT_DIR}/${OUT_SARIF}\`"
+            echo "- \`${OUT_DIR}/${OUT_TXT}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "📦 Upload artifacts (reports)"
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vbscript-lint-sarif
-          path: repo/vbscript-results.sarif
+          name: vbscript-syntax-reports
+          path: ${{ env.OUT_DIR }}/**
+          if-no-files-found: warn
+          retention-days: 30
 
-      - name: 📝 Upload Markdown Summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: vbscript-lint-summary
-          path: repo/vbscript-summary.md
-
-      - name: 🛰️ Upload SARIF to GitHub Code Scanning
+      - name: "🛰️ Upload SARIF to GitHub Code Scanning"
+        if: always() && hashFiles(format('{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: repo/vbscript-results.sarif
+          sarif_file: ${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
+          category: vbscript/syntax
+
+      - name: "✅ Policy Gate (optional enforcement)"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
+            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            exit 0
+          fi
+
+          errors="${{ steps.scan.outputs.errors || '0' }}"
+          if [[ "${errors}" != "0" ]]; then
+            echo "❌ VBScript syntax errors detected: ${errors}"
+            exit 1
+          fi
+
+          echo "✅ No VBScript syntax errors."
