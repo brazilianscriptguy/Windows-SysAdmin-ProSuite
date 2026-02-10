@@ -1,4 +1,4 @@
-name: EditorConfig Check [Report-Only]
+name: EditorConfig Check (EC) [Reports + Summary]
 
 on:
   push:
@@ -38,77 +38,92 @@ permissions:
 
 jobs:
   editorconfig-check:
-    name: 🔍 EditorConfig Lint (Report-Only)
+    name: 🔍 EditorConfig Lint (Reports First)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     env:
-      # REPORT-ONLY: never fail the workflow (even if violations exist)
-      REPORT_ONLY: "true"
-
-      # Pin for deterministic installs
       EC_VERSION: "3.0.3"
 
-      # Output
       OUT_DIR: "editorconfig-reports"
-      EC_OUTPUT: "ec-output.txt"
-      EC_SUMMARY: "ec-summary.md"
+      OUT_TXT: "ec-output.txt"
+      OUT_MD: "ec-report.md"
+
+      # Enterprise compromise:
+      # - true  => fail ONLY on push to main (after publishing reports)
+      # - false => never fail (pure report-only)
+      ENFORCE_ON_MAIN: "false"
+
+      # How much to show inline in View Runs
+      SUMMARY_LINES: "160"
 
     steps:
-      - name: 📦 Checkout Repository
+      - name: 📦 Checkout
         uses: actions/checkout@v4
 
-      - name: 📁 Ensure output folder exists
+      - name: 📁 Prepare output directory
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "${OUT_DIR}"
 
       - name: 📥 Install EditorConfig Checker (pinned)
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
 
           URL="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
           TMPDIR="$(mktemp -d)"
-          curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
 
+          curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
           mkdir -p "${TMPDIR}/ec"
           tar -xzf "${TMPDIR}/ec.tar.gz" -C "${TMPDIR}/ec"
 
           BIN="$(find "${TMPDIR}/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
-            echo "❌ Error: 'ec' binary not found after extraction."
+            echo "❌ ec binary not found."
             find "${TMPDIR}/ec" -maxdepth 6 -print
-            exit 1
+            # Mark tool install as failed but do not crash the whole job here; summary will show it.
+            exit 2
           fi
 
           sudo install -m 0755 "${BIN}" /usr/local/bin/ec
           /usr/local/bin/ec --version
 
-      - name: ▶️ Run EditorConfig Checker (capture output + exit code)
-        id: ec
+      - name: ▶️ Run EC (capture full output + exit code)
+        id: run
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
 
-          OUT_TXT="${OUT_DIR}/${EC_OUTPUT}"
+          TXT="${OUT_DIR}/${OUT_TXT}"
 
           set +e
-          /usr/local/bin/ec . 2>&1 | tee "${OUT_TXT}"
+          /usr/local/bin/ec . 2>&1 | tee "${TXT}"
           EC_EXIT="${PIPESTATUS[0]}"
           set -e
+
+          # If the binary isn't present (install step failed), set an explicit tool failure code.
+          if [[ ! -x "/usr/local/bin/ec" ]]; then
+            EC_EXIT="2"
+            echo "ec binary missing; forcing tool failure code 2" | tee -a "${TXT}"
+          fi
 
           echo "exit_code=${EC_EXIT}" >> "${GITHUB_OUTPUT}"
           echo "EditorConfig Checker exit code: ${EC_EXIT}"
 
-      - name: 🧾 Classify result (clean / violations / tool failure)
-        id: policy
+      - name: 🧾 Classify result (clean / violations / tool_failure)
+        id: classify
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
 
-          EC_EXIT="${{ steps.ec.outputs.exit_code }}"
+          EC_EXIT="${{ steps.run.outputs.exit_code }}"
+
           if [[ "${EC_EXIT}" == "0" ]]; then
             echo "status=clean" >> "${GITHUB_OUTPUT}"
           elif [[ "${EC_EXIT}" == "1" ]]; then
@@ -117,20 +132,20 @@ jobs:
             echo "status=tool_failure" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: 📋 Publish Run Summary (View Runs)
+      - name: 📝 Build Markdown report file (full context)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
 
-          OUT_TXT="${OUT_DIR}/${EC_OUTPUT}"
-          OUT_MD="${OUT_DIR}/${EC_SUMMARY}"
+          TXT="${OUT_DIR}/${OUT_TXT}"
+          MD="${OUT_DIR}/${OUT_MD}"
 
-          STATUS="${{ steps.policy.outputs.status }}"
-          EXIT_CODE="${{ steps.ec.outputs.exit_code }}"
+          STATUS="${{ steps.classify.outputs.status }}"
+          EXIT_CODE="${{ steps.run.outputs.exit_code }}"
 
           {
-            echo "## 🔍 EditorConfig Check (Report-Only)"
+            echo "# 🔍 EditorConfig Report"
             echo
             echo "- **Workflow:** \`${{ github.workflow }}\`"
             echo "- **Event:** \`${{ github.event_name }}\`"
@@ -139,42 +154,53 @@ jobs:
             echo "- **EC version:** \`${EC_VERSION}\`"
             echo "- **Exit code:** \`${EXIT_CODE}\`"
             echo "- **Status:** \`${STATUS}\`"
-            echo "- **REPORT_ONLY:** \`${REPORT_ONLY}\`"
             echo
+            echo "## Output (full log)"
+            echo
+            echo '```text'
+            cat "${TXT}" 2>/dev/null || echo "(no output file found)"
+            echo '```'
+          } > "${MD}"
 
+      - name: 📌 Publish Run Summary (View Runs)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TXT="${OUT_DIR}/${OUT_TXT}"
+          STATUS="${{ steps.classify.outputs.status }}"
+          EXIT_CODE="${{ steps.run.outputs.exit_code }}"
+          LINES="${SUMMARY_LINES}"
+
+          {
+            echo "## 🔍 EditorConfig Check"
+            echo
+            echo "- **Status:** \`${STATUS}\`"
+            echo "- **Exit code:** \`${EXIT_CODE}\`"
+            echo "- **Ref:** \`${{ github.ref }}\`"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo
             if [[ "${STATUS}" == "tool_failure" ]]; then
-              echo "❌ **Tool failure** — EditorConfig Checker did not run successfully."
-              echo
-              echo "**Output (top 120 lines):**"
-              echo
-              echo '```text'
-              head -n 120 "${OUT_TXT}" || true
-              echo '```'
-              echo
-              echo "_Fix the workflow/tool invocation; results are not trustworthy._"
-
+              echo "❌ **Tool failure** — EC did not run cleanly. Output below:"
             elif [[ "${STATUS}" == "violations" ]]; then
-              echo "⚠️ **Violations detected** (report-only — workflow does not fail)"
-              echo
-              echo "**Output (top 120 lines):**"
-              echo
-              echo '```text'
-              head -n 120 "${OUT_TXT}" || true
-              echo '```'
-              echo
-              echo "_Output truncated. Download artifacts for full details._"
-
+              echo "⚠️ **Violations detected** — reporting continues and artifacts are uploaded."
             else
               echo "✅ **No violations detected.**"
             fi
-
+            echo
+            echo "**Output (top ${LINES} lines):**"
+            echo
+            echo '```text'
+            head -n "${LINES}" "${TXT}" 2>/dev/null || echo "(no output file found)"
+            echo '```'
             echo
             echo "### 📦 Artifacts"
-            echo "- \`${OUT_DIR}/${EC_OUTPUT}\`"
-            echo "- \`${OUT_DIR}/${EC_SUMMARY}\`"
-          } | tee "${OUT_MD}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "- \`${OUT_DIR}/${OUT_TXT}\`"
+            echo "- \`${OUT_DIR}/${OUT_MD}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 📦 Upload Artifacts (output + summary)
+      - name: 📦 Upload artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -183,10 +209,40 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: ✅ Finalize (report-only mode never fails)
+      - name: 🚫 Optional enforcement (AFTER reporting only)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          echo "Report-only workflow: always passing regardless of violations."
-          exit 0
+
+          STATUS="${{ steps.classify.outputs.status }}"
+
+          # Never block PRs; enforcement is only meaningful on main pushes.
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "PR run -> never fail. Reports already published."
+            exit 0
+          fi
+
+          # If enforcement is disabled, always pass.
+          if [[ "${ENFORCE_ON_MAIN}" != "true" ]]; then
+            echo "ENFORCE_ON_MAIN!=true -> report-only mode. Passing."
+            exit 0
+          fi
+
+          # Enforce only on main.
+          if [[ "${{ github.ref }}" != "refs/heads/main" ]]; then
+            echo "Not main -> report-only mode. Passing."
+            exit 0
+          fi
+
+          if [[ "${STATUS}" == "tool_failure" ]]; then
+            echo "❌ Tool failure. Failing on main."
+            exit 1
+          fi
+
+          if [[ "${STATUS}" == "violations" ]]; then
+            echo "❌ Violations detected. Failing on main."
+            exit 1
+          fi
+
+          echo "✅ Clean. Passing."
