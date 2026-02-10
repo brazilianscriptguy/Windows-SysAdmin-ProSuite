@@ -1,0 +1,11 @@
+# .gitleaks.toml (repo root)
+
+[[allowlist]]
+description = "Ignore explicit REDACTED placeholders in docs/config examples"
+regexes = [
+  '(?i)(<redacted>|\*\*\*redacted\*\*\*|\bredacted\b)'
+]
+paths = [
+  'README\.md$',
+  '^nuget\.config$'
+]
