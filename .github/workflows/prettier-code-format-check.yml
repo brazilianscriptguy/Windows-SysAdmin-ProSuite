@@ -19,6 +19,7 @@ on:
       - "package-lock.json"
       - "pnpm-lock.yaml"
       - "yarn.lock"
+      - ".github/workflows/prettier-code-format-check.yml"
   pull_request:
     branches: [main, develop]
     paths:
@@ -37,6 +38,7 @@ on:
       - "package-lock.json"
       - "pnpm-lock.yaml"
       - "yarn.lock"
+      - ".github/workflows/prettier-code-format-check.yml"
   workflow_dispatch:
 
 concurrency:
@@ -58,7 +60,6 @@ jobs:
       ALLOW_WARNINGS: "true"
 
       # If Prettier is missing from devDependencies, CI can install a pinned version temporarily.
-      # Recommended long-term: add prettier to devDependencies.
       BOOTSTRAP_PRETTIER_IF_MISSING: "true"
       PRETTIER_VERSION: "3.3.3"
 
@@ -70,17 +71,12 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js (LTS)
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: 🧾 Detect Package Manager
+      - name: 🧾 Detect Package Manager + Tooling
         id: pm
         shell: bash
         run: |
           set -euo pipefail
+
           if [[ -f pnpm-lock.yaml ]]; then
             echo "manager=pnpm" >> "$GITHUB_OUTPUT"
           elif [[ -f yarn.lock ]]; then
@@ -88,12 +84,24 @@ jobs:
           elif [[ -f package-lock.json ]]; then
             echo "manager=npm" >> "$GITHUB_OUTPUT"
           else
-            # No lockfile -> still attempt npm install, but warn in summary.
             echo "manager=npm" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 📥 Install Dependencies (deterministic when possible)
+          if [[ -f package.json ]]; then
+            echo "has_package_json=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_package_json=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ⚙️ Setup Node.js (LTS) + Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: ${{ steps.pm.outputs.manager }}
+
+      - name: 📥 Install Dependencies (only if package.json exists)
         id: install
+        if: ${{ steps.pm.outputs.has_package_json == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -106,13 +114,12 @@ jobs:
           elif [[ "$mgr" == "yarn" ]]; then
             corepack enable
             yarn --version
-            # Yarn Berry uses --immutable; Yarn classic ignores it but won't break
             yarn install --immutable || yarn install
           else
             if [[ -f package-lock.json ]]; then
               npm ci
             else
-              echo "::warning::No lockfile found (package-lock.json). Using 'npm install' (non-deterministic)."
+              echo "::warning::No lockfile found. Using 'npm install' (non-deterministic)."
               npm install
             fi
           fi
@@ -136,7 +143,6 @@ jobs:
           fi
 
           echo "::notice::Prettier not found in node_modules. Bootstrapping Prettier v${PRETTIER_VERSION} for CI-only run."
-          # CI-only install. This will NOT commit anything (runner workspace only).
           npm install --no-save "prettier@${PRETTIER_VERSION}"
 
           if [[ -x "node_modules/.bin/prettier" ]]; then
@@ -147,7 +153,32 @@ jobs:
             echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 🔍 Run Prettier Check
+      - name: 🧾 Build file list (tracked files only)
+        id: files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Only tracked files; avoids scanning node_modules or generated artifacts.
+          # Keep in sync with your "paths" filters.
+          git ls-files -z \
+            '*.js' '*.ts' '*.jsx' '*.tsx' \
+            '*.css' '*.json' '*.md' \
+            '*.yml' '*.yaml' \
+            > prettier-files.txt || true
+
+          count="$(python3 - <<'PY'
+import os
+p='prettier-files.txt'
+if not os.path.exists(p):
+  print(0); raise SystemExit
+data=open(p,'rb').read()
+print(0 if not data else data.count(b'\x00'))
+PY
+)"
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+
+      - name: 🔍 Run Prettier Check (tracked files)
         id: run_prettier
         shell: bash
         run: |
@@ -157,15 +188,24 @@ jobs:
           : > "$report"
 
           prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
+          files_count="${{ steps.files.outputs.count }}"
+
           if [[ "${prettier_present}" != "true" ]]; then
             echo "Prettier not available in this run." > "$report"
             echo "exit_code=2" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Run local prettier directly (avoid npx ambiguity)
+          if [[ "${files_count}" == "0" ]]; then
+            echo "No tracked files matched the Prettier file patterns." > "$report"
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           set +e
-          node_modules/.bin/prettier --check . > "$report" 2>&1
+          # Use --ignore-unknown to avoid errors on edge cases if file list expands later.
+          # Use xargs -0 to preserve spaces/newlines in paths.
+          cat prettier-files.txt | xargs -0 node_modules/.bin/prettier --ignore-unknown --check > "$report" 2>&1
           ec="$?"
           set -e
 
@@ -194,6 +234,11 @@ jobs:
           prettier_present="${{ steps.ensure_prettier.outputs.prettier_present }}"
           prettier_source="${{ steps.ensure_prettier.outputs.prettier_source }}"
           mgr="${{ steps.pm.outputs.manager }}"
+          has_pkg="${{ steps.pm.outputs.has_package_json }}"
+          files_count="${{ steps.files.outputs.count }}"
+
+          # Approx count of reported issues/files from report (best-effort).
+          findings="$(grep -E '^\[warn\]|^\[error\]' "${PRETTIER_REPORT}" 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
 
           {
             echo "### 💅 Prettier Format Summary"
@@ -201,10 +246,13 @@ jobs:
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Package manager:** \`${mgr}\`"
+            echo "- **package.json:** \`${has_pkg}\`"
+            echo "- **Files checked (tracked):** \`${files_count}\`"
             echo "- **Exit code:** \`${exit_code}\`"
             echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo "- **Prettier available:** \`${prettier_present}\`"
             echo "- **Prettier source:** \`${prettier_source}\`"
+            echo "- **Reported lines (warn/error):** \`${findings}\`"
             echo
 
             if [[ "${prettier_present}" != "true" ]]; then
@@ -218,10 +266,10 @@ jobs:
             elif [[ "$exit_code" != "0" ]]; then
               echo "⚠️ Formatting issues detected."
               echo
-              echo "**Top 80 lines:**"
+              echo "**Top 120 lines:**"
               echo
               echo '```text'
-              head -n 80 "${PRETTIER_REPORT}" || true
+              head -n 120 "${PRETTIER_REPORT}" || true
               echo '```'
               echo
               echo "_Output truncated. Download artifacts for the full report._"
@@ -245,6 +293,7 @@ jobs:
             ${{ env.PRETTIER_REPORT }}
             ${{ env.PRETTIER_SUMMARY }}
             ${{ env.NPM_DEBUG_LOG }}
+            prettier-files.txt
           retention-days: 30
 
       - name: ✅ Policy Gate
