@@ -50,7 +50,7 @@ permissions:
 
 jobs:
   prettier:
-    name: 💅 Prettier Code Format Validation
+    name: "💅 Prettier Code Format Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -68,10 +68,10 @@ jobs:
       NPM_DEBUG_LOG: "npm-debug.log"
 
     steps:
-      - name: 📦 Checkout Repository
+      - name: "📦 Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: 🧾 Detect Package Manager + Tooling
+      - name: "🧾 Detect Package Manager + Tooling"
         id: pm
         shell: bash
         run: |
@@ -93,15 +93,15 @@ jobs:
             echo "has_package_json=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: ⚙️ Setup Node.js (LTS) + Cache
+      - name: "⚙️ Setup Node.js (LTS) + Cache"
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: ${{ steps.pm.outputs.manager }}
+          cache: "${{ steps.pm.outputs.manager }}"
 
-      - name: 📥 Install Dependencies (only if package.json exists)
+      - name: "📥 Install Dependencies (only if package.json exists)"
         id: install
-        if: ${{ steps.pm.outputs.has_package_json == 'true' }}
+        if: "${{ steps.pm.outputs.has_package_json == 'true' }}"
         shell: bash
         run: |
           set -euo pipefail
@@ -114,6 +114,7 @@ jobs:
           elif [[ "$mgr" == "yarn" ]]; then
             corepack enable
             yarn --version
+            # Yarn Berry uses --immutable; Yarn classic ignores it but won't break
             yarn install --immutable || yarn install
           else
             if [[ -f package-lock.json ]]; then
@@ -124,7 +125,7 @@ jobs:
             fi
           fi
 
-      - name: 🧰 Ensure Prettier Available
+      - name: "🧰 Ensure Prettier Available"
         id: ensure_prettier
         shell: bash
         run: |
@@ -143,6 +144,7 @@ jobs:
           fi
 
           echo "::notice::Prettier not found in node_modules. Bootstrapping Prettier v${PRETTIER_VERSION} for CI-only run."
+          # CI-only install (runner workspace only; no commits)
           npm install --no-save "prettier@${PRETTIER_VERSION}"
 
           if [[ -x "node_modules/.bin/prettier" ]]; then
@@ -153,32 +155,28 @@ jobs:
             echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 🧾 Build file list (tracked files only)
+      - name: "🧾 Build file list (tracked files only)"
         id: files
         shell: bash
         run: |
           set -euo pipefail
 
-          # Only tracked files; avoids scanning node_modules or generated artifacts.
-          # Keep in sync with your "paths" filters.
           git ls-files -z \
             '*.js' '*.ts' '*.jsx' '*.tsx' \
             '*.css' '*.json' '*.md' \
             '*.yml' '*.yaml' \
             > prettier-files.txt || true
 
-          count="$(python3 - <<'PY'
-import os
-p='prettier-files.txt'
-if not os.path.exists(p):
-  print(0); raise SystemExit
-data=open(p,'rb').read()
-print(0 if not data else data.count(b'\x00'))
-PY
-)"
+          if [[ ! -s prettier-files.txt ]]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Count NUL-separated entries safely
+          count="$(tr -cd '\0' < prettier-files.txt | wc -c | tr -d ' ')"
           echo "count=${count}" >> "$GITHUB_OUTPUT"
 
-      - name: 🔍 Run Prettier Check (tracked files)
+      - name: "🔍 Run Prettier Check (tracked files)"
         id: run_prettier
         shell: bash
         run: |
@@ -202,9 +200,8 @@ PY
             exit 0
           fi
 
+          # Run local prettier directly (avoid npx ambiguity)
           set +e
-          # Use --ignore-unknown to avoid errors on edge cases if file list expands later.
-          # Use xargs -0 to preserve spaces/newlines in paths.
           cat prettier-files.txt | xargs -0 node_modules/.bin/prettier --ignore-unknown --check > "$report" 2>&1
           ec="$?"
           set -e
@@ -212,7 +209,7 @@ PY
           echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
           echo "Prettier exit code: $ec"
 
-      - name: 🧾 Capture npm debug log (if any)
+      - name: "🧾 Capture npm debug log (if any)"
         if: always()
         shell: bash
         run: |
@@ -224,7 +221,7 @@ PY
             echo "No npm debug log found." > "${NPM_DEBUG_LOG}"
           fi
 
-      - name: 📄 Generate Job Summary
+      - name: "📄 Generate Job Summary"
         if: always()
         shell: bash
         run: |
@@ -237,12 +234,11 @@ PY
           has_pkg="${{ steps.pm.outputs.has_package_json }}"
           files_count="${{ steps.files.outputs.count }}"
 
-          # Approx count of reported issues/files from report (best-effort).
-          findings="$(grep -E '^\[warn\]|^\[error\]' "${PRETTIER_REPORT}" 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
-
           {
             echo "### 💅 Prettier Format Summary"
             echo
+            echo "- **Workflow:** \`${GITHUB_WORKFLOW}\`"
+            echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** \`${GITHUB_SHA}\`"
             echo "- **Package manager:** \`${mgr}\`"
@@ -252,7 +248,6 @@ PY
             echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo "- **Prettier available:** \`${prettier_present}\`"
             echo "- **Prettier source:** \`${prettier_source}\`"
-            echo "- **Reported lines (warn/error):** \`${findings}\`"
             echo
 
             if [[ "${prettier_present}" != "true" ]]; then
@@ -284,7 +279,7 @@ PY
             fi
           } | tee "${PRETTIER_SUMMARY}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 📦 Upload Artifacts
+      - name: "📦 Upload Artifacts"
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -296,7 +291,7 @@ PY
             prettier-files.txt
           retention-days: 30
 
-      - name: ✅ Policy Gate
+      - name: "✅ Policy Gate"
         if: always()
         shell: bash
         run: |
