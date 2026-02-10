@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   psa-analyze:
-    name: PSScriptAnalyzer Report-Only (SARIF + Artifacts)
+    name: PSScriptAnalyzer Report-Only (SARIF + Artifacts + Summary)
     runs-on: windows-latest
     timeout-minutes: 35
 
@@ -82,28 +82,53 @@ jobs:
         run: |
           git config --global core.longpaths true
 
-      - name: Ensure output folder exists
-        shell: pwsh
-        run: |
-          $outDir = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-
-      - name: Initialize SARIF baseline (always create file)
+      - name: Initialize output directory + baselines (never fail)
         if: always()
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-          $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
-          $sarifOut = Join-Path $outDir $env:OUT_SARIF
 
-          $baseline = @{
+          $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $jsonOut  = Join-Path $outDir $env:OUT_JSON
+          $csvOut   = Join-Path $outDir $env:OUT_CSV
+          $mdOut    = Join-Path $outDir $env:OUT_MD
+          $sarifOut = Join-Path $outDir $env:OUT_SARIF
+          $failOut  = Join-Path $outDir $env:OUT_FAILTXT
+          $sumOut   = Join-Path $outDir $env:OUT_SUMMARY
+          $ps51Out  = Join-Path $outDir $env:OUT_PS51
+
+          # Baselines so uploads/summary always have something to show
+          '[]' | Set-Content -Encoding UTF8 $jsonOut
+          'RuleName,Severity,Message,ScriptName,Line,Column' | Set-Content -Encoding UTF8 $csvOut
+          @(
+            '# PSScriptAnalyzer Report (Report-Only)'
+            ''
+            'Status: Not executed yet.'
+          ) | Set-Content -Encoding UTF8 $mdOut
+          @(
+            'PSScriptAnalyzer (Report-Only)'
+            'Files scanned: 0'
+            "Settings file used: False ($($env:SETTINGS_FILE))"
+            'Total findings: 0'
+          ) | Set-Content -Encoding UTF8 $sumOut
+          @(
+            'PS 5.1 Compatibility Scan (Report-Only)'
+            'Files scanned: 0'
+            "Excluded subtree: $($env:EXCLUDE_SUBTREE)"
+            ''
+            'No PowerShell files found to scan.'
+          ) | Set-Content -Encoding UTF8 $ps51Out
+          '' | Set-Content -Encoding UTF8 $failOut
+
+          $baselineSarif = @{
             '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
             version   = '2.1.0'
             runs      = @(@{ tool = @{ driver = @{ name = 'PSScriptAnalyzer'; version = '0' } }; results = @() })
           }
+          $baselineSarif | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
 
-          $baseline | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $sarifOut
-          Write-Host "Baseline SARIF created: $sarifOut"
           exit 0
 
       - name: Ensure module cache directories exist
@@ -121,7 +146,7 @@ jobs:
             ~\Documents\WindowsPowerShell\Modules
           key: psmodules-${{ runner.os }}-psa-${{ env.PSA_VERSION }}
 
-      - name: Install PSScriptAnalyzer
+      - name: Install PSScriptAnalyzer (pinned)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -139,6 +164,49 @@ jobs:
           Write-Host "PSScriptAnalyzer version loaded: $((Get-Module PSScriptAnalyzer).Version)"
           exit 0
 
+      - name: Discover PowerShell files to analyze
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          $root = $env:GITHUB_WORKSPACE
+          $prune = [regex]::new($env:PRUNE_DIR_REGEX)
+
+          $excludeSub = ($env:EXCLUDE_SUBTREE -replace '/', [IO.Path]::DirectorySeparatorChar)
+          $excludeSubEsc = [regex]::Escape($excludeSub)
+
+          $roots = @()
+          foreach ($token in ($env:ANALYZE_ROOTS -split '\s+')) {
+            if ([string]::IsNullOrWhiteSpace($token)) { continue }
+            $p = Join-Path $root $token
+            if (Test-Path $p) { $roots += $p }
+          }
+
+          $files = @()
+          if ($roots.Count -gt 0) {
+            $files = foreach ($r in $roots) {
+              Get-ChildItem -Path $r -Recurse -File -Include *.ps1,*.psm1,*.psd1 -ErrorAction SilentlyContinue |
+                Where-Object {
+                  ($_.FullName -notmatch $prune) -and
+                  ($_.FullName -notmatch $excludeSubEsc)
+                }
+            }
+          }
+
+          $files = @($files | Sort-Object FullName -Unique)
+          $count = @($files).Count
+
+          "PSA_FILE_COUNT=$count" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          # (Optional) write list for diagnostics/artifact
+          $outDir = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          $listPath = Join-Path $outDir "psa-files.txt"
+          $files | ForEach-Object { $_.FullName.Replace("$env:GITHUB_WORKSPACE\", '').Replace("$env:GITHUB_WORKSPACE/", '') } |
+            Set-Content -Encoding UTF8 $listPath
+
+          exit 0
+
       - name: PS 5.1 Compatibility Scan (report-only)
         if: always()
         shell: pwsh
@@ -147,7 +215,6 @@ jobs:
 
           $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
           $ps51Out = Join-Path $outDir $env:OUT_PS51
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
           $root  = $env:GITHUB_WORKSPACE
           $prune = [regex]::new($env:PRUNE_DIR_REGEX)
@@ -197,13 +264,11 @@ jobs:
           }
 
           $hitsTotal = 0
-
           foreach ($p in $patterns) {
             $name = $p.Name
             $rx   = [regex]::new($p.Rx)
 
             $hits = New-Object System.Collections.Generic.List[string]
-
             foreach ($f in $files) {
               try {
                 $content = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop
@@ -218,17 +283,12 @@ jobs:
                     }
                   }
                 }
-              } catch {
-                # keep report-only behavior
-              }
+              } catch { }
             }
 
             $lines.Add("## $name")
-            if ($hits.Count -eq 0) {
-              $lines.Add("- None")
-            } else {
-              foreach ($h in $hits) { $lines.Add("- $h") }
-            }
+            if ($hits.Count -eq 0) { $lines.Add("- None") }
+            else { foreach ($h in $hits) { $lines.Add("- $h") } }
             $lines.Add("")
           }
 
@@ -246,7 +306,6 @@ jobs:
           $ErrorActionPreference = 'Continue'
 
           $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
           $jsonOut  = Join-Path $outDir $env:OUT_JSON
           $csvOut   = Join-Path $outDir $env:OUT_CSV
@@ -305,16 +364,15 @@ jobs:
               }
 
               $results = $all.ToArray()
-            } else {
-              "No PowerShell files found to analyze." | Set-Content -Encoding UTF8 $sumOut
             }
           } catch {
-            $_ | Out-String | Set-Content -Encoding UTF8 $failOut
+            $_ | Out-String | Add-Content -Encoding UTF8 $failOut
             $results = @()
           }
 
           if (-not $results) { $results = @() }
 
+          # Corporate-defensible suppression: suppress ShouldProcess only inside UI wrapper function names
           $uiWrapperRx = [regex]::new($env:UI_WRAPPER_FN_REGEX, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
           function Get-ContainingFunctionName {
@@ -333,9 +391,7 @@ jobs:
                 }
               }
               return $null
-            } catch {
-              return $null
-            }
+            } catch { return $null }
           }
 
           $filtered = New-Object System.Collections.Generic.List[object]
@@ -354,19 +410,15 @@ jobs:
               $fn = Get-ContainingFunctionName -Path $scriptPath -Line $lineNum
             }
 
-            if ($fn -and $uiWrapperRx.IsMatch($fn)) {
-              continue
-            }
-
+            if ($fn -and $uiWrapperRx.IsMatch($fn)) { continue }
             $filtered.Add($r)
           }
 
           $results = $filtered.ToArray()
 
+          # Reports
           $results | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $jsonOut
-
-          $results |
-            Select-Object RuleName, Severity, Message, ScriptName, Line, Column |
+          $results | Select-Object RuleName, Severity, Message, ScriptName, Line, Column |
             Export-Csv -Path $csvOut -NoTypeInformation -Encoding UTF8
 
           $bySev  = $results | Group-Object Severity | Sort-Object Name
@@ -389,11 +441,8 @@ jobs:
           else { foreach ($g in $top) { $md.Add("- $($g.Name): $($g.Count)") } }
           $md.Add("")
           $md.Add("## PS 5.1 Compatibility Scan")
-          if (Test-Path $ps51Out) {
-            $md.Add("- See artifact file: $($env:OUT_PS51)")
-          } else {
-            $md.Add("- PS 5.1 scan report not found.")
-          }
+          if (Test-Path $ps51Out) { $md.Add("- See artifact file: $($env:OUT_PS51)") }
+          else { $md.Add("- PS 5.1 scan report not found.") }
           $md.Add("")
           $md.Add("> Report-only: findings never fail CI. Artifacts are uploaded for review.")
           $md | Set-Content -Encoding UTF8 $mdOut
@@ -414,6 +463,7 @@ jobs:
             }
           }
 
+          # SARIF
           try {
             $sarif = @{
               '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
@@ -469,14 +519,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Continue'
 
-          $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
-          $mdOut   = Join-Path $outDir $env:OUT_MD
-          $sumOut  = Join-Path $outDir $env:OUT_SUMMARY
-          $ps51Out = Join-Path $outDir $env:OUT_PS51
-          $jsonOut = Join-Path $outDir $env:OUT_JSON
-          $sarifOut= Join-Path $outDir $env:OUT_SARIF
-          $csvOut  = Join-Path $outDir $env:OUT_CSV
-          $failOut = Join-Path $outDir $env:OUT_FAILTXT
+          $outDir   = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          $mdOut    = Join-Path $outDir $env:OUT_MD
+          $sumOut   = Join-Path $outDir $env:OUT_SUMMARY
+          $ps51Out  = Join-Path $outDir $env:OUT_PS51
+          $jsonOut  = Join-Path $outDir $env:OUT_JSON
+          $csvOut   = Join-Path $outDir $env:OUT_CSV
+          $sarifOut = Join-Path $outDir $env:OUT_SARIF
+          $failOut  = Join-Path $outDir $env:OUT_FAILTXT
 
           $findings = 0
           try {
@@ -487,44 +537,45 @@ jobs:
                 $findings = @($obj).Count
               }
             }
-          } catch {
-            $findings = 0
-          }
+          } catch { $findings = 0 }
 
-          $lines = New-Object System.Collections.Generic.List[string]
-          $lines.Add("## 🧪 PSScriptAnalyzer Corporate Lint (Report-Only)")
-          $lines.Add("")
-          $lines.Add("**Event:** ``$($env:GITHUB_EVENT_NAME)``")
-          $lines.Add("**Ref:** ``$($env:GITHUB_REF)``")
-          $lines.Add("**Files scanned:** $([string]::Empty + (Get-Content -LiteralPath $sumOut -ErrorAction SilentlyContinue | Select-String -Pattern '^Files scanned:' | ForEach-Object { $_.Line -replace '^Files scanned:\s*', '' } | Select-Object -First 1))")
-          $lines.Add("**Total findings:** $findings")
-          $lines.Add("")
+          $summaryFile = $env:GITHUB_STEP_SUMMARY
 
-          $lines.Add("### Summary")
-          $lines.Add("")
-          if (Test-Path $sumOut) { $lines.AddRange((Get-Content -LiteralPath $sumOut -ErrorAction SilentlyContinue)) }
-          else { $lines.Add("_No summary file found._") }
-          $lines.Add("")
+          @(
+            "## 🧪 PSScriptAnalyzer Corporate Lint (Report-Only)"
+            ""
+            "**Event:** ``$($env:GITHUB_EVENT_NAME)``"
+            "**Ref:** ``$($env:GITHUB_REF)``"
+            "**Findings:** $findings"
+            ""
+            "### Summary"
+            ""
+          ) | Set-Content -LiteralPath $summaryFile -Encoding UTF8
 
-          $lines.Add("### Report (Markdown)")
-          $lines.Add("")
-          if (Test-Path $mdOut) { $lines.AddRange((Get-Content -LiteralPath $mdOut -ErrorAction SilentlyContinue)) }
-          else { $lines.Add("_No markdown report file found._") }
-          $lines.Add("")
+          if (Test-Path $sumOut) { Get-Content -LiteralPath $sumOut | Add-Content -LiteralPath $summaryFile -Encoding UTF8 }
+          else { "_No summary file found: $($env:OUT_DIR)/$($env:OUT_SUMMARY)_" | Add-Content -LiteralPath $summaryFile -Encoding UTF8 }
 
-          $lines.Add("### Artifacts")
-          $lines.Add("")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_MD)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_SUMMARY)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_PS51)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_JSON)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_CSV)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_SARIF)``")
-          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_FAILTXT)``")
-          $lines.Add("")
+          @(
+            ""
+            "### Report (Markdown)"
+            ""
+          ) | Add-Content -LiteralPath $summaryFile -Encoding UTF8
 
-          $summaryPath = $env:GITHUB_STEP_SUMMARY
-          $lines | Set-Content -LiteralPath $summaryPath -Encoding UTF8
+          if (Test-Path $mdOut) { Get-Content -LiteralPath $mdOut | Add-Content -LiteralPath $summaryFile -Encoding UTF8 }
+          else { "_No markdown report found: $($env:OUT_DIR)/$($env:OUT_MD)_" | Add-Content -LiteralPath $summaryFile -Encoding UTF8 }
+
+          @(
+            ""
+            "### Artifacts"
+            ""
+            "- ``$($env:OUT_DIR)/$($env:OUT_MD)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_SUMMARY)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_PS51)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_JSON)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_CSV)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_SARIF)``"
+            "- ``$($env:OUT_DIR)/$($env:OUT_FAILTXT)``"
+          ) | Add-Content -LiteralPath $summaryFile -Encoding UTF8
 
       - name: Pre-upload diagnostics (ensure SARIF exists)
         if: always()
