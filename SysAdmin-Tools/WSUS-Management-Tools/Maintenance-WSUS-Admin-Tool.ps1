@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    WSUS Maintenance GUI — decline, cleanup and WID (SUSDB) tasks. 
+    WSUS Maintenance GUI — decline, cleanup and WID (SUSDB) tasks.  
 
 .DESCRIPTION
     Robust GUI for WSUS maintenance:
