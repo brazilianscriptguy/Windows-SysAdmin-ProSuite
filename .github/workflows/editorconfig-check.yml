@@ -6,13 +6,27 @@ on:
     paths:
       - ".editorconfig"
       - "**/.editorconfig"
-      - "**/*"
+      - "**/*.ps1"
+      - "**/*.psm1"
+      - "**/*.psd1"
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.xml"
   pull_request:
     branches: [main, develop]
     paths:
       - ".editorconfig"
       - "**/.editorconfig"
-      - "**/*"
+      - "**/*.ps1"
+      - "**/*.psm1"
+      - "**/*.psd1"
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.xml"
   workflow_dispatch:
 
 concurrency:
@@ -29,14 +43,8 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # "true"  => never fail the job (report-only mode)
-      # "false" => fail only when violations are detected in output
       ALLOW_WARNINGS: "false"
-
-      # Pin for deterministic installs (update intentionally)
       EC_VERSION: "3.0.3"
-
-      # Output files
       EC_OUTPUT: "ec-output.txt"
       EC_SUMMARY: "ec-summary.md"
 
@@ -48,28 +56,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           URL="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
-          echo "Downloading EditorConfig Checker v${EC_VERSION}..."
-          echo "URL: ${URL}"
-
           TMPDIR="$(mktemp -d)"
           curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
-
           mkdir -p "${TMPDIR}/ec"
           tar -xzf "${TMPDIR}/ec.tar.gz" -C "${TMPDIR}/ec"
-
           BIN="$(find "${TMPDIR}/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: 'ec' binary not found after extraction."
-            echo "Extracted contents:"
             find "${TMPDIR}/ec" -maxdepth 6 -print
             exit 1
           fi
-
           sudo install -m 0755 "${BIN}" /usr/local/bin/ec
-
-          echo "Installed:"
           /usr/local/bin/ec --version
 
       - name: ▶️ Run EditorConfig Checker (capture output + exit code)
@@ -77,27 +75,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          # We do NOT hard-fail on non-zero exit codes because
-          # ec can return 2 in some environments even when we
-          # prefer policy-based enforcement via output parsing.
           set +e
-          /usr/local/bin/ec --disable-logs . 2>&1 | tee "${EC_OUTPUT}"
+          # IMPORTANT: no invalid flags; let ec run normally
+          /usr/local/bin/ec . 2>&1 | tee "${EC_OUTPUT}"
           EC_EXIT="${PIPESTATUS[0]}"
           set -e
-
           echo "exit_code=${EC_EXIT}" >> "${GITHUB_OUTPUT}"
           echo "EditorConfig Checker exit code: ${EC_EXIT}"
 
-      - name: 🧾 Compute Violation Signal (policy-based)
+      - name: 🧾 Compute Violation + Tool Failure Signals
         id: policy
         shell: bash
         run: |
           set -euo pipefail
 
-          # Enterprise-safe: decide pass/fail from output signal, not from ec exit codes.
-          # Your known-good signal: lines starting with "[".
-          if [[ -f "${EC_OUTPUT}" ]] && grep -q "^\[" "${EC_OUTPUT}"; then
+          EC_EXIT="${{ steps.ec.outputs.exit_code }}"
+
+          # ec conventions (typical):
+          # 0 = no violations
+          # 1 = violations found
+          # other = tool/runtime failure (bad args, crash, etc)
+          if [[ "${EC_EXIT}" != "0" && "${EC_EXIT}" != "1" ]]; then
+            echo "tool_failure=true"  >> "${GITHUB_OUTPUT}"
+            echo "violations=false"   >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "tool_failure=false" >> "${GITHUB_OUTPUT}"
+          if [[ "${EC_EXIT}" == "1" ]]; then
             echo "violations=true" >> "${GITHUB_OUTPUT}"
           else
             echo "violations=false" >> "${GITHUB_OUTPUT}"
@@ -108,7 +113,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           {
             echo "### 🔍 EditorConfig Check Summary"
             echo
@@ -117,11 +121,22 @@ jobs:
             echo "- **Commit:** \`${{ github.sha }}\`"
             echo "- **EC version:** \`${EC_VERSION}\`"
             echo "- **Exit code:** \`${{ steps.ec.outputs.exit_code }}\`"
+            echo "- **Tool failure:** \`${{ steps.policy.outputs.tool_failure }}\`"
             echo "- **Violations detected:** \`${{ steps.policy.outputs.violations }}\`"
             echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
             echo
 
-            if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+            if [[ "${{ steps.policy.outputs.tool_failure }}" == "true" ]]; then
+              echo "❌ **EditorConfig Checker failed to run (invalid args or runtime error).**"
+              echo
+              echo "**Output (top 60 lines):**"
+              echo
+              echo '```text'
+              head -n 60 "${EC_OUTPUT}" || true
+              echo '```'
+              echo
+              echo "_Fix the workflow/tool invocation; results are not trustworthy._"
+            elif [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
               echo "**Violations found (top 40 lines):**"
               echo
               echo '```text'
@@ -144,7 +159,7 @@ jobs:
             ${{ env.EC_SUMMARY }}
           retention-days: 30
 
-      - name: 🚫 Enforce Policy (fail only on violations)
+      - name: 🚫 Enforce Policy
         if: always()
         shell: bash
         run: |
@@ -153,6 +168,11 @@ jobs:
           if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
             echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
             exit 0
+          fi
+
+          if [[ "${{ steps.policy.outputs.tool_failure }}" == "true" ]]; then
+            echo "❌ Tool failure (workflow misconfig or runtime error). Failing."
+            exit 1
           fi
 
           if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
