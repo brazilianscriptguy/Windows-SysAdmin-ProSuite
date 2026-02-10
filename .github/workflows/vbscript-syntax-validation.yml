@@ -30,8 +30,8 @@ jobs:
     timeout-minutes: 20
 
     env:
-      # "true"  => never fail CI (report-only)
-      # "false" => fail CI when errors are detected
+      # "true"  => report-only (never fail CI)
+      # "false" => enforce (fail CI when errors exist)
       ALLOW_WARNINGS: "true"
 
       OUT_DIR: "vbscript-reports"
@@ -39,7 +39,7 @@ jobs:
       OUT_MD: "vbscript-summary.md"
       OUT_TXT: "vbscript-raw-output.txt"
 
-      # Optional: stop scan after first syntax error (faster)
+      # Optional: stop at first error for speed
       FAIL_FAST: "false"
 
     steps:
@@ -49,15 +49,15 @@ jobs:
           path: repo
           fetch-depth: 0
 
-      - name: "🍷 Setup Wine"
+      - name: "🍷 Setup Wine + tools"
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y wine64
+          sudo apt-get install -y wine64 jq python3
           WINEDEBUG=-all wineboot --init
 
-      - name: "📁 Prepare output folder + baseline SARIF"
+      - name: "📁 Prepare output folder + baseline SARIF/MD/TXT"
         shell: bash
         run: |
           set -euo pipefail
@@ -96,8 +96,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          # Use git-tracked files (more stable/fast than find on huge repos)
           git ls-files -z '*.vbs' '*.hta' > ../vbscript-files.txt || true
 
           if [[ ! -s ../vbscript-files.txt ]]; then
@@ -108,118 +106,63 @@ jobs:
           count="$(tr -cd '\0' < ../vbscript-files.txt | wc -c | tr -d ' ')"
           echo "count=${count}" >> "$GITHUB_OUTPUT"
 
-      - name: "🧪 Validate syntax (VBS + HTA VBScript blocks) + generate SARIF"
-        id: scan
+      - name: "🧰 Write scanner script (scan.sh)"
         if: always()
-        working-directory: ./repo
         shell: bash
         run: |
           set -euo pipefail
 
-          outdir="../${OUT_DIR}"
+          cat > scan.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          # Inputs from env
+          : "${OUT_DIR:?}"
+          : "${OUT_SARIF:?}"
+          : "${OUT_MD:?}"
+          : "${OUT_TXT:?}"
+          : "${FAIL_FAST:=false}"
+
+          outdir="${OUT_DIR}"
           sarif="${outdir}/${OUT_SARIF}"
           md="${outdir}/${OUT_MD}"
           raw="${outdir}/${OUT_TXT}"
 
-          files_count="${{ steps.files.outputs.count }}"
-          if [[ "${files_count}" == "0" ]]; then
-            echo "errors=0" >> "$GITHUB_OUTPUT"
-            echo "tool_failure=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Helper: safely escape JSON string
-          json_escape() {
-            python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])'
-          }
-
-          # Helper: push SARIF result into baseline SARIF (append to runs[0].results)
+          # Append SARIF result using jq (safe)
           sarif_add_result() {
             local rel="$1"
             local line="$2"
             local msg="$3"
-
-            # Append using python (avoids jq dependency)
-            python3 - "$sarif" "$rel" "$line" "$msg" <<'PY'
-import json,sys
-p=sys.argv[1]; rel=sys.argv[2]; line=int(sys.argv[3]); msg=sys.argv[4]
-with open(p,'r',encoding='utf-8') as f:
-  data=json.load(f)
-res={
-  "ruleId":"vbscript-syntax",
-  "level":"error",
-  "message":{"text":msg},
-  "locations":[{"physicalLocation":{"artifactLocation":{"uri":rel},"region":{"startLine":line}}}]
-}
-data["runs"][0]["results"].append(res)
-with open(p,'w',encoding='utf-8') as f:
-  json.dump(data,f,ensure_ascii=False,indent=2)
-PY
+            local tmp
+            tmp="$(mktemp)"
+            jq --arg rel "$rel" --arg msg "$msg" --argjson line "$line" '
+              .runs[0].results += [{
+                ruleId: "vbscript-syntax",
+                level: "error",
+                message: { text: $msg },
+                locations: [{
+                  physicalLocation: {
+                    artifactLocation: { uri: $rel },
+                    region: { startLine: $line }
+                  }
+                }]
+              }]
+            ' "$sarif" > "$tmp" && mv "$tmp" "$sarif"
           }
 
-          # Extract VBScript from HTA best-effort:
-          # - Finds <script ... language="vbscript">...</script> blocks
-          # - Writes a temporary .vbs
-          # - Keeps a naive offset map (start line of block) for line correction
-          extract_vbscript_from_hta() {
-            local file="$1"
-            local tmp="$2"
-            local offset_out="$3"
-
-            # Default offset: 0 (no correction)
-            echo "0" > "$offset_out"
-
-            # Quick skip if HTML-based HTA without VBScript tags
-            if ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
-              return 1
-            fi
-
-            # Find first vbscript block line number (best-effort)
-            local start_line
-            start_line="$(grep -in '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file" | head -n 1 | cut -d: -f1 || true)"
-            if [[ -n "${start_line:-}" ]]; then
-              # content starts after the <script> line
-              echo "$start_line" > "$offset_out"
-            fi
-
-            # Extract content between <script ... vbscript> and </script>
-            # (first block only, enterprise compromise: keep fast and deterministic)
-            python3 - "$file" "$tmp" <<'PY'
-import re,sys
-src=sys.argv[1]; dst=sys.argv[2]
-txt=open(src,'r',encoding='utf-8',errors='ignore').read()
-m=re.search(r'<script[^>]*language\s*=\s*["\']vbscript["\'][^>]*>(.*?)</script>', txt, flags=re.I|re.S)
-if not m:
-  raise SystemExit(2)
-body=m.group(1)
-# Normalize line endings; keep as-is mostly
-open(dst,'w',encoding='utf-8',errors='ignore').write(body.strip()+"\n")
-PY
-            return 0
-          }
-
-          # Parse cscript error output for a reasonable line number (best-effort)
-          # Handles variants like:
-          # - "Line: 12"
-          # - "line 12"
-          # - "...(12, 5) ..."
           detect_line() {
             local errfile="$1"
-
             local line=""
-            # 1) "Line: 12"
+
             line="$(grep -ioE 'line[: ]+[0-9]+' "$errfile" | head -n 1 | grep -oE '[0-9]+' || true)"
-            if [[ -n "$line" ]]; then echo "$line"; return 0; fi
+            if [[ -n "${line:-}" ]]; then echo "$line"; return 0; fi
 
-            # 2) "(12, 5)" style
             line="$(grep -oE '\([0-9]+,[[:space:]]*[0-9]+\)' "$errfile" | head -n 1 | tr -d '()' | cut -d, -f1 | tr -d ' ' || true)"
-            if [[ -n "$line" ]]; then echo "$line"; return 0; fi
+            if [[ -n "${line:-}" ]]; then echo "$line"; return 0; fi
 
-            # fallback
             echo "1"
           }
 
-          # Parse a concise message from stderr
           detect_message() {
             local errfile="$1"
             local msg=""
@@ -230,42 +173,51 @@ PY
             if [[ -z "${msg// }" ]]; then
               msg="VBScript syntax error"
             fi
-            # Clean up CR and quotes
-            msg="$(printf '%s' "$msg" | tr -d '\r' )"
+            msg="$(printf '%s' "$msg" | tr -d '\r')"
             printf '%s' "$msg"
           }
 
-          # Scan loop
-          errors=0
-          tool_failure="false"
+          extract_vbscript_from_hta() {
+            local file="$1"
+            local tmp="$2"
 
+            if ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
+              return 1
+            fi
+
+            python3 -c "import re,sys; t=open(sys.argv[1],'r',encoding='utf-8',errors='ignore').read(); \
+m=re.search(r'<script[^>]*language\\s*=\\s*[\\\"\\x27]vbscript[\\\"\\x27][^>]*>(.*?)</script>', t, flags=re.I|re.S); \
+(1/0) if not m else open(sys.argv[2],'w',encoding='utf-8',errors='ignore').write(m.group(1).strip()+'\\n')" \
+              "$file" "$tmp" >/dev/null 2>&1
+          }
+
+          errors=0
+
+          # repo/ is used as working-directory for the scan step
           while IFS= read -r -d '' file; do
             [[ -z "${file:-}" ]] && continue
-
-            # Always log file scanning activity
-            echo "==> Checking: ${file}" >> "$raw"
-
             rel="${file#./}"
 
+            echo "==> Checking: ${rel}" >> "$raw"
+
             if [[ "$file" == *.hta ]]; then
-              # Skip HTA that is plainly HTML without VBScript blocks
               if grep -iqE '^\s*<(html|!doctype)' "$file" && ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file"; then
                 echo "::notice file=${rel}::Skipped HTA (HTML content, no VBScript block)"
                 echo "SKIP (HTA no VBScript): ${rel}" >> "$raw"
                 continue
               fi
 
+              offset="0"
+              start_line="$(grep -in '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "$file" | head -n 1 | cut -d: -f1 || true)"
+              if [[ -n "${start_line:-}" ]]; then offset="$start_line"; fi
+
               tmp="$(mktemp --suffix=.vbs)"
-              off="$(mktemp)"
-              if ! extract_vbscript_from_hta "$file" "$tmp" "$off"; then
+              if ! extract_vbscript_from_hta "$file" "$tmp"; then
                 echo "::notice file=${rel}::Skipped HTA (no VBScript block)"
                 echo "SKIP (HTA no VBScript): ${rel}" >> "$raw"
-                rm -f "$tmp" "$off"
+                rm -f "$tmp"
                 continue
               fi
-
-              offset="$(cat "$off" 2>/dev/null || echo 0)"
-              rm -f "$off"
 
               tmp_err="$(mktemp)"
               set +e
@@ -278,7 +230,6 @@ PY
                 line="$(detect_line "$tmp_err")"
                 msg="$(detect_message "$tmp_err")"
 
-                # Adjust line with block offset if known (best-effort)
                 if [[ "${offset}" =~ ^[0-9]+$ ]] && [[ "${line}" =~ ^[0-9]+$ ]]; then
                   line=$(( line + offset ))
                 fi
@@ -286,9 +237,15 @@ PY
                 echo "::error file=${rel},line=${line}::${msg}"
                 echo "| \`${rel}\` | ${line} | ${msg} |" >> "$md"
                 sarif_add_result "$rel" "$line" "$msg"
+
+                if [[ "${FAIL_FAST}" == "true" ]]; then
+                  rm -f "$tmp" "$tmp_err"
+                  break
+                fi
               fi
 
               rm -f "$tmp" "$tmp_err"
+
             else
               tmp_err="$(mktemp)"
               set +e
@@ -304,22 +261,41 @@ PY
                 echo "::error file=${rel},line=${line}::${msg}"
                 echo "| \`${rel}\` | ${line} | ${msg} |" >> "$md"
                 sarif_add_result "$rel" "$line" "$msg"
+
+                if [[ "${FAIL_FAST}" == "true" ]]; then
+                  rm -f "$tmp_err"
+                  break
+                fi
               fi
 
               rm -f "$tmp_err"
             fi
 
-            if [[ "${FAIL_FAST}" == "true" && "${errors}" -gt 0 ]]; then
-              break
-            fi
           done < ../vbscript-files.txt
 
           if [[ "${errors}" -eq 0 ]]; then
             echo "| ✅ No syntax errors found. | - | - |" >> "$md"
           fi
 
+          echo "${errors}" > "${outdir}/errors.count"
+          BASH
+
+          chmod +x scan.sh
+
+      - name: "🧪 Run scanner (build SARIF/MD/TXT)"
+        id: scan
+        if: always()
+        working-directory: ./repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          ../scan.sh
+
+          errors="0"
+          if [[ -f "../${OUT_DIR}/errors.count" ]]; then
+            errors="$(cat "../${OUT_DIR}/errors.count" | tr -d '[:space:]')"
+          fi
           echo "errors=${errors}" >> "$GITHUB_OUTPUT"
-          echo "tool_failure=${tool_failure}" >> "$GITHUB_OUTPUT"
 
       - name: "🧾 Publish report to Run Summary (View Runs)"
         if: always()
