@@ -49,6 +49,7 @@ jobs:
           gh auth status
 
       - name: 🗑️ Delete ALL matching Releases (tag_name starts with managed prefix)
+        id: del_releases
         shell: bash
         run: |
           set -euo pipefail
@@ -72,6 +73,7 @@ jobs:
 
           if [[ "${#release_tags[@]}" -eq 0 ]]; then
             echo "No releases found."
+            echo "deleted_releases=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -89,8 +91,10 @@ jobs:
           done
 
           echo "Deleted releases: ${deleted}"
+          echo "deleted_releases=${deleted}" >> "$GITHUB_OUTPUT"
 
       - name: 🗑️ Delete ALL matching Tags (name starts with managed prefix)
+        id: del_tags
         shell: bash
         run: |
           set -euo pipefail
@@ -121,6 +125,40 @@ jobs:
           done
 
           echo "Deleted tags: ${deleted}"
+          echo "deleted_tags=${deleted}" >> "$GITHUB_OUTPUT"
+
+      - name: 📋 Publish Cleanup Summary (View Runs)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          del_rel="${{ steps.del_releases.outputs.deleted_releases || '0' }}"
+          del_tag="${{ steps.del_tags.outputs.deleted_tags || '0' }}"
+
+          {
+            echo "## 🧹 Cleanup Old Managed Releases & Tags"
+            echo
+            echo "- **Workflow:** \`${{ github.workflow }}\`"
+            echo "- **Event:** \`${{ github.event_name }}\`"
+            echo "- **Ref:** \`${{ github.ref }}\`"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo
+            echo "### Results"
+            echo
+            echo "- **Deleted releases:** \`${del_rel}\`"
+            echo "- **Deleted tags:** \`${del_tag}\`"
+            echo
+            echo "### Managed prefixes"
+            echo
+            echo '```text'
+            for p in ${MANAGED_TAG_PREFIXES}; do echo "$p"; done
+            echo '```'
+            echo
+            echo "### Notes"
+            echo "- Release deletions are best-effort (\`|| true\`) to avoid breaking weekly maintenance."
+            echo "- Tag deletions use REST endpoints and are paginated per prefix."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   update-github-releases:
     name: 🚀 Rebuild Managed Releases
@@ -278,3 +316,68 @@ jobs:
             artifacts/${{ matrix.release_name }}.zip
             artifacts/${{ matrix.release_name }}.sha256.txt
           retention-days: 30
+
+      - name: 📋 Publish Release Summary (View Runs)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REL="${{ matrix.release_name }}"
+          TAG="${{ steps.tag.outputs.version_tag }}"
+
+          ZIP="artifacts/${REL}.zip"
+          SHA="artifacts/${REL}.sha256.txt"
+
+          size_bytes="0"
+          if [[ -f "${ZIP}" ]]; then
+            size_bytes="$(wc -c < "${ZIP}" | tr -d ' ')"
+          fi
+
+          {
+            echo "## 🚀 Release Rebuild — ${REL}"
+            echo
+            echo "- **Tag:** \`${TAG}\`"
+            echo "- **Artifact:** \`${ZIP}\`"
+            echo "- **Size (bytes):** \`${size_bytes}\`"
+            echo
+            echo "### Integrity"
+            if [[ -f "${SHA}" ]]; then
+              echo
+              echo '```text'
+              cat "${SHA}"
+              echo '```'
+            else
+              echo "- _SHA256 file not found:_ \`${SHA}\`"
+            fi
+            echo
+            echo "### Changelog"
+            echo
+            if [[ -n "${{ steps.changelog.outputs.body }}" ]]; then
+              echo "${{ steps.changelog.outputs.body }}"
+            else
+              echo "_No changelog section extracted._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  summary:
+    name: 📌 Weekly Release Maintenance Summary
+    needs: [cleanup-github-releases, update-github-releases]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 📋 Publish Workflow Summary (View Runs)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## 📌 Weekly Release Maintenance Summary"
+            echo
+            echo "- **Cleanup job:** **${{ needs.cleanup-github-releases.result }}**"
+            echo "- **Rebuild job:** **${{ needs.update-github-releases.result }}**"
+            echo
+            echo "### Notes"
+            echo "- Cleanup deletes only managed prefixes."
+            echo "- Each matrix leg publishes its own release summary with tag, artifact size, SHA256, and changelog."
+          } >> "$GITHUB_STEP_SUMMARY"
