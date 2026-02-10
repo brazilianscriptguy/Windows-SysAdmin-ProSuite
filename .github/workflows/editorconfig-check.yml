@@ -43,8 +43,17 @@ jobs:
     timeout-minutes: 15
 
     env:
-      ALLOW_WARNINGS: "false"
+      # Enterprise compromise:
+      # - PRs: report-only (never fail)
+      # - develop pushes: report-only (never fail)
+      # - main pushes: enforce (fail on violations)
+      ALLOW_WARNINGS: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/develop') && 'true' || 'false' }}
+
+      # Pin for deterministic installs
       EC_VERSION: "3.0.3"
+
+      # Output files
+      OUT_DIR: "editorconfig-reports"
       EC_OUTPUT: "ec-output.txt"
       EC_SUMMARY: "ec-summary.md"
 
@@ -52,22 +61,37 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
+      - name: 📁 Ensure output folder exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${OUT_DIR}"
+
       - name: 📥 Install EditorConfig Checker (pinned)
         shell: bash
         run: |
           set -euo pipefail
+
           URL="https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v${EC_VERSION}/ec-linux-amd64.tar.gz"
+          echo "Downloading EditorConfig Checker v${EC_VERSION}..."
+          echo "URL: ${URL}"
+
           TMPDIR="$(mktemp -d)"
           curl -fsSL "${URL}" -o "${TMPDIR}/ec.tar.gz"
+
           mkdir -p "${TMPDIR}/ec"
           tar -xzf "${TMPDIR}/ec.tar.gz" -C "${TMPDIR}/ec"
+
           BIN="$(find "${TMPDIR}/ec" -maxdepth 6 -type f \( -name 'ec-linux-amd64' -o -name 'ec' \) | head -n 1 || true)"
           if [[ -z "${BIN:-}" ]]; then
             echo "❌ Error: 'ec' binary not found after extraction."
+            echo "Extracted contents:"
             find "${TMPDIR}/ec" -maxdepth 6 -print
             exit 1
           fi
+
           sudo install -m 0755 "${BIN}" /usr/local/bin/ec
+          echo "Installed:"
           /usr/local/bin/ec --version
 
       - name: ▶️ Run EditorConfig Checker (capture output + exit code)
@@ -75,15 +99,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          OUT_TXT="${OUT_DIR}/${EC_OUTPUT}"
+
           set +e
-          # IMPORTANT: no invalid flags; let ec run normally
-          /usr/local/bin/ec . 2>&1 | tee "${EC_OUTPUT}"
+          /usr/local/bin/ec . 2>&1 | tee "${OUT_TXT}"
           EC_EXIT="${PIPESTATUS[0]}"
           set -e
+
           echo "exit_code=${EC_EXIT}" >> "${GITHUB_OUTPUT}"
           echo "EditorConfig Checker exit code: ${EC_EXIT}"
 
-      - name: 🧾 Compute Violation + Tool Failure Signals
+      - name: 🧾 Classify result (clean / violations / tool failure)
         id: policy
         shell: bash
         run: |
@@ -91,91 +118,107 @@ jobs:
 
           EC_EXIT="${{ steps.ec.outputs.exit_code }}"
 
-          # ec conventions (typical):
-          # 0 = no violations
-          # 1 = violations found
-          # other = tool/runtime failure (bad args, crash, etc)
-          if [[ "${EC_EXIT}" != "0" && "${EC_EXIT}" != "1" ]]; then
-            echo "tool_failure=true"  >> "${GITHUB_OUTPUT}"
-            echo "violations=false"   >> "${GITHUB_OUTPUT}"
+          # Conventions:
+          # 0 = clean
+          # 1 = violations
+          # other = tool/runtime failure
+          if [[ "${EC_EXIT}" == "0" ]]; then
+            echo "status=clean" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
-          echo "tool_failure=false" >> "${GITHUB_OUTPUT}"
           if [[ "${EC_EXIT}" == "1" ]]; then
-            echo "violations=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "violations=false" >> "${GITHUB_OUTPUT}"
+            echo "status=violations" >> "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
-      - name: 📋 Generate Markdown Summary
+          echo "status=tool_failure" >> "${GITHUB_OUTPUT}"
+
+      - name: 📋 Generate Markdown Summary (View Runs)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+
+          OUT_TXT="${OUT_DIR}/${EC_OUTPUT}"
+          OUT_MD="${OUT_DIR}/${EC_SUMMARY}"
+
+          STATUS="${{ steps.policy.outputs.status }}"
+          EXIT_CODE="${{ steps.ec.outputs.exit_code }}"
+
           {
-            echo "### 🔍 EditorConfig Check Summary"
+            echo "## 🔍 EditorConfig Check"
             echo
             echo "- **Workflow:** \`${{ github.workflow }}\`"
+            echo "- **Event:** \`${{ github.event_name }}\`"
             echo "- **Ref:** \`${{ github.ref }}\`"
             echo "- **Commit:** \`${{ github.sha }}\`"
             echo "- **EC version:** \`${EC_VERSION}\`"
-            echo "- **Exit code:** \`${{ steps.ec.outputs.exit_code }}\`"
-            echo "- **Tool failure:** \`${{ steps.policy.outputs.tool_failure }}\`"
-            echo "- **Violations detected:** \`${{ steps.policy.outputs.violations }}\`"
-            echo "- **ALLOW_WARNINGS:** \`${ALLOW_WARNINGS}\`"
+            echo "- **Exit code:** \`${EXIT_CODE}\`"
+            echo "- **Status:** \`${STATUS}\`"
+            echo "- **Policy (ALLOW_WARNINGS):** \`${ALLOW_WARNINGS}\`"
             echo
 
-            if [[ "${{ steps.policy.outputs.tool_failure }}" == "true" ]]; then
-              echo "❌ **EditorConfig Checker failed to run (invalid args or runtime error).**"
+            if [[ "${STATUS}" == "tool_failure" ]]; then
+              echo "❌ **Tool failure** — EditorConfig Checker did not run successfully."
               echo
-              echo "**Output (top 60 lines):**"
+              echo "**Output (top 80 lines):**"
               echo
               echo '```text'
-              head -n 60 "${EC_OUTPUT}" || true
+              head -n 80 "${OUT_TXT}" || true
               echo '```'
               echo
               echo "_Fix the workflow/tool invocation; results are not trustworthy._"
-            elif [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
-              echo "**Violations found (top 40 lines):**"
+
+            elif [[ "${STATUS}" == "violations" ]]; then
+              echo "⚠️ **Violations detected**"
+              echo
+              echo "**Output (top 80 lines):**"
               echo
               echo '```text'
-              head -n 40 "${EC_OUTPUT}" || true
+              head -n 80 "${OUT_TXT}" || true
               echo '```'
               echo
-              echo "_Output truncated. Download artifact '${EC_OUTPUT}' for full details._"
+              echo "_Output truncated. Download artifact '${OUT_DIR}' for full details._"
+
             else
-              echo "✅ No violations detected."
+              echo "✅ **No violations detected.**"
             fi
-          } | tee "${EC_SUMMARY}" >> "${GITHUB_STEP_SUMMARY}"
+
+            echo
+            echo "### 📦 Artifacts"
+            echo "- \`${OUT_DIR}/${EC_OUTPUT}\`"
+            echo "- \`${OUT_DIR}/${EC_SUMMARY}\`"
+          } | tee "${OUT_MD}" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: 📦 Upload Artifacts (output + summary)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: editorconfig-check
-          path: |
-            ${{ env.EC_OUTPUT }}
-            ${{ env.EC_SUMMARY }}
+          path: ${{ env.OUT_DIR }}/**
+          if-no-files-found: warn
           retention-days: 30
 
-      - name: 🚫 Enforce Policy
+      - name: 🚫 Enforce Policy (never blocks PRs; enforce on main only)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+
+          STATUS="${{ steps.policy.outputs.status }}"
 
           if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
             echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
             exit 0
           fi
 
-          if [[ "${{ steps.policy.outputs.tool_failure }}" == "true" ]]; then
+          if [[ "${STATUS}" == "tool_failure" ]]; then
             echo "❌ Tool failure (workflow misconfig or runtime error). Failing."
             exit 1
           fi
 
-          if [[ "${{ steps.policy.outputs.violations }}" == "true" ]]; then
+          if [[ "${STATUS}" == "violations" ]]; then
             echo "❌ EditorConfig violations detected. Failing."
             exit 1
           fi
