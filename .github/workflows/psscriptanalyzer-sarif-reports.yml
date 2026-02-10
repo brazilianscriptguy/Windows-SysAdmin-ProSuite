@@ -212,7 +212,6 @@ jobs:
                   for ($i=0; $i -lt $allLines.Count; $i++) {
                     if ($rx.IsMatch($allLines[$i])) {
                       $rel = $f.FullName.Replace("$env:GITHUB_WORKSPACE\", '').Replace("$env:GITHUB_WORKSPACE/", '')
-                      # FIX: ${rel} avoids "$rel:" variable parsing error
                       $hits.Add("${rel}:$($i+1): $($allLines[$i].Trim())")
                       $hitsTotal++
                       if ($hits.Count -ge 20) { break }
@@ -316,7 +315,6 @@ jobs:
 
           if (-not $results) { $results = @() }
 
-          # Corporate-defensible suppression: only suppress ShouldProcess when inside UI wrapper function name convention.
           $uiWrapperRx = [regex]::new($env:UI_WRAPPER_FN_REGEX, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
           function Get-ContainingFunctionName {
@@ -365,7 +363,6 @@ jobs:
 
           $results = $filtered.ToArray()
 
-          # Always write reports
           $results | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $jsonOut
 
           $results |
@@ -417,7 +414,6 @@ jobs:
             }
           }
 
-          # Write SARIF
           try {
             $sarif = @{
               '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
@@ -466,6 +462,69 @@ jobs:
           }
 
           exit 0
+
+      - name: Publish report to Run Summary (View Runs)
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          $outDir  = Join-Path $env:GITHUB_WORKSPACE $env:OUT_DIR
+          $mdOut   = Join-Path $outDir $env:OUT_MD
+          $sumOut  = Join-Path $outDir $env:OUT_SUMMARY
+          $ps51Out = Join-Path $outDir $env:OUT_PS51
+          $jsonOut = Join-Path $outDir $env:OUT_JSON
+          $sarifOut= Join-Path $outDir $env:OUT_SARIF
+          $csvOut  = Join-Path $outDir $env:OUT_CSV
+          $failOut = Join-Path $outDir $env:OUT_FAILTXT
+
+          $findings = 0
+          try {
+            if (Test-Path $jsonOut) {
+              $raw = Get-Content -LiteralPath $jsonOut -Raw -ErrorAction Stop
+              if (-not [string]::IsNullOrWhiteSpace($raw)) {
+                $obj = $raw | ConvertFrom-Json -ErrorAction Stop
+                $findings = @($obj).Count
+              }
+            }
+          } catch {
+            $findings = 0
+          }
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("## 🧪 PSScriptAnalyzer Corporate Lint (Report-Only)")
+          $lines.Add("")
+          $lines.Add("**Event:** ``$($env:GITHUB_EVENT_NAME)``")
+          $lines.Add("**Ref:** ``$($env:GITHUB_REF)``")
+          $lines.Add("**Files scanned:** $([string]::Empty + (Get-Content -LiteralPath $sumOut -ErrorAction SilentlyContinue | Select-String -Pattern '^Files scanned:' | ForEach-Object { $_.Line -replace '^Files scanned:\s*', '' } | Select-Object -First 1))")
+          $lines.Add("**Total findings:** $findings")
+          $lines.Add("")
+
+          $lines.Add("### Summary")
+          $lines.Add("")
+          if (Test-Path $sumOut) { $lines.AddRange((Get-Content -LiteralPath $sumOut -ErrorAction SilentlyContinue)) }
+          else { $lines.Add("_No summary file found._") }
+          $lines.Add("")
+
+          $lines.Add("### Report (Markdown)")
+          $lines.Add("")
+          if (Test-Path $mdOut) { $lines.AddRange((Get-Content -LiteralPath $mdOut -ErrorAction SilentlyContinue)) }
+          else { $lines.Add("_No markdown report file found._") }
+          $lines.Add("")
+
+          $lines.Add("### Artifacts")
+          $lines.Add("")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_MD)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_SUMMARY)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_PS51)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_JSON)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_CSV)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_SARIF)``")
+          $lines.Add("- ``$($env:OUT_DIR)/$($env:OUT_FAILTXT)``")
+          $lines.Add("")
+
+          $summaryPath = $env:GITHUB_STEP_SUMMARY
+          $lines | Set-Content -LiteralPath $summaryPath -Encoding UTF8
 
       - name: Pre-upload diagnostics (ensure SARIF exists)
         if: always()
