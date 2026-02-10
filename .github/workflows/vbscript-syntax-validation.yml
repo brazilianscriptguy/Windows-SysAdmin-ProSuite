@@ -36,10 +36,10 @@ jobs:
       OUT_RAW: vbscript-raw.log
       OUT_JSON: vbscript-results.json
 
-      # Report-only (never fail the job). Keep "true" unless you explicitly want to gate PRs.
+      # Report-only (never fail the job). Set to "false" if you want gating.
       ALLOW_WARNINGS: "true"
 
-      # Wine noise control
+      # Wine noise control (must be quoted!)
       WINEDEBUG: "-all"
 
     steps:
@@ -56,7 +56,7 @@ jobs:
           sudo dpkg --add-architecture i386 || true
           sudo apt-get update
           sudo apt-get install -y wine64
-          ${WINEDEBUG} wineboot --init
+          WINEDEBUG="${WINEDEBUG}" wineboot --init
 
       - name: 📁 Ensure output folder
         shell: bash
@@ -70,8 +70,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          out="repo/${OUT_DIR}"
+
           # Baseline SARIF (empty)
-          cat > "repo/${OUT_DIR}/${OUT_SARIF}" <<'SARIF'
+          cat > "${out}/${OUT_SARIF}" <<'SARIF'
           {
             "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
             "version": "2.1.0",
@@ -90,9 +92,9 @@ jobs:
           SARIF
 
           # Baseline reports
-          : > "repo/${OUT_DIR}/${OUT_MD}"
-          : > "repo/${OUT_DIR}/${OUT_RAW}"
-          : > "repo/${OUT_DIR}/${OUT_JSON}"
+          : > "${out}/${OUT_MD}"
+          : > "${out}/${OUT_RAW}"
+          echo "[]" > "${out}/${OUT_JSON}"
 
       - name: 🧪 Scan (.vbs + .hta with VBScript blocks) [Report-Only]
         id: scan
@@ -107,11 +109,9 @@ jobs:
           json="${outdir}/${OUT_JSON}"
           sarif="${outdir}/${OUT_SARIF}"
 
-          # Collect files
           files_list="$(mktemp)"
           find . -type f \( -iname "*.vbs" -o -iname "*.hta" \) -print0 > "${files_list}"
 
-          # Prepare markdown header
           {
             echo "# VBScript Syntax Validation (Report-Only)"
             echo
@@ -126,7 +126,6 @@ jobs:
             echo "|------|------|---------|"
           } > "${md}"
 
-          # We'll collect findings to a TSV to safely build SARIF/JSON later.
           tsv="${outdir}/findings.tsv"
           : > "${tsv}"
 
@@ -135,7 +134,6 @@ jobs:
           skipped_files=0
           findings=0
 
-          # Iterate NUL-delimited safely
           while IFS= read -r -d '' file; do
             [[ -z "${file:-}" ]] && continue
             total_files=$((total_files + 1))
@@ -143,9 +141,8 @@ jobs:
             rel="${file#./}"
             echo "==> Candidate: ${rel}" >> "${raw}"
 
-            # HTA filtering: only scan if it actually contains VBScript
+            # HTA filtering: only scan if it contains VBScript blocks
             if [[ "${file}" == *.hta ]]; then
-              # Skip typical HTML HTAs (pure HTML) unless VBScript exists
               if grep -iqE '^\s*<(html|!doctype)' "${file}"; then
                 if ! grep -iq '<script[^>]*language=["'"'"'"]vbscript["'"'"'"]' "${file}"; then
                   echo "::notice file=${rel}::Skipped HTA (HTML without VBScript blocks)"
@@ -168,24 +165,23 @@ jobs:
 
             tmp_err="$(mktemp)"
             set +e
-            ${WINEDEBUG} wine cscript.exe //nologo //B "${file}" 2> "${tmp_err}"
+            WINEDEBUG="${WINEDEBUG}" wine cscript.exe //nologo //B "${file}" 2> "${tmp_err}"
             ec="$?"
             set -e
 
             if [[ "${ec}" -ne 0 ]]; then
-              # Best-effort parse: choose first meaningful line from stderr
               msg_line="$(grep -nE 'error|erro|expected|unexpected|invalid|syntax' "${tmp_err}" | head -n 1 || true)"
               line_number="$(echo "${msg_line}" | cut -d: -f1 || true)"
               message="$(echo "${msg_line}" | cut -d: -f2- || true)"
 
-              # Fallbacks
               if [[ -z "${line_number:-}" ]]; then line_number="1"; fi
               if [[ -z "${message// }" ]]; then
                 message="$(head -n 1 "${tmp_err}" | tr -d '\r' || true)"
               fi
-              if [[ -z "${message// }" ]]; then message="VBScript syntax error (cscript exit ${ec})"; fi
+              if [[ -z "${message// }" ]]; then
+                message="VBScript syntax error (cscript exit ${ec})"
+              fi
 
-              # Sanitize markdown pipe breaks
               safe_message="$(echo "${message}" | tr -d '\r' | sed 's/|/\\|/g')"
 
               echo "::error file=${rel},line=${line_number}::${safe_message}"
@@ -206,7 +202,6 @@ jobs:
             echo "| ✅ No syntax errors found. | - | - |" >> "${md}"
           fi
 
-          # Build JSON + SARIF from TSV using python (stable escaping)
           python3 - <<'PY'
           import json, os
 
@@ -232,21 +227,17 @@ jobs:
                   ln = 1
                 findings.append({"file": path, "line": ln, "message": msg})
 
-          # JSON
           with open(out_json, "w", encoding="utf-8") as f:
             json.dump(findings, f, ensure_ascii=False, indent=2)
 
-          # SARIF
           sarif = {
             "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
             "version": "2.1.0",
             "runs": [{
-              "tool": {
-                "driver": {
-                  "name": "VBScript Syntax Validation (Wine+cscript)",
-                  "informationUri": "https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)"
-                }
-              },
+              "tool": {"driver": {
+                "name": "VBScript Syntax Validation (Wine+cscript)",
+                "informationUri": "https://learn.microsoft.com/en-us/previous-versions//d1wf56tt(v=vs.85)"
+              }},
               "results": []
             }]
           }
@@ -267,13 +258,11 @@ jobs:
             json.dump(sarif, f, ensure_ascii=False, indent=2)
           PY
 
-          # Export outputs for later steps
-          echo "total_files=${total_files}"  >> "${GITHUB_OUTPUT}"
+          echo "total_files=${total_files}"   >> "${GITHUB_OUTPUT}"
           echo "scanned_files=${scanned_files}" >> "${GITHUB_OUTPUT}"
           echo "skipped_files=${skipped_files}" >> "${GITHUB_OUTPUT}"
-          echo "findings=${findings}" >> "${GITHUB_OUTPUT}"
+          echo "findings=${findings}"         >> "${GITHUB_OUTPUT}"
 
-          # DO NOT fail here (report-only scan step). Policy gate controls final exit.
           exit 0
 
       - name: 📝 Publish Job Summary (View Runs)
