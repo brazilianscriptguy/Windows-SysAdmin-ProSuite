@@ -91,8 +91,8 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 
 | Script Name | Function |
 |------------|----------|
-| **system-maintenance-servers.vbs** | Automates server health checks (SFC/DISM), light Windows Update reset, controlled reboot handling, and structured logging — optimized for Scheduled Task deployment via GPO |
-| **system-maintenance-workstations.vbs** | Automates workstation remediation including Windows Update reset, local GPO baseline cleanup, SFC/DISM repair, and structured logging — optimized for Scheduled Task deployment via GPO |
+| **Baseline-Maintenance-Server.vbs** | Automates server health checks (SFC/DISM), light Windows Update reset, controlled reboot handling, and structured logging — optimized for Scheduled Task deployment via GPO |
+| **Baseline-Maintenance-Workstation.vbs** | Automates workstation remediation including Windows Update reset, local GPO baseline cleanup, SFC/DISM repair, and structured logging — optimized for Scheduled Task deployment via GPO |
 
 ---
 
