@@ -38,10 +38,10 @@ Const CLEAN_WU_TIMEOUT_SEC         = 600
 
 '==================== LOG / PATHS ====================
 Const LOG_DIR     = "C:\Logs-TEMP"
-Const SCRIPT_NAME = "system-maintenance-workstations"
+Const SCRIPT_NAME = "Baseline-Maintenance-Workstation"
 
 Dim LOG_FILE
-LOG_FILE = LOG_DIR & "\system-maintenance-workstations.log"
+LOG_FILE = LOG_DIR & "\Baseline-Maintenance-Workstation.log"
 
 Const PATH_SOFTDIST = "C:\Windows\SoftwareDistribution"
 Const PATH_CATROOT2 = "C:\Windows\System32\catroot2"
