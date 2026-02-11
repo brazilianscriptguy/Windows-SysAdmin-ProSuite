@@ -1,7 +1,5 @@
 # Changelog
 
----
-
 ## AD-SSO-APIs-Integration
 
 - ✅ Delivered **Active Directory LDAP / SSO integration patterns** for applications and services.
@@ -9,6 +7,16 @@
 - 🔐 Standardized **secure bind** patterns using environment variables (no hardcoded creds).
 - ⚙️ Structured templates to be **modular, portable, and cross-platform**.
 - 📄 Shipped **per-platform README documentation** for each integration example.
+
+---
+
+## All-Repository-Files
+
+- 📦 Created a unified ZIP archive bundling all repository components.
+- 🗂️ Included full directories: `BlueTeam-Tools`, `Core-ScriptLibrary`, `ITSM-Templates-WKS`, `ITSM-Templates-SVR`, and `SysAdmin-Tools`.
+- 📃 Included root-level `README.md` and `LICENSE.txt`.
+- 🚀 Enabled offline-ready distribution and portable usage model.
+- 🧱 Aligned with the staging directory structure used by automated release workflows.
 
 ---
 
