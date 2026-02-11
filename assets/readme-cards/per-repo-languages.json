@@ -1,13 +1,13 @@
 {
-  "generatedAtUtc": "2026-02-10T04:38:46Z",
+  "generatedAtUtc": "2026-02-11T04:37:42Z",
   "user": "brazilianscriptguy",
   "method": "github-linguist-bytes",
   "excludedRepos": [],
   "repos": {
     "Windows-SysAdmin-ProSuite": {
-      "PowerShell": 1581219,
+      "PowerShell": 1581221,
       "HTML": 12495,
-      "VBScript": 12289,
+      "VBScript": 12291,
       "Java": 7078,
       "PHP": 6259,
       "C#": 5455,
