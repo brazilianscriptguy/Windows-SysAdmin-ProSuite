@@ -50,7 +50,11 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 
 ---
 
-## 📄 Script Catalog (Alphabetical)
+# 📄 Script Catalog
+
+---
+
+## 🟦 PowerShell Automation Suite (.ps1)
 
 | Script Name | Function |
 |------------|----------|
@@ -80,6 +84,15 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 | **Uninstall-SelectedApp-Tool.ps1** | GUI tool for selecting and removing applications |
 | **Update-ADComputer-Winget-Explicit.ps1** | Updates selected packages via `winget` locally |
 | **Update-ADComputer-Winget-viaGPO.ps1** | Pushes scheduled `winget` updates via GPO |
+
+---
+
+## 🟨 VBScript Maintenance Suite (.vbs)
+
+| Script Name | Function |
+|------------|----------|
+| **system-maintenance-servers.vbs** | Performs structured server maintenance including SFC/DISM validation, light Windows Update cache reset, controlled reboot workflow, and operational logging |
+| **system-maintenance-workstations.vbs** | Executes full workstation remediation workflow including Windows Update reset, local GPO baseline reset, SFC/DISM repair, network validation, and structured maintenance logging |
 
 ---
 
