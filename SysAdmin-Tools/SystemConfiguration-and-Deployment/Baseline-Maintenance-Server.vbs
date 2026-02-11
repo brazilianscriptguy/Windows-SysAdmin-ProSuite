@@ -23,10 +23,10 @@ NOTICE_STEPS = Array(15,10,5,1)
 
 '==================== LOG ====================
 Const LOG_DIR     = "C:\Logs-TEMP"
-Const SCRIPT_NAME = "system-maintenance-servers"
+Const SCRIPT_NAME = "Baseline-Maintenance-Server"
 
 Dim LOG_FILE
-LOG_FILE = LOG_DIR & "\system-maintenance-servers.log"
+LOG_FILE = LOG_DIR & "\Baseline-Maintenance-Server.log"
 
 '==================== OBJECTS ====================
 Set fso = CreateObject("Scripting.FileSystemObject")
