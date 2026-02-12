@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Troubleshoots spooler, print queue, printers, drivers and related GPO policies.
+    Troubleshoots spooler, print queue, printers, drivers and related GPO policies. 
 
 .DESCRIPTION
     This script performs several actions to restore proper printing system functionality:
