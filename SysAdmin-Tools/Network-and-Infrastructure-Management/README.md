@@ -52,12 +52,12 @@ These tools are designed to help administrators ensure **service availability**,
 
 | Script Name | Description |
 |------------|-------------|
+| **Create-n-Retrieve-DHCPReservations.ps1** | Create and retrieves DHCP reservations, detects duplicate MAC or IP address assignments |
 | **Check-ServicesPort-Connectivity.ps1** | Tests network connectivity for service ports across target hosts |
 | **Discovery-Network-ADComputers.ps1** | Discovers AD computers, resolves IPv4 addresses, and exports results |
 | **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
 | **Restart-NetworkAdapter.ps1** | Safely restarts local or remote network adapters |
 | **Restart-SpoolerPoolServices.ps1** | Restarts print spooler services with structured logging |
-| **Create-n-Retrieve-DHCPReservations.ps1** | Create and retrieves of DHCP reservations, and detects duplicate MAC or IP address assignments |
 | **Retrieve-Empty-DNSReverseLookupZone.ps1** | Identifies unused or empty reverse DNS lookup zones |
 | **Retrieve-ServersDiskSpace.ps1** | Retrieves disk usage information from multiple servers |
 | **Synchronize-ADComputerTime.ps1** | Forces time synchronization with domain controllers |
