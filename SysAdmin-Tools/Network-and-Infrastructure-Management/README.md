@@ -57,7 +57,7 @@ These tools are designed to help administrators ensure **service availability**,
 | **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
 | **Restart-NetworkAdapter.ps1** | Safely restarts local or remote network adapters |
 | **Restart-SpoolerPoolServices.ps1** | Restarts print spooler services with structured logging |
-| **Retrieve-DHCPReservations.ps1** | Audits DHCP reservations and detects duplicate MAC or IP assignments |
+| **Create-n-Retrieve-DHCPReservations.ps1** | Create and retrieves of DHCP reservations, audits existing entries, and detects duplicate MAC or IP address assignments |
 | **Retrieve-Empty-DNSReverseLookupZone.ps1** | Identifies unused or empty reverse DNS lookup zones |
 | **Retrieve-ServersDiskSpace.ps1** | Retrieves disk usage information from multiple servers |
 | **Synchronize-ADComputerTime.ps1** | Forces time synchronization with domain controllers |
