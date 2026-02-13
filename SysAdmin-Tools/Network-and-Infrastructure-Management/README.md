@@ -53,7 +53,6 @@ These tools are designed to help administrators ensure **service availability**,
 | Script Name | Description |
 |------------|-------------|
 | **Check-ServicesPort-Connectivity.ps1** | Tests network connectivity for service ports across target hosts |
-| **Create-NewDHCPReservations.ps1** | GUI-based creation of DHCP reservations using hostname, MAC, and IP |
 | **Discovery-Network-ADComputers.ps1** | Discovers AD computers, resolves IPv4 addresses, and exports results |
 | **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
 | **Restart-NetworkAdapter.ps1** | Safely restarts local or remote network adapters |
