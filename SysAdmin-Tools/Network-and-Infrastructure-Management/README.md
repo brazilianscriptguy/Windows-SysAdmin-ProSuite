@@ -52,7 +52,7 @@ These tools are designed to help administrators ensure **service availability**,
 
 | Script Name | Description |
 |------------|-------------|
-| **Create-n-Retrieve-DHCPReservations.ps1** | Create and retrieves DHCP reservations, detects duplicate MAC or IP address assignments |
+| **Create-n-Retrieve-DHCPReservations.ps1** | Creates and retrieves DHCP reservations, detects duplicate MAC or IP address assignments |
 | **Check-ServicesPort-Connectivity.ps1** | Tests network connectivity for service ports across target hosts |
 | **Discovery-Network-ADComputers.ps1** | Discovers AD computers, resolves IPv4 addresses, and exports results |
 | **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
