@@ -23,7 +23,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: 2026-02-12
+    Last Updated: 2026-02-19
     Version: 3.01 (Hardened Edition)
 #>
 
@@ -140,6 +140,10 @@ $script:Config = @{
     BackupDir     = "C:\Logs-TEMP\WSUS-GUI\Backups"
     CsvDir        = "C:\Logs-TEMP\WSUS-GUI\CSV"
     SettingsFile  = "C:\Logs-TEMP\WSUS-GUI\settings.json"
+
+    # Optional: allowlist for 'Decline legacy platforms' (regex/title patterns). Empty = disabled.
+    LegacyPlatformTitlePatterns = @()
+    LegacyPlatformMaxToDecline  = 500
 
     FqdnHostname  = $null
     LogPath       = $null
@@ -1560,8 +1564,72 @@ function Invoke-DeclineLegacyPlatforms {
         [bool]$UseSSL = $false
     )
 
-    Log-Message "Decline legacy platforms: option is currently not implemented in this build." "WARNING"
-    Log-Message "Reason: classification/product matching is environment-specific and risky without an explicit allowlist." "WARNING"
+    # Safety: this is environment-specific. We only act when an explicit allowlist exists.
+    $patterns = @()
+    try {
+        if ($Config.ContainsKey('LegacyPlatformTitlePatterns') -and $Config.LegacyPlatformTitlePatterns) {
+            $patterns = @($Config.LegacyPlatformTitlePatterns) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        }
+    } catch { }
+
+    if (@($patterns).Count -eq 0) {
+        Log-Message "Decline legacy platforms: skipped (no allowlist configured in `$Config.LegacyPlatformTitlePatterns)." "WARNING"
+        Log-Message "Tip: add regex/title patterns like 'Windows XP|Server 2003|Itanium' to enable this step safely." "INFO"
+        return
+    }
+
+    $maxToDecline = 500
+    try {
+        if ($Config.ContainsKey('LegacyPlatformMaxToDecline') -and $Config.LegacyPlatformMaxToDecline) {
+            $maxToDecline = [int]$Config.LegacyPlatformMaxToDecline
+        }
+    } catch { $maxToDecline = 500 }
+
+    $wsus = Get-WSUSConnectionCached -Server $ServerName -Port $Port -UseSSL:$UseSSL
+
+    Log-Message ("Decline legacy platforms: starting. Patterns={0} Max={1}" -f ($patterns -join " ; "), $maxToDecline) "INFO"
+
+    $declined = 0
+    $matched  = 0
+
+    try {
+        $scope = New-Object Microsoft.UpdateServices.Administration.UpdateScope
+        $scope.ApprovedStates = [Microsoft.UpdateServices.Administration.ApprovedStates]::NotApproved
+        $scope.IncludeDeclined = $false
+
+        $updates = $wsus.GetUpdates($scope)
+
+        foreach ($u in $updates) {
+            if ($script:CancelRequested) { break }
+            if ($declined -ge $maxToDecline) { break }
+
+            $hay = "$($u.Title)"
+            $isMatch = $false
+            foreach ($p in $patterns) {
+                if ($hay -match $p) { $isMatch = $true; break }
+            }
+
+            if (-not $isMatch) { continue }
+            $matched++
+
+            try {
+                if (-not $u.IsDeclined) {
+                    $u.Decline()
+                    $declined++
+                }
+            } catch {
+                Log-Message ("Decline legacy platforms: failed to decline update '{0}': {1}" -f $u.Title, $_.Exception.Message) "WARNING"
+            }
+        }
+
+        Log-Message ("Decline legacy platforms: matched={0} declined={1} (Cancel={2})" -f $matched, $declined, $script:CancelRequested) "INFO"
+        if ($declined -ge $maxToDecline) {
+            Log-Message ("Decline legacy platforms: reached cap ({0}). Increase `$Config.LegacyPlatformMaxToDecline if intentional." -f $maxToDecline) "WARNING"
+        }
+    } catch {
+        Log-Message ("Decline legacy platforms: failed: {0}" -f $_.Exception.Message) "ERROR"
+        throw
+    }
 }
 
 function Import-WsusAdminApi {
@@ -2640,12 +2708,7 @@ function Invoke-RunFromUi {
 
         # --- Determine tasks from UI ---
         $tasks = @()
-
-
-# --- Determine tasks from UI ---
-        $tasks = @()
-
-        # Use helpers to avoid StrictMode crashes when controls/vars differ between builds.
+# Use helpers to avoid StrictMode crashes when controls/vars differ between builds.
         $wizUnused      = (Get-CheckboxValue -Name 'chkUnusedUpdates' -Default $false) -or (Get-CheckboxValue -Name 'chkCleanupObsoleteUpdates' -Default $false)
         $wizObsoletePC  = (Get-CheckboxValue -Name 'chkObsoleteComputers' -Default $false) -or (Get-CheckboxValue -Name 'chkCleanupObsoleteComputers' -Default $false)
         $wizUnneeded    = (Get-CheckboxValue -Name 'chkUnneededFiles' -Default $false) -or (Get-CheckboxValue -Name 'chkCleanupUnneededContentFiles' -Default $false)
@@ -2719,50 +2782,18 @@ function Invoke-RunFromUi {
         $UseSSL = $false
         try { $UseSSL = [bool]$chkUseSsl.Checked } catch { $UseSSL = $false }
 
-        # --- Services/pool once per run ---
-        Ensure-WsusServicesAndPool -Server $Server
-
-        # --- Pre-warm WSUS connection cache once per run ---
-        $null = Get-WSUSConnectionCached -Server $Server -Port $Port -UseSSL:$UseSSL
-
-        # --- Split tasks ---
+        # --- Split tasks / apply Scope filter ---
         $sqlTaskNames = @("CheckDB","CheckFragmentation","Reindex","ShrinkDB","BackupDB")
-        $sqlTasks  = $tasks | Where-Object { $_ -in $sqlTaskNames }
-        $wsusTasks = $tasks | Where-Object { $_ -notin $sqlTaskNames }
+        $sqlTasksAll  = @($tasks | Where-Object { $_ -in $sqlTaskNames })
+        $wsusTasksAll = @($tasks | Where-Object { $_ -notin $sqlTaskNames })
 
-        # --- WSUS tasks ---
-        foreach ($t in $wsusTasks) {
-            if ($script:CancelRequested) { break }
-
-            switch ($t) {
-"DeclineUnapproved" {
-    Decline-WSUSUnapproved -ServerName $Server -Port $Port -UseSSL:$UseSSL `
-        -OlderThanDays (Get-NumericUpDownValue -Name 'nudDeclineUnapprovedDays' -Default 30)
-}
-
-"WsusCleanupWizard" {
-    Run-WsusCleanupWizard `
-        -IncludeUnusedUpdates:$wizUnused `
-        -IncludeObsoleteComputers:$wizObsoletePC `
-        -IncludeUnneededFiles:$wizUnneeded `
-        -IncludeExpiredUpdates:$wizExpired `
-        -IncludeSupersededUpdates:$wizSuperseded `
-        -AttemptCompress:$wizCompress `
-        -ServerName $Server -Port $Port -UseSSL:$UseSSL
-}
-"CompressRevisions" {
-    # Separate task kept for backwards-compatibility; wizard can also trigger compress.
-    Invoke-WsusCompressRevisionsHardened -ServerName $Server -Port $Port -UseSSL:$UseSSL
-}
-"DeclineLegacyPlatforms" {
-    Invoke-DeclineLegacyPlatforms -ServerName $Server -Port $Port -UseSSL:$UseSSL
-}
-
-
-            }
+        switch ($Scope) {
+            'SqlOnly'  { $sqlTasks = $sqlTasksAll;  $wsusTasks = @() }
+            'WsusOnly' { $sqlTasks = @();           $wsusTasks = $wsusTasksAll }
+            default    { $sqlTasks = $sqlTasksAll;  $wsusTasks = $wsusTasksAll }
         }
 
-        # --- SQL tasks (WID/SUSDB) ---
+        # --- 1) SQL tasks FIRST (reduces timeouts during WSUS cleanup on large SUSDB) ---
         if (@($sqlTasks).Count -gt 0 -and -not $script:CancelRequested) {
 
             $doCheckDB = ($sqlTasks -contains "CheckDB")
@@ -2771,12 +2802,67 @@ function Invoke-RunFromUi {
             $doShrink  = ($sqlTasks -contains "ShrinkDB")
             $doBackup  = ($sqlTasks -contains "BackupDB")
 
+            Log-Message ("SQL maintenance starting (first): CheckDB={0} Frag={1} Reindex={2} Shrink={3} Backup={4}" -f `
+                $doCheckDB,$doFrag,$doReindex,$doShrink,$doBackup
+            ) "INFO"
+
             Run-WIDMaintenance `
                 -DoCheckDB:$doCheckDB `
                 -DoCheckFragmentation:$doFrag `
                 -DoReindex:$doReindex `
                 -DoShrink:$doShrink `
                 -DoBackup:$doBackup
+
+            Log-Message "SQL maintenance finished." "INFO"
+        }
+
+        # --- 2) WSUS tasks SECOND (connect once; reuse cache) ---
+        if (@($wsusTasks).Count -gt 0 -and -not $script:CancelRequested) {
+
+            # Services/pool once per run (WSUS-only tasks)
+            Ensure-WsusServicesAndPool -Server $Server
+
+            # Pre-warm WSUS connection cache once per run
+            $null = Get-WSUSConnectionCached -Server $Server -Port $Port -UseSSL:$UseSSL
+
+            # Enforce a deterministic WSUS pipeline:
+            #   1) Cleanup wizard
+            #   2) Compress (if explicitly selected)
+            #   3) Legacy platform declines (if selected)
+            #   4) Decline unapproved LAST
+            $wsusOrder = @("WsusCleanupWizard","CompressRevisions","DeclineLegacyPlatforms","DeclineUnapproved")
+
+            foreach ($t in ($wsusOrder | Where-Object { $wsusTasks -contains $_ })) {
+                if ($script:CancelRequested) { break }
+
+                switch ($t) {
+
+                    "WsusCleanupWizard" {
+                        Run-WsusCleanupWizard `
+                            -IncludeUnusedUpdates:$wizUnused `
+                            -IncludeObsoleteComputers:$wizObsoletePC `
+                            -IncludeUnneededFiles:$wizUnneeded `
+                            -IncludeExpiredUpdates:$wizExpired `
+                            -IncludeSupersededUpdates:$wizSuperseded `
+                            -AttemptCompress:$wizCompress `
+                            -ServerName $Server -Port $Port -UseSSL:$UseSSL
+                    }
+
+                    "CompressRevisions" {
+                        # Separate task kept for backwards-compatibility; wizard can also trigger compress.
+                        Invoke-WsusCompressRevisionsHardened -ServerName $Server -Port $Port -UseSSL:$UseSSL
+                    }
+
+                    "DeclineLegacyPlatforms" {
+                        Invoke-DeclineLegacyPlatforms -ServerName $Server -Port $Port -UseSSL:$UseSSL
+                    }
+
+                    "DeclineUnapproved" {
+                        Decline-WSUSUnapproved -ServerName $Server -Port $Port -UseSSL:$UseSSL `
+                            -OlderThanDays (Get-NumericUpDownValue -Name 'nudDeclineUnapprovedDays' -Default 30)
+                    }
+                }
+            }
         }
 
         Log-Message "Run finished." "INFO"
