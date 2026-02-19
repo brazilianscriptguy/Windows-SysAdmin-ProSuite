@@ -1,47 +1,56 @@
-USE SUSDB;
-GO
+SET NOCOUNT ON;
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET ARITHABORT ON;
+SET NUMERIC_ROUNDABORT OFF;
+
 SET NOCOUNT ON;
 
-DECLARE @schema sysname, @table sysname, @index sysname, @sql nvarchar(max);
+DECLARE @MinPages INT = 1000;
+DECLARE @ReorgPct FLOAT = 10;
+DECLARE @RebuildPct FLOAT = 30;
 
-DECLARE cur CURSOR FAST_FORWARD FOR
+DECLARE @schema SYSNAME, @table SYSNAME, @index SYSNAME, @sql NVARCHAR(MAX);
+
+DECLARE c CURSOR LOCAL FAST_FORWARD FOR
 SELECT
-    s.name  AS SchemaName,
-    t.name  AS TableName,
-    i.name  AS IndexName,
-    ips.avg_fragmentation_in_percent AS Frag,
-    ips.page_count AS Pages
-FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') AS ips
-JOIN sys.indexes  AS i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-JOIN sys.tables   AS t ON t.object_id   = i.object_id
-JOIN sys.schemas  AS s ON s.schema_id   = t.schema_id
-WHERE i.name IS NOT NULL
-  AND ips.page_count >= 100       -- avoid unnecessary work
+  OBJECT_SCHEMA_NAME(ips.object_id) AS SchemaName,
+  OBJECT_NAME(ips.object_id) AS TableName,
+  i.name AS IndexName,
+  ips.page_count,
+  ips.avg_fragmentation_in_percent
+FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') ips
+JOIN sys.indexes i
+  ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+WHERE ips.index_id > 0
   AND i.is_disabled = 0
-  AND i.type_desc <> 'HEAP'       -- heaps do not support REBUILD
+  AND ips.page_count >= @MinPages
+  AND ips.avg_fragmentation_in_percent >= @ReorgPct
 ORDER BY ips.avg_fragmentation_in_percent DESC;
 
-OPEN cur;
-DECLARE @frag float, @pages int;
+OPEN c;
 
-FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
+DECLARE @page_count BIGINT, @frag FLOAT;
+
+FETCH NEXT FROM c INTO @schema, @table, @index, @page_count, @frag;
+
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    IF @frag >= 30
-        SET @sql = N'ALTER INDEX ['+@index+'] ON ['+@schema+'].['+@table+'] REBUILD WITH (SORT_IN_TEMPDB = OFF, MAXDOP = 1);';
-    ELSE IF @frag >= 5
-        SET @sql = N'ALTER INDEX ['+@index+'] ON ['+@schema+'].['+@table+'] REORGANIZE;';
+    IF (@frag >= @RebuildPct)
+        SET @sql = N'ALTER INDEX [' + REPLACE(@index,']',']]') + N'] ON [' + REPLACE(@schema,']',']]') + N'].[' + REPLACE(@table,']',']]') + N'] REBUILD WITH (ONLINE = OFF);';
     ELSE
-        SET @sql = NULL; -- ignora
+        SET @sql = N'ALTER INDEX [' + REPLACE(@index,']',']]') + N'] ON [' + REPLACE(@schema,']',']]') + N'].[' + REPLACE(@table,']',']]') + N'] REORGANIZE;';
 
-    IF @sql IS NOT NULL
-    BEGIN
-        PRINT CONCAT('>> ', @schema, '.', @table, ' [', @index, ']  Frag=', CONVERT(varchar(10), @frag), '%  Pages=', @pages);
-        EXEC sp_executesql @sql;
-    END
+    PRINT @sql;
+    EXEC sp_executesql @sql;
 
-    FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
+    FETCH NEXT FROM c INTO @schema, @table, @index, @page_count, @frag;
 END
 
-CLOSE cur; DEALLOCATE cur;
-GO
+CLOSE c;
+DEALLOCATE c;
+
+EXEC sp_updatestats;
