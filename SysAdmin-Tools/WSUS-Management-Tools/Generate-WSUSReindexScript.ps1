@@ -1,288 +1,873 @@
-﻿<#
+<#
 .SYNOPSIS
-  Build a smart WSUS index maintenance script (wsus-reindex-smart.sql) for SUSDB (WID).
+    Generates WSUS SUSDB (WID) maintenance SQL scripts (TJAP working structure + Classic option).
 
 .DESCRIPTION
-  Prompts for:
-    - Minimum page count (skip tiny indexes)
-    - Reorganize threshold (%)  [low/medium]
-    - Rebuild threshold (%)     [high]
-    - Output .sql path (Save dialog; defaults provided)
+    Generates up to three SQL files:
 
-  Generates a single-batch T-SQL script that:
-    - REORGANIZE when Reorg% <= fragmentation < Rebuild% (with LOB_COMPACTION=ON)
-    - REBUILD when fragmentation >= Rebuild% (MAXDOP=1; SORT_IN_TEMPDB=OFF)
-    - Skips disabled, hypothetical, heaps, and non-rowstore indexes
-    - Prints per-index progress; TRY/CATCH around each operation
-    - Adds gentle settings: DEADLOCK_PRIORITY LOW, LOCK_TIMEOUT 15s
-    - Tracks totals (rebuilds/reorganizes) and overall duration
+    1) wsus-reindex-smart.sql  (scan ALL indexes)
+       - Cursor over dm_db_index_physical_stats(DB_ID('SUSDB'), ... 'LIMITED')
+       - REBUILD when Frag >= RebuildPct
+       - REORGANIZE when Frag >= ReorgPct
+       - Skips small indexes via MinPages
+       - Skips disabled indexes and heaps
+
+    2) wsus-verify-fragmentation.sql (report + recommendations)
+       - Recommendation columns + filters
+
+    3) wsusdbmaintenance-classic.sql (optional)
+       - “Classic” WSUS maintenance:
+           - Targets known high-churn WSUS tables
+           - Fill-factor overrides for hot tables (configurable)
+           - Rebuild/Reorg based on thresholds
+           - sp_updatestats at the end
+
+    Notes:
+      - This script ONLY generates SQL files. Execution is performed elsewhere (sqlcmd/SSMS).
+      - Thresholds/MinPages are embedded into the generated SQL text.
 
 .AUTHOR
-  Luiz Hamilton Silva - @brazilianscriptguy
+    Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  Last Updated: Sep 12, 2025
+    Last Updated: 2026-02-05  -03
+    Version: 1.70 (Smart GUI + robust path selection + fixes array-math GUI bug)
 #>
 
-# -------- Optional: hide console while the GUI is up --------
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() { var handle = GetConsoleWindow(); ShowWindow(handle, 0); }
-}
-"@
-[Window]::Hide()
+param(
+    # Embedded thresholds/pages for Smart + Verify + Classic (where applicable)
+    [ValidateRange(1, 1000000)]
+    [int]$MinPages = 100,
 
-# -------- WinForms --------
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+    [ValidateRange(0, 99)]
+    [int]$ReorgPct = 5,
+
+    [ValidateRange(1, 100)]
+    [int]$RebuildPct = 30,
+
+    # Output defaults (used by NoGui mode; GUI can override)
+    [string]$OutputDirectory = "C:\Logs-TEMP\WSUS-GUI\Scripts",
+    [string]$SmartFileName   = "wsus-reindex-smart.sql",
+    [string]$VerifyFileName  = "wsus-verify-fragmentation.sql",
+    [string]$ClassicFileName = "wsusdbmaintenance-classic.sql",
+
+    # What to generate (used by NoGui mode; GUI can override)
+    [switch]$GenerateSmart = $true,
+    [switch]$GenerateVerifyFragmentation = $true,
+    [switch]$GenerateClassic = $false,
+
+    # UX
+    [switch]$NoGui,
+    [switch]$Quiet,
+    [switch]$ShowConsole
+)
+
+#Requires -RunAsAdministrator
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# ----------------- WinForms bootstrap -----------------
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
+Add-Type -AssemblyName System.Drawing       | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-function Show-InputForm {
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Build WSUS Reindex (Smart)"
-    $form.StartPosition = 'CenterScreen'
-    $form.FormBorderStyle = 'FixedDialog'
-    $form.MaximizeBox = $false
-    $form.MinimizeBox = $false
-    $form.Width = 520
-    $form.Height = 260
+# ----------------- Logging (single log per run) -----------------
+$scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$rootDir    = "C:\Logs-TEMP\WSUS-GUI"
+$logDir     = Join-Path $rootDir "Logs"
+$null       = New-Item -Path $logDir -ItemType Directory -Force -ErrorAction SilentlyContinue
+$logPath    = Join-Path $logDir "$scriptName.log"
 
-    $font = New-Object System.Drawing.Font("Segoe UI", 9)
-
-    $lblMinPages = New-Object System.Windows.Forms.Label
-    $lblMinPages.Text = "Minimum Page Count:"
-    $lblMinPages.Left = 20; $lblMinPages.Top = 20; $lblMinPages.Width = 180
-    $lblMinPages.Font = $font
-
-    $txtMinPages = New-Object System.Windows.Forms.TextBox
-    $txtMinPages.Left = 220; $txtMinPages.Top = 18; $txtMinPages.Width = 100
-    $txtMinPages.Text = "100"
-    $txtMinPages.Font = $font
-
-    $lblReorg = New-Object System.Windows.Forms.Label
-    $lblReorg.Text = "Reorganize Threshold (%):"
-    $lblReorg.Left = 20; $lblReorg.Top = 55; $lblReorg.Width = 180
-    $lblReorg.Font = $font
-
-    $txtReorg = New-Object System.Windows.Forms.TextBox
-    $txtReorg.Left = 220; $txtReorg.Top = 53; $txtReorg.Width = 100
-    $txtReorg.Text = "5"
-    $txtReorg.Font = $font
-
-    $lblRebuild = New-Object System.Windows.Forms.Label
-    $lblRebuild.Text = "Rebuild Threshold (%):"
-    $lblRebuild.Left = 20; $lblRebuild.Top = 90; $lblRebuild.Width = 180
-    $lblRebuild.Font = $font
-
-    $txtRebuild = New-Object System.Windows.Forms.TextBox
-    $txtRebuild.Left = 220; $txtRebuild.Top = 88; $txtRebuild.Width = 100
-    $txtRebuild.Text = "30"
-    $txtRebuild.Font = $font
-
-    $hint = New-Object System.Windows.Forms.Label
-    $hint.Left = 20; $hint.Top = 120; $hint.Width = 470
-    $hint.Text = "Guidance: REORGANIZE ~5–30%, REBUILD ≥30%. Small indexes (<100 pages) rarely benefit."
-    $hint.Font = $font
-
-    $btnOk = New-Object System.Windows.Forms.Button
-    $btnOk.Text = "Generate SQL"
-    $btnOk.Left = 180; $btnOk.Top = 160; $btnOk.Width = 140; $btnOk.Height = 30
-    $btnOk.Font = $font
-    $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    $form.AcceptButton = $btnOk
-
-    $form.Controls.AddRange(@(
-            $lblMinPages, $txtMinPages,
-            $lblReorg, $txtReorg,
-            $lblRebuild, $txtRebuild,
-            $hint, $btnOk
-        ))
-
-    if ($form.ShowDialog() -eq 'OK') {
-        return @{
-            MinPages = [int]$txtMinPages.Text
-            ReorgPct = [double]$txtReorg.Text
-            RebuildPct = [double]$txtRebuild.Text
-        }
-    }
-    return $null
-}
-
-function Get-OutputPath {
-    param([string]$DefaultPath = "C:\Logs-TEMP\WSUS-GUI\Scripts\wsus-reindex-smart.sql")
-
-    $dlg = New-Object System.Windows.Forms.SaveFileDialog
-    $dlg.Title = "Save wsus-reindex-smart.sql"
-    $dlg.Filter = "SQL files (*.sql)|*.sql|All files (*.*)|*.*"
-    try {
-        $dir = Split-Path -Path $DefaultPath -Parent
-        if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
-        $dlg.InitialDirectory = $dir
-    } catch {}
-
-    $dlg.FileName = [System.IO.Path]::GetFileName($DefaultPath)
-    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        return $dlg.FileName
-    }
-    return $null
-}
-
-function Build-ReindexSqlText {
+function Write-Log {
     param(
-        [Parameter(Mandatory)] [int]    $MinPages,
-        [Parameter(Mandatory)] [double] $ReorgPct,
-        [Parameter(Mandatory)] [double] $RebuildPct
+        [Parameter(Mandatory=$true)][string]$Message,
+        [ValidateSet("INFO","WARNING","ERROR","DEBUG")][string]$Level = "INFO"
     )
-    @"
--- wsus-reindex-smart.sql
--- Purpose: Rebuild or reorganize fragmented indexes in SUSDB (WID-safe).
--- Notes:
---  - REBUILD when fragmentation >= $RebuildPct% and page_count >= $MinPages
---  - REORGANIZE when $ReorgPct% <= fragmentation < $RebuildPct% and page_count >= $MinPages
---  - Skips disabled, hypothetical indexes, heaps, and non-rowstore
---  - Prints per-index progress; continues on errors
---  - Single batch (no GO), safe for sqlcmd
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[$ts] [$Level] $Message"
+    try { Add-Content -Path $logPath -Value $line -Encoding UTF8 -ErrorAction Stop } catch {}
+    if (-not $Quiet) {
+        try { Write-Host $line } catch {}
+    }
+}
 
-USE [SUSDB];
+function Show-Ui {
+    param(
+        [Parameter(Mandatory=$true)][string]$Message,
+        [string]$Title = "WSUS SQL Generator",
+        [ValidateSet("Information","Warning","Error")][string]$Icon = "Information"
+    )
+    if ($Quiet -or $NoGui) { return }
+    $mbIcon = [System.Windows.Forms.MessageBoxIcon]::$Icon
+    [System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        $Title,
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        $mbIcon
+    ) | Out-Null
+}
+
+# ----------------- Console visibility (optional) -----------------
+function Set-ConsoleVisibility {
+    param([bool]$Visible)
+
+    try {
+        if (-not ("WinConsole" -as [type])) {
+            Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinConsole {
+    [DllImport("kernel32.dll", SetLastError=true)]
+    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll", SetLastError=true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@ -ErrorAction Stop
+        }
+
+        $h = [WinConsole]::GetConsoleWindow()
+        if ($h -ne [IntPtr]::Zero) {
+            $cmd = if ($Visible) { 5 } else { 0 } # 5=SHOW, 0=HIDE
+            [void][WinConsole]::ShowWindow($h, $cmd)
+        }
+    } catch {
+        # best-effort only
+    }
+}
+
+if (-not $ShowConsole) { Set-ConsoleVisibility -Visible:$false }
+
+# ----------------- File helpers -----------------
+function Ensure-Dir {
+    param([Parameter(Mandatory=$true)][string]$DirectoryPath)
+    if (-not (Test-Path -LiteralPath $DirectoryPath)) {
+        $null = New-Item -Path $DirectoryPath -ItemType Directory -Force -ErrorAction Stop
+    }
+}
+
+function Join-SafePath {
+    param(
+        [Parameter(Mandatory=$true)][string]$DirectoryPath,
+        [Parameter(Mandatory=$true)][string]$FileName
+    )
+    $safeName = ($FileName -replace '[\\/:*?"<>|]', '_').Trim()
+    if ([string]::IsNullOrWhiteSpace($safeName)) { throw "Invalid file name." }
+    return (Join-Path -Path $DirectoryPath -ChildPath $safeName)
+}
+
+function Select-FolderGui {
+    param([Parameter(Mandatory=$true)][string]$DefaultPath)
+
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description = "Select output folder for generated .sql files"
+    $dlg.SelectedPath = $DefaultPath
+
+    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        return $dlg.SelectedPath
+    }
+    return $null
+}
+
+# ----------------- SQL builders (Smart + Verify: match your working structure) -----------------
+function Build-ReindexSqlText {
+    param([int]$MinPages,[int]$ReorgPct,[int]$RebuildPct)
+
+@"
+USE SUSDB;
+GO
 SET NOCOUNT ON;
-SET DEADLOCK_PRIORITY LOW;
-SET LOCK_TIMEOUT 15000;
 
-DECLARE @t0 datetime2(0) = SYSUTCDATETIME();
-
-PRINT 'WSUS smart index maintenance starting...';
-PRINT 'Timestamp (UTC): ' + CONVERT(varchar(19), @t0, 120);
-
-DECLARE
-    @MinPages   int   = $MinPages,
-    @RebuildPct float = $RebuildPct,
-    @ReorgPct   float = $ReorgPct;
-
-DECLARE
-    @schema sysname,
-    @table  sysname,
-    @index  sysname,
-    @frag   float,
-    @pages  int,
-    @sql    nvarchar(max),
-    @op     char(1),   -- 'B' = REBUILD, 'O' = REORG
-    @ops    int = 0,
-    @opsB   int = 0,
-    @opsO   int = 0;
+DECLARE @schema sysname, @table sysname, @index sysname, @sql nvarchar(max);
 
 DECLARE cur CURSOR FAST_FORWARD FOR
-    SELECT
-        s.name  AS SchemaName,
-        t.name  AS TableName,
-        i.name  AS IndexName,
-        ips.avg_fragmentation_in_percent AS Frag,
-        ips.page_count AS Pages
-    FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') AS ips
-    JOIN sys.indexes  AS i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-    JOIN sys.tables   AS t ON t.object_id   = i.object_id
-    JOIN sys.schemas  AS s ON s.schema_id   = t.schema_id
-    WHERE i.name IS NOT NULL
-      AND i.is_disabled = 0
-      AND i.is_hypothetical = 0
-      AND i.type IN (1,2)               -- 1=CLUSTERED, 2=NONCLUSTERED (rowstore only)
-      AND i.type_desc <> 'HEAP'
-      AND ips.page_count >= @MinPages
-    ORDER BY ips.page_count DESC, ips.avg_fragmentation_in_percent DESC;
+SELECT
+    s.name  AS SchemaName,
+    t.name  AS TableName,
+    i.name  AS IndexName,
+    ips.avg_fragmentation_in_percent AS Frag,
+    ips.page_count AS Pages
+FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') AS ips
+JOIN sys.indexes  AS i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+JOIN sys.tables   AS t ON t.object_id   = i.object_id
+JOIN sys.schemas  AS s ON s.schema_id   = t.schema_id
+WHERE i.name IS NOT NULL
+  AND ips.page_count >= $MinPages       -- avoids useless work
+  AND i.is_disabled = 0
+  AND i.type_desc <> 'HEAP'             -- heaps do not support REBUILD
+ORDER BY ips.avg_fragmentation_in_percent DESC;
 
 OPEN cur;
+DECLARE @frag float, @pages int;
 
 FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    SET @sql = NULL;
-    SET @op  = NULL;
+    IF @frag >= $RebuildPct
+        SET @sql = N'ALTER INDEX ['+@index+'] ON ['+@schema+'].['+@table+'] REBUILD WITH (SORT_IN_TEMPDB = OFF, MAXDOP = 1);';
+    ELSE IF @frag >= $ReorgPct
+        SET @sql = N'ALTER INDEX ['+@index+'] ON ['+@schema+'].['+@table+'] REORGANIZE;';
+    ELSE
+        SET @sql = NULL; -- ignore
 
-    IF (@frag >= @RebuildPct)
+    IF @sql IS NOT NULL
     BEGIN
-        SET @sql = N'ALTER INDEX ' + QUOTENAME(@index)
-                 + N' ON ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table)
-                 + N' REBUILD WITH (SORT_IN_TEMPDB = OFF, MAXDOP = 1);';
-        SET @op = 'B';
-    END
-    ELSE IF (@frag >= @ReorgPct)
-    BEGIN
-        SET @sql = N'ALTER INDEX ' + QUOTENAME(@index)
-                 + N' ON ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table)
-                 + N' REORGANIZE WITH (LOB_COMPACTION = ON);';
-        SET @op = 'O';
+        PRINT CONCAT('>> ', @schema, '.', @table, ' [', @index, ']  Frag=', CONVERT(varchar(10), @frag), '%  Pages=', @pages);
+        EXEC sp_executesql @sql;
     END
 
-    IF (@sql IS NOT NULL)
+    FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
+END
+
+CLOSE cur; DEALLOCATE cur;
+GO
+"@
+}
+
+function Build-VerifyFragmentationSqlText {
+    param([int]$MinPages,[int]$ReorgPct,[int]$RebuildPct)
+
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $rb  = [string]::Format($inv, "{0:0.0}", [double]$RebuildPct)
+    $rg  = [string]::Format($inv, "{0:0.0}", [double]$ReorgPct)
+
+@"
+USE [SUSDB];
+GO
+
+DECLARE @MinPages   int   = $MinPages;
+DECLARE @RebuildPct float = $rb;
+DECLARE @ReorgPct   float = $rg;
+
+SELECT
+    s.[name]  AS SchemaName,
+    t.[name]  AS TableName,
+    i.[name]  AS IndexName,
+    i.type_desc AS IndexType,
+    ips.partition_number AS PartitionNumber,
+    ips.page_count       AS PageCount,
+    ROUND(CAST(ips.avg_fragmentation_in_percent AS decimal(9,4)), 2) AS FragmentationPercent,
+    CASE
+        WHEN ips.avg_fragmentation_in_percent >= @RebuildPct THEN 'High'
+        WHEN ips.avg_fragmentation_in_percent >= @ReorgPct   THEN 'Medium'
+        ELSE 'Low'
+    END AS FragmentationLevel,
+    CASE
+        WHEN ips.page_count < @MinPages THEN 'NONE (small index)'
+        WHEN ips.avg_fragmentation_in_percent >= @RebuildPct THEN 'REBUILD'
+        WHEN ips.avg_fragmentation_in_percent >= @ReorgPct   THEN 'REORGANIZE'
+        ELSE 'NONE'
+    END AS MaintenanceRecommendation
+FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') AS ips
+JOIN sys.indexes AS i
+  ON ips.[object_id] = i.[object_id]
+ AND ips.index_id    = i.index_id
+JOIN sys.tables AS t
+  ON i.[object_id] = t.[object_id]
+JOIN sys.schemas AS s
+  ON t.[schema_id] = s.[schema_id]
+WHERE
+    i.[name] IS NOT NULL
+    AND i.is_disabled = 0
+    AND i.is_hypothetical = 0
+    AND i.index_id > 0
+    AND i.type IN (1,2)
+    AND ips.page_count >= @MinPages
+ORDER BY
+    FragmentationPercent DESC,
+    PageCount DESC;
+"@
+}
+
+# ----------------- SQL builder (Classic WSUS maintenance) -----------------
+function Build-ClassicWsusMaintenanceSqlText {
+    param([int]$MinPages,[int]$ReorgPct,[int]$RebuildPct)
+
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $rb  = [string]::Format($inv, "{0:0.0}", [double]$RebuildPct)
+    $rg  = [string]::Format($inv, "{0:0.0}", [double]$ReorgPct)
+
+@"
+USE [SUSDB];
+GO
+SET NOCOUNT ON;
+
+DECLARE @MinPages   int   = $MinPages;
+DECLARE @RebuildPct float = $rb;
+DECLARE @ReorgPct   float = $rg;
+
+DECLARE @Start datetime2 = SYSDATETIME();
+PRINT 'Classic WSUS SUSDB maintenance started: ' + CONVERT(varchar(30), @Start, 121);
+PRINT 'MinPages=' + CAST(@MinPages as varchar(20)) + ' Reorg=' + CAST(@ReorgPct as varchar(20)) + '% Rebuild=' + CAST(@RebuildPct as varchar(20)) + '%';
+
+-- Known high-churn WSUS tables (scope control)
+DECLARE @Targets TABLE (SchemaName sysname NOT NULL, TableName sysname NOT NULL);
+INSERT INTO @Targets (SchemaName, TableName) VALUES
+('dbo','tbRevision'),
+('dbo','tbRevisionSupersedesUpdate'),
+('dbo','tbLocalizedPropertyForRevision'),
+('dbo','tbProperty'),
+('dbo','tbUpdate'),
+('dbo','tbDeployment'),
+('dbo','tbComputerTarget'),
+('dbo','tbComputerTargetGroup'),
+('dbo','tbFile');
+
+-- Fill factor overrides (table-level default)
+-- Adjust to your environment if needed.
+DECLARE @FillFactor TABLE (SchemaName sysname NOT NULL, TableName sysname NOT NULL, FillFactor int NOT NULL);
+INSERT INTO @FillFactor (SchemaName, TableName, FillFactor) VALUES
+('dbo','tbRevisionSupersedesUpdate', 90),
+('dbo','tbLocalizedPropertyForRevision', 90),
+('dbo','tbRevision', 90),
+('dbo','tbProperty', 90);
+
+DECLARE @schema sysname, @table sysname, @index sysname, @frag float, @pages int;
+DECLARE @ff int;
+DECLARE @sql nvarchar(max);
+
+DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+SELECT
+    s.name  AS SchemaName,
+    t.name  AS TableName,
+    i.name  AS IndexName,
+    ips.avg_fragmentation_in_percent AS Frag,
+    ips.page_count AS Pages
+FROM sys.dm_db_index_physical_stats(DB_ID('SUSDB'), NULL, NULL, NULL, 'LIMITED') AS ips
+JOIN sys.indexes  AS i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+JOIN sys.tables   AS t ON t.object_id   = i.object_id
+JOIN sys.schemas  AS s ON s.schema_id   = t.schema_id
+JOIN @Targets     AS trg ON trg.SchemaName = s.name AND trg.TableName = t.name
+WHERE
+    i.name IS NOT NULL
+    AND i.is_disabled = 0
+    AND i.is_hypothetical = 0
+    AND i.index_id > 0
+    AND i.type IN (1,2)
+    AND t.is_ms_shipped = 0
+    AND ips.page_count >= @MinPages
+ORDER BY
+    ips.avg_fragmentation_in_percent DESC,
+    ips.page_count DESC;
+
+OPEN cur;
+FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @ff = NULL;
+    SELECT @ff = FillFactor FROM @FillFactor WHERE SchemaName=@schema AND TableName=@table;
+
+    IF @frag >= @RebuildPct
     BEGIN
-        PRINT '>> ' + @schema + '.' + @table + ' [' + @index + ']  Frag='
-            + CONVERT(varchar(32), @frag) + '%  Pages=' + CONVERT(varchar(32), @pages);
+        IF @ff IS NOT NULL
+            SET @sql = N'ALTER INDEX ' + QUOTENAME(@index) + N' ON ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table)
+                     + N' REBUILD WITH (FILLFACTOR = ' + CAST(@ff as nvarchar(10)) + N', SORT_IN_TEMPDB = OFF, MAXDOP = 1);';
+        ELSE
+            SET @sql = N'ALTER INDEX ' + QUOTENAME(@index) + N' ON ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table)
+                     + N' REBUILD WITH (SORT_IN_TEMPDB = OFF, MAXDOP = 1);';
+
+        PRINT CONCAT('REBUILD >> ', @schema, '.', @table, ' [', @index, ']  Frag=', CONVERT(varchar(10), @frag), '%  Pages=', @pages,
+                     CASE WHEN @ff IS NULL THEN '' ELSE CONCAT('  FillFactor=', @ff) END);
+
         BEGIN TRY
-            EXEC sys.sp_executesql @sql;
-            SET @ops += 1;
-            IF (@op = 'B') SET @opsB += 1;
-            IF (@op = 'O') SET @opsO += 1;
-            PRINT CASE WHEN @op='B' THEN '   OK (REBUILD)' ELSE '   OK (REORGANIZE)' END;
+            EXEC sp_executesql @sql;
         END TRY
         BEGIN CATCH
-            PRINT '   ERROR: ' + ERROR_MESSAGE();
+            PRINT CONCAT('FAILED >> ', @schema, '.', @table, ' [', @index, ']  Error=', ERROR_MESSAGE());
+        END CATCH
+    END
+    ELSE IF @frag >= @ReorgPct
+    BEGIN
+        SET @sql = N'ALTER INDEX ' + QUOTENAME(@index) + N' ON ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table) + N' REORGANIZE;';
+        PRINT CONCAT('REORGANIZE >> ', @schema, '.', @table, ' [', @index, ']  Frag=', CONVERT(varchar(10), @frag), '%  Pages=', @pages);
+
+        BEGIN TRY
+            EXEC sp_executesql @sql;
+        END TRY
+        BEGIN CATCH
+            PRINT CONCAT('FAILED >> ', @schema, '.', @table, ' [', @index, ']  Error=', ERROR_MESSAGE());
         END CATCH
     END
 
     FETCH NEXT FROM cur INTO @schema, @table, @index, @frag, @pages;
 END
 
-CLOSE cur;
-DEALLOCATE cur;
+CLOSE cur; DEALLOCATE cur;
 
-DECLARE @t1 datetime2(0) = SYSUTCDATETIME();
-PRINT 'Totals — executed: ' + CONVERT(varchar(12), @ops)
-    + ' | rebuilds: ' + CONVERT(varchar(12), @opsB)
-    + ' | reorganizes: ' + CONVERT(varchar(12), @opsO);
-PRINT 'Duration: ' + CONVERT(varchar(12), DATEDIFF(second, @t0, @t1)) + ' sec';
-PRINT 'WSUS smart index maintenance completed.';
-PRINT 'Timestamp (UTC): ' + CONVERT(varchar(19), @t1, 120);
+PRINT 'Updating statistics...';
+EXEC sp_updatestats;
+
+DECLARE @End datetime2 = SYSDATETIME();
+PRINT 'Classic WSUS SUSDB maintenance completed: ' + CONVERT(varchar(30), @End, 121);
+PRINT 'Duration (seconds): ' + CAST(DATEDIFF(second, @Start, @End) as varchar(20));
+GO
 "@
 }
 
-# -------- Main flow --------
-try {
-    $input = Show-InputForm
-    if (-not $input) { [System.Windows.Forms.MessageBox]::Show("Operation canceled.", "WSUS Reindex (Smart)", 'OK', 'Information') | Out-Null; exit }
+# ----------------- Core generator -----------------
+function Invoke-GenerateSqlFiles {
+    param(
+        [Parameter(Mandatory=$true)][string]$OutDir,
+        [Parameter(Mandatory=$true)][bool]$DoSmart,
+        [Parameter(Mandatory=$true)][bool]$DoVerify,
+        [Parameter(Mandatory=$true)][bool]$DoClassic,
+        [Parameter(Mandatory=$true)][string]$SmartName,
+        [Parameter(Mandatory=$true)][string]$VerifyName,
+        [Parameter(Mandatory=$true)][string]$ClassicName,
+        [Parameter(Mandatory=$true)][int]$MinPages,
+        [Parameter(Mandatory=$true)][int]$ReorgPct,
+        [Parameter(Mandatory=$true)][int]$RebuildPct
+    )
 
-    # Validate thresholds
-    if ($input.ReorgPct -lt 0 -or $input.RebuildPct -lt 0 -or $input.RebuildPct -le $input.ReorgPct) {
-        [System.Windows.Forms.MessageBox]::Show("Invalid thresholds. Ensure: 0 <= Reorganize% < Rebuild%.", "Validation", 'OK', 'Error') | Out-Null
-        exit 1
+    if ($RebuildPct -le $ReorgPct) { throw "RebuildPct must be greater than ReorgPct." }
+    Ensure-Dir -DirectoryPath $OutDir
+
+    $written = [ordered]@{
+        Verify  = $null
+        Smart   = $null
+        Classic = $null
     }
-    if ($input.MinPages -lt 1) {
-        [System.Windows.Forms.MessageBox]::Show("Minimum page count must be at least 1.", "Validation", 'OK', 'Error') | Out-Null
-        exit 1
+
+    if ($DoVerify) {
+        $p = Join-SafePath -DirectoryPath $OutDir -FileName $VerifyName
+        $sql = Build-VerifyFragmentationSqlText -MinPages $MinPages -ReorgPct $ReorgPct -RebuildPct $RebuildPct
+        Set-Content -Path $p -Value $sql -Encoding UTF8 -ErrorAction Stop
+        Write-Log "Generated SQL script: $p" "INFO"
+        $written.Verify = $p
+    } else {
+        Write-Log "Verify fragmentation script generation skipped." "INFO"
     }
 
-    $defaultOut = "C:\Logs-TEMP\WSUS-GUI\Scripts\wsus-reindex-smart.sql"
-    $outFile = Get-OutputPath -DefaultPath $defaultOut
-    if (-not $outFile) { [System.Windows.Forms.MessageBox]::Show("No file selected. Nothing was written.", "WSUS Reindex (Smart)", 'OK', 'Information') | Out-Null; exit }
+    if ($DoSmart) {
+        $p = Join-SafePath -DirectoryPath $OutDir -FileName $SmartName
+        $sql = Build-ReindexSqlText -MinPages $MinPages -ReorgPct $ReorgPct -RebuildPct $RebuildPct
+        Set-Content -Path $p -Value $sql -Encoding UTF8 -ErrorAction Stop
+        Write-Log "Generated SQL script: $p" "INFO"
+        $written.Smart = $p
+    } else {
+        Write-Log "Smart reindex script generation skipped." "INFO"
+    }
 
-    $sqlText = Build-ReindexSqlText -MinPages $input.MinPages -ReorgPct $input.ReorgPct -RebuildPct $input.RebuildPct
+    if ($DoClassic) {
+        $p = Join-SafePath -DirectoryPath $OutDir -FileName $ClassicName
+        $sql = Build-ClassicWsusMaintenanceSqlText -MinPages $MinPages -ReorgPct $ReorgPct -RebuildPct $RebuildPct
+        Set-Content -Path $p -Value $sql -Encoding UTF8 -ErrorAction Stop
+        Write-Log "Generated SQL script: $p" "INFO"
+        $written.Classic = $p
+    } else {
+        Write-Log "Classic script generation skipped." "INFO"
+    }
 
-    $dir = Split-Path -Path $outFile -Parent
-    if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
-
-    # UTF8 without BOM is fine; BOM also fine for sqlcmd — choose plain UTF8
-    Set-Content -Path $outFile -Value $sqlText -Encoding UTF8
-
-    [System.Windows.Forms.MessageBox]::Show("Script generated:`r`n$outFile", "Success", 'OK', 'Information') | Out-Null
+    return [pscustomobject]$written
 }
-catch {
-    [System.Windows.Forms.MessageBox]::Show("Failed: $($_.Exception.Message)", "Error", 'OK', 'Error') | Out-Null
-    exit 1
+
+# ----------------- Smart GUI -----------------
+function Show-GeneratorGui {
+    param(
+        [string]$DefaultOutDir,
+        [int]$DefaultMinPages,
+        [int]$DefaultReorgPct,
+        [int]$DefaultRebuildPct,
+        [bool]$DefaultDoSmart,
+        [bool]$DefaultDoVerify,
+        [bool]$DefaultDoClassic,
+        [string]$DefaultSmartName,
+        [string]$DefaultVerifyName,
+        [string]$DefaultClassicName
+    )
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "WSUS SQL Generator (SUSDB) — v1.70"
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $true
+    $form.Size = New-Object System.Drawing.Size(780, 520)
+
+    $font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $form.Font = $font
+
+    # Main layout
+    $main = New-Object System.Windows.Forms.TableLayoutPanel
+    $main.Dock = 'Fill'
+    $main.Padding = New-Object System.Windows.Forms.Padding(12)
+    $main.RowCount = 5
+    $main.ColumnCount = 1
+    $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 110))) | Out-Null
+    $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 155))) | Out-Null
+    $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 120))) | Out-Null
+    $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100))) | Out-Null
+    $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 60))) | Out-Null
+    $form.Controls.Add($main)
+
+    # Group: Output
+    $gbOut = New-Object System.Windows.Forms.GroupBox
+    $gbOut.Text = "Output"
+    $gbOut.Dock = 'Fill'
+    $main.Controls.Add($gbOut, 0, 0)
+
+    $outTbl = New-Object System.Windows.Forms.TableLayoutPanel
+    $outTbl.Dock = 'Fill'
+    $outTbl.Padding = New-Object System.Windows.Forms.Padding(10, 18, 10, 10)
+    $outTbl.ColumnCount = 3
+    $outTbl.RowCount = 2
+    $outTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 120))) | Out-Null
+    $outTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100))) | Out-Null
+    $outTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 110))) | Out-Null
+    $outTbl.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 28))) | Out-Null
+    $outTbl.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 28))) | Out-Null
+    $gbOut.Controls.Add($outTbl)
+
+    $lblDir = New-Object System.Windows.Forms.Label
+    $lblDir.Text = "Folder:"
+    $lblDir.TextAlign = 'MiddleLeft'
+    $lblDir.Dock = 'Fill'
+    $outTbl.Controls.Add($lblDir, 0, 0)
+
+    $txtDir = New-Object System.Windows.Forms.TextBox
+    $txtDir.Text = $DefaultOutDir
+    $txtDir.Dock = 'Fill'
+    $outTbl.Controls.Add($txtDir, 1, 0)
+
+    $btnBrowse = New-Object System.Windows.Forms.Button
+    $btnBrowse.Text = "Browse..."
+    $btnBrowse.Dock = 'Fill'
+    $outTbl.Controls.Add($btnBrowse, 2, 0)
+
+    $lblHint = New-Object System.Windows.Forms.Label
+    $lblHint.Text = "Files will be created inside the selected folder. You can edit file names below."
+    $lblHint.AutoSize = $true
+    $lblHint.Dock = 'Fill'
+    $outTbl.SetColumnSpan($lblHint, 3)
+    $outTbl.Controls.Add($lblHint, 0, 1)
+
+    $btnBrowse.Add_Click({
+        try {
+            $picked = Select-FolderGui -DefaultPath $txtDir.Text
+            if ($picked) { $txtDir.Text = $picked }
+        } catch { }
+    })
+
+    # Group: What to generate
+    $gbWhat = New-Object System.Windows.Forms.GroupBox
+    $gbWhat.Text = "Generate"
+    $gbWhat.Dock = 'Fill'
+    $main.Controls.Add($gbWhat, 0, 1)
+
+    $whatTbl = New-Object System.Windows.Forms.TableLayoutPanel
+    $whatTbl.Dock = 'Fill'
+    $whatTbl.Padding = New-Object System.Windows.Forms.Padding(10, 18, 10, 10)
+    $whatTbl.ColumnCount = 3
+    $whatTbl.RowCount = 4
+    $whatTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 160))) | Out-Null
+    $whatTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100))) | Out-Null
+    $whatTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 140))) | Out-Null
+    1..4 | ForEach-Object { $whatTbl.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 28))) | Out-Null }
+    $gbWhat.Controls.Add($whatTbl)
+
+    $chkSmart = New-Object System.Windows.Forms.CheckBox
+    $chkSmart.Text = "Smart reindex (scan ALL)"
+    $chkSmart.Checked = $DefaultDoSmart
+    $chkSmart.Dock = 'Fill'
+    $whatTbl.Controls.Add($chkSmart, 0, 0)
+
+    $txtSmart = New-Object System.Windows.Forms.TextBox
+    $txtSmart.Text = $DefaultSmartName
+    $txtSmart.Dock = 'Fill'
+    $whatTbl.Controls.Add($txtSmart, 1, 0)
+
+    $lblSmart = New-Object System.Windows.Forms.Label
+    $lblSmart.Text = "Recommended"
+    $lblSmart.TextAlign = 'MiddleLeft'
+    $lblSmart.Dock = 'Fill'
+    $whatTbl.Controls.Add($lblSmart, 2, 0)
+
+    $chkVerify = New-Object System.Windows.Forms.CheckBox
+    $chkVerify.Text = "Verify fragmentation (report)"
+    $chkVerify.Checked = $DefaultDoVerify
+    $chkVerify.Dock = 'Fill'
+    $whatTbl.Controls.Add($chkVerify, 0, 1)
+
+    $txtVerify = New-Object System.Windows.Forms.TextBox
+    $txtVerify.Text = $DefaultVerifyName
+    $txtVerify.Dock = 'Fill'
+    $whatTbl.Controls.Add($txtVerify, 1, 1)
+
+    $lblVerify = New-Object System.Windows.Forms.Label
+    $lblVerify.Text = "Recommended"
+    $lblVerify.TextAlign = 'MiddleLeft'
+    $lblVerify.Dock = 'Fill'
+    $whatTbl.Controls.Add($lblVerify, 2, 1)
+
+    $chkClassic = New-Object System.Windows.Forms.CheckBox
+    $chkClassic.Text = "Classic WSUS maintenance (targeted)"
+    $chkClassic.Checked = $DefaultDoClassic
+    $chkClassic.Dock = 'Fill'
+    $whatTbl.Controls.Add($chkClassic, 0, 2)
+
+    $txtClassic = New-Object System.Windows.Forms.TextBox
+    $txtClassic.Text = $DefaultClassicName
+    $txtClassic.Dock = 'Fill'
+    $whatTbl.Controls.Add($txtClassic, 1, 2)
+
+    $lblClassic = New-Object System.Windows.Forms.Label
+    $lblClassic.Text = "Optional"
+    $lblClassic.TextAlign = 'MiddleLeft'
+    $lblClassic.Dock = 'Fill'
+    $whatTbl.Controls.Add($lblClassic, 2, 2)
+
+    $tip = New-Object System.Windows.Forms.Label
+    $tip.Text = "Tip: Classic is a smaller-scope script (known WSUS hot tables) — faster than scanning everything."
+    $tip.AutoSize = $true
+    $tip.Dock = 'Fill'
+    $whatTbl.SetColumnSpan($tip, 3)
+    $whatTbl.Controls.Add($tip, 0, 3)
+
+    # Group: Thresholds
+    $gbThr = New-Object System.Windows.Forms.GroupBox
+    $gbThr.Text = "Thresholds embedded into SQL"
+    $gbThr.Dock = 'Fill'
+    $main.Controls.Add($gbThr, 0, 2)
+
+    $thrTbl = New-Object System.Windows.Forms.TableLayoutPanel
+    $thrTbl.Dock = 'Fill'
+    $thrTbl.Padding = New-Object System.Windows.Forms.Padding(10, 18, 10, 10)
+    $thrTbl.ColumnCount = 6
+    $thrTbl.RowCount = 2
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 110))) | Out-Null
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 90))) | Out-Null
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 110))) | Out-Null
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 90))) | Out-Null
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 110))) | Out-Null
+    $thrTbl.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 90))) | Out-Null
+    $thrTbl.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 28))) | Out-Null
+    $thrTbl.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 28))) | Out-Null
+    $gbThr.Controls.Add($thrTbl)
+
+    $lMin = New-Object System.Windows.Forms.Label
+    $lMin.Text = "MinPages:"
+    $lMin.TextAlign = 'MiddleLeft'
+    $lMin.Dock = 'Fill'
+    $thrTbl.Controls.Add($lMin, 0, 0)
+
+    $numMin = New-Object System.Windows.Forms.NumericUpDown
+    $numMin.Minimum = 1
+    $numMin.Maximum = 1000000
+    $numMin.Value = [decimal]$DefaultMinPages
+    $numMin.Dock = 'Fill'
+    $thrTbl.Controls.Add($numMin, 1, 0)
+
+    $lReorg = New-Object System.Windows.Forms.Label
+    $lReorg.Text = "ReorgPct:"
+    $lReorg.TextAlign = 'MiddleLeft'
+    $lReorg.Dock = 'Fill'
+    $thrTbl.Controls.Add($lReorg, 2, 0)
+
+    $numReorg = New-Object System.Windows.Forms.NumericUpDown
+    $numReorg.Minimum = 0
+    $numReorg.Maximum = 99
+    $numReorg.Value = [decimal]$DefaultReorgPct
+    $numReorg.Dock = 'Fill'
+    $thrTbl.Controls.Add($numReorg, 3, 0)
+
+    $lReb = New-Object System.Windows.Forms.Label
+    $lReb.Text = "RebuildPct:"
+    $lReb.TextAlign = 'MiddleLeft'
+    $lReb.Dock = 'Fill'
+    $thrTbl.Controls.Add($lReb, 4, 0)
+
+    $numRebuild = New-Object System.Windows.Forms.NumericUpDown
+    $numRebuild.Minimum = 1
+    $numRebuild.Maximum = 100
+    $numRebuild.Value = [decimal]$DefaultRebuildPct
+    $numRebuild.Dock = 'Fill'
+    $thrTbl.Controls.Add($numRebuild, 5, 0)
+
+    $lblRule = New-Object System.Windows.Forms.Label
+    $lblRule.Text = "Rule: RebuildPct must be greater than ReorgPct. MinPages avoids tiny indexes."
+    $lblRule.AutoSize = $true
+    $lblRule.Dock = 'Fill'
+    $thrTbl.SetColumnSpan($lblRule, 6)
+    $thrTbl.Controls.Add($lblRule, 0, 1)
+
+    # Status / buttons row
+    $panelBottom = New-Object System.Windows.Forms.Panel
+    $panelBottom.Dock = 'Fill'
+    $main.Controls.Add($panelBottom, 0, 4)
+
+    $lblStatus = New-Object System.Windows.Forms.Label
+    $lblStatus.Text = "Ready"
+    $lblStatus.AutoSize = $false
+    $lblStatus.TextAlign = 'MiddleLeft'
+    $lblStatus.Dock = 'Fill'
+    $lblStatus.Location = New-Object System.Drawing.Point(12, 8)
+    $lblStatus.Size = New-Object System.Drawing.Size(500, 40)
+    $panelBottom.Controls.Add($lblStatus)
+
+    $btnGen = New-Object System.Windows.Forms.Button
+    $btnGen.Text = "&Generate"
+    $btnGen.Size = New-Object System.Drawing.Size(110, 30)
+    $btnGen.Location = New-Object System.Drawing.Point(540, 15)
+    $panelBottom.Controls.Add($btnGen)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Text = "&Close"
+    $btnClose.Size = New-Object System.Drawing.Size(90, 30)
+    $btnClose.Location = New-Object System.Drawing.Point(655, 15)
+    $panelBottom.Controls.Add($btnClose)
+
+    $result = $null
+
+    $btnClose.Add_Click({ $form.Close() })
+
+    $btnGen.Add_Click({
+        try {
+            $outDir = $txtDir.Text.Trim()
+            if ([string]::IsNullOrWhiteSpace($outDir)) { throw "Output folder is required." }
+
+            $doSmart   = [bool]$chkSmart.Checked
+            $doVerify  = [bool]$chkVerify.Checked
+            $doClassic = [bool]$chkClassic.Checked
+            if (-not ($doSmart -or $doVerify -or $doClassic)) { throw "Select at least one file to generate." }
+
+            $smartName   = $txtSmart.Text.Trim()
+            $verifyName  = $txtVerify.Text.Trim()
+            $classicName = $txtClassic.Text.Trim()
+
+            $minPages = [int]$numMin.Value
+            $reorg    = [int]$numReorg.Value
+            $rebuild  = [int]$numRebuild.Value
+            if ($rebuild -le $reorg) { throw "RebuildPct must be greater than ReorgPct." }
+
+            $lblStatus.Text = "Generating..."
+            $form.Refresh()
+
+            $written = Invoke-GenerateSqlFiles `
+                -OutDir $outDir `
+                -DoSmart $doSmart `
+                -DoVerify $doVerify `
+                -DoClassic $doClassic `
+                -SmartName $smartName `
+                -VerifyName $verifyName `
+                -ClassicName $classicName `
+                -MinPages $minPages `
+                -ReorgPct $reorg `
+                -RebuildPct $rebuild
+
+            $lines = @()
+            if ($written.Verify)  { $lines += "Verify:  $($written.Verify)" }  else { $lines += "Verify:  (skipped)" }
+            if ($written.Smart)   { $lines += "Smart:   $($written.Smart)" }   else { $lines += "Smart:   (skipped)" }
+            if ($written.Classic) { $lines += "Classic: $($written.Classic)" } else { $lines += "Classic: (skipped)" }
+            $lines += ""
+            $lines += "Log:     $logPath"
+
+            $lblStatus.Text = "Done"
+            Show-Ui -Message ($lines -join "`r`n") -Icon Information
+
+            $result = [pscustomobject]@{
+                OutputDirectory = $outDir
+                GenerateSmart   = $doSmart
+                GenerateVerify  = $doVerify
+                GenerateClassic = $doClassic
+                SmartFileName   = $smartName
+                VerifyFileName  = $verifyName
+                ClassicFileName = $classicName
+                MinPages        = $minPages
+                ReorgPct        = $reorg
+                RebuildPct      = $rebuild
+            }
+
+        } catch {
+            $lblStatus.Text = "Failed"
+            Show-Ui -Message ("Error: {0}`n`nLog: {1}" -f $_.Exception.Message, $logPath) -Icon Error
+            Write-Log ("GUI generate failed: {0}" -f $_.Exception.Message) "ERROR"
+        }
+    })
+
+    $form.Add_Shown({ $form.Activate() }) | Out-Null
+    [void]$form.ShowDialog()
+    return $result
+}
+
+# ----------------- Main -----------------
+Write-Log "========== WSUS SQL GENERATOR START ==========" "INFO"
+Write-Log "Log: $logPath" "INFO"
+Write-Log "Defaults: OutDir=$OutputDirectory Smart=$([bool]$GenerateSmart) Verify=$([bool]$GenerateVerifyFragmentation) Classic=$([bool]$GenerateClassic) MinPages=$MinPages ReorgPct=$ReorgPct RebuildPct=$RebuildPct" "INFO"
+
+try {
+    if (-not $NoGui) {
+        $picked = Show-GeneratorGui `
+            -DefaultOutDir $OutputDirectory `
+            -DefaultMinPages $MinPages `
+            -DefaultReorgPct $ReorgPct `
+            -DefaultRebuildPct $RebuildPct `
+            -DefaultDoSmart ([bool]$GenerateSmart) `
+            -DefaultDoVerify ([bool]$GenerateVerifyFragmentation) `
+            -DefaultDoClassic ([bool]$GenerateClassic) `
+            -DefaultSmartName $SmartFileName `
+            -DefaultVerifyName $VerifyFileName `
+            -DefaultClassicName $ClassicFileName
+
+        # If user closed without generating, exit cleanly
+        if ($null -eq $picked) {
+            Write-Log "GUI closed without generation." "WARNING"
+            return
+        }
+
+        # Apply GUI selections for final output (mainly for logs)
+        $OutputDirectory = $picked.OutputDirectory
+        $GenerateSmart   = [bool]$picked.GenerateSmart
+        $GenerateVerifyFragmentation = [bool]$picked.GenerateVerify
+        $GenerateClassic = [bool]$picked.GenerateClassic
+        $SmartFileName   = $picked.SmartFileName
+        $VerifyFileName  = $picked.VerifyFileName
+        $ClassicFileName = $picked.ClassicFileName
+        $MinPages        = [int]$picked.MinPages
+        $ReorgPct        = [int]$picked.ReorgPct
+        $RebuildPct      = [int]$picked.RebuildPct
+
+        Write-Log "GUI selections applied: OutDir=$OutputDirectory Smart=$GenerateSmart Verify=$GenerateVerifyFragmentation Classic=$GenerateClassic" "INFO"
+        Write-Log "========== WSUS SQL GENERATOR END ==========" "INFO"
+        return
+    }
+
+    # NoGui mode: generate immediately using parameters
+    if ($RebuildPct -le $ReorgPct) {
+        $msg = "RebuildPct must be greater than ReorgPct."
+        Write-Log $msg "ERROR"
+        Show-Ui -Message $msg -Icon Error
+        throw $msg
+    }
+
+    $written = Invoke-GenerateSqlFiles `
+        -OutDir $OutputDirectory `
+        -DoSmart ([bool]$GenerateSmart) `
+        -DoVerify ([bool]$GenerateVerifyFragmentation) `
+        -DoClassic ([bool]$GenerateClassic) `
+        -SmartName $SmartFileName `
+        -VerifyName $VerifyFileName `
+        -ClassicName $ClassicFileName `
+        -MinPages $MinPages `
+        -ReorgPct $ReorgPct `
+        -RebuildPct $RebuildPct
+
+    if (-not $Quiet) {
+        $lines = @()
+        if ($written.Verify)  { $lines += "Verify:  $($written.Verify)" }  else { $lines += "Verify:  (skipped)" }
+        if ($written.Smart)   { $lines += "Smart:   $($written.Smart)" }   else { $lines += "Smart:   (skipped)" }
+        if ($written.Classic) { $lines += "Classic: $($written.Classic)" } else { $lines += "Classic: (skipped)" }
+        $lines += ""
+        $lines += "Log:     $logPath"
+        Show-Ui -Message ($lines -join "`r`n") -Icon Information
+    }
+
+    Write-Log "========== WSUS SQL GENERATOR END ==========" "INFO"
+
+} catch {
+    Write-Log ("Generator failed: {0}" -f $_.Exception.Message) "ERROR"
+    Show-Ui -Message ("Generator failed.`n`nError: {0}`nLog: {1}" -f $_.Exception.Message,$logPath) -Icon Error
+    throw
 }
 
 # End of script
