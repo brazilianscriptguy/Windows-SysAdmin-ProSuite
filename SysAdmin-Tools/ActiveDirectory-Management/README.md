@@ -87,7 +87,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Retrieve-ADComputer-SharedFolders.ps1** | Retrieves shared folders from AD computers |
 | **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Extracts domain audit policy configuration |
 | **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves privileged forest and role information |
-| **Synchronize-ADForestDCs.ps1** | Forces replication across domain controllers |
+| **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Forces replication across domain controllers and checks DCs and Forest health |
 | **Unlock-SMBShareADUserAccess.ps1** | Restores SMB share access for users |
 | **Update-ADComputer-Descriptions.ps1** | Updates computer object descriptions |
 | **Update-ADUserDisplayName.ps1** | Applies standardized display name formats |
