@@ -25,7 +25,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: 2026-02-20
+    Last Updated: 2026-02-25
     Version: 1.10
 #>
 
