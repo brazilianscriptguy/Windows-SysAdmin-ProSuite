@@ -1,5 +1,5 @@
 {
-  "generatedAtUtc": "2026-02-27T04:22:20Z",
+  "generatedAtUtc": "2026-02-28T04:02:24Z",
   "user": "brazilianscriptguy",
   "method": "github-linguist-bytes",
   "excludedRepos": [],
@@ -8,10 +8,10 @@
       "PowerShell": 1647306,
       "VBScript": 28456,
       "HTML": 12495,
+      "TSQL": 8947,
       "Java": 7078,
       "PHP": 6259,
       "C#": 5455,
-      "TSQL": 3427,
       "Python": 3271,
       "JavaScript": 2075
     },
