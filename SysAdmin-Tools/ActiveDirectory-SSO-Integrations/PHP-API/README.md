@@ -1,156 +1,173 @@
-# 🔹 PHP-API: Active Directory SSO Integration
+# 🔹 PHP-API: Active Directory SSO Integration with LdapRecord
 
 ![PHP](https://img.shields.io/badge/PHP-8.0+-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![LDAP](https://img.shields.io/badge/LDAP-Active%20Directory-0A66C2?style=for-the-badge&logo=microsoft)
 ![SSO](https://img.shields.io/badge/SSO-Global%20Catalog-4CAF50?style=for-the-badge)
+![LdapRecord](https://img.shields.io/badge/Library-LdapRecord-6DB33F?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Apache%20%7C%20Nginx-D22128?style=for-the-badge)
 ![Security](https://img.shields.io/badge/Security-Least%20Privilege-2E7D32?style=for-the-badge)
 
 ## 📝 Overview
+The **PHP-API** module provides a lightweight, secure and enterprise-grade **LDAP Single Sign-On (SSO)** integration for **Active Directory** multi-domain forests using the modern **LdapRecord** library and **Global Catalog**.
 
-The **PHP-API** module provides a **lightweight, secure, and enterprise-aligned LDAP Single Sign-On (SSO)** implementation for **Active Directory** environments, designed to operate **forest-wide** using the **Global Catalog (GC)**.
+It follows security, auditability and maintainability patterns consistent with institutional Windows and PHP standards, supporting both:
 
-This integration follows the same **design principles, security posture, and documentation standards** adopted across the **Windows‑SysAdmin‑ProSuite**, ensuring predictable behavior, auditable authentication flows, and compatibility with legacy or modern PHP deployments.
-
-The solution supports both:
-- **Transparent SSO** (via `REMOTE_USER`, when available), and
-- **Credential-based fallback authentication**, maintaining usability without weakening security controls.
-
----
+- Transparent SSO (via `REMOTE_USER` when provided by the web server / reverse proxy / authentication gateway)
+- Credential-based fallback authentication (manual login form)
 
 ## ✅ Key Features
-
-- 🔐 **Forest‑Wide Authentication**
-  - Uses **Global Catalog (port 3268)** for multi-domain AD forests
-  - No hard dependency on a single domain controller
-
-- 🧩 **Dual Authentication Model**
-  - Automatic SSO via web server integration (`REMOTE_USER`)
-  - Secure manual login fallback (`login.php`)
-
-- 🛡️ **Security‑First Design**
-  - Service account with **read-only permissions**
-  - Explicit blocking of **inetOrgPerson** objects
-  - No credential persistence in source code
-
-- 📜 **Auditable and Deterministic Flow**
-  - Centralized LDAP logic
-  - Clear authentication boundaries
-  - Predictable session lifecycle
-
-- 🧱 **Enterprise Compatibility**
-  - Works with Apache or Nginx
-  - Compatible with legacy PHP apps and modern PHP 8+ stacks
-
----
+- Forest-wide authentication via **Global Catalog**
+- Dual authentication model (SSO + form fallback)
+- Read-only service account with least privilege
+- No credential persistence in source code
+- Rejection of non-user objects
+- Full support for secure LDAPS / TLS migration
+- Centralized connection and query logic
+- Compatible with legacy and modern PHP 8+ applications
 
 ## 📁 Folder Structure
-
 ```text
 ActiveDirectory-SSO-Integrations/
 └── PHP-API/
     ├── public/
-    │   ├── index.php        # Entry point with SSO detection
-    │   ├── login.php        # Manual authentication fallback
-    │   ├── dashboard.php    # Protected application area
-    │   └── logout.php       # Session termination
+    │   ├── index.php       # SSO detection & entry point
+    │   ├── login.php       # Manual authentication fallback
+    │   ├── dashboard.php   # Protected application area
+    │   └── logout.php      # Secure session termination
     │
     ├── config/
-    │   ├── env.php          # Loads environment variables
-    │   └── ldap.php         # Central LDAP authentication logic
+    │   ├── env.php         # Loads environment variables
+    │   └── ldap.php        # LdapRecord connection & auth logic
     │
-    ├── .env.example         # LDAP credential template
-    ├── composer.json        # Dependency definitions
-    └── README.md            # Module documentation
+    ├── .env.example        # Template – do NOT commit real values
+    ├── composer.json
+    └── README.md
 ```
-
----
 
 ## 🛠️ Prerequisites
+- PHP ≥ 8.0 (recommended: 8.1–8.3)
+- Apache or Nginx + PHP-FPM
+- Active Directory forest with **Global Catalog** enabled
+- Dedicated read-only service account
+- Composer
 
-### 1) ⚙️ Platform Requirements
-- **PHP 8.0+**
-- **Apache or Nginx** with PHP enabled
-- **OpenLDAP / Active Directory** with Global Catalog enabled
+## ⚙️ Configuration (.env)
 
-### 2) 📦 Dependencies
-- **Composer**
-- `vlucas/phpdotenv` (for secure environment variable handling)
-
-### 3) 🔑 Directory Access
-- Dedicated **AD service account**
-- Read-only LDAP permissions (bind + search)
-
----
-
-## ⚙️ Configuration
-
-Create a `.env` file based on `.env.example`:
+Create `.env` from `.env.example`:
 
 ```env
-LDAP_URL=ldap://ldap.headq.scriptguy:3268
-LDAP_BASE_DN=dc=HEADQ,dc=SCRIPTGUY
-LDAP_USERNAME=ad-sso-authentication@scriptguy
-LDAP_PASSWORD=YourSecurePassword
+# ────────────────────────────────────────────────
+# Active Directory – Global Catalog Settings
+# ────────────────────────────────────────────────
+LDAP_HOST=dc-gc01.example.corp
+LDAP_PORT=3268                  # Use 3269 after enabling LDAPS
+LDAP_BASE_DN=dc=example,dc=corp
+LDAP_USERNAME=svc-php-sso@example.corp
+LDAP_PASSWORD=change-me-very-secure-password
+LDAP_USE_SSL=false              # Set to true + port 3269 for LDAPS
+LDAP_TIMEOUT=5
 ```
 
-The file is loaded at runtime by `config/env.php` using `phpdotenv`.
+> **Security rule**  
+> Never commit `.env` or real credentials.  
+> Use environment variables, container secrets, or a secrets manager.
 
-> 🔒 **Best Practice**  
-> Never commit `.env` files. Store secrets in environment variables or a secure vault.
+## 🚀 Installation & Quick Start
 
----
+```bash
+# 1. Navigate to module directory
+cd ActiveDirectory-SSO-Integrations/PHP-API
 
-## 🚀 How to Run
+# 2. Copy template and fill in values
+cp .env.example .env
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git
-   cd Windows-SysAdmin-ProSuite/SysAdmin-Tools/ActiveDirectory-SSO-Integrations/PHP-API
-   ```
+# 3. Install dependencies
+composer install --no-dev
 
-2. **Prepare environment configuration**
-   ```bash
-   cp .env.example .env
-   ```
+# 4. Start PHP built-in server (development only)
+php -S localhost:8000 -t public
+```
 
-3. **Install dependencies**
-   ```bash
-   composer install
-   ```
-
-4. **Start development server**
-   ```bash
-   php -S localhost:8000 -t public
-   ```
-
-5. Access:
-   ```
-   http://localhost:8000
-   ```
-
----
+Open: `http://localhost:8000`
 
 ## 🔐 Authentication Flow
 
-1. Client accesses `index.php`
-2. If `$_SERVER['REMOTE_USER']` exists:
-   - User is trusted and validated against AD
-3. If not:
-   - User is redirected to `login.php`
-4. Credentials are validated via **LDAP bind**
-5. Session is created and user is redirected to `dashboard.php`
-6. `logout.php` destroys session securely
+1. User requests `index.php`
+2. If `REMOTE_USER` is present → attempt SSO validation
+3. Otherwise → redirect to `login.php`
+4. On form submit → LDAP bind attempt
+5. On success → create PHP session → redirect to protected area
+6. `logout.php` destroys session cleanly
 
----
+**Central connection & auth logic** (`config/ldap.php` example):
 
-## 🔒 Security Notes
+```php
+<?php
 
-- ✔ Uses **Global Catalog** for consistent forest visibility
-- ✔ No password storage in source code
-- ✔ inetOrgPerson objects are rejected
-- ✔ Account enable/disable logic delegated to AD
-- ✔ Compatible with reverse proxies and SSO frontends
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use LdapRecord\Container;
+use LdapRecord\Configuration\ConfigurationException;
+use Dotenv\Dotenv;
+
+$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->load();
+
+$ldapConfig = [
+    'hosts'            => [$_ENV['LDAP_HOST']],
+    'port'             => (int) $_ENV['LDAP_PORT'],
+    'base_dn'          => $_ENV['LDAP_BASE_DN'],
+    'username'         => $_ENV['LDAP_USERNAME'],
+    'password'         => $_ENV['LDAP_PASSWORD'],
+    'use_ssl'          => filter_var($_ENV['LDAP_USE_SSL'], FILTER_VALIDATE_BOOLEAN),
+    'use_tls'          => false, // change to true if using STARTTLS
+    'version'          => 3,
+    'timeout'          => (int) $_ENV['LDAP_TIMEOUT'],
+    // optional: 'follow_referrals' => false,
+];
+
+try {
+    $conn = new \LdapRecord\Connection($ldapConfig);
+    Container::addConnection($conn, 'default');
+} catch (Exception $e) {
+    error_log("LDAP connection setup failed: " . $e->getMessage());
+    http_response_code(503);
+    die("Authentication service unavailable.");
+}
+
+// Reusable authentication function
+function ldap_authenticate(string $username, string $password): ?array
+{
+    try {
+        $conn = Container::get('default');
+        
+        // Attempt bind with user credentials
+        $conn->auth()->attempt($username, $password);
+
+        // Fetch basic user attributes
+        $user = $conn->query()
+                     ->where('samaccountname', '=', $username)
+                     ->orWhere('userprincipalname', '=', $username)
+                     ->select('displayname', 'samaccountname', 'userprincipalname', 'distinguishedname', 'memberof')
+                     ->first();
+
+        return $user ? $user->toArray() : null;
+    } catch (\Exception $e) {
+        error_log("Authentication failed: " . $e->getMessage());
+        return null;
+    }
+}
+```
+
+## 🔒 Important Security Notes
+
+- Always prefer **LDAPS (port 3269)** over plaintext LDAP (3268)
+- Use **UPN format** (`user@domain.corp`) for bind credentials
+- Enforce **LDAP Signing** and **Channel Binding** on domain controllers (Windows Server 2019+)
+- Implement account lockout / password policy enforcement via AD (not in PHP)
+- Log bind failures but **never** log passwords
+- Regularly rotate the service account password
+- Consider adding IP allow-listing or certificate-based mutual auth for stronger control
 
 ---
 
