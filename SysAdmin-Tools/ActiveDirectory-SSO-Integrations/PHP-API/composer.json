@@ -1,6 +1,6 @@
 {
     "name": "brazilianscriptguy/php-api-sso",
-    "description": "🔐 Lightweight PHP API for Active Directory forest-wide SSO using LdapRecord (Global Catalog support) with inetOrgPerson filtering and secure configuration",
+    "description": "Lightweight and secure PHP API for Active Directory forest-wide SSO using LdapRecord (Global Catalog support) with modern security practices",
     "type": "project",
     "license": "MIT",
     "authors": [
@@ -8,7 +8,7 @@
             "name": "Luiz Hamilton Silva",
             "email": "brazilianscriptguy@gmail.com",
             "homepage": "https://github.com/brazilianscriptguy",
-            "role": "Developer"
+            "role": "Developer & Maintainer"
         }
     ],
     "keywords": [
@@ -19,17 +19,25 @@
         "global-catalog",
         "ldaprecord",
         "php",
-        "authentication"
+        "authentication",
+        "ad-forest",
+        "windows-server"
     ],
+    "homepage": "https://github.com/brazilianscriptguy/php-api-sso",
+    "support": {
+        "issues": "https://github.com/brazilianscriptguy/php-api-sso/issues"
+    },
     "require": {
         "php": ">=8.1",
         "directorytree/ldaprecord": "^3.0",
         "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
-        "phpstan/phpstan": "^1.10",
-        "squizlabs/php_codesniffer": "^3.7",
-        "phpunit/phpunit": "^10.0"
+        "phpunit/phpunit": "^10.5 || ^11.0",
+        "phpstan/phpstan": "^1.11",
+        "squizlabs/php_codesniffer": "^3.10",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "roave/security-advisories": "dev-latest"
     },
     "autoload": {
         "psr-4": {
@@ -43,16 +51,25 @@
     },
     "scripts": {
         "start": "php -S localhost:8000 -t public",
-        "test": "phpunit",
-        "lint": "phpcs",
-        "analyze": "phpstan analyse",
-        "check-style": "phpcs --standard=PSR12",
-        "fix-style": "phpcbf --standard=PSR12"
+        "test": "phpunit --colors=always",
+        "test-coverage": "phpunit --coverage-html coverage",
+        "lint": "phpcs --standard=PSR12 src public",
+        "lint-fix": "phpcbf --standard=PSR12 src public",
+        "cs-fix": "php-cs-fixer fix --config=.php-cs-fixer.php --allow-risky=yes",
+        "analyze": "phpstan analyse --level=7 src",
+        "security-check": "composer audit",
+        "validate": [
+            "@composer validate --strict",
+            "@security-check"
+        ]
     },
     "config": {
         "sort-packages": true,
         "preferred-install": "dist",
-        "optimize-autoloader": true
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true
