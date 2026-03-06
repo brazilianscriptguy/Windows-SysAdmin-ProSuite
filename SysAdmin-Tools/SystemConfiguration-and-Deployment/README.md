@@ -87,7 +87,12 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 | **Update-ADComputer-Winget-viaGPO.ps1** | Pushes scheduled `winget` updates via GPO |
 
 ---
-> Execution on elevated account: powershell -ExecutionPolicy Bypass -File Remove-n-Clean-Winget-on-Windows-Servers.ps1
+> Execution on elevated account:
+>   ```powershell
+>   powershell -ExecutionPolicy Bypass -File Remove-n-Clean-Winget-on-Windows-Servers.ps1
+>   ```
+
+---
 
 ## 🟨 VBScript Maintenance Suite (.vbs)
 
