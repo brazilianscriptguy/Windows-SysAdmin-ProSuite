@@ -74,6 +74,7 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 | **Install-KMSLicensingServer-Tool.ps1** | Installs and configures a KMS licensing server |
 | **Install-RDSLicensingServer-Tool.ps1** | Configures RDS Licensing Server and CAL management |
 | **Install-Winget-on-Windows-Servers-viaGPO.ps1** | Installs `winget` CLI on Windows Server systems |
+| **Remove-n-Clean-Winget-on-Windows-Servers.ps1** | Removes and cleans `winget` CLI on Windows Server systems |
 | **Remove-ReaQtaHive-Services-Tool.ps1** | Removes ReaQta services and residual components |
 | **Remove-SharedFolders-and-Drives-viaGPO.ps1** | Removes non-compliant shared folders and mapped drives |
 | **Remove-Softwares-NonCompliance-Tool.ps1** | Uninstalls specified non-compliant software locally |
