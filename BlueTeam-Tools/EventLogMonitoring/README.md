@@ -62,7 +62,7 @@ bcdedit /deletevalue {current} safeboot
 shutdown /r /t 0
 ```
 
-### Optional: DHCP Configuration Backup
+### Optional: DHCP Configuration Backup before execute `Migrate-WinEvtStructure-Tool.ps1`
 
 If executed on systems hosting DHCP services:
 
