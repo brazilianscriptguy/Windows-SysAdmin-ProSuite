@@ -246,4 +246,4 @@ PrintService-Operacional-EventLogs.reg
 
 ---
 
-© 2026 Luiz Hamilton Roberto da Silva
+© 2026 Luiz Hamilton Silva. All rights reserved.
