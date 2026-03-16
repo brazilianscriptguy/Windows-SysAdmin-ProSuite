@@ -1,32 +1,30 @@
 Windows Registry Editor Version 5.00
 
 ; =============================================================
-; .SYNOPSIS
-;     Configures Windows Event Log settings for the PrintService Operational log.
-;
-; .DESCRIPTION
-;     This registry file automates the configuration of the Windows Event Log for the PrintService Operational channel.
-;     It sets parameters such as AutoBackupLogFiles, Flags, log file location, maximum log size, and retention policy.
-;
-;     **Important:** Before applying these registry configurations, please refer to the following file for detailed instructions and best practices:
-;     - `PrintService-Operational-EventLogs.md`
-;
-; .AUTHOR
-;     Luiz Hamilton Silva - @brazilianscriptguy
-;
-; .VERSION
-;     Last Updated: November 26, 2024
-;
-; .NOTES
-;     - Ensure that the specified log file path ("File") exists and is accessible.
-;     - This configuration is essential for maintaining and managing print service logs efficiently.
-;     - Apply this .reg file with administrative privileges to ensure successful registry modifications.
+; PrintService Operational Event Log Configuration
+; Author: Luiz Hamilton Silva (@brazilianscriptguy)
 ; =============================================================
 
-[HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Services\EventLog\Microsoft-Windows-PrintService/Operational]
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Microsoft-Windows-PrintService/Operational]
+
+; Enable Operational logging
+"Enabled"=dword:00000001
+
+; Enable automatic log backup
 "AutoBackupLogFiles"=dword:00000001
+
+; Enable logging flags
 "Flags"=dword:00000001
-"File"="L:\\Microsoft-Windows-PrintService-Operational\\Microsoft-Windows-PrintService-Operational.evtx"
-"MaxSize"=dword:09270000
+
+; Log storage path
+"File"="L:\\Microsoft-Windows-PrintService-Operational.evtx"
+
+; Maximum log size (512 MB)
+"MaxSize"=dword:20000000
 "MaxSizeUpper"=dword:00000000
+
+; Retain logs (do not overwrite)
 "Retention"=dword:ffffffff
+
+; Isolation mode
+"Isolation"=dword:00000000
