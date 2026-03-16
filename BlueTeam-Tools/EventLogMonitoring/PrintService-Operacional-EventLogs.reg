@@ -17,7 +17,7 @@ Windows Registry Editor Version 5.00
 "Flags"=dword:00000001
 
 ; Log storage path
-"File"="L:\\Microsoft-Windows-PrintService-Operational.evtx"
+"File"="L:\\Microsoft-Windows-PrintService-Operational\\Microsoft-Windows-PrintService-Operational.evtx"
 
 ; Maximum log size (512 MB)
 "MaxSize"=dword:20000000
