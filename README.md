@@ -136,13 +136,12 @@ This repository is backed by peer-reviewed publications and is suitable for **ac
 ## 👤 Author & Stewardship
 
 **Luiz Hamilton Silva** — `@brazilianscriptguy`
-
 Senior IAM Analyst · Identity & Access Management · AD & Azure AD · Windows Server Architect · PowerShell Automation · Digital Forensics Researcher
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=flat-square&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/)
-[![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=flat-square&logo=youtube)](https://www.youtube.com/@brazilianscriptguy)
-[![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=flat-square&logo=x)](https://x.com/brazscriptguy)
-[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=flat-square&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/)
+[![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@brazilianscriptguy)
+[![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=for-the-badge&logo=x)](https://x.com/brazscriptguy)
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
 
 > This project reflects **years of operational use**, continuous refinement in production environments, and a commitment to principled, auditable systems engineering.
 
