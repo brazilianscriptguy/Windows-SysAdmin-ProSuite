@@ -58,6 +58,8 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 
 | Script Name | Function |
 |------------|----------|
+**Baseline-Maintenance-Server.ps1** | Automates server health checks (SFC/DISM), light Windows Update reset, controlled reboot handling, and structured logging — optimized for Scheduled Task deployment via GPO |
+| **Baseline-Maintenance-Workstation.ps1** | Automates workstation remediation including Windows Update reset, local GPO baseline cleanup, SFC/DISM repair, and structured logging — optimized for Scheduled Task deployment via GPO |
 | **Broadcast-ADUser-LogonMessage-viaGPO.ps1** | Displays customized logon messages to domain users via GPO |
 | **Cleanup-WebBrowsers-Tool.ps1** | Clears browser cache, cookies, and session data |
 | **Clear-and-ReSyncGPOs-ADComputers.ps1** | Resets and reapplies GPOs across all domain-joined machines |
@@ -90,15 +92,6 @@ Execution on elevated account:
 ```powershell
 powershell -ExecutionPolicy Bypass -File Remove-n-Clean-Winget-on-Windows-Servers.ps1
 ```
-
----
-
-## 🟨 VBScript Maintenance Suite (.vbs)
-
-| Script Name | Function |
-|------------|----------|
-| **Baseline-Maintenance-Server.vbs** | Automates server health checks (SFC/DISM), light Windows Update reset, controlled reboot handling, and structured logging — optimized for Scheduled Task deployment via GPO |
-| **Baseline-Maintenance-Workstation.vbs** | Automates workstation remediation including Windows Update reset, local GPO baseline cleanup, SFC/DISM repair, and structured logging — optimized for Scheduled Task deployment via GPO |
 
 ---
 
