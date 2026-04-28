@@ -12,7 +12,7 @@ PowerShell refactor of the original VBS server maintenance workflow, preserving 
 - AD / DC / time / Kerberos / certificate validation.
 - Controlled cleanup with minimum 6-day retention in C:\Temp, C:\Logs-TEMP, and C:\Scripts-LOGS.
 - Forced restart policy for servers, with open sessions detected and logged for audit only.
-- Local operational state and script synchronization under C:\ProgramData\TJAP\Maintenance-Servers.
+- Local operational state and script synchronization under C:\ProgramData\SCRIPTGUY\Maintenance-Servers.
 - Local script hash validation against the NETLOGON master script.
 - Enriched restart-state JSON with total sessions, active users, disconnected users, and forced restart flag.
 - Hardened restart with shutdown.exe /r /f, exit-code validation, and a local scheduled fallback restart task.
@@ -1207,7 +1207,7 @@ function Write-RestartPolicySummary {
 }
 
 function Clear-RebootFallbackTask {
-    $taskName = 'TJAP-Maintenance-Servers-Reboot-Fallback'
+    $taskName = 'SCRIPTGUY-Maintenance-Servers-Reboot-Fallback'
     $taskPath = '\'
     try {
         $existing = Get-ScheduledTask -TaskName $taskName -TaskPath $taskPath -ErrorAction SilentlyContinue
@@ -1226,10 +1226,10 @@ function Register-RebootFallbackTask {
         [Parameter(Mandatory)][string]$Reason
     )
 
-    $taskName = 'TJAP-Maintenance-Servers-Reboot-Fallback'
+    $taskName = 'SCRIPTGUY-Maintenance-Servers-Reboot-Fallback'
     $taskPath = '\'
     $runAt = (Get-Date).AddSeconds($DelaySeconds)
-    $fallbackComment = 'TJAP fallback: forced server restart to complete automated maintenance.'
+    $fallbackComment = 'SCRIPTGUY fallback: forced server restart to complete automated maintenance.'
 
     try {
         Clear-RebootFallbackTask
