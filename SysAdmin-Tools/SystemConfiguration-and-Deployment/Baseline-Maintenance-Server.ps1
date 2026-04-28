@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-TJAP / SETIC / CSDC - Weekly Windows Server maintenance with forced restart.
+Weekly Windows Server maintenance with forced restart.
 
 .DESCRIPTION
 PowerShell refactor of the original VBS server maintenance workflow, preserving the functional server flow while applying the final hardening patterns validated in production:
