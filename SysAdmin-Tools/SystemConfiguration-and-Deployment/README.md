@@ -58,37 +58,35 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 
 | Script Name | Function |
 |------------|----------|
-| Script Name | Function |
-|------------|----------|
-| **Baseline-Maintenance-Server.ps1** | Automates server health checks (SFC/DISM), light Windows Update reset, **forced reboot with fallback guarantee**, and structured logging — optimized for Scheduled Task deployment via GPO |
-| **Baseline-Maintenance-Workstation.ps1** | Automates workstation remediation including Windows Update reset, local GPO baseline cleanup, SFC/DISM repair, and **user-aware reboot control**, with structured logging — optimized for Scheduled Task deployment via GPO |
-| **Broadcast-ADUser-LogonMessage-viaGPO.ps1** | Displays customized logon messages to domain users via GPO |
-| **Cleanup-WebBrowsers-Tool.ps1** | Clears browser cache, cookies, and session data |
-| **Clear-and-ReSyncGPOs-ADComputers.ps1** | Resets and reapplies GPOs across all domain-joined machines |
-| **Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1** | Synchronizes folders from network shares using GPO |
-| **Deploy-FortiClientVPN-viaGPO.ps1** | Deploys FortiClient VPN across endpoints |
-| **Deploy-FusionInventoryAgent-viaGPO.ps1** | Installs FusionInventory Agent for inventory tracking |
-| **Deploy-GLPI-Agent-viaGPO.ps1** | Deploys GLPI Agent for asset and lifecycle management |
-| **Deploy-JavaJRE-viaGPO.ps1** | Installs Java Runtime Environment silently |
-| **Deploy-KasperskyAV-viaGPO.ps1** | Deploys Kaspersky Endpoint Security |
-| **Deploy-LibreOfficeFullPackage-viaGPO.ps1** | Installs LibreOffice suite silently |
-| **Deploy-PowerShell-viaGPO.ps1** | Ensures PowerShell runtime is installed and updated |
-| **Deploy-ZoomWorkplace-viaGPO.ps1** | Deploys Zoom Workplace for enterprise communication |
-| **Enhance-BGInfoDisplay-viaGPO.ps1** | Applies BGInfo overlays with system metadata |
-| **Install-KMSLicensingServer-Tool.ps1** | Installs and configures a KMS licensing server |
-| **Install-RDSLicensingServer-Tool.ps1** | Configures RDS Licensing Server and CAL management |
-| **Install-Winget-on-Windows-Servers-viaGPO.ps1** | Installs `winget` CLI on Windows Server systems |
-| **Remove-n-Clean-Winget-on-Windows-Servers.ps1** | Removes and cleans `winget` CLI on Windows Server systems |
-| **Remove-ReaQtaHive-Services-Tool.ps1** | Removes ReaQta services and residual components |
-| **Remove-SharedFolders-and-Drives-viaGPO.ps1** | Removes non-compliant shared folders and mapped drives |
-| **Remove-Softwares-NonCompliance-Tool.ps1** | Uninstalls specified non-compliant software locally |
-| **Remove-Softwares-NonCompliance-viaGPO.ps1** | Automates software removal across domain machines |
-| **Rename-DiskVolumes-viaGPO.ps1** | Enforces standardized disk volume labels |
-| **Reset-and-Sync-DomainGPOs-viaGPO.ps1** | Forces full reapplication of all domain GPOs |
-| **Retrieve-LocalMachine-InstalledSoftwareList.ps1** | Exports installed software list to `.csv` (ANSI encoded) |
-| **Uninstall-SelectedApp-Tool.ps1** | GUI tool for selecting and removing applications |
+| **Baseline-Maintenance-Server.ps1** | Performs server health checks (SFC/DISM), light Windows Update reset, **forced reboot with fallback guarantee**, and structured logging — optimized for Scheduled Task deployment via GPO |
+| **Baseline-Maintenance-Workstation.ps1** | Performs workstation remediation (Windows Update reset, local GPO cleanup, SFC/DISM repair), **user-aware reboot control**, and structured logging — optimized for Scheduled Task deployment via GPO |
+| **Broadcast-ADUser-LogonMessage-viaGPO.ps1** | Delivers customized logon messages to domain users via GPO |
+| **Cleanup-WebBrowsers-Tool.ps1** | Cleans browser cache, cookies, and session data locally |
+| **Clear-and-ReSyncGPOs-ADComputers.ps1** | Resets and reapplies GPOs across domain-joined machines |
+| **Copy-and-Sync-Folder-to-ADComputers-viaGPO.ps1** | Synchronizes folders from network shares via GPO |
+| **Deploy-FortiClientVPN-viaGPO.ps1** | Deploys FortiClient VPN across endpoints via GPO |
+| **Deploy-FusionInventoryAgent-viaGPO.ps1** | Deploys FusionInventory Agent for inventory tracking via GPO |
+| **Deploy-GLPI-Agent-viaGPO.ps1** | Deploys GLPI Agent for asset and lifecycle management via GPO |
+| **Deploy-JavaJRE-viaGPO.ps1** | Installs Java Runtime Environment silently via GPO |
+| **Deploy-KasperskyAV-viaGPO.ps1** | Deploys Kaspersky Endpoint Security via GPO |
+| **Deploy-LibreOfficeFullPackage-viaGPO.ps1** | Installs LibreOffice suite silently via GPO |
+| **Deploy-PowerShell-viaGPO.ps1** | Ensures PowerShell runtime installation and updates via GPO |
+| **Deploy-ZoomWorkplace-viaGPO.ps1** | Deploys Zoom Workplace for enterprise communication via GPO |
+| **Enhance-BGInfoDisplay-viaGPO.ps1** | Applies BGInfo overlays with system metadata via GPO |
+| **Install-KMSLicensingServer-Tool.ps1** | Installs and configures a KMS licensing server locally |
+| **Install-RDSLicensingServer-Tool.ps1** | Installs and configures RDS Licensing Server and CAL management locally |
+| **Install-Winget-on-Windows-Servers-viaGPO.ps1** | Installs `winget` CLI on Windows Server systems via GPO |
+| **Remove-n-Clean-Winget-on-Windows-Servers.ps1** | Removes and cleans `winget` CLI on Windows Server systems locally |
+| **Remove-ReaQtaHive-Services-Tool.ps1** | Removes ReaQta services and residual components locally |
+| **Remove-SharedFolders-and-Drives-viaGPO.ps1** | Removes non-compliant shared folders and mapped drives via GPO |
+| **Remove-Softwares-NonCompliance-Tool.ps1** | Uninstalls non-compliant software locally |
+| **Remove-Softwares-NonCompliance-viaGPO.ps1** | Removes non-compliant software across domain machines via GPO |
+| **Rename-DiskVolumes-viaGPO.ps1** | Renames disk volumes to enforce standardized labels via GPO |
+| **Reset-and-Sync-DomainGPOs-viaGPO.ps1** | Resets and reapplies all domain GPOs via GPO |
+| **Retrieve-LocalMachine-InstalledSoftwareList.ps1** | Exports installed software inventory to `.csv` (ANSI encoded) |
+| **Uninstall-SelectedApp-Tool.ps1** | Provides GUI-based application selection and removal |
 | **Update-ADComputer-Winget-Explicit.ps1** | Updates selected packages via `winget` locally |
-| **Update-ADComputer-Winget-viaGPO.ps1** | Pushes scheduled `winget` updates via GPO |
+| **Update-ADComputer-Winget-viaGPO.ps1** | Applies scheduled `winget` updates across domain machines via GPO |
 
 Execution on elevated account:
 ```powershell
