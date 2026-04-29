@@ -81,6 +81,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Inventory-InactiveADComputerAccounts.ps1** | Detects unused computer accounts |
 | **Manage-Disabled-Expired-ADUserAccounts.ps1** | Manages expired and disabled user accounts |
 | **Manage-FSMOs-Roles.ps1** | Views and transfers FSMO roles |
+| **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share access and audits NTFS permissions for AD groups across enterprise environments |
 | **Move-ADComputer-betweenOUs.ps1** | Moves computers between OUs |
 | **Move-ADUser-betweenOUs.ps1** | Moves users between OUs with filtering |
 | **Reset-ADUserPasswordsToDefault.ps1** | Bulk password reset to secure defaults |
@@ -88,7 +89,6 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Extracts domain audit policy configuration |
 | **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves privileged forest and role information |
 | **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Forces replication across domain controllers and checks DCs and Forest health |
-| **Unlock-SMBShareADUserAccess.ps1** | Restores SMB share access for users |
 | **Update-ADComputer-Descriptions.ps1** | Updates computer object descriptions |
 | **Update-ADUserDisplayName.ps1** | Applies standardized display name formats |
 
