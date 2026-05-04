@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Safely migrates Windows Event Log storage to a dedicated target root with compliance reporting.
+    Safely migrates Windows Event Log storage to a dedicated target root with compliance reporting and cleanup-safe residual handling.
 
 .DESCRIPTION
     This tool:
@@ -11,11 +11,13 @@
       4) Updates Classic registry paths.
       5) Updates Modern WINEVT channel logFileName paths directly from copied mappings.
       6) Restarts services.
-      7) Deletes source files only after successful migration validation.
-      8) Produces compliance reports:
+      7) Retains source files during normal migration; cleanup is restricted to explicit post-reboot cleanup mode.
+      8) Provides explicit execution modes: migration, audit-only, full dry-run, and post-reboot cleanup-only.
+      9) Produces compliance reports:
            - Migration summary CSV
            - Residual source files CSV
            - Post-run verification TXT
+           - Enterprise telemetry JSON for SIEM/ITSM ingestion
 
 .NOTES
     - PowerShell 5.1 compatible
@@ -27,8 +29,17 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    8.5.0 - Enterprise Compliance Edition - 2026-04-09
+    8.8.1 - ENTERPRISE HARDENED-STATE - Strict-Mode Safe State Model - 2026-05-04
 #>
+
+[CmdletBinding()]
+param(
+    [switch]$ShowConsole,
+    [switch]$PostRebootCleanupOnly,
+    [switch]$ForceSourceCleanup,
+    [switch]$WhatIfFull,
+    [switch]$NoJsonTelemetry
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -51,10 +62,25 @@ public class Window {
     }
 }
 "@
-[Window]::Hide()
+if (-not $ShowConsole) { [Window]::Hide() }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+
+# ------------------------------------------------------------
+# WinForms Global Exception Mode - MUST be set before any control is created
+# ------------------------------------------------------------
+$script:WinFormsExceptionModeApplied = $false
+try {
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode(
+        [System.Windows.Forms.UnhandledExceptionMode]::CatchException
+    )
+    $script:WinFormsExceptionModeApplied = $true
+} catch {
+    # This can happen if a control was already created by the host/session.
+    # The script must continue and rely on explicit event-handler containment.
+    $script:WinFormsExceptionModeApplied = $false
+}
 
 # ------------------------------------------------------------
 # Admin Check
@@ -85,6 +111,7 @@ $timestampTag = Get-Date -Format 'yyyyMMdd_HHmmss'
 $summaryCsvPath = Join-Path $logDir ("{0}_MigrationSummary_{1}.csv" -f $scriptName, $timestampTag)
 $residualCsvPath = Join-Path $logDir ("{0}_ResidualSourceFiles_{1}.csv" -f $scriptName, $timestampTag)
 $verificationTxtPath = Join-Path $logDir ("{0}_Verification_{1}.txt" -f $scriptName, $timestampTag)
+$telemetryJsonPath = Join-Path $logDir ("{0}_EnterpriseTelemetry_{1}.json" -f $scriptName, $timestampTag)
 
 if (-not (Test-Path -LiteralPath $logDir)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
@@ -158,21 +185,112 @@ function Handle-Error {
     ) | Out-Null
 }
 
-Write-Log -Message 'Script started.' -Level 'INFO'
+
+function Write-FailsafeExceptionLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Context,
+        [Parameter()][object]$ExceptionObject
+    )
+
+    try {
+        $text = if ($ExceptionObject -is [System.Management.Automation.ErrorRecord]) {
+            Format-ExceptionDetail -ErrorRecord $ExceptionObject
+        } elseif ($ExceptionObject -is [System.Exception]) {
+            "ExceptionType: $($ExceptionObject.GetType().FullName)`r`nMessage: $($ExceptionObject.Message)`r`nStackTrace:`r`n$($ExceptionObject.StackTrace)"
+        } elseif ($ExceptionObject) {
+            [string]$ExceptionObject
+        } else {
+            'No exception object provided.'
+        }
+
+        Write-Log -Message ("{0}`r`n{1}" -f $Context, $text) -Level 'ERROR'
+    } catch {
+        try {
+            $fallback = Join-Path $env:TEMP 'Migrate-WinEvtStructure-Tool_FailsafeException.log'
+            Add-Content -Path $fallback -Value ("[{0}] {1}`r`n{2}`r`n" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Context, [string]$ExceptionObject) -Encoding UTF8
+        } catch { }
+    }
+}
+
+function Show-SafeMessageBox {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [Parameter()][string]$Title = 'Information',
+        [Parameter()][System.Windows.Forms.MessageBoxIcon]$Icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    )
+
+    try {
+        [System.Windows.Forms.MessageBox]::Show(
+            $Message,
+            $Title,
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            $Icon
+        ) | Out-Null
+    } catch {
+        Write-FailsafeExceptionLog -Context 'MessageBox display failed.' -ExceptionObject $_
+    }
+}
+
+function Invoke-EventHandlerSafely {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock,
+        [Parameter(Mandatory)][string]$Context
+    )
+
+    try {
+        & $ScriptBlock
+    } catch {
+        $script:LastUnhandledException = $_
+        Write-FailsafeExceptionLog -Context ("Unhandled GUI event exception captured: {0}" -f $Context) -ExceptionObject $_
+        Show-SafeMessageBox -Message ("A GUI operation failed but was contained.`r`n`r`nContext: {0}`r`n`r`nReview the log file:`r`n{1}" -f $Context, $logPath) -Title 'Contained GUI Error' -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+}
+
+# SetUnhandledExceptionMode is executed immediately after loading System.Windows.Forms. Do not call it here; controls may already exist.
+[System.Windows.Forms.Application]::add_ThreadException({
+    param($sender, $eventArgs)
+    try {
+        $script:LastUnhandledException = $eventArgs.Exception
+        Write-FailsafeExceptionLog -Context 'Global WinForms ThreadException captured.' -ExceptionObject $eventArgs.Exception
+        Show-SafeMessageBox -Message ("A WinForms exception was contained.`r`n`r`nMessage:`r`n{0}`r`n`r`nReview the log file:`r`n{1}" -f $eventArgs.Exception.Message, $logPath) -Title 'Contained WinForms Error' -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
+    } catch { }
+})
+[AppDomain]::CurrentDomain.add_UnhandledException({
+    param($sender, $eventArgs)
+    try {
+        $script:LastUnhandledException = $eventArgs.ExceptionObject
+        Write-FailsafeExceptionLog -Context 'Global AppDomain UnhandledException captured.' -ExceptionObject $eventArgs.ExceptionObject
+    } catch { }
+})
 
 # ------------------------------------------------------------
-# Globals
+# Runtime State - StrictMode Safe, Script-Scoped
 # ------------------------------------------------------------
 $DefaultLogsFolder = Join-Path $env:SystemRoot 'System32\winevt\Logs'
-$Global:ServiceState = @{}
+$script:ServiceState = @{}
+$script:SourceDeletionPolicyEnabled = $false
+$script:LastUnhandledException = $null
+$script:EnterpriseWhatIfFull = [bool]$WhatIfFull
+$script:JsonTelemetryEnabled = -not [bool]$NoJsonTelemetry
 
-# Known non-fatal denied channel(s)
-$Global:NonFatalWinevtChannels = @(
-    'State'
+# Protected WINEVT channels that may return Access Denied even under elevated execution.
+# They must not invalidate the entire migration when all other channels are aligned.
+$script:NonFatalWinevtChannels = @(
+    'State',
+    'Active Directory Web Services',
+    'Kaspersky Security'
+)
+
+# Explicit publisher services that are not always returned as EventLog dependents but may lock or protect channels.
+$script:ExplicitPublisherServices = @(
+    'ADWS'
 )
 
 # Known residual / recreated channels (seed list; can be expanded safely)
-$Global:ExpectedResidualPatterns = @(
+$script:ExpectedResidualPatterns = @(
     '^State$',
     '^Microsoft-Windows-StateRepository%4',
     '^Microsoft-Windows-AppXDeployment%4',
@@ -185,6 +303,14 @@ $Global:ExpectedResidualPatterns = @(
     '^Microsoft-Windows-WinINet-Config%4ProxyConfigChanged$',
     '^Microsoft-Windows-TerminalServices-Licensing%4'
 )
+
+Write-Log -Message 'Script started.' -Level 'INFO'
+Write-Log -Message ("Enterprise mode flags: PostRebootCleanupOnly={0}; ForceSourceCleanup={1}; WhatIfFull={2}; JsonTelemetryEnabled={3}" -f ([bool]$PostRebootCleanupOnly), ([bool]$ForceSourceCleanup), ([bool]$WhatIfFull), ($script:JsonTelemetryEnabled)) -Level 'INFO'
+if ($script:WinFormsExceptionModeApplied) {
+    Write-Log -Message 'WinForms exception containment mode: CatchException applied before control creation.' -Level 'INFO'
+} else {
+    Write-Log -Message 'WinForms exception containment mode: host had already initialized WinForms; explicit safe event-handler containment remains active.' -Level 'WARN'
+}
 
 # ------------------------------------------------------------
 # Generic Helpers
@@ -245,6 +371,16 @@ function Get-SafeArchiveFileName {
 
     if ([string]::IsNullOrWhiteSpace($n)) { $n = 'Archive-Log.evtx' }
     return $n
+}
+
+function Convert-EvtxBaseNameToChannelName {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BaseName)
+
+    # Windows stores many modern channel files using %4 as the path separator.
+    # Example: Microsoft-Windows-TaskScheduler%4Operational.evtx
+    # Channel: Microsoft-Windows-TaskScheduler/Operational
+    return ($BaseName -replace '%4', '/')
 }
 
 function New-UniqueArchivePath {
@@ -372,6 +508,7 @@ function Get-TargetRouting {
             DestFile     = (Join-Path -Path $targetFolder -ChildPath $archiveFileName)
             IsArchive    = $true
             LogicalName  = $logical
+            ChannelName  = (Convert-EvtxBaseNameToChannelName -BaseName $logical)
             SafeName     = $folderName
             SourceName   = $LogFile.Name
         }
@@ -386,6 +523,7 @@ function Get-TargetRouting {
         DestFile     = $destFile
         IsArchive    = $false
         LogicalName  = $base
+        ChannelName  = (Convert-EvtxBaseNameToChannelName -BaseName $base)
         SafeName     = $safeName
         SourceName   = $LogFile.Name
     }
@@ -393,13 +531,29 @@ function Get-TargetRouting {
 
 function Get-ResidualClassification {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Name)
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter()][bool]$Locked = $false
+    )
 
     if ($Name -like '*.etl') {
         return 'OutOfScope-ETL'
     }
 
-    foreach ($pattern in $Global:ExpectedResidualPatterns) {
+    # Protected/recreated files may remain under the default WINEVT folder even after a valid migration.
+    # These must not be reported as generic unexpected residuals.
+    if ($Name -match '^(Active Directory Web Services|State|Kaspersky Security)\.evtx$') {
+        if ($Locked) {
+            return 'LockedProtectedResidual'
+        }
+        return 'ProtectedResidual'
+    }
+
+    if (-not $script:SourceDeletionPolicyEnabled -and $Name -like '*.evtx') {
+        return 'RetainedByPolicy'
+    }
+
+    foreach ($pattern in $script:ExpectedResidualPatterns) {
         if ($Name -match $pattern) {
             return 'ExpectedResidual'
         }
@@ -443,13 +597,13 @@ function Set-LogRepositoryAclBaseline {
 
         $sidSystem    = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-18'
         $sidAdmins    = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-32-544'
-        $sidAuthUsers = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11'
+        $sidEventReaders = New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-32-573'
 
         $ntEventLog = New-Object System.Security.Principal.NTAccount 'NT SERVICE', 'EventLog'
         $sidEventLog = $ntEventLog.Translate([System.Security.Principal.SecurityIdentifier])
 
-        $ruleAuth = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $sidAuthUsers,
+        $ruleReaders = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $sidEventReaders,
             [System.Security.AccessControl.FileSystemRights]::ReadAndExecute,
             $inherit,
             $prop,
@@ -480,7 +634,7 @@ function Set-LogRepositoryAclBaseline {
             $allow
         )
 
-        [void]$acl.AddAccessRule($ruleAuth)
+        [void]$acl.AddAccessRule($ruleReaders)
         [void]$acl.AddAccessRule($ruleSys)
         [void]$acl.AddAccessRule($ruleAdm)
         [void]$acl.AddAccessRule($ruleEvt)
@@ -488,7 +642,7 @@ function Set-LogRepositoryAclBaseline {
         Set-Acl -LiteralPath $RootPath -AclObject $acl
 
         Write-Log -Message "ACL baseline applied successfully."
-        Write-Log -Message "Baseline SIDs: AuthUsers=S-1-5-11, SYSTEM=S-1-5-18, Admins=S-1-5-32-544, EventLog=$($sidEventLog.Value)"
+        Write-Log -Message "Baseline SIDs: EventLogReaders=S-1-5-32-573, SYSTEM=S-1-5-18, Admins=S-1-5-32-544, EventLog=$($sidEventLog.Value)"
     } catch {
         Handle-Error -Message "Failed to apply ACL baseline to: $RootPath" -Exception $_
         throw
@@ -505,7 +659,7 @@ function Snapshot-ServiceState {
     foreach ($name in $ServiceNames) {
         try {
             $svc = Get-Service -Name $name -ErrorAction Stop
-            $Global:ServiceState[$name] = $svc.Status
+            $script:ServiceState[$name] = $svc.Status
             Write-Log -Message "Service state snapshot: $name = $($svc.Status)"
         } catch {
             Write-Log -Message "Service not found (snapshot skip): $name" -Level 'WARN'
@@ -517,7 +671,7 @@ function Restore-ServiceState {
     [CmdletBinding()]
     param()
 
-    foreach ($kvp in $Global:ServiceState.GetEnumerator()) {
+    foreach ($kvp in $script:ServiceState.GetEnumerator()) {
         $name = $kvp.Key
         $state = $kvp.Value
 
@@ -545,7 +699,7 @@ function Stop-For-Migration {
     $depNames = @()
     if ($deps) { $depNames = @($deps.Name) }
 
-    $track = @($depNames + @('DhcpServer') + @('EventLog')) | Select-Object -Unique
+    $track = @($depNames + $script:ExplicitPublisherServices + @('DhcpServer') + @('EventLog')) | Select-Object -Unique
     Snapshot-ServiceState -ServiceNames $track
 
     foreach ($svcName in $depNames) {
@@ -554,6 +708,18 @@ function Stop-For-Migration {
             Write-Log -Message "Stopped dependent service: $svcName"
         } catch {
             Write-Log -Message "Failed stopping dependent service: $svcName ($($_.Exception.Message))" -Level 'WARN'
+        }
+    }
+
+    foreach ($svcName in $script:ExplicitPublisherServices) {
+        try {
+            $svc = Get-Service -Name $svcName -ErrorAction Stop
+            if ($svc.Status -ne 'Stopped') {
+                Stop-Service -Name $svcName -Force -ErrorAction Stop
+                Write-Log -Message "Stopped explicit publisher service: $svcName"
+            }
+        } catch {
+            Write-Log -Message "Explicit publisher service not found or not stoppable: $svcName ($($_.Exception.Message))" -Level 'WARN'
         }
     }
 
@@ -760,7 +926,7 @@ function Update-WinevtChannels {
     $nonFatalDenied = 0
 
     foreach ($map in $activeMappings) {
-        $channelName = [string]$map.LogicalName
+        $channelName = if ($map.PSObject.Properties.Name -contains 'ChannelName' -and -not [string]::IsNullOrWhiteSpace([string]$map.ChannelName)) { [string]$map.ChannelName } else { [string]$map.LogicalName }
         $targetFile  = [string]$map.DestinationFullPath
 
         try {
@@ -796,13 +962,13 @@ function Update-WinevtChannels {
             if (-not $setResult.Success) {
                 $isNonFatal = $false
 
-                if ($setResult.AccessDenied -and ($Global:NonFatalWinevtChannels -contains $channelName)) {
+                if ($setResult.AccessDenied -and ($script:NonFatalWinevtChannels -contains $channelName)) {
                     $isNonFatal = $true
                 }
 
                 if ($isNonFatal) {
                     $nonFatalDenied++
-                    Write-Log -Message "WINEVT channel non-fatal access denied: $channelName -> $targetFile | ExitCode=$($setResult.ExitCode) | StdErr=$($setResult.StdErr)" -Level 'WARN'
+                    Write-Log -Message "WINEVT channel protected/access-denied; migration will continue with warning: $channelName -> $targetFile | ExitCode=$($setResult.ExitCode) | StdErr=$($setResult.StdErr)" -Level 'WARN'
                     continue
                 }
 
@@ -998,6 +1164,7 @@ function Copy-EventLogs {
                 IsArchive           = $route.IsArchive
                 SafeName            = $route.SafeName
                 LogicalName         = $route.LogicalName
+                ChannelName         = $route.ChannelName
                 ValidationMode      = $validationMode
             }) | Out-Null
 
@@ -1055,11 +1222,23 @@ function Cleanup-SourceEvtx {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][object[]]$Mappings,
-        [Parameter(Mandatory)][bool]$AuditOnly
+        [Parameter(Mandatory)][bool]$AuditOnly,
+        [Parameter(Mandatory)][bool]$DeleteSourceAfterValidation,
+        [Parameter()][bool]$PostRebootCleanupMode = $false
     )
 
     if ($AuditOnly) {
         Write-Log -Message 'Cleanup skipped due to audit-only mode.' -Level 'WARN'
+        return
+    }
+
+    if (-not $PostRebootCleanupMode) {
+        Write-Log -Message 'Source EVTX deletion skipped: normal migration never deletes source files in v8.8.0 enterprise cleanup-safe mode.' -Level 'WARN'
+        return
+    }
+
+    if (-not $DeleteSourceAfterValidation) {
+        Write-Log -Message 'Post-reboot cleanup mode enabled, but source deletion was not explicitly forced. Residual files will be reported only.' -Level 'WARN'
         return
     }
 
@@ -1076,11 +1255,48 @@ function Cleanup-SourceEvtx {
             }
 
             if (Test-Path -LiteralPath $map.SourceFullPath) {
+                $classification = Get-ResidualClassification -Name ([System.IO.Path]::GetFileName($map.SourceFullPath)) -Locked (Test-FileLocked -Path $map.SourceFullPath)
+                if ($classification -in @('LockedProtectedResidual','ProtectedResidual','OutOfScope-ETL')) {
+                    Write-Log -Message "Cleanup skipped for protected residual: $($map.SourceFullPath) [$classification]" -Level 'WARN'
+                    continue
+                }
                 Remove-Item -LiteralPath $map.SourceFullPath -Force -ErrorAction Stop
                 Write-Log -Message "Deleted source: $($map.SourceFullPath)"
             }
         } catch {
             Write-Log -Message "Delete source failed: $($map.SourceFullPath) ($($_.Exception.Message))" -Level 'WARN'
+        }
+    }
+}
+
+function Invoke-PostRebootResidualCleanup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][bool]$ForceCleanup
+    )
+
+    Write-Log -Message "Post-reboot cleanup-only mode started. ForceCleanup=$ForceCleanup" -Level 'WARN'
+
+    $items = @(Get-ChildItem -LiteralPath $DefaultLogsFolder -File -ErrorAction Stop)
+    foreach ($item in $items) {
+        $locked = Test-FileLocked -Path $item.FullName
+        $classification = Get-ResidualClassification -Name $item.Name -Locked $locked
+
+        if ($classification -in @('OutOfScope-ETL','LockedProtectedResidual','ProtectedResidual','ExpectedResidual','RetainedByPolicy')) {
+            Write-Log -Message "Post-reboot cleanup skipped: $($item.FullName) [$classification]"
+            continue
+        }
+
+        if (-not $ForceCleanup) {
+            Write-Log -Message "Post-reboot cleanup report-only: $($item.FullName) [$classification]" -Level 'WARN'
+            continue
+        }
+
+        try {
+            Remove-Item -LiteralPath $item.FullName -Force -ErrorAction Stop
+            Write-Log -Message "Post-reboot cleanup deleted: $($item.FullName)"
+        } catch {
+            Write-Log -Message "Post-reboot cleanup delete failed: $($item.FullName) ($($_.Exception.Message))" -Level 'WARN'
         }
     }
 }
@@ -1097,6 +1313,7 @@ function Export-MigrationSummary {
             [pscustomobject]@{
                 SourceName          = $m.SourceName
                 LogicalName         = $m.LogicalName
+                ChannelName         = $m.ChannelName
                 IsArchive           = $m.IsArchive
                 ValidationMode      = $m.ValidationMode
                 SourceFullPath      = $m.SourceFullPath
@@ -1118,13 +1335,14 @@ function Export-ResidualSourceFiles {
     try {
         $items = Get-ChildItem -LiteralPath $DefaultLogsFolder -File -ErrorAction Stop
         $rows = foreach ($item in $items) {
+            $locked = Test-FileLocked -Path $item.FullName
             [pscustomobject]@{
                 Name           = $item.Name
                 Extension      = $item.Extension
                 Length         = $item.Length
                 LastWriteTime  = $item.LastWriteTime
-                Classification = (Get-ResidualClassification -Name $item.Name)
-                Locked         = (Test-FileLocked -Path $item.FullName)
+                Classification = (Get-ResidualClassification -Name $item.Name -Locked $locked)
+                Locked         = $locked
                 FullPath       = $item.FullName
             }
         }
@@ -1159,15 +1377,22 @@ function Write-VerificationReport {
 
         $lines.Add("Selected Active Channel Verification:")
         foreach ($m in $activeMappings | Select-Object -First 30) {
-            $channelName = [string]$m.LogicalName
+            $channelName = if ($m.PSObject.Properties.Name -contains 'ChannelName' -and -not [string]::IsNullOrWhiteSpace([string]$m.ChannelName)) { [string]$m.ChannelName } else { [string]$m.LogicalName }
             $expected = [string]$m.DestinationFullPath
             $actual = Get-ChannelLogFileName -ChannelName $channelName
             if ($actual) {
                 $actualExpanded = Expand-EnvPath -Path $actual
-                $status = if ($actualExpanded.TrimEnd('\') -ieq $expected.TrimEnd('\')) { 'Aligned' } else { 'Different' }
+                if ($actualExpanded.TrimEnd('\') -ieq $expected.TrimEnd('\')) {
+                    $status = 'Aligned'
+                } elseif ($script:NonFatalWinevtChannels -contains $channelName) {
+                    $status = 'ProtectedDifferent'
+                } else {
+                    $status = 'Different'
+                }
                 $lines.Add((" - {0} | Expected={1} | Actual={2} | Status={3}" -f $channelName, $expected, $actualExpanded, $status))
             } else {
-                $lines.Add((" - {0} | Expected={1} | Actual=<unreadable> | Status=Unknown" -f $channelName, $expected))
+                $status = if ($script:NonFatalWinevtChannels -contains $channelName) { 'UnreadableProtectedChannel' } else { 'Unknown' }
+                $lines.Add((" - {0} | Expected={1} | Actual=<unreadable> | Status={2}" -f $channelName, $expected, $status))
             }
         }
 
@@ -1175,7 +1400,10 @@ function Write-VerificationReport {
         $lines.Add("Residual Source Classification Summary:")
 
         $residualItems = Get-ChildItem -LiteralPath $DefaultLogsFolder -File -ErrorAction Stop
-        $groups = $residualItems | Group-Object { Get-ResidualClassification -Name $_.Name } | Sort-Object Name
+        $groups = $residualItems | Group-Object {
+            $locked = Test-FileLocked -Path $_.FullName
+            Get-ResidualClassification -Name $_.Name -Locked $locked
+        } | Sort-Object Name
         foreach ($g in $groups) {
             $lines.Add((" - {0}: {1}" -f $g.Name, $g.Count))
         }
@@ -1187,13 +1415,112 @@ function Write-VerificationReport {
     }
 }
 
+
+function Export-EnterpriseTelemetry {
+    [CmdletBinding()]
+    param(
+        [Parameter()][object[]]$Mappings = @(),
+        [Parameter(Mandatory)][bool]$AuditOnly,
+        [Parameter(Mandatory)][string]$ExecutionMode,
+        [Parameter()][string]$TargetRoot = ''
+    )
+
+    if (-not $script:JsonTelemetryEnabled) {
+        Write-Log -Message 'Enterprise telemetry JSON export skipped by -NoJsonTelemetry.' -Level 'WARN'
+        return
+    }
+
+    try {
+        $activeMappings = @($Mappings | Where-Object { -not $_.IsArchive })
+        $archiveMappings = @($Mappings | Where-Object { $_.IsArchive })
+
+        $residualItems = @(Get-ChildItem -LiteralPath $DefaultLogsFolder -File -ErrorAction Stop)
+        $residualRows = foreach ($item in $residualItems) {
+            $locked = Test-FileLocked -Path $item.FullName
+            [pscustomobject]@{
+                Name           = $item.Name
+                Extension      = $item.Extension
+                Length         = $item.Length
+                LastWriteTime  = $item.LastWriteTime.ToString('o')
+                Classification = (Get-ResidualClassification -Name $item.Name -Locked $locked)
+                Locked         = $locked
+                FullPath       = $item.FullName
+            }
+        }
+
+        $residualSummary = @{}
+        foreach ($group in ($residualRows | Group-Object Classification)) {
+            $residualSummary[$group.Name] = $group.Count
+        }
+
+        $selectedVerification = foreach ($m in ($activeMappings | Select-Object -First 30)) {
+            $channelName = if ($m.PSObject.Properties.Name -contains 'ChannelName' -and -not [string]::IsNullOrWhiteSpace([string]$m.ChannelName)) { [string]$m.ChannelName } else { [string]$m.LogicalName }
+            $expected = [string]$m.DestinationFullPath
+            $actual = Get-ChannelLogFileName -ChannelName $channelName
+            if ($actual) {
+                $actualExpanded = Expand-EnvPath -Path $actual
+                $status = if ($actualExpanded.TrimEnd('\') -ieq $expected.TrimEnd('\')) {
+                    'Aligned'
+                } elseif ($script:NonFatalWinevtChannels -contains $channelName) {
+                    'ProtectedDifferent'
+                } else {
+                    'Different'
+                }
+            } else {
+                $actualExpanded = '<unreadable>'
+                $status = if ($script:NonFatalWinevtChannels -contains $channelName) { 'UnreadableProtectedChannel' } else { 'Unknown' }
+            }
+
+            [pscustomobject]@{
+                ChannelName = $channelName
+                Expected    = $expected
+                Actual      = $actualExpanded
+                Status      = $status
+            }
+        }
+
+        $payload = [ordered]@{
+            ToolName              = $scriptName
+            Version               = '8.8.1-HARDENED-STATE'
+            GeneratedAt           = (Get-Date).ToString('o')
+            ComputerName          = $env:COMPUTERNAME
+            UserName              = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            ExecutionMode         = $ExecutionMode
+            AuditOnly             = $AuditOnly
+            WhatIfFull            = [bool]$script:EnterpriseWhatIfFull
+            SourceDeletionEnabled = [bool]$script:SourceDeletionPolicyEnabled
+            TargetRoot            = $TargetRoot
+            DefaultLogsFolder     = $DefaultLogsFolder
+            LogPath               = $logPath
+            Reports               = [ordered]@{
+                MigrationSummaryCsv = $summaryCsvPath
+                ResidualCsv         = $residualCsvPath
+                VerificationTxt     = $verificationTxtPath
+                TelemetryJson       = $telemetryJsonPath
+            }
+            Counts                = [ordered]@{
+                ActiveMappings  = @($activeMappings).Count
+                ArchiveMappings = @($archiveMappings).Count
+                ResidualFiles   = @($residualRows).Count
+            }
+            ResidualSummary       = $residualSummary
+            SelectedVerification  = @($selectedVerification)
+        }
+
+        $payload | ConvertTo-Json -Depth 8 | Set-Content -Path $telemetryJsonPath -Encoding UTF8
+        Write-Log -Message "Enterprise telemetry JSON exported: $telemetryJsonPath"
+    } catch {
+        Write-Log -Message "Failed to export enterprise telemetry JSON: $($_.Exception.Message)" -Level 'WARN'
+    }
+}
+
 # ------------------------------------------------------------
 # GUI
 # ------------------------------------------------------------
 function Setup-GUI {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'Move Event Log Paths (Classic + WINEVT Channels)'
-    $form.Size = New-Object System.Drawing.Size(700, 360)
+    $form.Text = 'Move Event Log Paths (Classic + WINEVT Channels) - v8.8.0 ENTERPRISE'
+    $form.Size = New-Object System.Drawing.Size(700, 445)
     $form.StartPosition = 'CenterScreen'
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
@@ -1216,44 +1543,73 @@ function Setup-GUI {
     $checkAuditOnly.Size = New-Object System.Drawing.Size(300, 20)
     $form.Controls.Add($checkAuditOnly)
 
+    $checkDeleteSource = New-Object System.Windows.Forms.CheckBox
+    $checkDeleteSource.Text = 'Force source cleanup only in post-reboot cleanup mode'
+    $checkDeleteSource.Location = New-Object System.Drawing.Point(330, 66)
+    $checkDeleteSource.Size = New-Object System.Drawing.Size(340, 20)
+    $checkDeleteSource.Checked = $false
+    $form.Controls.Add($checkDeleteSource)
+
+    $checkCleanupOnly = New-Object System.Windows.Forms.CheckBox
+    $checkCleanupOnly.Text = 'Post-reboot cleanup/report-only mode (no migration changes)'
+    $checkCleanupOnly.Location = New-Object System.Drawing.Point(10, 92)
+    $checkCleanupOnly.Size = New-Object System.Drawing.Size(660, 20)
+    $checkCleanupOnly.Checked = $false
+    $form.Controls.Add($checkCleanupOnly)
+
+    $checkWhatIfFull = New-Object System.Windows.Forms.CheckBox
+    $checkWhatIfFull.Text = 'Enterprise full dry-run / diff mode (no ACL, service, registry, WINEVT, or file changes)'
+    $checkWhatIfFull.Location = New-Object System.Drawing.Point(10, 118)
+    $checkWhatIfFull.Size = New-Object System.Drawing.Size(660, 20)
+    $checkWhatIfFull.Checked = [bool]$script:EnterpriseWhatIfFull
+    $form.Controls.Add($checkWhatIfFull)
+
     $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Location = New-Object System.Drawing.Point(10, 96)
+    $progressBar.Location = New-Object System.Drawing.Point(10, 148)
     $progressBar.Size = New-Object System.Drawing.Size(660, 20)
     $form.Controls.Add($progressBar)
 
     $statusLabel = New-Object System.Windows.Forms.Label
-    $statusLabel.Location = New-Object System.Drawing.Point(10, 126)
+    $statusLabel.Location = New-Object System.Drawing.Point(10, 178)
     $statusLabel.Size = New-Object System.Drawing.Size(660, 90)
     $statusLabel.Text = 'Ready.'
     $form.Controls.Add($statusLabel)
 
     $labelLog = New-Object System.Windows.Forms.Label
-    $labelLog.Location = New-Object System.Drawing.Point(10, 220)
+    $labelLog.Location = New-Object System.Drawing.Point(10, 272)
     $labelLog.Size = New-Object System.Drawing.Size(660, 60)
     $labelLog.Text = "Log file:`r`n$logPath`r`nReports will be written to C:\Logs-TEMP"
     $form.Controls.Add($labelLog)
 
     $buttonRun = New-Object System.Windows.Forms.Button
     $buttonRun.Text = 'Run'
-    $buttonRun.Location = New-Object System.Drawing.Point(420, 290)
+    $buttonRun.Location = New-Object System.Drawing.Point(420, 371)
     $buttonRun.Size = New-Object System.Drawing.Size(110, 28)
     $form.Controls.Add($buttonRun)
 
     $buttonClose = New-Object System.Windows.Forms.Button
     $buttonClose.Text = 'Close'
-    $buttonClose.Location = New-Object System.Drawing.Point(560, 290)
+    $buttonClose.Location = New-Object System.Drawing.Point(560, 371)
     $buttonClose.Size = New-Object System.Drawing.Size(110, 28)
     $buttonClose.Enabled = $true
-    $buttonClose.Add_Click({ $form.Close() })
+    $buttonClose.Add_Click({ Invoke-EventHandlerSafely -Context 'Close button' -ScriptBlock { $form.Close() } })
     $form.Controls.Add($buttonClose)
 
     $buttonRun.Add_Click({
+        Invoke-EventHandlerSafely -Context 'Run button execution' -ScriptBlock {
         $targetRoot = Normalize-TargetRoot -Path $textBox.Text
         $mappings = @()
         $servicesRecovered = $false
-        $auditOnly = $checkAuditOnly.Checked
+        $whatIfFullSelected = ($checkWhatIfFull.Checked -or [bool]$script:EnterpriseWhatIfFull)
+        $auditOnly = ($checkAuditOnly.Checked -or $whatIfFullSelected)
+        $deleteSourceAfterValidation = $checkDeleteSource.Checked
+        $cleanupOnly = $checkCleanupOnly.Checked
+        $script:EnterpriseWhatIfFull = [bool]$whatIfFullSelected
+        $script:SourceDeletionPolicyEnabled = ($deleteSourceAfterValidation -and (-not $auditOnly) -and $cleanupOnly)
+        $executionMode = if ($cleanupOnly) { 'PostRebootCleanupOnly' } elseif ($whatIfFullSelected) { 'WhatIfFull' } elseif ($auditOnly) { 'AuditOnly' } else { 'Migration' }
+        Write-Log -Message ("Selected execution mode: {0}" -f $executionMode) -Level 'INFO'
 
-        if ([string]::IsNullOrWhiteSpace($targetRoot)) {
+        if ([string]::IsNullOrWhiteSpace($targetRoot) -and -not $cleanupOnly) {
             [System.Windows.Forms.MessageBox]::Show(
                 'Please enter the target root folder.',
                 'Input Error',
@@ -1264,6 +1620,24 @@ function Setup-GUI {
         }
 
         try {
+            if ($cleanupOnly) {
+                $buttonRun.Enabled = $false
+                $buttonClose.Enabled = $false
+                $statusLabel.Text = 'Running post-reboot cleanup/report-only mode...'
+                $script:SourceDeletionPolicyEnabled = ($deleteSourceAfterValidation -and (-not $auditOnly))
+                Invoke-PostRebootResidualCleanup -ForceCleanup ($deleteSourceAfterValidation -and (-not $auditOnly))
+                Export-ResidualSourceFiles
+                Export-EnterpriseTelemetry -Mappings @() -AuditOnly $auditOnly -ExecutionMode $executionMode -TargetRoot ''
+                Write-Log -Message 'Post-reboot cleanup/report-only mode completed.'
+                [System.Windows.Forms.MessageBox]::Show(
+                    ("Post-reboot cleanup/report-only mode completed.`n`nLog:`n{0}`n`nResidual report:`n{1}" -f $logPath, $residualCsvPath),
+                    'Cleanup Done',
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                ) | Out-Null
+                return
+            }
+
             if (-not (Test-IsDriveRoot -Path $targetRoot)) {
                 throw "Target root must be a dedicated drive root like L:\"
             }
@@ -1275,6 +1649,10 @@ function Setup-GUI {
 
             $buttonRun.Enabled = $false
             $buttonClose.Enabled = $false
+
+            if ($whatIfFullSelected) {
+                Write-Log -Message 'Enterprise full dry-run mode active: no ACL, service, registry, WINEVT, copy, cleanup, or size changes will be made.' -Level 'WARN'
+            }
 
             $statusLabel.Text = 'Applying ACL baseline to target...'
             if (-not $auditOnly) {
@@ -1307,9 +1685,6 @@ function Setup-GUI {
             $statusLabel.Text = 'Processing WINEVT channels directly from mappings...'
             $okWinevt = Update-WinevtChannels -Mappings $mappings -AuditOnly $auditOnly
 
-            $statusLabel.Text = 'Processing classic log size policy...'
-            Set-ClassicLogSizes153600KB -AuditOnly $auditOnly
-
             $statusLabel.Text = 'Restoring services...'
             if (-not $auditOnly) {
                 Start-After-Migration
@@ -1319,26 +1694,33 @@ function Setup-GUI {
                 $servicesRecovered = $true
             }
 
+            $statusLabel.Text = 'Processing classic log size policy...'
+            Write-Log -Message 'Classic log size policy will be enforced after EventLog service restoration to avoid RPC 1722 errors.'
+            Set-ClassicLogSizes153600KB -AuditOnly $auditOnly
+
             if (-not $okClassic) {
                 throw 'Classic registry processing failed.'
             }
 
             if (-not $okWinevt) {
-                throw 'WINEVT channel processing failed.'
+                Write-Log -Message 'WINEVT channel processing completed with warnings. The migration will continue and verification report will identify channels requiring manual review.' -Level 'WARN'
             }
 
             $statusLabel.Text = 'Cleanup / reporting...'
-            Cleanup-SourceEvtx -Mappings $mappings -AuditOnly $auditOnly
+            Cleanup-SourceEvtx -Mappings $mappings -AuditOnly $auditOnly -DeleteSourceAfterValidation $deleteSourceAfterValidation -PostRebootCleanupMode $false
             Export-MigrationSummary -Mappings $mappings
             Export-ResidualSourceFiles
             Write-VerificationReport -Mappings $mappings -AuditOnly $auditOnly
+            Export-EnterpriseTelemetry -Mappings $mappings -AuditOnly $auditOnly -ExecutionMode $executionMode -TargetRoot $targetRoot
 
             $progressBar.Value = $progressBar.Maximum
-            $statusLabel.Text = if ($auditOnly) { 'Audit completed.' } else { 'Completed.' }
-            Write-Log -Message (if ($auditOnly) { 'Audit completed successfully.' } else { 'Migration completed successfully.' })
+            $finalStatus = if ($auditOnly) { 'Audit completed.' } else { 'Completed.' }
+            $finalMessage = if ($auditOnly) { 'Audit completed successfully.' } else { 'Migration completed successfully.' }
+            $statusLabel.Text = $finalStatus
+            Write-Log -Message $finalMessage
 
             [System.Windows.Forms.MessageBox]::Show(
-                ("{0}`n`nLog:`n{1}`n`nReports:`n{2}`n{3}`n{4}" -f ($(if ($auditOnly) { 'Audit completed successfully.' } else { 'Migration completed successfully.' }), $logPath, $summaryCsvPath, $residualCsvPath, $verificationTxtPath)),
+                ("{0}`n`nLog:`n{1}`n`nReports:`n{2}`n{3}`n{4}`n{5}" -f $finalMessage, $logPath, $summaryCsvPath, $residualCsvPath, $verificationTxtPath, $telemetryJsonPath),
                 'Done',
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Information
@@ -1358,23 +1740,45 @@ function Setup-GUI {
                 if (@($mappings).Count -gt 0) {
                     Write-VerificationReport -Mappings $mappings -AuditOnly $auditOnly
                 }
+                Export-EnterpriseTelemetry -Mappings $mappings -AuditOnly $auditOnly -ExecutionMode $executionMode -TargetRoot $targetRoot
             } catch { }
 
             $statusLabel.Text = "Failed. Review log:`r`n$logPath"
             Write-Log -Message 'GUI failure path reached; Close button enabled for operator exit.' -Level 'WARN'
         } finally {
-            $buttonClose.Enabled = $true
-            $buttonRun.Enabled = $true
+            try { if ($buttonClose -and -not $buttonClose.IsDisposed) { $buttonClose.Enabled = $true } } catch { }
+            try { if ($buttonRun -and -not $buttonRun.IsDisposed) { $buttonRun.Enabled = $true } } catch { }
+        }
         }
     })
 
-    $form.ShowDialog() | Out-Null
+    try {
+        $null = $form.ShowDialog()
+    } catch {
+        Write-FailsafeExceptionLog -Context 'Form.ShowDialog failed.' -ExceptionObject $_
+        Show-SafeMessageBox -Message ("The GUI failed before or during display. Review the log file:`r`n{0}" -f $logPath) -Title 'GUI Startup Error' -Icon ([System.Windows.Forms.MessageBoxIcon]::Error)
+    }
 }
 
 # ------------------------------------------------------------
-# Launch GUI
+# Launch
 # ------------------------------------------------------------
+if ($PostRebootCleanupOnly) {
+    try {
+        Write-Log -Message 'Command-line post-reboot cleanup-only mode selected. GUI and migration phases will not run.' -Level 'WARN'
+        $script:SourceDeletionPolicyEnabled = [bool]$ForceSourceCleanup
+        Invoke-PostRebootResidualCleanup -ForceCleanup ([bool]$ForceSourceCleanup)
+        Export-ResidualSourceFiles
+        Export-EnterpriseTelemetry -Mappings @() -AuditOnly $false -ExecutionMode 'PostRebootCleanupOnly' -TargetRoot ''
+    } catch {
+        Write-FailsafeExceptionLog -Context 'Post-reboot cleanup-only command-line mode failed.' -ExceptionObject $_
+    }
+    Write-Log -Message 'Script ended.' -Level 'INFO'
+    return
+}
+
 Setup-GUI
+
 Write-Log -Message 'Script ended.' -Level 'INFO'
 
 # End of script
