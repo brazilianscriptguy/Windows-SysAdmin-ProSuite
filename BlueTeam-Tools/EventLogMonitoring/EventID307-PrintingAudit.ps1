@@ -2,13 +2,16 @@
 <#!
 .SYNOPSIS
     PowerShell Script for Auditing Print Activities via Event ID 307 using Log Parser.
+
 .DESCRIPTION
     Uses installed Log Parser 2.2 for both live SYSTEM event log reads and archived EVTX files.
     This revision uses the older working Log Parser COM automation path and keeps CSV export defaulted to My Documents on WS2019.
+
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
+
 .VERSION
-    03-16-2026 - 3.2.0 - WS2019 snapshot-based live parsing and count-safe archived EVTX processing
+    05-04-2026 - 3.3.0 - ARCHIVE-SAFE locked EVTX handling and resilient Log Parser processing
 #>
 
 [CmdletBinding()]
@@ -57,6 +60,21 @@ if (-not $ShowConsole) { Set-ConsoleVisibility -Visible:$false }
 #endregion
 
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+# WinForms exception containment must be configured before any control is created.
+try {
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+    [System.Windows.Forms.Application]::add_ThreadException({
+        param($sender, $e)
+        try {
+            Write-Log ("Unhandled UI exception: {0}" -f $e.Exception.Message) 'ERROR'
+            [void][System.Windows.Forms.MessageBox]::Show(("Unhandled UI exception:`r`n{0}" -f $e.Exception.Message), 'Print Audit - UI Error', 'OK', 'Error')
+        } catch {}
+    })
+}
+catch {
+    # Non-fatal. Explicit try/catch blocks around GUI events remain active.
+}
 
 $script:ScriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $script:MachineName = [Environment]::MachineName
@@ -124,6 +142,37 @@ function Get-LogParserExePath {
 function Escape-LogParserPath {
     param([string]$Path)
     return ($Path -replace "'","''")
+}
+
+function Test-IsLikelyActivePrintServiceEvtx {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
+
+    $activeNames = @(
+        'Microsoft-Windows-PrintService-Operational.evtx',
+        'PrintService-Operational.evtx'
+    )
+
+    return ($activeNames -contains $File.Name)
+}
+
+function Test-IsFileLocked {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $false
+    }
+    catch {
+        return $true
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
 }
 
 function New-LogParserComObjects {
@@ -255,7 +304,18 @@ function Invoke-ArchivedEvtxCollection {
             Remove-Item -LiteralPath $TempCsvPath -Force -ErrorAction SilentlyContinue
         }
 
-        $query = @"
+        try {
+            if (Test-IsLikelyActivePrintServiceEvtx -File $file) {
+                Write-Log "Skipped likely active/canonical EVTX in archived mode to avoid file-lock errors: '$($file.FullName)'" 'WARN'
+                continue
+            }
+
+            if (Test-IsFileLocked -Path $file.FullName) {
+                Write-Log "Skipped locked EVTX file: '$($file.FullName)'" 'WARN'
+                continue
+            }
+
+            $query = @"
 SELECT
     TimeGenerated AS EventTime,
     EXTRACT_TOKEN(Strings, 2, '|') AS UserId,
@@ -267,15 +327,20 @@ INTO '$([string](Escape-LogParserPath $TempCsvPath))'
 FROM '$([string](Escape-LogParserPath $file.FullName))'
 WHERE EventID = 307
 "@
-        $result = Invoke-LogParserBatch -Query $query -LogQuery $LogQuery -InputFormat $InputFormat -OutputFormat $OutputFormat
-        Write-Log "Archived EVTX query result for '$($file.FullName)': $result"
+            $result = Invoke-LogParserBatch -Query $query -LogQuery $LogQuery -InputFormat $InputFormat -OutputFormat $OutputFormat
+            Write-Log "Archived EVTX query result for '$($file.FullName)': $result"
 
-        $merged = Merge-TempCsvIntoFinal -TempCsvPath $TempCsvPath -FinalCsvPath $FinalCsvPath -IsFirstFile:$first
-        if ($merged) {
-            $first = $false
+            $merged = Merge-TempCsvIntoFinal -TempCsvPath $TempCsvPath -FinalCsvPath $FinalCsvPath -IsFirstFile:$first
+            if ($merged) {
+                $first = $false
+            }
+            else {
+                Write-Log "No Event ID 307 rows were exported from '$($file.FullName)'."
+            }
         }
-        else {
-            Write-Log "No Event ID 307 rows were exported from '$($file.FullName)'."
+        catch {
+            Write-Log "Skipped EVTX after non-fatal Log Parser/read failure: '$($file.FullName)'. Error: $($_.Exception.Message)" 'WARN'
+            continue
         }
     }
 
@@ -381,9 +446,11 @@ function Process-PrintServiceLog {
             else {
                 @(Get-ChildItem -LiteralPath $LogFolderPath -Filter '*.evtx' -ErrorAction Stop | Where-Object { -not $_.PSIsContainer })
             }
+            $evtxFiles = @($evtxFiles | Sort-Object FullName)
             if (@($evtxFiles).Count -eq 0) {
                 throw "No .evtx files were found in '$LogFolderPath'."
             }
+            Write-Log ("Archived EVTX discovery completed. Files discovered={0}. Active/canonical files will be skipped to avoid locked-file failures." -f @($evtxFiles).Count)
 
             $rows = Invoke-ArchivedEvtxCollection -EvtxFiles @($evtxFiles) -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsvPath
         }
@@ -411,7 +478,7 @@ function Process-PrintServiceLog {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Print Audit Event Parser (Event ID 307) v3.2.0'
+$form.Text = 'Print Audit Event Parser (Event ID 307) v3.3.0 ARCHIVE-SAFE'
 $form.Size = New-Object System.Drawing.Size(900,520)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
@@ -567,7 +634,7 @@ $buttonStartAnalysis.Add_Click({
             Show-MessageBox -Message 'Please select an EVTX folder or enable live mode.' -Title 'Input Required' -Icon Warning
             return
         }
-        Write-Log 'Starting print audit analysis.'
+        Write-Log 'Starting print audit analysis. Version=3.3.0-ARCHIVE-SAFE.'
         Process-PrintServiceLog -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UseLiveLog $useLive -IncludeSubfolders $includeSubfolders
     }
     catch {
