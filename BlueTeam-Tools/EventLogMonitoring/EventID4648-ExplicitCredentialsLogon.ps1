@@ -9,7 +9,7 @@
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-05-05-v5.1.3-PRODUCTION-LOGPARSER-FIRST
+  2026-05-05-v5.1.4-PRODUCTION-GUI-STANDARD
 #>
 
 [CmdletBinding()]
@@ -47,7 +47,7 @@ try {
 } catch { }
 
 $script:ToolName = 'EventID4648-ExplicitCredentialsLogon'
-$script:ToolVersion = '2026-05-05-v5.1.3-PRODUCTION-LOGPARSER-FIRST'
+$script:ToolVersion = '2026-05-05-v5.1.4-PRODUCTION-GUI-STANDARD'
 $script:ComputerName = [Environment]::MachineName
 $script:LogDir = 'C:\Logs-TEMP'
 $script:LogPath = Join-Path $script:LogDir ($script:ToolName + '.log')
@@ -91,6 +91,25 @@ function Set-Status {
     [System.Windows.Forms.Application]::DoEvents()
 }
 
+function Show-Message {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [ValidateSet('INFO','WARN','ERROR')][string]$Type = 'INFO',
+        [string]$Title = 'Information'
+    )
+
+    $icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    if ($Type -eq 'WARN') { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
+    if ($Type -eq 'ERROR') { $icon = [System.Windows.Forms.MessageBoxIcon]::Error }
+
+    [System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        $Title,
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        $icon
+    ) | Out-Null
+}
+
 function Invoke-GuiSafe {
     param([Parameter(Mandatory)][scriptblock]$ScriptBlock, [string]$Context = 'Operation')
     try { & $ScriptBlock }
@@ -98,7 +117,7 @@ function Invoke-GuiSafe {
         $msg = $_.Exception.Message
         Write-Log "$Context failed. $msg" 'ERROR'
         Set-Status "$Context failed. Check the execution log." 0
-        [System.Windows.Forms.MessageBox]::Show("$Context failed.`r`n$msg", 'Error', 'OK', 'Error') | Out-Null
+        Show-Message -Message ("$Context failed.`r`n$msg") -Type 'ERROR' -Title 'Error'
     }
 }
 
@@ -363,21 +382,42 @@ function Start-ExplicitCredentialAudit {
 
 function Resolve-SecurityChannel {
     param([string]$OutputFolder)
+
     Ensure-Directory -Path $OutputFolder
+    Set-Status 'Resolving Security channel...' 10
+
     $snapshot = Export-LiveSecuritySnapshot
     $probeCsv = Join-Path $script:SnapshotRoot ('Resolve4648-{0}.csv' -f ([guid]::NewGuid().ToString('N').Substring(0,8)))
+    $safeProbeCsv = Escape-SqlLiteral $probeCsv
+    $safeSnapshot = Escape-SqlLiteral $snapshot
+
     $sql = @"
 SELECT TOP 1
   TimeGenerated AS EventTime,
   ComputerName AS EventCollector,
   EventID AS EventId
-INTO '$probeCsv'
-FROM '$snapshot'
+INTO '$safeProbeCsv'
+FROM '$safeSnapshot'
 WHERE EventID = 4648
 "@
+
     [void](Invoke-LogParserBatch -Sql $sql -Context 'ResolveSecurityChannel')
-    Write-Log 'Security channel probe completed successfully.'
-    Set-Status 'Security channel probe completed successfully.' 100
+
+    $hasRows = $false
+    if (Test-Path -LiteralPath $probeCsv -PathType Leaf) {
+        $probeRows = @(Get-RowsFromCsv -Path $probeCsv)
+        if (@($probeRows).Count -gt 0) { $hasRows = $true }
+    }
+
+    if ($hasRows) {
+        Write-Log 'Security channel probe completed successfully. Event ID 4648 sample row found.'
+        Set-Status 'Security channel validated. Event ID 4648 sample row found.' 100
+        return $true
+    }
+
+    Write-Log 'Security channel probe completed. No Event ID 4648 sample row was found in the current snapshot.' 'WARN'
+    Set-Status 'Security channel validated, but no Event ID 4648 sample row was found.' 100
+    return $false
 }
 
 function Select-Folder {
@@ -592,8 +632,22 @@ $chkLive.Add_CheckedChanged($toggleLive)
 $btnEvtx.Add_Click({ Invoke-GuiSafe -Context 'Select EVTX folder' -ScriptBlock { $p = Select-Folder -Description 'Select EVTX folder' -InitialPath $txtEvtx.Text; if ($p) { $txtEvtx.Text = $p } } })
 $btnOut.Add_Click({ Invoke-GuiSafe -Context 'Select output folder' -ScriptBlock { $p = Select-Folder -Description 'Select output folder' -InitialPath $txtOut.Text; if ($p) { $txtOut.Text = $p } } })
 $btnLog.Add_Click({ Invoke-GuiSafe -Context 'Select log folder' -ScriptBlock { $p = Select-Folder -Description 'Select log folder' -InitialPath $txtLog.Text; if ($p) { $txtLog.Text = $p; $script:LogDir = $p; Ensure-Directory -Path $script:LogDir; $script:LogPath = Join-Path $script:LogDir ($script:ToolName + '.log') } } })
-$btnResolve.Add_Click({ Invoke-GuiSafe -Context 'Resolve Channel' -ScriptBlock { Resolve-SecurityChannel -OutputFolder $txtOut.Text } })
-$btnOpen.Add_Click({ Invoke-GuiSafe -Context 'Open CSV' -ScriptBlock { if ($script:LastCsvPath -and (Test-Path -LiteralPath $script:LastCsvPath -PathType Leaf)) { Start-Process -FilePath $script:LastCsvPath | Out-Null } else { [System.Windows.Forms.MessageBox]::Show('No CSV has been generated yet.', 'Information', 'OK', 'Information') | Out-Null } } })
+$btnResolve.Add_Click({
+    Invoke-GuiSafe -Context 'Resolve Channel' -ScriptBlock {
+        $btnResolve.Enabled = $false
+        try {
+            $ok = Resolve-SecurityChannel -OutputFolder $txtOut.Text
+            if ($ok) {
+                Show-Message -Message 'Security channel successfully resolved and validated. Event ID 4648 records are available in the current snapshot.' -Type 'INFO' -Title 'Resolve Channel'
+            } else {
+                Show-Message -Message 'Security channel was resolved, but no Event ID 4648 records were found in the current snapshot. This is not an error; run the analysis against the desired date range or archived EVTX files.' -Type 'WARN' -Title 'Resolve Channel'
+            }
+        } finally {
+            $btnResolve.Enabled = $true
+        }
+    }
+})
+$btnOpen.Add_Click({ Invoke-GuiSafe -Context 'Open CSV' -ScriptBlock { if ($script:LastCsvPath -and (Test-Path -LiteralPath $script:LastCsvPath -PathType Leaf)) { Start-Process -FilePath $script:LastCsvPath | Out-Null } else { Show-Message -Message 'No CSV has been generated yet.' -Type 'INFO' -Title 'Information' } } })
 $btnClose.Add_Click({ $form.Close() })
 
 $btnStart.Add_Click({
