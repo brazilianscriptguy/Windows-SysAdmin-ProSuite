@@ -56,8 +56,7 @@ All scripts are structured for **Windows Server 2019 environments using PowerShe
 | **EventID-Count-AllEvtx-Events.ps1**                             | Counts all Event IDs across selected `.evtx` files and exports a frequency summary to `.csv`.                          |
 | **EventID1102-EventLogCleared.ps1**                              | Detects clearing of the Windows Security Event Log (Event ID 1102), often associated with anti-forensic activity.      |
 | **EventID307-PrintingAudit.ps1**                                 | Audits print activity using PrintService Operational logging and Event ID 307.                                         |
-| **EventID4624-ADUserLoginViaRDP.ps1**                            | Identifies successful logons (Event ID 4624) filtered specifically for RDP sessions.                                   |
-| **EventID4624and4634-ADUserLoginTracking.ps1**                   | Correlates logon and logoff activity (Event IDs 4624 and 4634) to reconstruct user session timelines.                  |
+| **EventID4624-4634-UserSessionAudit.ps1**                   | Correlates logon and logoff activity (Event IDs 4624 and 4634) to reconstruct user session timelines.                  |
 | **EventID4625-ADUserLoginAccountFailed.ps1**                     | Captures failed authentication attempts (Event ID 4625) with contextual failure information.                           |
 | **EventID4648-ExplicitCredentialsLogon.ps1**                     | Detects explicit credential usage (Event ID 4648), commonly linked to lateral movement attempts.                       |
 | **EventID4663-TrackingObjectDeletions.ps1**                      | Tracks object deletion activity via Event ID 4663 with deletion access masks.                                          |
