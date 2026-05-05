@@ -5,13 +5,13 @@
 .DESCRIPTION
   Production-ready Log Parser 2.2 first forensic session auditor for Security.evtx analysis.
   Supports live Security snapshots, archive-safe EVTX processing, date/time range filtering,
-  RDP LogonType 10 extraction, user session tracking, EventID inventory, and Strings mapping.
+  RDP LogonType 10 extraction, user session tracking, 4624/4634 session correlation, EventID inventory, and Strings mapping.
 
 .AUTHOR
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-05-05-v5.1.3-PRODUCTION-COLLAPSE-TRYPARSE-HOTFIX
+  2026-05-05-v5.2.0-SESSION-CORRELATION
 #>
 
 [CmdletBinding()]
@@ -31,7 +31,7 @@ try {
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $script:ToolName      = 'EventID4624-4634-UserSessionAudit'
-$script:ToolVersion   = '2026-05-05-v5.1.3-PRODUCTION-COLLAPSE-TRYPARSE-HOTFIX'
+$script:ToolVersion   = '2026-05-05-v5.2.0-SESSION-CORRELATION'
 $script:VerboseSqlLog = [bool]$VerboseSqlLog
 $script:DefaultLogDir = 'C:\Logs-TEMP'
 $script:DefaultOutDir = [Environment]::GetFolderPath('MyDocuments')
@@ -378,6 +378,130 @@ function Export-CollapsedSessionSummary {
     }
 }
 
+
+function Format-DurationText {
+    param([int]$Seconds)
+    if ($Seconds -lt 0) { return '' }
+    $ts = [TimeSpan]::FromSeconds($Seconds)
+    if ($ts.TotalDays -ge 1) { return ('{0}d {1:00}:{2:00}:{3:00}' -f [int]$ts.TotalDays, $ts.Hours, $ts.Minutes, $ts.Seconds) }
+    return ('{0:00}:{1:00}:{2:00}' -f $ts.Hours, $ts.Minutes, $ts.Seconds)
+}
+
+function Export-CorrelatedSessionReport {
+    param(
+        [Parameter(Mandatory=$true)][string]$RawCsvPath,
+        [Parameter(Mandatory=$true)][string]$CorrelationCsvPath
+    )
+    $headers = @(
+        'SessionStatus','AccountName','AccountDomain','LogonType','SourceIpAddress','EventCollector',
+        'LogonTime','LogoffTime','DurationSeconds','DurationText',
+        'LogonRecordNumber','LogoffRecordNumber','LogonId','LogonSourceEvtxPath','LogoffSourceEvtxPath','ProcessName'
+    )
+    if (-not (Test-Path -LiteralPath $RawCsvPath)) {
+        New-EmptyCsv -Path $CorrelationCsvPath -Headers $headers
+        return
+    }
+
+    $rows = @(Import-Csv -LiteralPath $RawCsvPath)
+    if ($rows.Count -eq 0) {
+        New-EmptyCsv -Path $CorrelationCsvPath -Headers $headers
+        return
+    }
+
+    $pending = @{}
+    $output = New-Object System.Collections.Generic.List[object]
+
+    foreach ($row in ($rows | Sort-Object -Property @{ Expression = { [datetime]($_.EventTime) }; Descending = $false }, RecordNumber)) {
+        $eventTime = [datetime]::MinValue
+        if (-not [datetime]::TryParse([string]$row.EventTime, [ref]$eventTime)) { continue }
+
+        $key = ('{0}|{1}|{2}' -f $row.ComputerName, $row.AccountName, $row.LogonId)
+
+        if ($row.SessionAction -eq 'LOGON') {
+            if (-not $pending.ContainsKey($key)) {
+                $pending[$key] = New-Object System.Collections.Generic.Queue[object]
+            }
+            $pending[$key].Enqueue([pscustomobject]@{ Row = $row; Time = $eventTime })
+            continue
+        }
+
+        if ($row.SessionAction -eq 'LOGOFF') {
+            if ($pending.ContainsKey($key) -and $pending[$key].Count -gt 0) {
+                $logon = $pending[$key].Dequeue()
+                $durationSeconds = [int][math]::Max(0, ($eventTime - $logon.Time).TotalSeconds)
+                $output.Add([pscustomobject]@{
+                    SessionStatus       = 'MATCHED'
+                    AccountName         = $logon.Row.AccountName
+                    AccountDomain       = $logon.Row.AccountDomain
+                    LogonType           = $logon.Row.LogonType
+                    SourceIpAddress     = $logon.Row.SourceIpAddress
+                    EventCollector      = $logon.Row.ComputerName
+                    LogonTime           = $logon.Time.ToString('yyyy-MM-dd HH:mm:ss')
+                    LogoffTime          = $eventTime.ToString('yyyy-MM-dd HH:mm:ss')
+                    DurationSeconds     = $durationSeconds
+                    DurationText        = Format-DurationText -Seconds $durationSeconds
+                    LogonRecordNumber   = $logon.Row.RecordNumber
+                    LogoffRecordNumber  = $row.RecordNumber
+                    LogonId             = $logon.Row.LogonId
+                    LogonSourceEvtxPath = $logon.Row.SourceEvtxPath
+                    LogoffSourceEvtxPath= $row.SourceEvtxPath
+                    ProcessName         = $logon.Row.ProcessName
+                })
+            } else {
+                $output.Add([pscustomobject]@{
+                    SessionStatus       = 'LOGOFF_WITHOUT_MATCHING_LOGON'
+                    AccountName         = $row.AccountName
+                    AccountDomain       = $row.AccountDomain
+                    LogonType           = $row.LogonType
+                    SourceIpAddress     = ''
+                    EventCollector      = $row.ComputerName
+                    LogonTime           = ''
+                    LogoffTime          = $eventTime.ToString('yyyy-MM-dd HH:mm:ss')
+                    DurationSeconds     = ''
+                    DurationText        = ''
+                    LogonRecordNumber   = ''
+                    LogoffRecordNumber  = $row.RecordNumber
+                    LogonId             = $row.LogonId
+                    LogonSourceEvtxPath = ''
+                    LogoffSourceEvtxPath= $row.SourceEvtxPath
+                    ProcessName         = ''
+                })
+            }
+        }
+    }
+
+    foreach ($key in @($pending.Keys)) {
+        while ($pending[$key].Count -gt 0) {
+            $logon = $pending[$key].Dequeue()
+            $output.Add([pscustomobject]@{
+                SessionStatus       = 'OPEN_SESSION_NO_LOGOFF_FOUND'
+                AccountName         = $logon.Row.AccountName
+                AccountDomain       = $logon.Row.AccountDomain
+                LogonType           = $logon.Row.LogonType
+                SourceIpAddress     = $logon.Row.SourceIpAddress
+                EventCollector      = $logon.Row.ComputerName
+                LogonTime           = $logon.Time.ToString('yyyy-MM-dd HH:mm:ss')
+                LogoffTime          = ''
+                DurationSeconds     = ''
+                DurationText        = ''
+                LogonRecordNumber   = $logon.Row.RecordNumber
+                LogoffRecordNumber  = ''
+                LogonId             = $logon.Row.LogonId
+                LogonSourceEvtxPath = $logon.Row.SourceEvtxPath
+                LogoffSourceEvtxPath= ''
+                ProcessName         = $logon.Row.ProcessName
+            })
+        }
+    }
+
+    $ordered = @($output | Sort-Object -Property @{ Expression = { if ($_.LogonTime) { [datetime]$_.LogonTime } else { [datetime]$_.LogoffTime } }; Descending = $true })
+    if ($ordered.Count -eq 0) {
+        New-EmptyCsv -Path $CorrelationCsvPath -Headers $headers
+    } else {
+        $ordered | Select-Object $headers | Export-Csv -LiteralPath $CorrelationCsvPath -NoTypeInformation -Encoding UTF8
+    }
+}
+
 function Build-FromClause { param([Parameter(Mandatory=$true)][string]$Path) return "'$(Escape-SqlLiteral $Path)'" }
 
 function Convert-UserFilterToSqlCondition {
@@ -547,7 +671,8 @@ function Invoke-SessionTrackingExtraction {
         [datetime]$StartTime,
         [datetime]$EndTime,
         [bool]$CollapseNetworkLogons = $false,
-        [int]$BucketMinutes = 1
+        [int]$BucketMinutes = 1,
+        [bool]$CorrelateSessions = $false
     )
     Ensure-Directory -Path $OutputDir
     Ensure-Directory -Path $LogDir
@@ -555,8 +680,13 @@ function Invoke-SessionTrackingExtraction {
     $sources = @(Get-SourceFilesForMode -UseLiveLog $UseLiveLog -EvtxFolder $EvtxFolder -IncludeSubfolders $IncludeSubfolders -LogDir $LogDir -UseDateRange $UseDateRange -StartTime $StartTime -EndTime $EndTime)
     if ($sources.Count -eq 0) { throw 'No EVTX source files available for session tracking.' }
     $timestamp = Get-Timestamp
-    $out = Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionTracking-' + $timestamp + '.csv')
-    $rawOut = if ($CollapseNetworkLogons) { Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionTracking-RAW-' + $timestamp + '.csv') } else { $out }
+    if ($CorrelateSessions) {
+        $out = Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionCorrelation-' + $timestamp + '.csv')
+        $rawOut = Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionTracking-RAW-' + $timestamp + '.csv')
+    } else {
+        $out = Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionTracking-' + $timestamp + '.csv')
+        $rawOut = if ($CollapseNetworkLogons) { Join-Path $OutputDir ((hostname) + '-EventID4624-4634-UserSessionTracking-RAW-' + $timestamp + '.csv') } else { $out }
+    }
     $tempFiles = New-Object System.Collections.Generic.List[string]
     $dateCondition = Build-DateRangeSqlCondition -UseDateRange $UseDateRange -StartTime $StartTime -EndTime $EndTime
 
@@ -619,7 +749,10 @@ WHERE $where4634
     }
     $headers = @('SessionAction','SourceEvtxPath','RecordNumber','EventTime','ComputerName','EventId','AccountName','AccountDomain','LogonType','SourceIpAddress','ProcessName','LogonId')
     Merge-CsvFiles -CsvPaths @($tempFiles.ToArray()) -OutputPath $rawOut -Headers $headers
-    if ($CollapseNetworkLogons) {
+    if ($CorrelateSessions) {
+        Export-CorrelatedSessionReport -RawCsvPath $rawOut -CorrelationCsvPath $out
+        Write-Log "Correlated session report exported: '$out'. Raw report preserved: '$rawOut'."
+    } elseif ($CollapseNetworkLogons) {
         Export-CollapsedSessionSummary -RawCsvPath $rawOut -SummaryCsvPath $out -BucketMinutes $BucketMinutes
         Write-Log "Collapsed network logon summary exported: '$out'. Raw report preserved: '$rawOut'. BucketMinutes=$BucketMinutes"
     }
@@ -644,8 +777,8 @@ function Resolve-SecurityChannelLightweight {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Forensic Session Auditor v5.1.3 - Event IDs 4624 / 4634'
-$form.Size = New-Object System.Drawing.Size(920, 720)
+$form.Text = 'Forensic Session Auditor v5.2.0 - Event IDs 4624 / 4634'
+$form.Size = New-Object System.Drawing.Size(920, 780)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
@@ -813,6 +946,17 @@ $numBucket.Value = 1
 $numBucket.Location = New-Object System.Drawing.Point(440,82)
 $numBucket.Size = New-Object System.Drawing.Size(70,24)
 $tabSession.Controls.Add($numBucket)
+$chkCorrelateSessions = New-Object System.Windows.Forms.CheckBox
+$chkCorrelateSessions.Text = 'Correlate 4624 logons with 4634 logoffs'
+$chkCorrelateSessions.Checked = $true
+$chkCorrelateSessions.Location = New-Object System.Drawing.Point(20,112)
+$chkCorrelateSessions.Size = New-Object System.Drawing.Size(330,24)
+$tabSession.Controls.Add($chkCorrelateSessions)
+$lblCorrelation = New-Object System.Windows.Forms.Label
+$lblCorrelation.Text = 'Correlation uses AccountName + LogonId + EventCollector. SourceIpAddress is preserved from the 4624 logon event.'
+$lblCorrelation.Location = New-Object System.Drawing.Point(360,116)
+$lblCorrelation.Size = New-Object System.Drawing.Size(500,34)
+$tabSession.Controls.Add($lblCorrelation)
 
 
 $tabForensic = New-Object System.Windows.Forms.TabPage
@@ -884,7 +1028,7 @@ function Add-UiLog {
 
 function Set-Busy {
     param([bool]$Busy, [string]$Status = '')
-    foreach ($ctl in @($btnResolve,$btnBrowseEvtx,$btnBrowseOut,$btnBrowseLog,$btnRdp,$btnSession,$btnInventory,$btnMap4624,$btnMap4634,$btnFull,$btnOpen,$btnClose,$chkCollapseNetwork,$numBucket)) { $ctl.Enabled = -not $Busy }
+    foreach ($ctl in @($btnResolve,$btnBrowseEvtx,$btnBrowseOut,$btnBrowseLog,$btnRdp,$btnSession,$btnInventory,$btnMap4624,$btnMap4634,$btnFull,$btnOpen,$btnClose,$chkCollapseNetwork,$numBucket,$chkCorrelateSessions)) { $ctl.Enabled = -not $Busy }
     $progress.Style = if ($Busy) { 'Marquee' } else { 'Blocks' }
     if ($Status) { $lblStatus.Text = $Status }
     [System.Windows.Forms.Application]::DoEvents()
@@ -906,6 +1050,7 @@ function Get-CommonParams {
         EndTime          = [datetime]$dtTo.Value
         CollapseNetworkLogons = [bool]$chkCollapseNetwork.Checked
         BucketMinutes    = [int]$numBucket.Value
+        CorrelateSessions = [bool]$chkCorrelateSessions.Checked
     }
 }
 
@@ -996,7 +1141,7 @@ $btnRdp.Add_Click({
 $btnSession.Add_Click({
     Invoke-GuiOperation -Name 'Session Tracking Extraction' -Action {
         $p = Get-CommonParams
-        Invoke-SessionTrackingExtraction -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -UserFilter $p.UserFilter -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime -CollapseNetworkLogons $p.CollapseNetworkLogons -BucketMinutes $p.BucketMinutes
+        Invoke-SessionTrackingExtraction -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -UserFilter $p.UserFilter -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime -CollapseNetworkLogons $p.CollapseNetworkLogons -BucketMinutes $p.BucketMinutes -CorrelateSessions $p.CorrelateSessions
     }
 })
 $btnFull.Add_Click({
@@ -1006,7 +1151,7 @@ $btnFull.Add_Click({
         [void](Invoke-Mapping -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -EventId 4624 -MaxToken 20 -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime)
         [void](Invoke-Mapping -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -EventId 4634 -MaxToken 8 -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime)
         $rdp = Invoke-RdpExtraction4624 -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -UserFilter $p.UserFilter -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime
-        $session = Invoke-SessionTrackingExtraction -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -UserFilter $p.UserFilter -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime -CollapseNetworkLogons $p.CollapseNetworkLogons -BucketMinutes $p.BucketMinutes
+        $session = Invoke-SessionTrackingExtraction -UseLiveLog $p.UseLiveLog -EvtxFolder $p.EvtxFolder -IncludeSubfolders $p.IncludeSubfolders -OutputDir $p.OutputDir -LogDir $p.LogDir -UserFilter $p.UserFilter -UseDateRange $p.UseDateRange -StartTime $p.StartTime -EndTime $p.EndTime -CollapseNetworkLogons $p.CollapseNetworkLogons -BucketMinutes $p.BucketMinutes -CorrelateSessions $p.CorrelateSessions
         "RDP: $rdp`nSession: $session"
     }
 })
