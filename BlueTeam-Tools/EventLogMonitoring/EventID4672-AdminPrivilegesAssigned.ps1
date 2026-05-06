@@ -12,7 +12,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-16-03 - RevA - WS2019-compatible migration
+    2026-05-06-v5.1.4-RESOLVE-FOLDER-VALIDATION-HOTFIX
 #>
 
 [CmdletBinding()]
@@ -67,6 +67,21 @@ catch {
     exit 1
 }
 
+try {
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+    [System.Windows.Forms.Application]::add_ThreadException({
+        param($sender, $eventArgs)
+        try {
+            Write-Log -Level 'ERROR' -Message ("Unhandled GUI exception: {0}" -f $eventArgs.Exception.Message)
+            Show-ErrorBox -Message ("Unhandled GUI exception.`r`n{0}" -f $eventArgs.Exception.Message) -Title 'Unhandled GUI Exception'
+        }
+        catch { }
+    })
+}
+catch {
+    # Non-fatal. This can fail if a host already initialized WinForms before script execution.
+}
+
 #region Variables
 $scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $computerName = [Environment]::MachineName
@@ -105,6 +120,63 @@ function Write-Log {
     }
 }
 
+
+function Test-IsFileLocked {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $false
+    }
+    catch {
+        return $true
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
+function Test-IsLikelyActiveEvtxFile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
+
+    $activeNames = @(
+        'Application.evtx',
+        'Security.evtx',
+        'System.evtx',
+        'Setup.evtx',
+        'Microsoft-Windows-PrintService-Operational.evtx',
+        'Active Directory Web Services.evtx',
+        'State.evtx'
+    )
+
+    return ($activeNames -contains $File.Name)
+}
+
+function Get-ArchiveSafeEvtxFiles {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Files)
+
+    $safeFiles = New-Object System.Collections.Generic.List[object]
+    foreach ($file in @($Files)) {
+        if ($null -eq $file -or [string]::IsNullOrWhiteSpace([string]$file.FullName)) { continue }
+        if (Test-IsLikelyActiveEvtxFile -File $file) {
+            Write-Log "Skipped likely active/canonical EVTX in archived mode to avoid file-lock errors: '$($file.FullName)'" 'WARNING'
+            continue
+        }
+        if (Test-IsFileLocked -Path $file.FullName) {
+            Write-Log "Skipped locked EVTX file in archived mode: '$($file.FullName)'" 'WARNING'
+            continue
+        }
+        [void]$safeFiles.Add($file)
+    }
+    return @($safeFiles)
+}
+
 function Show-Info {
     param([string]$Message, [string]$Title = 'Information')
     [void][System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
@@ -141,6 +213,63 @@ function Resolve-OutputFolder {
     }
     return $Candidate
 }
+
+
+function Resolve-SecurityEvtxFolder {
+    [CmdletBinding()]
+    param()
+
+    $candidateFiles = New-Object System.Collections.Generic.List[string]
+
+    try {
+        $classicKey = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security'
+        if (Test-Path -LiteralPath $classicKey) {
+            $classicFile = (Get-ItemProperty -LiteralPath $classicKey -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace([string]$classicFile)) {
+                [void]$candidateFiles.Add([Environment]::ExpandEnvironmentVariables([string]$classicFile))
+            }
+        }
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "Classic Security EventLog registry lookup failed: $($_.Exception.Message)"
+    }
+
+    try {
+        $winevtKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Security'
+        if (Test-Path -LiteralPath $winevtKey) {
+            $winevtFile = (Get-ItemProperty -LiteralPath $winevtKey -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace([string]$winevtFile)) {
+                [void]$candidateFiles.Add([Environment]::ExpandEnvironmentVariables([string]$winevtFile))
+            }
+        }
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "WINEVT Security channel registry lookup failed: $($_.Exception.Message)"
+    }
+
+    foreach ($filePath in @($candidateFiles)) {
+        try {
+            if ([string]::IsNullOrWhiteSpace([string]$filePath)) { continue }
+            $folder = Split-Path -Path ([string]$filePath) -Parent
+            if (-not [string]::IsNullOrWhiteSpace($folder) -and (Test-Path -LiteralPath $folder -PathType Container)) {
+                Write-Log -Message "Security EVTX folder resolved: $folder"
+                return $folder
+            }
+        }
+        catch {
+            Write-Log -Level 'WARNING' -Message "Failed to validate Security EVTX folder candidate '$filePath'. $($_.Exception.Message)"
+        }
+    }
+
+    $fallback = Join-Path $env:SystemRoot 'System32\winevt\Logs'
+    if (Test-Path -LiteralPath $fallback -PathType Container) {
+        Write-Log -Level 'WARNING' -Message "Security EVTX folder could not be resolved from registry. Using fallback: $fallback"
+        return $fallback
+    }
+
+    return $null
+}
+
 
 function New-FolderPicker {
     param([string]$Description)
@@ -253,16 +382,47 @@ function Build-UserFilterClause {
     return ("AND EXTRACT_TOKEN(Strings, 1, '|') IN ({0})" -f ($escaped -join '; '))
 }
 
+
+function Build-DateFilterClause {
+    [CmdletBinding()]
+    param(
+        [Parameter()][bool]$UseDateRange,
+        [Parameter()][object]$FromTime,
+        [Parameter()][object]$ToTime
+    )
+
+    if (-not $UseDateRange) { return '' }
+
+    $clauses = @()
+
+    if ($null -ne $FromTime) {
+        $fromText = ([datetime]$FromTime).ToString('yyyy-MM-dd HH:mm:ss')
+        $clauses += ("AND TimeGenerated >= TO_TIMESTAMP('{0}', 'yyyy-MM-dd HH:mm:ss')" -f $fromText)
+    }
+
+    if ($null -ne $ToTime) {
+        $toText = ([datetime]$ToTime).ToString('yyyy-MM-dd HH:mm:ss')
+        $clauses += ("AND TimeGenerated <= TO_TIMESTAMP('{0}', 'yyyy-MM-dd HH:mm:ss')" -f $toText)
+    }
+
+    return ($clauses -join [Environment]::NewLine)
+}
+
+
 function Build-QueryForFile {
     param(
         [Parameter(Mandatory)][string]$EvtxPath,
         [Parameter(Mandatory)][string]$CsvPath,
-        [Parameter()][string[]]$UserAccounts
+        [Parameter()][string[]]$UserAccounts,
+        [Parameter()][bool]$UseDateRange = $false,
+        [Parameter()][object]$FromTime = $null,
+        [Parameter()][object]$ToTime = $null
     )
 
     $escapedEvtx = $EvtxPath.Replace("'", "''")
     $escapedCsv  = $CsvPath.Replace("'", "''")
     $userClause  = Build-UserFilterClause -UserAccounts $UserAccounts
+    $dateClause  = Build-DateFilterClause -UseDateRange $UseDateRange -FromTime $FromTime -ToTime $ToTime
 
 $query = @"
 SELECT
@@ -278,6 +438,8 @@ INTO '$escapedCsv'
 FROM '$escapedEvtx'
 WHERE EventID = 4672
 $userClause
+$dateClause
+ORDER BY EventTime DESC
 "@
     return $query
 }
@@ -312,18 +474,28 @@ function Invoke-EventQueryToCsv {
     param(
         [Parameter(Mandatory)][string]$EvtxPath,
         [Parameter(Mandatory)][string]$CsvPath,
-        [Parameter()][string[]]$UserAccounts
+        [Parameter()][string[]]$UserAccounts,
+        [Parameter()][bool]$UseDateRange = $false,
+        [Parameter()][object]$FromTime = $null,
+        [Parameter()][object]$ToTime = $null
     )
 
     $lp = New-LogParserObjects
-    $lp.OutputFormat.fileName = $CsvPath
-    $query = Build-QueryForFile -EvtxPath $EvtxPath -CsvPath $CsvPath -UserAccounts $UserAccounts
-    $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
-    Write-Log "Log Parser ExecuteBatch returned: $result"
+    $query = Build-QueryForFile -EvtxPath $EvtxPath -CsvPath $CsvPath -UserAccounts $UserAccounts -UseDateRange $UseDateRange -FromTime $FromTime -ToTime $ToTime
+    try {
+        $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
+        Write-Log "Log Parser ExecuteBatch returned: $result"
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "Skipped EVTX after non-fatal Log Parser/read failure: '$EvtxPath'. Error: $($_.Exception.Message)"
+        return $false
+    }
 
     if (-not (Test-Path -LiteralPath $CsvPath -PathType Leaf)) {
         New-HeaderOnlyCsv -Path $CsvPath
     }
+
+    return $true
 }
 
 function Get-EvtxFilesSafe {
@@ -344,7 +516,7 @@ function Get-EvtxFilesSafe {
         $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -ErrorAction Stop
     }
 
-    return @($files)
+    return @(Get-ArchiveSafeEvtxFiles -Files @($files))
 }
 
 function Parse-DelimitedUsers {
@@ -381,7 +553,10 @@ function Process-Event4672 {
         [Parameter()][string]$EvtxFolder,
         [Parameter(Mandatory)][bool]$IncludeSubfolders,
         [Parameter()][string]$OutputFolder,
-        [Parameter()][string[]]$UserAccounts
+        [Parameter()][string[]]$UserAccounts,
+        [Parameter()][bool]$UseDateRange = $false,
+        [Parameter()][object]$FromTime = $null,
+        [Parameter()][object]$ToTime = $null
     )
 
     $resolvedOutput = Resolve-OutputFolder -Candidate $OutputFolder
@@ -389,7 +564,7 @@ function Process-Event4672 {
     $finalCsv = Join-Path $resolvedOutput ('{0}-EventID4672-AdminPrivilegesAssigned-{1}.csv' -f $computerName, $timestamp)
     $tempCsvFiles = New-Object System.Collections.ArrayList
 
-    Write-Log "Starting Event ID 4672 processing. UseLiveLog=$UseLiveLog; Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'"
+    Write-Log "Starting Event ID 4672 processing. UseLiveLog=$UseLiveLog; Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'; DateRange=$UseDateRange"
 
     try {
         Update-ProgressSafe -Value 5 -StatusText 'Preparing...'
@@ -401,7 +576,24 @@ function Process-Event4672 {
         }
         else {
             Update-ProgressSafe -Value 15 -StatusText 'Enumerating archived EVTX files...'
+
+            if ([string]::IsNullOrWhiteSpace($EvtxFolder)) {
+                $resolvedSecurityFolder = Resolve-SecurityEvtxFolder
+                if (-not [string]::IsNullOrWhiteSpace($resolvedSecurityFolder)) {
+                    $EvtxFolder = $resolvedSecurityFolder
+                    Write-Log -Message "Archive mode EVTX folder auto-resolved to '$EvtxFolder'."
+                }
+            }
+
+            if ([string]::IsNullOrWhiteSpace($EvtxFolder)) {
+                throw "Please select an EVTX folder or enable 'Use live Security channel'."
+            }
+
             $sourceFiles = Get-EvtxFilesSafe -RootPath $EvtxFolder -IncludeSubfolders:$IncludeSubfolders
+        }
+
+        if (-not $UseLiveLog) {
+            $sourceFiles = @(Get-ArchiveSafeEvtxFiles -Files @($sourceFiles))
         }
 
         $sourceCount = @($sourceFiles).Count
@@ -419,7 +611,14 @@ function Process-Event4672 {
             Register-TempArtifact -Path $tempCsv
             [void]$tempCsvFiles.Add($tempCsv)
 
-            Invoke-EventQueryToCsv -EvtxPath $source.FullName -CsvPath $tempCsv -UserAccounts $UserAccounts
+            try {
+                $queryOk = Invoke-EventQueryToCsv -EvtxPath $source.FullName -CsvPath $tempCsv -UserAccounts $UserAccounts -UseDateRange $UseDateRange -FromTime $FromTime -ToTime $ToTime
+                if ($queryOk -eq $false) { continue }
+            }
+            catch {
+                Write-Log -Level 'WARNING' -Message "Skipped EVTX after non-fatal processing failure: '$($source.FullName)'. Error: $($_.Exception.Message)"
+                continue
+            }
             Write-Log "Processed '$($source.FullName)'."
         }
 
@@ -456,7 +655,7 @@ $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.MinimizeBox = $true
-$form.ClientSize = New-Object System.Drawing.Size(760, 390)
+$form.ClientSize = New-Object System.Drawing.Size(760, 490)
 $script:form = $form
 
 $left = 14
@@ -511,6 +710,52 @@ $checkIncludeSubfolders.Size = New-Object System.Drawing.Size(240, 24)
 $checkIncludeSubfolders.Text = 'Include subfolders'
 $checkIncludeSubfolders.Checked = $true
 $form.Controls.Add($checkIncludeSubfolders)
+
+$currentY = $currentY + $rowHeight
+
+$checkDateRange = New-Object System.Windows.Forms.CheckBox
+$checkDateRange.Location = New-Object System.Drawing.Point($left, $currentY)
+$checkDateRange.Size = New-Object System.Drawing.Size(240, 24)
+$checkDateRange.Text = 'Use date/time range'
+$checkDateRange.Checked = $false
+$form.Controls.Add($checkDateRange)
+
+$currentY = $currentY + 30
+
+$labelFrom = New-Object System.Windows.Forms.Label
+$labelFrom.Location = New-Object System.Drawing.Point($left, ($currentY + 4))
+$labelFrom.Size = New-Object System.Drawing.Size(70, 20)
+$labelFrom.Text = 'From:'
+$form.Controls.Add($labelFrom)
+
+$dateFrom = New-Object System.Windows.Forms.DateTimePicker
+$dateFrom.Location = New-Object System.Drawing.Point(($left + 70), $currentY)
+$dateFrom.Size = New-Object System.Drawing.Size(220, 24)
+$dateFrom.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+$dateFrom.CustomFormat = 'yyyy-MM-dd HH:mm:ss'
+$dateFrom.Value = (Get-Date).Date
+$dateFrom.Enabled = $false
+$form.Controls.Add($dateFrom)
+
+$labelTo = New-Object System.Windows.Forms.Label
+$labelTo.Location = New-Object System.Drawing.Point(($left + 320), ($currentY + 4))
+$labelTo.Size = New-Object System.Drawing.Size(40, 20)
+$labelTo.Text = 'To:'
+$form.Controls.Add($labelTo)
+
+$dateTo = New-Object System.Windows.Forms.DateTimePicker
+$dateTo.Location = New-Object System.Drawing.Point(($left + 360), $currentY)
+$dateTo.Size = New-Object System.Drawing.Size(220, 24)
+$dateTo.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+$dateTo.CustomFormat = 'yyyy-MM-dd HH:mm:ss'
+$dateTo.Value = Get-Date
+$dateTo.Enabled = $false
+$form.Controls.Add($dateTo)
+
+$checkDateRange.Add_CheckedChanged({
+    $dateFrom.Enabled = $checkDateRange.Checked
+    $dateTo.Enabled = $checkDateRange.Checked
+})
 
 $currentY = $currentY + $rowHeight
 
@@ -595,13 +840,13 @@ $script:statusLabel = $statusLabel
 
 $buttonStart = New-Object System.Windows.Forms.Button
 $buttonStart.Size = New-Object System.Drawing.Size(150, 30)
-$buttonStart.Location = New-Object System.Drawing.Point(420, 342)
+$buttonStart.Location = New-Object System.Drawing.Point(420, 442)
 $buttonStart.Text = 'Start Analysis'
 $form.Controls.Add($buttonStart)
 
 $buttonClose = New-Object System.Windows.Forms.Button
 $buttonClose.Size = New-Object System.Drawing.Size(120, 30)
-$buttonClose.Location = New-Object System.Drawing.Point(590, 342)
+$buttonClose.Location = New-Object System.Drawing.Point(590, 442)
 $buttonClose.Text = 'Close'
 $form.Controls.Add($buttonClose)
 
@@ -642,8 +887,19 @@ $buttonBrowseLog.Add_Click({
 
 $buttonResolve.Add_Click({
     try {
-        Resolve-SecurityChannel | Out-Null
-        Show-Info -Message 'Live Security channel probe completed successfully.' -Title 'Resolve Channel'
+        $resolvedSecurityFolder = Resolve-SecurityEvtxFolder
+        if (-not [string]::IsNullOrWhiteSpace($resolvedSecurityFolder)) {
+            $textEvtx.Text = $resolvedSecurityFolder
+        }
+
+        $snapshotPath = Resolve-SecurityChannel
+
+        if (-not [string]::IsNullOrWhiteSpace($resolvedSecurityFolder)) {
+            Show-Info -Message ("Security channel validated successfully.`r`nEVTX folder:`r`n{0}`r`n`r`nSnapshot:`r`n{1}" -f $resolvedSecurityFolder, $snapshotPath) -Title 'Resolve Channel'
+        }
+        else {
+            Show-Info -Message ("Security channel validated successfully, but the EVTX folder could not be resolved from registry.`r`nSnapshot:`r`n{0}" -f $snapshotPath) -Title 'Resolve Channel'
+        }
     }
     catch {
         Write-Log -Level 'ERROR' -Message "Resolve Channel failed: $($_.Exception.Message)"
@@ -652,8 +908,40 @@ $buttonResolve.Add_Click({
 })
 
 $buttonStart.Add_Click({
-    $users = Parse-DelimitedUsers -Text $textUsers.Text
-    Process-Event4672 -UseLiveLog:$checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders:$checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users
+    try {
+        $users = Parse-DelimitedUsers -Text $textUsers.Text
+        $useDateRange = [bool]$checkDateRange.Checked
+        $fromValue = $null
+        $toValue = $null
+
+        if ($useDateRange) {
+            $fromValue = $dateFrom.Value
+            $toValue = $dateTo.Value
+
+            if ($toValue -lt $fromValue) {
+                throw 'The To date/time must be greater than or equal to the From date/time.'
+            }
+        }
+
+        if (-not $checkUseLive.Checked -and [string]::IsNullOrWhiteSpace($textEvtx.Text)) {
+            $resolvedSecurityFolder = Resolve-SecurityEvtxFolder
+            if (-not [string]::IsNullOrWhiteSpace($resolvedSecurityFolder)) {
+                $textEvtx.Text = $resolvedSecurityFolder
+                Write-Log -Message "EVTX folder auto-populated before archive-mode execution: $resolvedSecurityFolder"
+            }
+        }
+
+        if (-not $checkUseLive.Checked -and [string]::IsNullOrWhiteSpace($textEvtx.Text)) {
+            Show-Info -Message "Please select an EVTX folder or enable 'Use live Security channel'." -Title 'Validation'
+            return
+        }
+
+        Process-Event4672 -UseLiveLog:$checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders:$checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users -UseDateRange:$useDateRange -FromTime $fromValue -ToTime $toValue
+    }
+    catch {
+        Write-Log -Level 'ERROR' -Message "Start Analysis failed: $($_.Exception.Message)"
+        Show-ErrorBox -Message ("Start Analysis failed.`r`n{0}" -f $_.Exception.Message) -Title 'Start Analysis'
+    }
 })
 
 $buttonClose.Add_Click({
