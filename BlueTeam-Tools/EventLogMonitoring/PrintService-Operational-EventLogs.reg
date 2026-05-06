@@ -2,7 +2,7 @@ Windows Registry Editor Version 5.00
 
 ; =============================================================
 ; PrintService Operational Event Log Configuration
-; Author: Luiz Hamilton Silva (@brazilianscriptguy)
+; Author: Luiz Hamilton Silva (@brazilianscriptguy) 
 ; =============================================================
 
 [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Microsoft-Windows-PrintService/Operational]
