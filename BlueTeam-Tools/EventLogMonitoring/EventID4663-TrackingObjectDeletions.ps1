@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tracks object deletion events via Event ID 4663 (Access Mask 0x10000) using Log Parser on Windows Server 2019.
+    Tracks object deletion events via Event ID 4663 (Access Mask 0x10000) using Log Parser-first processing.
 
 .DESCRIPTION
     Supports live Security log analysis through a temporary EVTX snapshot created with wevtutil,
@@ -11,7 +11,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-03-16 - WS2019-RevA
+    2026-05-06-v5.2.0-OBJECT-DELETION-INTELLIGENCE-STABLE
 #>
 
 [CmdletBinding()]
@@ -51,6 +51,16 @@ public static class Win32Console {
 #endregion
 
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+try {
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+    [System.Windows.Forms.Application]::add_ThreadException({
+        param($sender, $eventArgs)
+        try {
+            Write-Log -Level ERROR -Message ("Unhandled GUI exception: {0}" -f $eventArgs.Exception.Message)
+            Show-UiMessage -Message $eventArgs.Exception.Message -Title 'Unhandled GUI Error' -Icon Error
+        } catch {}
+    })
+} catch {}
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
@@ -74,6 +84,66 @@ function Write-Log {
     )
     $entry = ('[{0}] [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message)
     try { Add-Content -Path $script:logPath -Value $entry -Encoding UTF8 } catch {}
+}
+
+
+function Test-IsFileLocked {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $false
+    }
+    catch {
+        return $true
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
+function Test-IsLikelyActiveEvtxFile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$File)
+
+    $activeNames = @(
+        'Application.evtx',
+        'Security.evtx',
+        'System.evtx',
+        'Setup.evtx',
+        'Microsoft-Windows-PrintService-Operational.evtx',
+        'Active Directory Web Services.evtx',
+        'State.evtx'
+    )
+
+    $fileName = if ($File -is [System.IO.FileInfo]) { $File.Name } else { [IO.Path]::GetFileName([string]$File) }
+    return ($activeNames -contains $fileName)
+}
+
+function Get-ArchiveSafeEvtxFiles {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Files)
+
+    $safeFiles = New-Object System.Collections.Generic.List[string]
+    foreach ($file in @($Files)) {
+        if ($null -eq $file) { continue }
+        $path = if ($file -is [System.IO.FileInfo]) { $file.FullName } else { [string]$file }
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        if (Test-IsLikelyActiveEvtxFile -File $path) {
+            Write-Log "Skipped likely active/canonical EVTX in archived mode to avoid file-lock errors: '$path'" 'WARNING'
+            continue
+        }
+        if (Test-IsFileLocked -Path $path) {
+            Write-Log "Skipped locked EVTX file in archived mode: '$path'" 'WARNING'
+            continue
+        }
+        [void]$safeFiles.Add($path)
+    }
+    return @($safeFiles)
 }
 
 function Show-UiMessage {
@@ -176,17 +246,28 @@ function Invoke-DeletionQuery {
     param(
         [Parameter(Mandatory)][string]$EvtxPath,
         [Parameter(Mandatory)][string]$CsvPath,
-        [string[]]$UserAccounts
+        [string[]]$UserAccounts,
+        [object]$FromTime,
+        [object]$ToTime
     )
 
     $com = Get-LogParserComObjects
-    $com.Output.fileName = $CsvPath
 
     $userPredicate = ''
     if (@($UserAccounts).Count -gt 0) {
         $escapedUsers = @($UserAccounts | ForEach-Object { $_.Replace("'", "''") })
         $quotedUsers = @($escapedUsers | ForEach-Object { "'$_'" })
         $userPredicate = (' AND EXTRACT_TOKEN(Strings, 1, ''|'') IN ({0})' -f ($quotedUsers -join ','))
+    }
+
+    $datePredicate = ''
+    if ($FromTime -is [datetime]) {
+        $fromLiteral = ([datetime]$FromTime).ToString('yyyy-MM-dd HH:mm:ss')
+        $datePredicate += (" AND TimeGenerated >= TO_TIMESTAMP('{0}', 'yyyy-MM-dd HH:mm:ss')" -f $fromLiteral)
+    }
+    if ($ToTime -is [datetime]) {
+        $toLiteral = ([datetime]$ToTime).ToString('yyyy-MM-dd HH:mm:ss')
+        $datePredicate += (" AND TimeGenerated <= TO_TIMESTAMP('{0}', 'yyyy-MM-dd HH:mm:ss')" -f $toLiteral)
     }
 
     $safePath = $EvtxPath.Replace("'", "''")
@@ -204,7 +285,7 @@ SELECT
 INTO '$CsvPath'
 FROM '$safePath'
 WHERE EventID = 4663
-  AND EXTRACT_TOKEN(Strings, 8, '|') = '0x10000'$userPredicate
+  AND EXTRACT_TOKEN(Strings, 8, '|') = '0x10000'$userPredicate$datePredicate
 "@
 
     try {
@@ -256,12 +337,18 @@ function Start-DeletionAnalysis {
         [string]$EvtxFolder,
         [bool]$IncludeSubfolders,
         [string]$OutputFolder,
-        [string[]]$UserAccounts
+        [string[]]$UserAccounts,
+        [bool]$UseDateRange = $false,
+        [object]$FromTime,
+        [object]$ToTime
     )
 
     $resolvedOutput = Get-DefaultOutputFolder -Preferred $OutputFolder
     Ensure-Directory -Path $resolvedOutput
-    Write-Log "Starting Event ID 4663 processing. UseLiveLog=$UseLiveLog; Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'"
+    Write-Log "Starting Event ID 4663 processing. UseLiveLog=$UseLiveLog; Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'; DateRange=$UseDateRange"
+    if ($UseDateRange -and ($FromTime -is [datetime]) -and ($ToTime -is [datetime]) -and ([datetime]$FromTime -gt [datetime]$ToTime)) {
+        throw 'Invalid date range. The From date/time must be earlier than or equal to the To date/time.'
+    }
 
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
     $finalCsv = Join-Path $resolvedOutput ("{0}-ObjectDeletionTracking-{1}.csv" -f $env:COMPUTERNAME, $timestamp)
@@ -276,7 +363,7 @@ function Start-DeletionAnalysis {
             $tempSnapshot = Export-LiveChannelSnapshot -ChannelName $script:liveChannelName
             $tempCsv = Join-Path $tempDir 'LiveSecurity4663.csv'
             Set-Status -Text 'Querying Event ID 4663 from snapshot...' -Progress 40
-            Invoke-DeletionQuery -EvtxPath $tempSnapshot -CsvPath $tempCsv -UserAccounts $UserAccounts
+            Invoke-DeletionQuery -EvtxPath $tempSnapshot -CsvPath $tempCsv -UserAccounts $UserAccounts -FromTime $(if ($UseDateRange) { $FromTime } else { $null }) -ToTime $(if ($UseDateRange) { $ToTime } else { $null })
             $tempCsvFiles.Add($tempCsv)
         } else {
             if ([string]::IsNullOrWhiteSpace($EvtxFolder) -or -not (Test-Path -LiteralPath $EvtxFolder)) {
@@ -284,7 +371,11 @@ function Start-DeletionAnalysis {
             }
             $searchOption = if ($IncludeSubfolders) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
             $evtxFiles = @([System.IO.Directory]::GetFiles($EvtxFolder, '*.evtx', $searchOption))
-            if (@($evtxFiles).Count -eq 0) {
+            if (-not $UseLiveLog) {
+            $evtxFiles = @(Get-ArchiveSafeEvtxFiles -Files @($evtxFiles))
+        }
+
+        if (@($evtxFiles).Count -eq 0) {
                 throw "No .evtx files were found in '$EvtxFolder'."
             }
             $total = @($evtxFiles).Count
@@ -294,7 +385,7 @@ function Start-DeletionAnalysis {
                 $progress = 10 + [int](($index / $total) * 70)
                 Set-Status -Text ("Processing {0} ({1} of {2})..." -f ([IO.Path]::GetFileName($evtxFile)), $index, $total) -Progress $progress
                 $tempCsv = Join-Path $tempDir (([IO.Path]::GetFileNameWithoutExtension($evtxFile)) + '.csv')
-                Invoke-DeletionQuery -EvtxPath $evtxFile -CsvPath $tempCsv -UserAccounts $UserAccounts
+                Invoke-DeletionQuery -EvtxPath $evtxFile -CsvPath $tempCsv -UserAccounts $UserAccounts -FromTime $(if ($UseDateRange) { $FromTime } else { $null }) -ToTime $(if ($UseDateRange) { $ToTime } else { $null })
                 $tempCsvFiles.Add($tempCsv)
             }
         }
@@ -321,8 +412,8 @@ function Start-DeletionAnalysis {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Event ID 4663 - Object Deletion Tracking'
 $form.StartPosition = 'CenterScreen'
-$form.Size = New-Object System.Drawing.Size(760, 430)
-$form.MinimumSize = New-Object System.Drawing.Size(760, 430)
+$form.Size = New-Object System.Drawing.Size(760, 470)
+$form.MinimumSize = New-Object System.Drawing.Size(760, 470)
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $script:form = $form
@@ -369,86 +460,127 @@ $checkIncludeSubfolders.Location = New-Object System.Drawing.Point(200, 90)
 $checkIncludeSubfolders.Size = New-Object System.Drawing.Size(180, 22)
 $form.Controls.Add($checkIncludeSubfolders)
 
+$checkDateRange = New-Object System.Windows.Forms.CheckBox
+$checkDateRange.Text = 'Use date/time range'
+$checkDateRange.Checked = $false
+$checkDateRange.Location = New-Object System.Drawing.Point(400, 90)
+$checkDateRange.Size = New-Object System.Drawing.Size(180, 22)
+$form.Controls.Add($checkDateRange)
+
+$labelFrom = New-Object System.Windows.Forms.Label
+$labelFrom.Text = 'From:'
+$labelFrom.Location = New-Object System.Drawing.Point(20, 124)
+$labelFrom.Size = New-Object System.Drawing.Size(170, 20)
+$form.Controls.Add($labelFrom)
+
+$dateFrom = New-Object System.Windows.Forms.DateTimePicker
+$dateFrom.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+$dateFrom.CustomFormat = 'yyyy-MM-dd HH:mm:ss'
+$dateFrom.ShowUpDown = $false
+$dateFrom.Location = New-Object System.Drawing.Point(200, 122)
+$dateFrom.Size = New-Object System.Drawing.Size(180, 24)
+$dateFrom.Value = (Get-Date).Date
+$form.Controls.Add($dateFrom)
+
+$labelTo = New-Object System.Windows.Forms.Label
+$labelTo.Text = 'To:'
+$labelTo.Location = New-Object System.Drawing.Point(400, 124)
+$labelTo.Size = New-Object System.Drawing.Size(40, 20)
+$form.Controls.Add($labelTo)
+
+$dateTo = New-Object System.Windows.Forms.DateTimePicker
+$dateTo.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+$dateTo.CustomFormat = 'yyyy-MM-dd HH:mm:ss'
+$dateTo.ShowUpDown = $false
+$dateTo.Location = New-Object System.Drawing.Point(440, 122)
+$dateTo.Size = New-Object System.Drawing.Size(180, 24)
+$dateTo.Value = Get-Date
+$form.Controls.Add($dateTo)
+
 $labelUsers = New-Object System.Windows.Forms.Label
 $labelUsers.Text = 'User filter (comma / semicolon):'
-$labelUsers.Location = New-Object System.Drawing.Point(20, 124)
+$labelUsers.Location = New-Object System.Drawing.Point(20, 164)
 $labelUsers.Size = New-Object System.Drawing.Size(170, 20)
 $form.Controls.Add($labelUsers)
 
 $textUsers = New-Object System.Windows.Forms.TextBox
-$textUsers.Location = New-Object System.Drawing.Point(200, 122)
+$textUsers.Location = New-Object System.Drawing.Point(200, 162)
 $textUsers.Size = New-Object System.Drawing.Size(520, 24)
 $form.Controls.Add($textUsers)
 
 $labelOutput = New-Object System.Windows.Forms.Label
 $labelOutput.Text = 'Output folder:'
-$labelOutput.Location = New-Object System.Drawing.Point(20, 164)
+$labelOutput.Location = New-Object System.Drawing.Point(20, 204)
 $labelOutput.Size = New-Object System.Drawing.Size(170, 20)
 $form.Controls.Add($labelOutput)
 
 $textOutput = New-Object System.Windows.Forms.TextBox
-$textOutput.Location = New-Object System.Drawing.Point(200, 162)
+$textOutput.Location = New-Object System.Drawing.Point(200, 202)
 $textOutput.Size = New-Object System.Drawing.Size(380, 24)
 $textOutput.Text = $script:defaultOutputFolder
 $form.Controls.Add($textOutput)
 
 $buttonBrowseOutput = New-Object System.Windows.Forms.Button
 $buttonBrowseOutput.Text = 'Browse...'
-$buttonBrowseOutput.Location = New-Object System.Drawing.Point(590, 160)
+$buttonBrowseOutput.Location = New-Object System.Drawing.Point(590, 200)
 $buttonBrowseOutput.Size = New-Object System.Drawing.Size(130, 26)
 $form.Controls.Add($buttonBrowseOutput)
 
 $labelLog = New-Object System.Windows.Forms.Label
 $labelLog.Text = 'Log folder:'
-$labelLog.Location = New-Object System.Drawing.Point(20, 204)
+$labelLog.Location = New-Object System.Drawing.Point(20, 244)
 $labelLog.Size = New-Object System.Drawing.Size(170, 20)
 $form.Controls.Add($labelLog)
 
 $textLog = New-Object System.Windows.Forms.TextBox
-$textLog.Location = New-Object System.Drawing.Point(200, 202)
+$textLog.Location = New-Object System.Drawing.Point(200, 242)
 $textLog.Size = New-Object System.Drawing.Size(380, 24)
 $textLog.Text = $script:logDir
 $form.Controls.Add($textLog)
 
 $buttonBrowseLog = New-Object System.Windows.Forms.Button
 $buttonBrowseLog.Text = 'Browse...'
-$buttonBrowseLog.Location = New-Object System.Drawing.Point(590, 200)
+$buttonBrowseLog.Location = New-Object System.Drawing.Point(590, 240)
 $buttonBrowseLog.Size = New-Object System.Drawing.Size(130, 26)
 $form.Controls.Add($buttonBrowseLog)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(20, 258)
+$progressBar.Location = New-Object System.Drawing.Point(20, 298)
 $progressBar.Size = New-Object System.Drawing.Size(700, 22)
 $script:progressBar = $progressBar
 $form.Controls.Add($progressBar)
 
 $labelStatus = New-Object System.Windows.Forms.Label
 $labelStatus.Text = 'Ready.'
-$labelStatus.Location = New-Object System.Drawing.Point(20, 288)
+$labelStatus.Location = New-Object System.Drawing.Point(20, 328)
 $labelStatus.Size = New-Object System.Drawing.Size(700, 22)
 $script:labelStatus = $labelStatus
 $form.Controls.Add($labelStatus)
 
 $buttonStart = New-Object System.Windows.Forms.Button
 $buttonStart.Text = 'Start Analysis'
-$buttonStart.Location = New-Object System.Drawing.Point(420, 330)
+$buttonStart.Location = New-Object System.Drawing.Point(420, 370)
 $buttonStart.Size = New-Object System.Drawing.Size(140, 32)
 $form.Controls.Add($buttonStart)
 
 $buttonClose = New-Object System.Windows.Forms.Button
 $buttonClose.Text = 'Close'
-$buttonClose.Location = New-Object System.Drawing.Point(580, 330)
+$buttonClose.Location = New-Object System.Drawing.Point(580, 370)
 $buttonClose.Size = New-Object System.Drawing.Size(140, 32)
 $form.Controls.Add($buttonClose)
 
 $toggleInputs = {
     $isLive = $checkUseLive.Checked
+    $dateEnabled = $checkDateRange.Checked
     $textEvtx.Enabled = (-not $isLive)
     $buttonBrowseEvtx.Enabled = (-not $isLive)
     $checkIncludeSubfolders.Enabled = (-not $isLive)
+    $dateFrom.Enabled = $dateEnabled
+    $dateTo.Enabled = $dateEnabled
 }
 
 $checkUseLive.Add_CheckedChanged($toggleInputs)
+$checkDateRange.Add_CheckedChanged($toggleInputs)
 & $toggleInputs
 
 $buttonBrowseEvtx.Add_Click({
@@ -492,7 +624,7 @@ $buttonStart.Add_Click({
     try {
         Write-Log 'Starting object deletion analysis.'
         $users = @($textUsers.Text -split '[,;\r\n]+' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-        Start-DeletionAnalysis -UseLiveLog $checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders $checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users
+        Start-DeletionAnalysis -UseLiveLog $checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders $checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users -UseDateRange $checkDateRange.Checked -FromTime $dateFrom.Value -ToTime $dateTo.Value
     } catch {
         Write-Log -Level ERROR -Message ("Error processing Event ID 4663: {0}" -f $_.Exception.Message)
         Show-UiMessage -Message $_.Exception.Message -Title 'Processing Error' -Icon Error
