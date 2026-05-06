@@ -11,7 +11,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-05-06-v5.2.0-OBJECT-DELETION-INTELLIGENCE-STABLE
+    2026-05-06-v5.2.2-RESOLVE-FOLDER-REGISTRY-HOTFIX
 #>
 
 [CmdletBinding()]
@@ -240,6 +240,103 @@ function Export-LiveChannelSnapshot {
 
     Write-Log "Live channel snapshot exported to '$snapshotPath'."
     return $snapshotPath
+}
+
+
+function Get-EventChannelLogPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ChannelName)
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = 'wevtutil.exe'
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardError = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.CreateNoWindow = $true
+        $psi.Arguments = ('gl "{0}" /f:xml' -f $ChannelName)
+
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $psi
+        [void]$process.Start()
+        $stdOut = $process.StandardOutput.ReadToEnd()
+        $stdErr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+
+        if ($process.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($stdOut)) {
+            try {
+                [xml]$xml = $stdOut
+                $xmlValue = $xml.SelectSingleNode('//logFileName')
+                if ($null -ne $xmlValue -and -not [string]::IsNullOrWhiteSpace($xmlValue.InnerText)) {
+                    [void]$candidates.Add($xmlValue.InnerText.Trim())
+                }
+            } catch {
+                Write-Log -Level WARN -Message ("Unable to parse wevtutil XML output for channel '{0}': {1}" -f $ChannelName, $_.Exception.Message)
+            }
+        } else {
+            Write-Log -Level WARN -Message ("wevtutil XML query did not return a log file for channel '{0}'. ExitCode={1}. StdErr={2}" -f $ChannelName, $process.ExitCode, $stdErr.Trim())
+        }
+    } catch {
+        Write-Log -Level WARN -Message ("wevtutil XML query failed for channel '{0}': {1}" -f $ChannelName, $_.Exception.Message)
+    }
+
+    try {
+        $classicName = if ($ChannelName -eq 'Security') { 'Security' } else { $ChannelName }
+        $classicPath = "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\$classicName"
+        if (Test-Path -LiteralPath $classicPath) {
+            $fileValue = (Get-ItemProperty -LiteralPath $classicPath -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace($fileValue)) {
+                [void]$candidates.Add($fileValue.Trim())
+            }
+        }
+    } catch {
+        Write-Log -Level WARN -Message ("Classic EventLog registry lookup failed for channel '{0}': {1}" -f $ChannelName, $_.Exception.Message)
+    }
+
+    try {
+        $winevtPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\$ChannelName"
+        if (Test-Path -LiteralPath $winevtPath) {
+            $fileValue = (Get-ItemProperty -LiteralPath $winevtPath -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace($fileValue)) {
+                [void]$candidates.Add($fileValue.Trim())
+            }
+        }
+    } catch {
+        Write-Log -Level WARN -Message ("WINEVT registry lookup failed for channel '{0}': {1}" -f $ChannelName, $_.Exception.Message)
+    }
+
+    foreach ($candidate in @($candidates)) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        $expanded = [Environment]::ExpandEnvironmentVariables($candidate)
+        if (-not [System.IO.Path]::IsPathRooted($expanded)) {
+            $expanded = Join-Path -Path $env:SystemRoot -ChildPath $expanded
+        }
+        if (-not [string]::IsNullOrWhiteSpace($expanded)) {
+            Write-Log ("Resolved channel '{0}' log path candidate: {1}" -f $ChannelName, $expanded)
+            return $expanded
+        }
+    }
+
+    return $null
+}
+
+function Resolve-EventChannelFolder {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ChannelName)
+
+    $logPath = Get-EventChannelLogPath -ChannelName $ChannelName
+    if ([string]::IsNullOrWhiteSpace($logPath)) {
+        return $null
+    }
+
+    $folder = [System.IO.Path]::GetDirectoryName($logPath)
+    if ([string]::IsNullOrWhiteSpace($folder)) {
+        return $null
+    }
+
+    return $folder
 }
 
 function Invoke-DeletionQuery {
@@ -581,6 +678,15 @@ $toggleInputs = {
 
 $checkUseLive.Add_CheckedChanged($toggleInputs)
 $checkDateRange.Add_CheckedChanged($toggleInputs)
+try {
+    $initialResolvedFolder = Resolve-EventChannelFolder -ChannelName $script:liveChannelName
+    if (-not [string]::IsNullOrWhiteSpace($initialResolvedFolder)) {
+        $textEvtx.Text = $initialResolvedFolder
+        Write-Log ("Initial Security channel EVTX folder resolved: {0}" -f $initialResolvedFolder)
+    }
+} catch {
+    Write-Log -Level WARNING -Message ("Initial EVTX folder resolve failed: {0}" -f $_.Exception.Message)
+}
 & $toggleInputs
 
 $buttonBrowseEvtx.Add_Click({
@@ -606,10 +712,21 @@ $buttonBrowseLog.Add_Click({
 $buttonResolve.Add_Click({
     try {
         Set-Status -Text 'Resolving Security channel...' -Progress 15
+        $resolvedFolder = Resolve-EventChannelFolder -ChannelName $script:liveChannelName
+        if (-not [string]::IsNullOrWhiteSpace($resolvedFolder)) {
+            $textEvtx.Text = $resolvedFolder
+            Write-Log ("Security channel EVTX folder resolved: {0}" -f $resolvedFolder)
+        }
+
         $snapshot = Export-LiveChannelSnapshot -ChannelName $script:liveChannelName
         if (Test-Path -LiteralPath $snapshot) {
             Write-Log 'Live Security channel probe completed successfully.'
-            Show-UiMessage -Message 'Security channel snapshot export succeeded.' -Title 'Resolve Channel'
+            $message = if (-not [string]::IsNullOrWhiteSpace($resolvedFolder)) {
+                "Security channel resolved successfully.`n`nEVTX folder:`n$resolvedFolder`n`nSnapshot export test succeeded."
+            } else {
+                'Security channel snapshot export succeeded, but the configured EVTX folder could not be resolved from wevtutil.'
+            }
+            Show-UiMessage -Message $message -Title 'Resolve Channel'
         }
         if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot -Force -ErrorAction SilentlyContinue }
         Set-Status -Text 'Ready.' -Progress 0
@@ -623,8 +740,23 @@ $buttonResolve.Add_Click({
 $buttonStart.Add_Click({
     try {
         Write-Log 'Starting object deletion analysis.'
-        $users = @($textUsers.Text -split '[,;\r\n]+' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-        Start-DeletionAnalysis -UseLiveLog $checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders $checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users -UseDateRange $checkDateRange.Checked -FromTime $dateFrom.Value -ToTime $dateTo.Value
+        $users = @($textUsers.Text -split '[,;
+]+' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        $evtxFolder = $textEvtx.Text.Trim()
+        if (-not $checkUseLive.Checked -and [string]::IsNullOrWhiteSpace($evtxFolder)) {
+            $resolvedFolder = Resolve-EventChannelFolder -ChannelName $script:liveChannelName
+            if (-not [string]::IsNullOrWhiteSpace($resolvedFolder)) {
+                $evtxFolder = $resolvedFolder
+                $textEvtx.Text = $resolvedFolder
+                Write-Log ("EVTX folder was empty; resolved Security channel folder automatically: {0}" -f $resolvedFolder)
+            }
+        }
+        if (-not $checkUseLive.Checked -and [string]::IsNullOrWhiteSpace($evtxFolder)) {
+            Show-UiMessage -Message "Please select an EVTX folder or enable 'Use live Security channel'." -Title 'Input Validation' -Icon Warning
+            Set-Status -Text 'EVTX folder required for archive mode.' -Progress 0
+            return
+        }
+        Start-DeletionAnalysis -UseLiveLog $checkUseLive.Checked -EvtxFolder $evtxFolder -IncludeSubfolders $checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users -UseDateRange $checkDateRange.Checked -FromTime $dateFrom.Value -ToTime $dateTo.Value
     } catch {
         Write-Log -Level ERROR -Message ("Error processing Event ID 4663: {0}" -f $_.Exception.Message)
         Show-UiMessage -Message $_.Exception.Message -Title 'Processing Error' -Icon Error
