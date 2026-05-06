@@ -11,7 +11,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-16-03 - RevA - WS2019-compatible migration
+    2026-05-06-v5.1.7-ZERO-SAFE-HOTFIX
 #>
 
 [CmdletBinding()]
@@ -105,6 +105,106 @@ function Write-Log {
     }
 }
 
+
+function Test-IsFileLocked {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $false
+    }
+    catch {
+        return $true
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
+function Test-IsLikelyActiveEvtxFile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
+
+    $activeNames = @(
+        'Application.evtx',
+        'Security.evtx',
+        'System.evtx',
+        'Setup.evtx',
+        'Microsoft-Windows-PrintService-Operational.evtx',
+        'Active Directory Web Services.evtx',
+        'State.evtx'
+    )
+
+    return ($activeNames -contains $File.Name)
+}
+
+function Get-ArchiveSafeEvtxFiles {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$Files
+    )
+
+    $safeFiles = New-Object System.Collections.Generic.List[object]
+    $lockedCount = 0
+    $activeSkippedCount = 0
+    $otherSkippedCount = 0
+
+    foreach ($file in @($Files)) {
+        try {
+            $fullName = if ($file -is [System.IO.FileInfo]) { $file.FullName } else { [string]$file }
+
+            if ([string]::IsNullOrWhiteSpace($fullName)) {
+                $otherSkippedCount++
+                continue
+            }
+
+            if (Test-IsLikelyActiveEvtxFile -Path $fullName) {
+                $activeSkippedCount++
+                continue
+            }
+
+            $stream = $null
+            try {
+                $stream = [System.IO.File]::Open($fullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+                [void]$safeFiles.Add($file)
+            }
+            catch {
+                $lockedCount++
+            }
+            finally {
+                if ($null -ne $stream) {
+                    $stream.Close()
+                    $stream.Dispose()
+                }
+            }
+        }
+        catch {
+            $otherSkippedCount++
+        }
+    }
+
+    if ($activeSkippedCount -gt 0) {
+        Write-Log -Level 'WARNING' -Message "Skipped active/canonical EVTX files in archive mode: $activeSkippedCount"
+    }
+
+    if ($lockedCount -gt 0) {
+        Write-Log -Level 'WARNING' -Message "Skipped locked EVTX files in archive mode: $lockedCount"
+    }
+
+    if ($otherSkippedCount -gt 0) {
+        Write-Log -Level 'WARNING' -Message "Skipped invalid/unreadable EVTX entries in archive mode: $otherSkippedCount"
+    }
+
+    Write-Log -Message "Archive-safe EVTX selection completed. Selected=$($safeFiles.Count); ActiveSkipped=$activeSkippedCount; LockedSkipped=$lockedCount; OtherSkipped=$otherSkippedCount"
+
+    return @($safeFiles.ToArray())
+}
+
 function Show-Info {
     param([string]$Message, [string]$Title = 'Information')
     [void][System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
@@ -114,6 +214,25 @@ function Show-ErrorBox {
     param([string]$Message, [string]$Title = 'Error')
     [void][System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 }
+
+
+function Invoke-GuiSafe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][scriptblock]$Action,
+        [string]$ErrorPrefix = 'Operation failed'
+    )
+
+    try {
+        & $Action
+    }
+    catch {
+        $msg = "{0}. {1}" -f $ErrorPrefix, $_.Exception.Message
+        Write-Log -Level 'ERROR' -Message $msg
+        Show-ErrorBox -Message $msg
+    }
+}
+
 
 function Update-ProgressSafe {
     param([int]$Value, [string]$StatusText)
@@ -154,6 +273,119 @@ function New-FolderPicker {
     $dialog.ShowNewFolderButton = $true
     return $dialog
 }
+
+
+function Resolve-EventLogRootFolder {
+    [CmdletBinding()]
+    param()
+
+    $candidateFiles = New-Object System.Collections.Generic.List[string]
+
+    try {
+        $classicKey = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security'
+        if (Test-Path -LiteralPath $classicKey) {
+            $classicFile = (Get-ItemProperty -LiteralPath $classicKey -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace([string]$classicFile)) {
+                [void]$candidateFiles.Add([Environment]::ExpandEnvironmentVariables([string]$classicFile))
+            }
+        }
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "Classic Security EventLog registry lookup failed: $($_.Exception.Message)"
+    }
+
+    try {
+        $winevtKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Security'
+        if (Test-Path -LiteralPath $winevtKey) {
+            $winevtFile = (Get-ItemProperty -LiteralPath $winevtKey -Name File -ErrorAction SilentlyContinue).File
+            if (-not [string]::IsNullOrWhiteSpace([string]$winevtFile)) {
+                [void]$candidateFiles.Add([Environment]::ExpandEnvironmentVariables([string]$winevtFile))
+            }
+        }
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "WINEVT Security channel registry lookup failed: $($_.Exception.Message)"
+    }
+
+    foreach ($filePath in @($candidateFiles)) {
+        try {
+            if ([string]::IsNullOrWhiteSpace([string]$filePath)) { continue }
+
+            $securityFolder = Split-Path -Path ([string]$filePath) -Parent
+            if ([string]::IsNullOrWhiteSpace($securityFolder)) { continue }
+
+            $rootCandidate = Split-Path -Path $securityFolder -Parent
+            if (-not [string]::IsNullOrWhiteSpace($rootCandidate) -and (Test-Path -LiteralPath $rootCandidate -PathType Container)) {
+                Write-Log -Message "Event log root folder resolved from Security.evtx path: $rootCandidate"
+                return $rootCandidate
+            }
+
+            if (Test-Path -LiteralPath $securityFolder -PathType Container) {
+                Write-Log -Message "Event log folder resolved from Security.evtx path: $securityFolder"
+                return $securityFolder
+            }
+        }
+        catch {
+            Write-Log -Level 'WARNING' -Message "Failed to validate EventLog folder candidate '$filePath'. $($_.Exception.Message)"
+        }
+    }
+
+    $fallback = Join-Path $env:SystemRoot 'System32\winevt\Logs'
+    if (Test-Path -LiteralPath $fallback -PathType Container) {
+        Write-Log -Level 'WARNING' -Message "Event log root folder could not be resolved from registry. Using fallback: $fallback"
+        return $fallback
+    }
+
+    return $null
+}
+
+
+
+function Resolve-SmartEventLogFolder {
+    [CmdletBinding()]
+    param(
+        [string]$PreferredChannelFolder
+    )
+
+    $resolved = Resolve-EventLogRootFolder
+
+    if ([string]::IsNullOrWhiteSpace($resolved)) {
+        return $null
+    }
+
+    $candidateFolders = @(
+        (Join-Path $resolved 'Security'),
+        (Join-Path $resolved 'Microsoft-Windows-PrintService-Operational'),
+        (Join-Path $resolved 'System'),
+        (Join-Path $resolved 'Application')
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($PreferredChannelFolder)) {
+        $specific = Join-Path $resolved $PreferredChannelFolder
+        $candidateFolders = @($specific) + $candidateFolders
+    }
+
+    foreach ($folder in $candidateFolders | Select-Object -Unique) {
+        if (Test-Path -LiteralPath $folder -PathType Container) {
+            return $folder
+        }
+    }
+
+    return $resolved
+}
+
+function Test-IsLikelyActiveEvtxFile {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $name = [System.IO.Path]::GetFileName($Path)
+
+    if ($name -notlike 'Archive-*' -and $name -notlike '*_snapshot*' -and $name -notlike '*Snapshot*') {
+        return $true
+    }
+
+    return $false
+}
+
 
 function Register-TempArtifact {
     param([string]$Path)
@@ -226,7 +458,7 @@ function Get-EvtxFilesSafe {
         $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -ErrorAction Stop
     }
 
-    return @($files)
+    return @(Get-ArchiveSafeEvtxFiles -Files @($files))
 }
 
 function Build-QueryForFile {
@@ -259,7 +491,6 @@ function Invoke-EventCountToCsv {
     )
 
     $lp = New-LogParserObjects
-    $lp.OutputFormat.fileName = $CsvPath
     $query = Build-QueryForFile -EvtxPath $EvtxPath -CsvPath $CsvPath
 
     $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
@@ -295,64 +526,259 @@ function Merge-CsvFiles {
     }
 }
 
+
+
+function Get-LogParserPath {
+    [CmdletBinding()]
+    param()
+
+    $candidates = @(
+        "C:\Program Files (x86)\Log Parser 2.2\LogParser.exe",
+        "C:\Program Files\Log Parser 2.2\LogParser.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+
+    throw "Log Parser executable was not found. Please install Microsoft Log Parser 2.2."
+}
+
+function Escape-SqlPath {
+    param([Parameter(Mandatory)][string]$Path)
+    return ($Path -replace "'", "''")
+}
+
+function New-EvtxBatch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$Files,
+        [int]$BatchSize = 75
+    )
+
+    $batches = New-Object System.Collections.Generic.List[object]
+    $current = New-Object System.Collections.Generic.List[string]
+
+    foreach ($file in @($Files)) {
+        $path = if ($file -is [System.IO.FileInfo]) { $file.FullName } else { [string]$file }
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+
+        [void]$current.Add($path)
+
+        if ($current.Count -ge $BatchSize) {
+            [void]$batches.Add(@($current.ToArray()))
+            $current = New-Object System.Collections.Generic.List[string]
+        }
+    }
+
+    if ($current.Count -gt 0) {
+        [void]$batches.Add(@($current.ToArray()))
+    }
+
+    return @($batches.ToArray())
+}
+
+function Invoke-LogParserFileQuery {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Sql,
+        [Parameter(Mandatory)][string]$Context
+    )
+
+    $logParser = Get-LogParserPath
+
+    $sqlFile = Join-Path $env:TEMP ("EventIdCount-{0}.sql" -f ([guid]::NewGuid().ToString("N")))
+    Set-Content -Path $sqlFile -Value $Sql -Encoding ASCII
+
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $logParser
+        $psi.Arguments = "-i:EVT -o:CSV file:`"$sqlFile`""
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $stdout = $p.StandardOutput.ReadToEnd()
+        $stderr = $p.StandardError.ReadToEnd()
+        $p.WaitForExit()
+
+        Write-Log -Message ("Log Parser execution [{0}] ExitCode={1}" -f $Context, $p.ExitCode)
+
+        if ($stderr) {
+            Write-Log -Level 'WARNING' -Message ("Log Parser stderr [{0}]: {1}" -f $Context, $stderr)
+        }
+
+        if ($p.ExitCode -ne 0) {
+            throw "Log Parser failed for $Context. ExitCode=$($p.ExitCode). $stderr $stdout"
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $sqlFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+
 function Process-EvtxEventCounts {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$EvtxFolder,
-        [Parameter(Mandatory)][bool]$IncludeSubfolders,
-        [Parameter()][string]$OutputFolder
+        [bool]$IncludeSubfolders,
+        [Parameter(Mandatory)][string]$OutputFolder
     )
 
-    $resolvedOutput = Resolve-OutputFolder -Candidate $OutputFolder
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $finalCsv = Join-Path $resolvedOutput ('{0}-AllEvtxEventCounts-{1}.csv' -f $computerName, $timestamp)
-    $tempCsvFiles = New-Object System.Collections.ArrayList
-
-    Write-Log "Starting EVTX Event ID counting. Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'"
-
     try {
-        Update-ProgressSafe -Value 5 -StatusText 'Enumerating archived EVTX files...'
-        $sourceFiles = Get-EvtxFilesSafe -RootPath $EvtxFolder -IncludeSubfolders:$IncludeSubfolders
-
-        $sourceCount = @($sourceFiles).Count
-        if ($sourceCount -eq 0) {
-            throw 'No .evtx files were found to process.'
+        if ([string]::IsNullOrWhiteSpace($EvtxFolder) -or -not (Test-Path -LiteralPath $EvtxFolder -PathType Container)) {
+            throw "Please select a valid EVTX folder."
         }
 
-        $index = 0
-        foreach ($source in @($sourceFiles)) {
-            $index++
-            $percent = 5 + [int]([Math]::Floor(($index / $sourceCount) * 75))
-            Update-ProgressSafe -Value $percent -StatusText ("Processing {0} ({1} of {2})..." -f $source.Name, $index, $sourceCount)
-
-            $tempCsv = Join-Path $env:TEMP ('EventCounts-{0}-{1}.csv' -f $index, (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
-            Register-TempArtifact -Path $tempCsv
-            [void]$tempCsvFiles.Add($tempCsv)
-
-            Invoke-EventCountToCsv -EvtxPath $source.FullName -CsvPath $tempCsv
-            Write-Log "Processed '$($source.FullName)'."
+        if ([string]::IsNullOrWhiteSpace($OutputFolder)) {
+            throw "Please select a valid output folder."
         }
 
-        Update-ProgressSafe -Value 85 -StatusText 'Merging CSV files...'
-        Merge-CsvFiles -SourceCsvFiles @($tempCsvFiles) -DestinationCsv $finalCsv
-
-        $rowCount = Get-RowCountSafe -CsvPath $finalCsv
-        Update-ProgressSafe -Value 100 -StatusText ("Completed. Found {0} Event ID rows. Report saved to '{1}'" -f $rowCount, $finalCsv)
-        Write-Log "Found $rowCount Event ID count rows. Report exported to '$finalCsv'"
-
-        if ($AutoOpen -and (Test-Path -LiteralPath $finalCsv -PathType Leaf)) {
-            Start-Process -FilePath $finalCsv
+        if (-not (Test-Path -LiteralPath $OutputFolder -PathType Container)) {
+            New-Item -ItemType Directory -Path $OutputFolder -Force | Out-Null
         }
 
-        Show-Info -Message ("Found {0} Event ID rows.`r`nReport exported to:`r`n{1}" -f $rowCount, $finalCsv) -Title 'Success'
+        Write-Log -Message "Starting EVTX Event ID counting. Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$OutputFolder'"
+
+        Update-ProgressSafe -Value 10 -StatusText "Enumerating EVTX files..."
+
+        $gciParams = @{
+            LiteralPath = $EvtxFolder
+            Filter = "*.evtx"
+            File = $true
+            ErrorAction = "SilentlyContinue"
+        }
+
+        if ($IncludeSubfolders) {
+            $gciParams["Recurse"] = $true
+        }
+
+        $sourceFiles = @(Get-ChildItem @gciParams)
+        if ($sourceFiles.Count -eq 0) {
+            throw "No EVTX files were found in the selected folder."
+        }
+
+        $sourceFiles = @(Get-ArchiveSafeEvtxFiles -Files $sourceFiles)
+
+        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        $finalCsv = Join-Path $OutputFolder ("{0}-EventID-Counts-AllEvtx-{1}.csv" -f $env:COMPUTERNAME, $timestamp)
+
+        if ($sourceFiles.Count -eq 0) {
+            "EventID,Count,SourceFile" | Set-Content -Path $finalCsv -Encoding UTF8
+            Update-ProgressSafe -Value 100 -StatusText "Completed with no archive-safe EVTX files."
+            Write-Log -Level 'WARNING' -Message "No archive-safe EVTX files were available. Empty CSV exported: '$finalCsv'"
+            Show-Info -Message ("No archive-safe EVTX files were available for processing.`r`nThis usually means the selected folder contains only an active/canonical log file.`r`n`r`nEmpty CSV exported:`r`n{0}" -f $finalCsv) -Title "No Archive-Safe Files"
+            try {
+                Invoke-Item -LiteralPath $finalCsv
+            }
+            catch {
+                Write-Log -Level 'WARNING' -Message "Failed to auto-open empty CSV '$finalCsv'. $($_.Exception.Message)"
+            }
+            return
+        }
+
+        $batchFolder = Join-Path $env:TEMP ("EventIDCountBatches-{0}" -f ([guid]::NewGuid().ToString("N")))
+        New-Item -ItemType Directory -Path $batchFolder -Force | Out-Null
+
+        $batchSize = 75
+        $batches = @(New-EvtxBatch -Files $sourceFiles -BatchSize $batchSize)
+
+        Write-Log -Message "Batched Log Parser mode enabled. SourceFiles=$($sourceFiles.Count); BatchSize=$batchSize; Batches=$($batches.Count)"
+        Update-ProgressSafe -Value 20 -StatusText "Processing EVTX batches..."
+
+        $tempCsvs = New-Object System.Collections.Generic.List[string]
+        $batchIndex = 0
+
+        foreach ($batch in @($batches)) {
+            $batchIndex++
+            $batchCsv = Join-Path $batchFolder ("batch-{0:0000}.csv" -f $batchIndex)
+
+            $fromParts = @()
+            foreach ($path in @($batch)) {
+                if ([string]::IsNullOrWhiteSpace([string]$path)) { continue }
+                $fromParts += ("'{0}'" -f (Escape-SqlPath -Path ([string]$path)))
+            }
+
+            if ($fromParts.Count -eq 0) { continue }
+
+            $fromClause = $fromParts -join ","
+
+            $sql = @"
+SELECT
+  EventID AS EventID,
+  COUNT(*) AS Count,
+  [EventLog] AS SourceFile
+INTO '$batchCsv'
+FROM $fromClause
+GROUP BY EventID, [EventLog]
+ORDER BY EventID ASC
+"@
+
+            Invoke-LogParserFileQuery -Sql $sql -Context ("EventIDCountBatch{0}" -f $batchIndex)
+
+            if (Test-Path -LiteralPath $batchCsv) {
+                [void]$tempCsvs.Add($batchCsv)
+            }
+
+            $pct = 20 + [int](($batchIndex / [double]$batches.Count) * 60)
+            if ($pct -gt 80) { $pct = 80 }
+            Update-ProgressSafe -Value $pct -StatusText ("Processed batch {0} of {1}" -f $batchIndex, $batches.Count)
+        }
+
+        Update-ProgressSafe -Value 85 -StatusText "Merging batch CSV files..."
+
+        $allRows = New-Object System.Collections.Generic.List[object]
+
+        foreach ($csv in @($tempCsvs)) {
+            try {
+                $rows = @(Import-Csv -Path $csv)
+                foreach ($row in $rows) {
+                    [void]$allRows.Add([pscustomobject]@{
+                        EventID = [string]$row.EventID
+                        Count = [string]$row.Count
+                        SourceFile = [string]$row.SourceFile
+                    })
+                }
+            }
+            catch {
+                Write-Log -Level 'WARNING' -Message "Failed to import temporary count CSV '$csv'. $($_.Exception.Message)"
+            }
+        }
+
+        if ($allRows.Count -eq 0) {
+            "EventID,Count,SourceFile" | Set-Content -Path $finalCsv -Encoding UTF8
+        }
+        else {
+            $allRows |
+                Sort-Object SourceFile, @{Expression={ 
+                    $parsed = 0
+                    if ([int]::TryParse([string]$_.EventID, [ref]$parsed)) { $parsed } else { 0 }
+                }} |
+                Export-Csv -Path $finalCsv -NoTypeInformation -Encoding UTF8
+        }
+
+        Remove-Item -LiteralPath $batchFolder -Recurse -Force -ErrorAction SilentlyContinue
+
+        Update-ProgressSafe -Value 100 -StatusText "Completed."
+        Write-Log -Message "EVTX Event ID count completed. SourceFiles=$($sourceFiles.Count); Batches=$($batches.Count); Rows=$($allRows.Count); Report='$finalCsv'"
+
+        Show-Info -Message ("Event ID count completed successfully.`r`nSource files: {0}`r`nRows: {1}`r`nReport:`r`n{2}" -f $sourceFiles.Count, $allRows.Count, $finalCsv) -Title "Completed"
+
+        try {
+            Invoke-Item -LiteralPath $finalCsv
+        }
+        catch {
+            Write-Log -Level 'WARNING' -Message "Failed to auto-open CSV '$finalCsv'. $($_.Exception.Message)"
+        }
     }
     catch {
+        Update-ProgressSafe -Value 0 -StatusText "Failed."
         Write-Log -Level 'ERROR' -Message "Error counting Event IDs. $($_.Exception.Message)"
-        Update-ProgressSafe -Value 0 -StatusText 'Error occurred. Check log for details.'
         Show-ErrorBox -Message ("Error counting Event IDs.`r`n{0}" -f $_.Exception.Message)
-    }
-    finally {
-        Remove-TempArtifacts
     }
 }
 #endregion
@@ -366,7 +792,7 @@ $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.MinimizeBox = $true
-$form.ClientSize = New-Object System.Drawing.Size(760, 352)
+$form.ClientSize = New-Object System.Drawing.Size(870, 352)
 $script:form = $form
 
 $left = 14
@@ -388,6 +814,15 @@ $form.Controls.Add($labelEvtx)
 $textEvtx = New-Object System.Windows.Forms.TextBox
 $textEvtx.Location = New-Object System.Drawing.Point(($left + $labelWidth), $currentY)
 $textEvtx.Size = New-Object System.Drawing.Size($textWidth, 24)
+try {
+    $resolvedDefaultEvtxRoot = Resolve-SmartEventLogFolder
+    if (-not [string]::IsNullOrWhiteSpace($resolvedDefaultEvtxRoot)) {
+        $textEvtx.Text = $resolvedDefaultEvtxRoot
+    }
+}
+catch {
+    Write-Log -Level 'WARNING' -Message "Default EVTX folder resolution failed: $($_.Exception.Message)"
+}
 $form.Controls.Add($textEvtx)
 
 $buttonBrowseEvtx = New-Object System.Windows.Forms.Button
@@ -395,6 +830,12 @@ $buttonBrowseEvtx.Location = New-Object System.Drawing.Point($buttonX, $currentY
 $buttonBrowseEvtx.Size = New-Object System.Drawing.Size($buttonWidth, 24)
 $buttonBrowseEvtx.Text = 'Browse'
 $form.Controls.Add($buttonBrowseEvtx)
+
+$buttonResolveEvtx = New-Object System.Windows.Forms.Button
+$buttonResolveEvtx.Location = New-Object System.Drawing.Point(($buttonX + $buttonWidth + 8), $currentY)
+$buttonResolveEvtx.Size = New-Object System.Drawing.Size(92, 24)
+$buttonResolveEvtx.Text = 'Resolve'
+$form.Controls.Add($buttonResolveEvtx)
 
 $currentY = $currentY + $rowHeight
 
@@ -449,7 +890,7 @@ $currentY = $currentY + $rowHeight + 4
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Location = New-Object System.Drawing.Point($left, $currentY)
-$progressBar.Size = New-Object System.Drawing.Size(716, 22)
+$progressBar.Size = New-Object System.Drawing.Size(826, 22)
 $progressBar.Minimum = 0
 $progressBar.Maximum = 100
 $form.Controls.Add($progressBar)
@@ -459,61 +900,89 @@ $currentY = $currentY + 28
 
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Location = New-Object System.Drawing.Point($left, $currentY)
-$statusLabel.Size = New-Object System.Drawing.Size(716, 32)
+$statusLabel.Size = New-Object System.Drawing.Size(826, 32)
 $statusLabel.Text = 'Ready.'
 $form.Controls.Add($statusLabel)
 $script:statusLabel = $statusLabel
 
 $buttonStart = New-Object System.Windows.Forms.Button
 $buttonStart.Size = New-Object System.Drawing.Size(150, 30)
-$buttonStart.Location = New-Object System.Drawing.Point(420, 304)
+$buttonStart.Location = New-Object System.Drawing.Point(530, 304)
 $buttonStart.Text = 'Start Analysis'
 $form.Controls.Add($buttonStart)
 
 $buttonClose = New-Object System.Windows.Forms.Button
 $buttonClose.Size = New-Object System.Drawing.Size(120, 30)
-$buttonClose.Location = New-Object System.Drawing.Point(590, 304)
+$buttonClose.Location = New-Object System.Drawing.Point(700, 304)
 $buttonClose.Text = 'Close'
 $form.Controls.Add($buttonClose)
 
 $buttonBrowseEvtx.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select a folder containing EVTX files'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textEvtx.Text = $dialog.SelectedPath
+    Invoke-GuiSafe -ErrorPrefix 'Browse EVTX folder failed' -Action {
+        $dialog = New-FolderPicker -Description 'Select a folder containing EVTX files'
+        if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $textEvtx.Text = $dialog.SelectedPath
+        }
+        $dialog.Dispose()
     }
-    $dialog.Dispose()
+})
+
+$buttonResolveEvtx.Add_Click({
+    Invoke-GuiSafe -ErrorPrefix 'Resolve EVTX folder failed' -Action {
+        $resolved = Resolve-SmartEventLogFolder
+        if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+            $textEvtx.Text = $resolved
+            Show-Info -Message ("Event log root folder resolved:`r`n{0}" -f $resolved) -Title 'Resolve EVTX Folder'
+        }
+        else {
+            Show-Info -Message 'The EVTX folder could not be resolved automatically. Please browse manually.' -Title 'Resolve EVTX Folder'
+        }
+    }
 })
 
 $buttonBrowseOutput.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select the folder where the CSV report will be saved'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textOutput.Text = $dialog.SelectedPath
+    Invoke-GuiSafe -ErrorPrefix 'Browse output folder failed' -Action {
+        $dialog = New-FolderPicker -Description 'Select the folder where the CSV report will be saved'
+        if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $textOutput.Text = $dialog.SelectedPath
+        }
+        $dialog.Dispose()
     }
-    $dialog.Dispose()
 })
 
 $buttonBrowseLog.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select the log folder'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textLog.Text = $dialog.SelectedPath
-        $script:defaultLogFolder = $dialog.SelectedPath
-        $script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
-        Initialize-LogDirectory
+    Invoke-GuiSafe -ErrorPrefix 'Browse log folder failed' -Action {
+        $dialog = New-FolderPicker -Description 'Select the log folder'
+        if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $textLog.Text = $dialog.SelectedPath
+            $script:defaultLogFolder = $dialog.SelectedPath
+            $script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
+            Initialize-LogDirectory
+        }
+        $dialog.Dispose()
     }
-    $dialog.Dispose()
 })
 
 $buttonStart.Add_Click({
-    if ([string]::IsNullOrWhiteSpace($textEvtx.Text)) {
-        Show-ErrorBox -Message 'Please select a folder containing EVTX files.' -Title 'Input Required'
-        return
+    Invoke-GuiSafe -ErrorPrefix 'Event ID count analysis failed' -Action {
+        if ([string]::IsNullOrWhiteSpace($textEvtx.Text)) {
+            $resolved = Resolve-SmartEventLogFolder
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+                $textEvtx.Text = $resolved
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($textEvtx.Text)) {
+            Show-ErrorBox -Message 'Please select a folder containing EVTX files.' -Title 'Input Required'
+            return
+        }
+
+        $script:defaultLogFolder = $textLog.Text
+        $script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
+        Initialize-LogDirectory
+
+        Process-EvtxEventCounts -EvtxFolder $textEvtx.Text -IncludeSubfolders:$checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text
     }
-
-    $script:defaultLogFolder = $textLog.Text
-    $script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
-    Initialize-LogDirectory
-
-    Process-EvtxEventCounts -EvtxFolder $textEvtx.Text -IncludeSubfolders:$checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text
 })
 
 $buttonClose.Add_Click({
