@@ -70,6 +70,7 @@ All scripts are structured for **Windows Server 2019 environments using PowerShe
 | **EventID5136-5137and5141-ADChanges-and-ObjectDeletions.ps1**    | Audits Active Directory object modification, creation, and deletion events.                                            |
 | **EventID6005-6006-6008-6009-6013-1074-1076-SystemRestarts.ps1** | Attributes system startups, shutdowns, crashes, uptime events, and user-initiated restart operations.                  |
 | **EventID7045-ServiceInstalled.ps1**                             | Detects installation of new Windows services (Event ID 7045), commonly associated with persistence mechanisms.         |
+| **Extract-Evidences-FileServer-Tool.ps1** | Extracts forensic evidence from FileServer shares using NTFS permissions and Event ID 4663 access logs to identify access activity and involved files or folders. |
 | **Migrate-WinEvtStructure-Tool.ps1**                             | Migrates Windows Event Log storage structure and updates the associated registry configuration.                        |
 | **PrintService-Operational-EventLogs.md**                        | Documentation describing how to enable and configure PrintService Operational logging.                                 |
 | **PrintService-Operational-EventLogs.reg**                       | Registry configuration used to enable or configure PrintService Operational logging.                                   |
