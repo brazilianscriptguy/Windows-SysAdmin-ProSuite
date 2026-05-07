@@ -1,734 +1,347 @@
-<#
+﻿<#
 .SYNOPSIS
-    PowerShell Script for Analyzing Active Directory object changes via Event IDs 5136, 5137, and 5141.
+    PowerShell Script for Analyzing AD Object Changes via Event IDs 5136, 5137, and 5141 using Log Parser.
 
 .DESCRIPTION
-    This WS2019-compatible revision analyzes AD object modifications (5136), creations (5137),
-    and deletions (5141) from the live Security channel or from archived .evtx files. For live mode,
-    it exports a temporary snapshot with wevtutil and parses it using Log Parser COM. The consolidated
-    CSV report is exported to My Documents by default.
+    This script analyzes Active Directory object modifications (Event ID 5136), creations (Event ID 5137), 
+    and deletions (Event ID 5141) from Security EVTX files in a selected folder using COM-based LogQuery, 
+    generating a consolidated CSV report with user-configurable settings via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    RevA1 - WS2019-compatible migration with fixed button layout
+    Last Updated: February 25, 2025
 #>
 
 [CmdletBinding()]
-param(
+Param (
     [Parameter(HelpMessage = "Automatically open the generated CSV file after processing.")]
-    [bool]$AutoOpen = $true,
-
-    [switch]$ShowConsole
+    [bool]$AutoOpen = $true
 )
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
-
-#region Native console visibility
-try {
-    $consoleType = [System.Management.Automation.PSTypeName]'Win32Console'
-    if (-not $consoleType.Type) {
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-
-public static class Win32Console {
+#region Initialization
+Add-Type -Name Window -Namespace Console -MemberDefinition @"
     [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr GetConsoleWindow();
-
+    static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    public static void Hide() {
+        ShowWindow(GetConsoleWindow(), 0); // 0 = SW_HIDE
+    }
 "@ -ErrorAction Stop
-    }
-
-    if (-not $ShowConsole.IsPresent) {
-        $consoleHandle = [Win32Console]::GetConsoleWindow()
-        if ($consoleHandle -ne [IntPtr]::Zero) {
-            [void][Win32Console]::ShowWindow($consoleHandle, 0)
-        }
-    }
-}
-catch {
-    Write-Error "Failed to initialize console visibility helpers. $($_.Exception.Message)"
-    exit 1
-}
-#endregion
+[Console.Window]::Hide()
 
 try {
-    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
-    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
-}
-catch {
-    Write-Error "Failed to load required assemblies. $($_.Exception.Message)"
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load required assemblies: $_"
     exit 1
 }
 
-#region Variables
-$scriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$computerName = [Environment]::MachineName
-$script:defaultOutputFolder = [Environment]::GetFolderPath('MyDocuments')
-$script:defaultLogFolder = 'C:\Logs-TEMP'
-$script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
-$script:tempArtifacts = New-Object System.Collections.ArrayList
-$script:progressBar = $null
-$script:statusLabel = $null
-$script:form = $null
-#endregion
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$DomainServerName = [System.Environment]::MachineName
 
-#region Helpers
-function Initialize-LogDirectory {
-    if (-not (Test-Path -LiteralPath $script:defaultLogFolder -PathType Container)) {
-        New-Item -Path $script:defaultLogFolder -ItemType Directory -Force | Out-Null
+# Define default paths
+$logDir = "C:\Logs-TEMP"
+$outputFolderDefault = [Environment]::GetFolderPath('MyDocuments')
+$logPath = Join-Path $logDir "${scriptName}.log"
+
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory at '$logDir': $_"
+        exit 1
     }
 }
+#endregion
 
+#region Functions
 function Write-Log {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
+    param (
+        [Parameter(Mandatory, ValueFromPipeline)]
         [string]$Message,
-
-        [ValidateSet('INFO', 'WARNING', 'ERROR')]
-        [string]$Level = 'INFO'
+        [ValidateSet('Info', 'Error', 'Warning')]
+        [string]$Level = 'Info'
     )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    try {
+        $logEntry | Out-File -FilePath $script:logPath -Append -Encoding UTF8 -ErrorAction Stop
+    } catch {
+        Write-Warning "Failed to write to log at '$script:logPath': $_"
+    }
+}
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $entry = "[{0}] [{1}] {2}" -f $timestamp, $Level, $Message
+function Show-MessageBox {
+    param (
+        [string]$Message,
+        [string]$Title,
+        [System.Windows.Forms.MessageBoxButtons]$Buttons = 'OK',
+        [System.Windows.Forms.MessageBoxIcon]$Icon = 'Information'
+    )
+    [System.Windows.Forms.MessageBox]::Show($Message, $Title, $Buttons, $Icon)
+}
+
+function Update-ProgressBar {
+    param (
+        [ValidateRange(0, 100)]
+        [int]$Value
+    )
+    $script:progressBar.Value = $Value
+    $script:form.Refresh()
+}
+
+function Select-Folder {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog -Property @{
+        Description = "Select a folder containing Security .evtx files"
+        ShowNewFolderButton = $false
+    }
+    if ($dialog.ShowDialog() -eq 'OK') {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
+
+function Compile-ADObjectChanges {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$LogFolderPath,
+        [Parameter(Mandatory)]
+        [string]$OutputFolder,
+        [string[]]$UserAccounts
+    )
+    Write-Log "Starting to compile AD object changes (Event IDs 5136, 5137, 5141) in folder '$LogFolderPath'"
 
     try {
-        Add-Content -LiteralPath $script:logPath -Value $entry -Encoding UTF8
-    }
-    catch {
-    }
-}
+        $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
+        if (-not $evtxFiles) {
+            throw "No .evtx files found in '$LogFolderPath'"
+        }
 
-function Show-Info {
-    param([string]$Message, [string]$Title = 'Information')
-    [void][System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
+        $totalFiles = $evtxFiles.Count
+        $processedFiles = 0
 
-function Show-ErrorBox {
-    param([string]$Message, [string]$Title = 'Error')
-    [void][System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-}
+        $LogQuery = New-Object -ComObject "MSUtil.LogQuery"
+        $InputFormat = New-Object -ComObject "MSUtil.LogQuery.EventLogInputFormat"
+        $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
 
-function Update-ProgressSafe {
-    param([int]$Value, [string]$StatusText)
+        $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-EventID5136_5137_5141-ADChangesAndObjectDeletions-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_adchanges_$timestamp.csv"
 
-    if ($script:progressBar) {
-        $bounded = [Math]::Max(0, [Math]::Min(100, $Value))
-        $script:progressBar.Value = $bounded
-    }
+        $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
+            "'" + ($UserAccounts -join "';'") + "'"
+        } else { 
+            "" 
+        }
 
-    if ($script:statusLabel -and $StatusText) {
-        $script:statusLabel.Text = $StatusText
-    }
+        foreach ($file in $evtxFiles) {
+            $processedFiles++
+            Update-ProgressBar -Value ([math]::Round(($processedFiles / $totalFiles) * 50))
+            $script:statusLabel.Text = "Processing $($file.Name) ($processedFiles of $totalFiles)..."
+            $script:form.Refresh()
 
-    if ($script:form) {
-        $script:form.Refresh()
-    }
-}
+            $SQLQuery = @"
+            SELECT 
+                TimeGenerated AS EventTime,
+                EventID,
+                EXTRACT_TOKEN(Strings, 1, '|') AS UserAccount,
+                EXTRACT_TOKEN(Strings, 4, '|') AS ObjectClass,
+                EXTRACT_TOKEN(Strings, 5, '|') AS ObjectDN,
+                CASE 
+                    WHEN EventID = 5136 THEN EXTRACT_TOKEN(Strings, 6, '|')
+                    ELSE ''
+                END AS Attribute
+            INTO '$tempCsvPath'
+            FROM '$($file.FullName)'
+            WHERE EventID IN (5136; 5137; 5141)
+                $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 1, '|') IN ($userFilter)" } else { "" })
+"@
 
-function Resolve-OutputFolder {
-    param([string]$Candidate)
+            $rtnVal = $LogQuery.ExecuteBatch($SQLQuery, $InputFormat, $OutputFormat)
+            if ($rtnVal -eq 0) {
+                throw "LogQuery execution failed for '$($file.FullName)'"
+            }
 
-    if ([string]::IsNullOrWhiteSpace($Candidate)) {
-        return $script:defaultOutputFolder
-    }
-
-    if (-not (Test-Path -LiteralPath $Candidate -PathType Container)) {
-        New-Item -Path $Candidate -ItemType Directory -Force | Out-Null
-    }
-
-    return $Candidate
-}
-
-function New-FolderPicker {
-    param([string]$Description)
-
-    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dialog.Description = $Description
-    $dialog.ShowNewFolderButton = $true
-    return $dialog
-}
-
-function Register-TempArtifact {
-    param([string]$Path)
-    if (-not [string]::IsNullOrWhiteSpace($Path)) {
-        [void]$script:tempArtifacts.Add($Path)
-    }
-}
-
-function Remove-TempArtifacts {
-    foreach ($artifact in @($script:tempArtifacts)) {
-        try {
-            if (Test-Path -LiteralPath $artifact) {
-                Remove-Item -LiteralPath $artifact -Force -ErrorAction SilentlyContinue
+            if (Test-Path $tempCsvPath) {
+                if ($processedFiles -eq 1) {
+                    Get-Content $tempCsvPath | Set-Content $consolidatedFile -Encoding UTF8
+                } else {
+                    Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $consolidatedFile -Encoding UTF8
+                }
+                Remove-Item $tempCsvPath -Force
+                Write-Log "Processed $($file.Name) for AD object changes"
             }
         }
-        catch {
-        }
-    }
-    $script:tempArtifacts.Clear() | Out-Null
-}
 
-function Test-LogParserCom {
-    try {
-        $null = New-Object -ComObject 'MSUtil.LogQuery'
-        return $true
-    }
-    catch {
-        return $false
-    }
-}
-
-function New-LogParserObjects {
-    $objects = [ordered]@{
-        Query        = New-Object -ComObject 'MSUtil.LogQuery'
-        InputFormat  = New-Object -ComObject 'MSUtil.LogQuery.EventLogInputFormat'
-        OutputFormat = New-Object -ComObject 'MSUtil.LogQuery.CSVOutputFormat'
-    }
-    return $objects
-}
-
-function Export-LiveChannelSnapshot {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$ChannelName
-    )
-
-    $wevtutil = Join-Path $env:SystemRoot 'System32\wevtutil.exe'
-    if (-not (Test-Path -LiteralPath $wevtutil -PathType Leaf)) {
-        throw "wevtutil.exe was not found at '$wevtutil'."
-    }
-
-    $snapshotPath = Join-Path $env:TEMP ('{0}-{1}.evtx' -f ($ChannelName -replace '[\\/:*?"<>|]', '_'), (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
-    Register-TempArtifact -Path $snapshotPath
-
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $wevtutil
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-
-    $quotedChannel = '"' + ($ChannelName -replace '"','\"') + '"'
-    $quotedDestination = '"' + ($snapshotPath -replace '"','\"') + '"'
-    $psi.Arguments = ('epl {0} {1} /ow:true' -f $quotedChannel, $quotedDestination)
-
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $psi
-
-    [void]$process.Start()
-    $stdErr = $process.StandardError.ReadToEnd()
-    $null = $process.StandardOutput.ReadToEnd()
-    $process.WaitForExit()
-
-    if ($process.ExitCode -ne 0) {
-        throw "wevtutil export failed. ExitCode=$($process.ExitCode). StdErr=$stdErr"
-    }
-
-    if (-not (Test-Path -LiteralPath $snapshotPath -PathType Leaf)) {
-        throw "Snapshot export did not create '$snapshotPath'."
-    }
-
-    Write-Log "Live channel snapshot exported to '$snapshotPath'."
-    return $snapshotPath
-}
-
-function New-HeaderOnlyCsv {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path
-    )
-
-    $header = 'EventTime,EventID,UserAccount,ObjectClass,ObjectDN,Attribute,OperationType,SourceFile'
-    Set-Content -LiteralPath $Path -Value $header -Encoding UTF8
-}
-
-function Get-RowCountSafe {
-    param([string]$CsvPath)
-
-    if (-not (Test-Path -LiteralPath $CsvPath -PathType Leaf)) {
-        return 0
-    }
-
-    try {
-        $rows = Import-Csv -LiteralPath $CsvPath
-        return @($rows).Count
-    }
-    catch {
-        return 0
-    }
-}
-
-function Build-UserFilterClause {
-    param([string[]]$UserAccounts)
-
-    $normalizedUsers = @($UserAccounts | ForEach-Object { "$_".Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    if (@($normalizedUsers).Count -eq 0) {
-        return ''
-    }
-
-    $escaped = @($normalizedUsers | ForEach-Object { "'" + ($_.Replace("'", "''")) + "'" })
-    return ("AND EXTRACT_TOKEN(Strings, 1, '|') IN ({0})" -f ($escaped -join '; '))
-}
-
-function Build-QueryForFile {
-    param(
-        [Parameter(Mandatory)]
-        [string]$EvtxPath,
-
-        [Parameter(Mandatory)]
-        [string]$CsvPath,
-
-        [Parameter()]
-        [string[]]$UserAccounts
-    )
-
-    $escapedEvtx = $EvtxPath.Replace("'", "''")
-    $escapedCsv = $CsvPath.Replace("'", "''")
-    $userClause = Build-UserFilterClause -UserAccounts $UserAccounts
-
-$query = @"
-SELECT
-    TimeGenerated AS EventTime,
-    EventID,
-    EXTRACT_TOKEN(Strings, 1, '|') AS UserAccount,
-    EXTRACT_TOKEN(Strings, 4, '|') AS ObjectClass,
-    EXTRACT_TOKEN(Strings, 5, '|') AS ObjectDN,
-    CASE
-        WHEN EventID = 5136 THEN EXTRACT_TOKEN(Strings, 6, '|')
-        ELSE ''
-    END AS Attribute,
-    CASE
-        WHEN EventID = 5136 THEN 'Modified'
-        WHEN EventID = 5137 THEN 'Created'
-        WHEN EventID = 5141 THEN 'Deleted'
-        ELSE 'Unknown'
-    END AS OperationType,
-    '$escapedEvtx' AS SourceFile
-INTO '$escapedCsv'
-FROM '$escapedEvtx'
-WHERE EventID IN (5136; 5137; 5141)
-$userClause
-"@
-    return $query
-}
-
-function Merge-CsvFiles {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string[]]$SourceCsvFiles,
-
-        [Parameter(Mandatory)]
-        [string]$DestinationCsv
-    )
-
-    $existing = @($SourceCsvFiles | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
-    if (@($existing).Count -eq 0) {
-        New-HeaderOnlyCsv -Path $DestinationCsv
-        return
-    }
-
-    $first = $true
-    foreach ($csv in @($existing)) {
-        if ($first) {
-            Get-Content -LiteralPath $csv | Set-Content -LiteralPath $DestinationCsv -Encoding UTF8
-            $first = $false
-        }
-        else {
-            Get-Content -LiteralPath $csv | Select-Object -Skip 1 | Add-Content -LiteralPath $DestinationCsv -Encoding UTF8
-        }
-    }
-}
-
-function Invoke-EventQueryToCsv {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$EvtxPath,
-
-        [Parameter(Mandatory)]
-        [string]$CsvPath,
-
-        [Parameter()]
-        [string[]]$UserAccounts
-    )
-
-    $lp = New-LogParserObjects
-    $lp.OutputFormat.fileName = $CsvPath
-    $query = Build-QueryForFile -EvtxPath $EvtxPath -CsvPath $CsvPath -UserAccounts $UserAccounts
-
-    $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
-    Write-Log "Log Parser ExecuteBatch returned: $result"
-
-    if (-not (Test-Path -LiteralPath $CsvPath -PathType Leaf)) {
-        New-HeaderOnlyCsv -Path $CsvPath
-    }
-}
-
-function Get-EvtxFilesSafe {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RootPath,
-
-        [Parameter(Mandatory)]
-        [bool]$IncludeSubfolders
-    )
-
-    if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
-        throw "The EVTX folder '$RootPath' was not found."
-    }
-
-    if ($IncludeSubfolders) {
-        $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -Recurse -ErrorAction Stop
-    }
-    else {
-        $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -ErrorAction Stop
-    }
-
-    return @($files)
-}
-
-function Parse-DelimitedUsers {
-    param([string]$Text)
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return @()
-    }
-
-    $users = $Text -split '[,;\r\n]+' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    return @($users)
-}
-
-function Resolve-SecurityChannel {
-    [CmdletBinding()]
-    param()
-
-    Update-ProgressSafe -Value 10 -StatusText 'Resolving Security channel via snapshot export...'
-    $snapshot = Export-LiveChannelSnapshot -ChannelName 'Security'
-
-    $tempCsv = Join-Path $env:TEMP ('Security-Probe-{0}.csv' -f (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
-    Register-TempArtifact -Path $tempCsv
-    Invoke-EventQueryToCsv -EvtxPath $snapshot -CsvPath $tempCsv -UserAccounts @()
-
-    if (Test-Path -LiteralPath $tempCsv -PathType Leaf) {
-        Write-Log "Live Security channel probe completed successfully."
-        Update-ProgressSafe -Value 0 -StatusText 'Ready.'
-        return $snapshot
-    }
-
-    throw 'Live Security channel probe did not produce a CSV file.'
-}
-
-function Process-ADObjectChangeEvents {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [bool]$UseLiveLog,
-
-        [Parameter()]
-        [string]$EvtxFolder,
-
-        [Parameter(Mandatory)]
-        [bool]$IncludeSubfolders,
-
-        [Parameter()]
-        [string]$OutputFolder,
-
-        [Parameter()]
-        [string[]]$UserAccounts
-    )
-
-    $resolvedOutput = Resolve-OutputFolder -Candidate $OutputFolder
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $finalCsv = Join-Path $resolvedOutput ('{0}-ADChangesAndObjectDeletions-{1}.csv' -f $computerName, $timestamp)
-    $tempCsvFiles = New-Object System.Collections.ArrayList
-
-    Write-Log "Starting Event ID 5136/5137/5141 processing. UseLiveLog=$UseLiveLog; Folder='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders; OutputFolder='$resolvedOutput'"
-
-    try {
-        Update-ProgressSafe -Value 5 -StatusText 'Preparing...'
-
-        if ($UseLiveLog) {
-            Update-ProgressSafe -Value 15 -StatusText 'Exporting Security snapshot...'
-            $snapshot = Export-LiveChannelSnapshot -ChannelName 'Security'
-            $sourceFiles = @([pscustomobject]@{ FullName = $snapshot; Name = [IO.Path]::GetFileName($snapshot) })
-        }
-        else {
-            Update-ProgressSafe -Value 15 -StatusText 'Enumerating archived EVTX files...'
-            $sourceFiles = Get-EvtxFilesSafe -RootPath $EvtxFolder -IncludeSubfolders:$IncludeSubfolders
-        }
-
-        $sourceCount = @($sourceFiles).Count
-        if ($sourceCount -eq 0) {
-            throw 'No .evtx files were found to process.'
-        }
-
-        $index = 0
-        foreach ($source in @($sourceFiles)) {
-            $index++
-            $percent = 15 + [int]([Math]::Floor(($index / $sourceCount) * 65))
-            Update-ProgressSafe -Value $percent -StatusText ("Processing {0} ({1} of {2})..." -f $source.Name, $index, $sourceCount)
-
-            $tempCsv = Join-Path $env:TEMP ('ADChanges-{0}-{1}.csv' -f $index, (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
-            Register-TempArtifact -Path $tempCsv
-            [void]$tempCsvFiles.Add($tempCsv)
-
-            Invoke-EventQueryToCsv -EvtxPath $source.FullName -CsvPath $tempCsv -UserAccounts $UserAccounts
-            Write-Log "Processed '$($source.FullName)'."
-        }
-
-        Update-ProgressSafe -Value 88 -StatusText 'Merging CSV files...'
-        Merge-CsvFiles -SourceCsvFiles @($tempCsvFiles) -DestinationCsv $finalCsv
-
-        $rowCount = Get-RowCountSafe -CsvPath $finalCsv
-        Update-ProgressSafe -Value 100 -StatusText ("Completed. Found {0} events. Report saved to '{1}'" -f $rowCount, $finalCsv)
-        Write-Log "Found $rowCount AD object change events. Report exported to '$finalCsv'"
-
-        if ($AutoOpen -and (Test-Path -LiteralPath $finalCsv -PathType Leaf)) {
-            Start-Process -FilePath $finalCsv
-        }
-
-        Show-Info -Message ("Found {0} AD object change events.`r`nReport exported to:`r`n{1}" -f $rowCount, $finalCsv) -Title 'Success'
-    }
-    catch {
-        Write-Log -Level 'ERROR' -Message "Error processing Event IDs 5136/5137/5141. $($_.Exception.Message)"
-        Update-ProgressSafe -Value 0 -StatusText 'Error occurred. Check log for details.'
-        Show-ErrorBox -Message ("Error processing Event IDs 5136/5137/5141.`r`n{0}" -f $_.Exception.Message)
-    }
-    finally {
-        Remove-TempArtifacts
+        Update-ProgressBar -Value 75
+        $script:statusLabel.Text = "Finalizing report..."
+        $script:form.Refresh()
+
+        $eventCount = if (Test-Path $consolidatedFile) { (Import-Csv $consolidatedFile).Count } else { 0 }
+
+        Update-ProgressBar -Value 90
+        Write-Log "Found $eventCount AD object change events. Report exported to '$consolidatedFile'"
+        $script:statusLabel.Text = "Completed. Found $eventCount events. Report saved to '$consolidatedFile'"
+
+        if ($AutoOpen -and (Test-Path $consolidatedFile)) { Start-Process -FilePath $consolidatedFile }
+        Update-ProgressBar -Value 100
+        Show-MessageBox -Message "Found $eventCount AD object change events.`nReport exported to:`n$consolidatedFile" -Title "Success"
+    } catch {
+        Write-Log -Message "Error compiling AD object changes: $_" -Level Error
+        Show-MessageBox -Message "Error compiling AD object changes: $_" -Title "Error" -Icon Error
+        $script:statusLabel.Text = "Error occurred. Check log for details."
+    } finally {
+        Update-ProgressBar -Value 0
+        if (Test-Path $tempCsvPath) { Remove-Item $tempCsvPath -Force }
     }
 }
 #endregion
 
-#region GUI
-Initialize-LogDirectory
+#region GUI Setup
+$form = New-Object System.Windows.Forms.Form -Property @{
+    Text = 'AD Object Change Auditor (Event IDs 5136, 5137, 5141)'
+    Size = [System.Drawing.Size]::new(450, 350)
+    StartPosition = 'CenterScreen'
+    FormBorderStyle = 'FixedSingle'
+    MaximizeBox = $false
+}
 
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'AD Changes and Object Deletions Auditor (5136 / 5137 / 5141)'
-$form.StartPosition = 'CenterScreen'
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
-$form.MinimizeBox = $true
-$form.ClientSize = New-Object System.Drawing.Size(760, 390)
-$script:form = $form
-
-$left = 14
-$top = 16
-$labelWidth = 165
-$textWidth = 455
-$buttonWidth = 92
-$rowHeight = 38
-$buttonGap = 10
-$buttonX = ($left + $labelWidth + $textWidth + $buttonGap)
-$currentY = $top
-
-$checkUseLive = New-Object System.Windows.Forms.CheckBox
-$checkUseLive.Location = New-Object System.Drawing.Point($left, $currentY)
-$checkUseLive.Size = New-Object System.Drawing.Size(280, 24)
-$checkUseLive.Text = 'Use live Security channel'
-$checkUseLive.Checked = $true
-$form.Controls.Add($checkUseLive)
-
-$buttonResolve = New-Object System.Windows.Forms.Button
-$buttonResolve.Location = New-Object System.Drawing.Point($buttonX, $currentY)
-$buttonResolve.Size = New-Object System.Drawing.Size($buttonWidth, 24)
-$buttonResolve.Text = 'Resolve'
-$form.Controls.Add($buttonResolve)
-
-$currentY = $currentY + $rowHeight
-
-$labelEvtx = New-Object System.Windows.Forms.Label
-$labelEvtx.Location = New-Object System.Drawing.Point($left, ($currentY + 3))
-$labelEvtx.Size = New-Object System.Drawing.Size($labelWidth, 20)
-$labelEvtx.Text = 'EVTX folder:'
-$form.Controls.Add($labelEvtx)
-
-$textEvtx = New-Object System.Windows.Forms.TextBox
-$textEvtx.Location = New-Object System.Drawing.Point(($left + $labelWidth), $currentY)
-$textEvtx.Size = New-Object System.Drawing.Size($textWidth, 24)
-$textEvtx.Enabled = $false
-$form.Controls.Add($textEvtx)
-
-$buttonBrowseEvtx = New-Object System.Windows.Forms.Button
-$buttonBrowseEvtx.Location = New-Object System.Drawing.Point($buttonX, $currentY)
-$buttonBrowseEvtx.Size = New-Object System.Drawing.Size($buttonWidth, 24)
-$buttonBrowseEvtx.Text = 'Browse'
-$buttonBrowseEvtx.Enabled = $false
-$form.Controls.Add($buttonBrowseEvtx)
-
-$currentY = $currentY + $rowHeight
-
-$checkIncludeSubfolders = New-Object System.Windows.Forms.CheckBox
-$checkIncludeSubfolders.Location = New-Object System.Drawing.Point($left, $currentY)
-$checkIncludeSubfolders.Size = New-Object System.Drawing.Size(240, 24)
-$checkIncludeSubfolders.Text = 'Include subfolders'
-$checkIncludeSubfolders.Checked = $true
-$form.Controls.Add($checkIncludeSubfolders)
-
-$currentY = $currentY + $rowHeight
-
-$labelUsers = New-Object System.Windows.Forms.Label
-$labelUsers.Location = New-Object System.Drawing.Point($left, ($currentY + 3))
-$labelUsers.Size = New-Object System.Drawing.Size($labelWidth, 20)
-$labelUsers.Text = 'User filter:'
+# User Accounts
+$labelUsers = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 20)
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "User Accounts:"
+}
 $form.Controls.Add($labelUsers)
 
-$textUsers = New-Object System.Windows.Forms.TextBox
-$textUsers.Location = New-Object System.Drawing.Point(($left + $labelWidth), $currentY)
-$textUsers.Size = New-Object System.Drawing.Size($textWidth, 24)
-$textUsers.Text = ''
-$form.Controls.Add($textUsers)
-
-$currentY = $currentY + 28
-
-$labelUsersHint = New-Object System.Windows.Forms.Label
-$labelUsersHint.Location = New-Object System.Drawing.Point(($left + $labelWidth), ($currentY + 2))
-$labelUsersHint.Size = New-Object System.Drawing.Size(430, 18)
-$labelUsersHint.Text = 'Separate multiple users with comma, semicolon, or line break.'
-$form.Controls.Add($labelUsersHint)
-
-$currentY = $currentY + 34
-
-$labelOutput = New-Object System.Windows.Forms.Label
-$labelOutput.Location = New-Object System.Drawing.Point($left, ($currentY + 3))
-$labelOutput.Size = New-Object System.Drawing.Size($labelWidth, 20)
-$labelOutput.Text = 'CSV output folder:'
-$form.Controls.Add($labelOutput)
-
-$textOutput = New-Object System.Windows.Forms.TextBox
-$textOutput.Location = New-Object System.Drawing.Point(($left + $labelWidth), $currentY)
-$textOutput.Size = New-Object System.Drawing.Size($textWidth, 24)
-$textOutput.Text = $script:defaultOutputFolder
-$form.Controls.Add($textOutput)
-
-$buttonBrowseOutput = New-Object System.Windows.Forms.Button
-$buttonBrowseOutput.Location = New-Object System.Drawing.Point($buttonX, $currentY)
-$buttonBrowseOutput.Size = New-Object System.Drawing.Size($buttonWidth, 24)
-$buttonBrowseOutput.Text = 'Browse'
-$form.Controls.Add($buttonBrowseOutput)
-
-$currentY = $currentY + $rowHeight
-
-$labelLog = New-Object System.Windows.Forms.Label
-$labelLog.Location = New-Object System.Drawing.Point($left, ($currentY + 3))
-$labelLog.Size = New-Object System.Drawing.Size($labelWidth, 20)
-$labelLog.Text = 'Log folder:'
-$form.Controls.Add($labelLog)
-
-$textLog = New-Object System.Windows.Forms.TextBox
-$textLog.Location = New-Object System.Drawing.Point(($left + $labelWidth), $currentY)
-$textLog.Size = New-Object System.Drawing.Size($textWidth, 24)
-$textLog.Text = $script:defaultLogFolder
-$form.Controls.Add($textLog)
-
-$buttonBrowseLog = New-Object System.Windows.Forms.Button
-$buttonBrowseLog.Location = New-Object System.Drawing.Point($buttonX, $currentY)
-$buttonBrowseLog.Size = New-Object System.Drawing.Size($buttonWidth, 24)
-$buttonBrowseLog.Text = 'Browse'
-$form.Controls.Add($buttonBrowseLog)
-
-$currentY = $currentY + $rowHeight + 4
-
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point($left, $currentY)
-$progressBar.Size = New-Object System.Drawing.Size(716, 22)
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$form.Controls.Add($progressBar)
-$script:progressBar = $progressBar
-
-$currentY = $currentY + 28
-
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point($left, $currentY)
-$statusLabel.Size = New-Object System.Drawing.Size(716, 32)
-$statusLabel.Text = 'Ready.'
-$form.Controls.Add($statusLabel)
-$script:statusLabel = $statusLabel
-
-$buttonStart = New-Object System.Windows.Forms.Button
-$buttonStart.Size = New-Object System.Drawing.Size(150, 30)
-$buttonStart.Location = New-Object System.Drawing.Point(420, 342)
-$buttonStart.Text = 'Start Analysis'
-$form.Controls.Add($buttonStart)
-
-$buttonClose = New-Object System.Windows.Forms.Button
-$buttonClose.Size = New-Object System.Drawing.Size(120, 30)
-$buttonClose.Location = New-Object System.Drawing.Point(590, 342)
-$buttonClose.Text = 'Close'
-$form.Controls.Add($buttonClose)
-
-$toggleInputs = {
-    $isLive = $checkUseLive.Checked
-    $textEvtx.Enabled = (-not $isLive)
-    $buttonBrowseEvtx.Enabled = (-not $isLive)
+$textBoxUsers = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 20)
+    Size = [System.Drawing.Size]::new(320, 60)
+    Multiline = $true
+    Text = "user01, user02, user03, user04, user05"
 }
-& $toggleInputs
+$form.Controls.Add($textBoxUsers)
 
-$checkUseLive.Add_CheckedChanged($toggleInputs)
+# Log Directory
+$labelLogDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 90)
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Log Directory:"
+}
+$form.Controls.Add($labelLogDir)
 
-$buttonBrowseEvtx.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select a folder containing Security .evtx files'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textEvtx.Text = $dialog.SelectedPath
-    }
-    $dialog.Dispose()
-})
+$textBoxLogDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 90)
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $logDir
+}
+$form.Controls.Add($textBoxLogDir)
 
-$buttonBrowseOutput.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select the folder where the CSV report will be saved'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textOutput.Text = $dialog.SelectedPath
-    }
-    $dialog.Dispose()
-})
+$buttonBrowseLogDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 90)
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
+}
+$buttonBrowseLogDir.Add_Click({
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxLogDir.Text = $folder 
+            Write-Log "Log Directory updated to: '$folder' via browse"
+        }
+    })
+$form.Controls.Add($buttonBrowseLogDir)
 
-$buttonBrowseLog.Add_Click({
-    $dialog = New-FolderPicker -Description 'Select the log folder'
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textLog.Text = $dialog.SelectedPath
-        $script:defaultLogFolder = $dialog.SelectedPath
-        $script:logPath = Join-Path $script:defaultLogFolder ($scriptName + '.log')
-        Initialize-LogDirectory
-    }
-    $dialog.Dispose()
-})
+# Output Folder
+$labelOutputDir = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 120)
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Output Folder:"
+}
+$form.Controls.Add($labelOutputDir)
 
-$buttonResolve.Add_Click({
-    try {
-        Resolve-SecurityChannel | Out-Null
-        Show-Info -Message 'Live Security channel probe completed successfully.' -Title 'Resolve Channel'
-    }
-    catch {
-        Write-Log -Level 'ERROR' -Message "Resolve Channel failed: $($_.Exception.Message)"
-        Show-ErrorBox -Message ("Resolve Channel failed.`r`n{0}" -f $_.Exception.Message) -Title 'Resolve Channel'
-    }
-})
+$textBoxOutputDir = New-Object System.Windows.Forms.TextBox -Property @{
+    Location = [System.Drawing.Point]::new(120, 120)
+    Size = [System.Drawing.Size]::new(200, 20)
+    Text = $outputFolderDefault
+}
+$form.Controls.Add($textBoxOutputDir)
 
-$buttonStart.Add_Click({
-    $users = Parse-DelimitedUsers -Text $textUsers.Text
-    Process-ADObjectChangeEvents -UseLiveLog:$checkUseLive.Checked -EvtxFolder $textEvtx.Text -IncludeSubfolders:$checkIncludeSubfolders.Checked -OutputFolder $textOutput.Text -UserAccounts $users
-})
+$buttonBrowseOutputDir = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(330, 120)
+    Size = [System.Drawing.Size]::new(100, 20)
+    Text = "Browse"
+}
+$buttonBrowseOutputDir.Add_Click({
+        $folder = Select-Folder
+        if ($folder) { 
+            $textBoxOutputDir.Text = $folder 
+            Write-Log "Output Folder updated to: '$folder' via browse"
+        }
+    })
+$form.Controls.Add($buttonBrowseOutputDir)
 
-$buttonClose.Add_Click({
-    $form.Close()
-})
+# Status Label
+$labelStatus = New-Object System.Windows.Forms.Label -Property @{
+    Location = [System.Drawing.Point]::new(10, 180)
+    Size = [System.Drawing.Size]::new(430, 20)
+    Text = "Ready"
+}
+$form.Controls.Add($labelStatus)
 
-$form.Add_Shown({
-    Write-Log 'Script initialized successfully.'
-})
+# Progress Bar
+$progressBar = New-Object System.Windows.Forms.ProgressBar -Property @{
+    Location = [System.Drawing.Point]::new(10, 210)
+    Size = [System.Drawing.Size]::new(430, 20)
+}
+$form.Controls.Add($progressBar)
 
+# Start Button
+$button = New-Object System.Windows.Forms.Button -Property @{
+    Location = [System.Drawing.Point]::new(10, 240)
+    Size = [System.Drawing.Size]::new(100, 30)
+    Text = 'Start Analysis'
+}
+$button.Add_Click({
+        $script:logDir = $textBoxLogDir.Text
+        $script:logPath = Join-Path $script:logDir "${scriptName}.log"
+        $outputFolder = $textBoxOutputDir.Text
+
+        if (-not (Test-Path $script:logDir)) {
+            New-Item -Path $script:logDir -ItemType Directory -Force | Out-Null
+        }
+
+        $userAccounts = if ($textBoxUsers.Text) { $textBoxUsers.Text -split ',\s*' | ForEach-Object { $_.Trim() } } else { @() }
+
+        Write-Log "Analysis started by user (Users: $($userAccounts -join ', '))"
+        $script:labelStatus.Text = "Selecting folder..."
+        $script:form.Refresh()
+
+        $evtxFolder = Select-Folder
+        if (-not $evtxFolder) {
+            Show-MessageBox -Message "No folder selected." -Title "Input Required" -Icon Warning
+            $script:labelStatus.Text = "Ready"
+            return
+        }
+
+        $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
+        $script:form.Refresh()
+
+        Compile-ADObjectChanges -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+    })
+$form.Controls.Add($button)
+
+# Script scope variables
+$script:form = $form
+$script:progressBar = $progressBar
+$script:labelStatus = $labelStatus
+
+$form.Add_Shown({ $form.Activate() })
 [void]$form.ShowDialog()
 #endregion

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Safely migrates Windows Event Log storage to a dedicated target root with compliance reporting and cleanup-safe residual handling.
 

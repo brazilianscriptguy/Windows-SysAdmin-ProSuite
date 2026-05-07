@@ -11,7 +11,7 @@
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-05-05-v5.2.0-SESSION-CORRELATION
+  2026-05-07-v5.2.1-PATH-AGNOSTIC-ARCHIVE-PIPELINE
 #>
 
 [CmdletBinding()]
@@ -31,7 +31,7 @@ try {
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $script:ToolName      = 'EventID4624-4634-UserSessionAudit'
-$script:ToolVersion   = '2026-05-05-v5.2.0-SESSION-CORRELATION'
+$script:ToolVersion   = '2026-05-07-v5.2.1-PATH-AGNOSTIC-ARCHIVE-PIPELINE'
 $script:VerboseSqlLog = [bool]$VerboseSqlLog
 $script:DefaultLogDir = 'C:\Logs-TEMP'
 $script:DefaultOutDir = [Environment]::GetFolderPath('MyDocuments')
@@ -133,6 +133,37 @@ function Test-EvtxFileInDateRange {
     return ($File.LastWriteTime -ge $StartTime -and $File.LastWriteTime -le $EndTime)
 }
 
+function Resolve-AbsolutePathString {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { throw 'Path is empty.' }
+    return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Test-IsLockedFilePath {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        return $false
+    } catch {
+        return $true
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
+function Get-LiveSecurityEvtxPathCandidate {
+    try {
+        $regPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security'
+        $fileValue = (Get-ItemProperty -LiteralPath $regPath -Name File -ErrorAction Stop).File
+        if ([string]::IsNullOrWhiteSpace([string]$fileValue)) { return '' }
+        $expanded = [Environment]::ExpandEnvironmentVariables([string]$fileValue)
+        return (Resolve-AbsolutePathString -Path $expanded)
+    } catch {
+        return ''
+    }
+}
+
 function Export-LiveSecuritySnapshot {
     param([Parameter(Mandatory=$true)][string]$LogDir)
     Ensure-Directory -Path $LogDir
@@ -160,23 +191,56 @@ function Get-OfflineEvtxFiles {
         [datetime]$EndTime
     )
     if ([string]::IsNullOrWhiteSpace($Folder)) { throw 'EVTX folder is empty.' }
-    if (-not (Test-Path -LiteralPath $Folder)) { throw "EVTX folder not found: $Folder" }
 
-    $gciParams = @{ LiteralPath = $Folder; Filter = '*.evtx'; File = $true; ErrorAction = 'Stop' }
+    $rootPath = Resolve-AbsolutePathString -Path $Folder
+    if (-not (Test-Path -LiteralPath $rootPath -PathType Container)) { throw "EVTX folder not found: $rootPath" }
+
+    Write-Log "Enumerating archived EVTX files using PATH-AGNOSTIC string pipeline. RootPath='$rootPath'; IncludeSubfolders=$IncludeSubfolders"
+
+    $liveSecurityPath = Get-LiveSecurityEvtxPathCandidate
+    $selected = New-Object System.Collections.ArrayList
+    $enumerated = 0
+    $activeSkipped = 0
+    $lockedSkipped = 0
+    $dateSkipped = 0
+    $invalidSkipped = 0
+
+    $gciParams = @{ LiteralPath = $rootPath; Filter = '*.evtx'; File = $true; ErrorAction = 'Stop' }
     if ($IncludeSubfolders) { $gciParams.Recurse = $true }
-    $files = @(Get-ChildItem @gciParams)
-    $selected = foreach ($file in $files) {
-        if ($file.Name -ieq 'Security.evtx') {
-            Write-Log "Skipping active/canonical Security.evtx in archived mode: '$($file.FullName)'" 'WARN'
+
+    foreach ($file in @(Get-ChildItem @gciParams)) {
+        $enumerated++
+        try {
+            $absolutePath = Resolve-AbsolutePathString -Path ([string]$file.FullName)
+        } catch {
+            $invalidSkipped++
+            Write-Log "Skipping EVTX with invalid path. RawPath='$($file.FullName)'. Error: $($_.Exception.Message)" 'WARN'
             continue
         }
+
+        if (-not [string]::IsNullOrWhiteSpace($liveSecurityPath) -and ($absolutePath -ieq $liveSecurityPath)) {
+            $activeSkipped++
+            Write-Log "Skipping active live Security.evtx in archive mode by absolute path match: '$absolutePath'" 'WARN'
+            continue
+        }
+
+        if (Test-IsLockedFilePath -Path $absolutePath) {
+            $lockedSkipped++
+            Write-Log "Skipping locked/unreadable EVTX in archive mode: '$absolutePath'" 'WARN'
+            continue
+        }
+
         if (-not (Test-EvtxFileInDateRange -File $file -UseDateRange $UseDateRange -StartTime $StartTime -EndTime $EndTime)) {
-            Write-Log "Skipping EVTX outside selected date range: '$($file.FullName)'" 'DEBUG'
+            $dateSkipped++
+            Write-Log "Skipping EVTX outside selected archive file date range: '$absolutePath'" 'DEBUG'
             continue
         }
-        $file.FullName
+
+        [void]$selected.Add([string]$absolutePath)
     }
-    return @($selected)
+
+    Write-Log "Archive-safe PATH-AGNOSTIC EVTX selection completed. Enumerated=$enumerated; Selected=$($selected.Count); ActiveSkipped=$activeSkipped; LockedSkipped=$lockedSkipped; DateSkipped=$dateSkipped; InvalidSkipped=$invalidSkipped"
+    return @($selected.ToArray() | ForEach-Object { [string]$_ })
 }
 
 function Get-SourceFilesForMode {
@@ -189,8 +253,21 @@ function Get-SourceFilesForMode {
         [datetime]$StartTime,
         [datetime]$EndTime
     )
-    if ($UseLiveLog) { return @(Export-LiveSecuritySnapshot -LogDir $LogDir) }
-    return @(Get-OfflineEvtxFiles -Folder $EvtxFolder -IncludeSubfolders $IncludeSubfolders -UseDateRange $UseDateRange -StartTime $StartTime -EndTime $EndTime)
+    $paths = New-Object System.Collections.ArrayList
+
+    if ($UseLiveLog) {
+        $snapshotPath = Resolve-AbsolutePathString -Path (Export-LiveSecuritySnapshot -LogDir $LogDir)
+        [void]$paths.Add([string]$snapshotPath)
+    } else {
+        foreach ($path in @(Get-OfflineEvtxFiles -Folder $EvtxFolder -IncludeSubfolders $IncludeSubfolders -UseDateRange $UseDateRange -StartTime $StartTime -EndTime $EndTime)) {
+            if ([string]::IsNullOrWhiteSpace([string]$path)) { continue }
+            [void]$paths.Add([string](Resolve-AbsolutePathString -Path ([string]$path)))
+        }
+    }
+
+    $result = @($paths.ToArray() | ForEach-Object { [string]$_ })
+    Write-Log "EVTX source pipeline prepared. UseLiveLog=$UseLiveLog; SourceCount=$($result.Count); PathMode=AbsoluteStringOnly"
+    return $result
 }
 
 function Invoke-LogParserSql {

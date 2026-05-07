@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for detecting Event ID 4768 (Kerberos authentication ticket (TGT) requested).
 
@@ -12,7 +12,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-16-03 - RevA - WS2019-compatible migration
+    2026-05-07 - PATH-AGNOSTIC-ARCHIVE-PIPELINE - archive mode accepts .evtx files from any folder using absolute string paths only
 #>
 
 [CmdletBinding()]
@@ -103,6 +103,85 @@ function Write-Log {
     }
     catch {
     }
+}
+
+
+function Test-IsFileLocked {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $false
+    }
+    catch {
+        return $true
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
+function ConvertTo-EvtxAbsolutePath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$InputObject)
+
+    if ($null -eq $InputObject) { return $null }
+
+    if ($InputObject -is [string]) {
+        if ([string]::IsNullOrWhiteSpace($InputObject)) { return $null }
+        return [IO.Path]::GetFullPath($InputObject)
+    }
+
+    $fullNameProperty = $InputObject.PSObject.Properties['FullName']
+    if ($null -ne $fullNameProperty -and -not [string]::IsNullOrWhiteSpace([string]$fullNameProperty.Value)) {
+        return [IO.Path]::GetFullPath([string]$fullNameProperty.Value)
+    }
+
+    $pathText = [string]$InputObject
+    if ([string]::IsNullOrWhiteSpace($pathText)) { return $null }
+    return [IO.Path]::GetFullPath($pathText)
+}
+
+function Get-ArchiveSafeEvtxFiles {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Files)
+
+    $safePaths = New-Object System.Collections.ArrayList
+    $enumerated = 0
+    $selected = 0
+    $lockedSkipped = 0
+    $invalidSkipped = 0
+
+    foreach ($file in @($Files)) {
+        $enumerated++
+        $evtxPath = ConvertTo-EvtxAbsolutePath -InputObject $file
+
+        if ([string]::IsNullOrWhiteSpace($evtxPath) -or -not (Test-Path -LiteralPath $evtxPath -PathType Leaf)) {
+            $invalidSkipped++
+            continue
+        }
+
+        if ([IO.Path]::GetExtension($evtxPath) -ine '.evtx') {
+            $invalidSkipped++
+            continue
+        }
+
+        if (Test-IsFileLocked -Path $evtxPath) {
+            $lockedSkipped++
+            Write-Log "Skipped locked EVTX file in archived mode: '$evtxPath'" 'WARNING'
+            continue
+        }
+
+        [void]$safePaths.Add([string]$evtxPath)
+        $selected++
+    }
+
+    Write-Log ("PATH-AGNOSTIC archive EVTX selection completed. Enumerated={0}; Selected={1}; LockedSkipped={2}; InvalidSkipped={3}" -f $enumerated, $selected, $lockedSkipped, $invalidSkipped)
+    return @($safePaths.ToArray())
 }
 
 function Show-Info {
@@ -322,10 +401,15 @@ function Invoke-EventQueryToCsv {
     $lp = New-LogParserObjects
     $lp.OutputFormat.fileName = $CsvPath
     $query = Build-QueryForFile -EvtxPath $EvtxPath -CsvPath $CsvPath -UserAccounts $UserAccounts
-    $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
-    Write-Log "Log Parser ExecuteBatch returned: $result"
-
-    if (-not (Test-Path -LiteralPath $CsvPath -PathType Leaf)) {
+    try {
+        $result = $lp.Query.ExecuteBatch($query, $lp.InputFormat, $lp.OutputFormat)
+        Write-Log "Log Parser ExecuteBatch returned: $result"
+    }
+    catch {
+        Write-Log -Level 'WARNING' -Message "Skipped EVTX after non-fatal Log Parser/read failure: '$EvtxPath'. Error: $($_.Exception.Message)"
+        return $false
+    }
+if (-not (Test-Path -LiteralPath $CsvPath -PathType Leaf)) {
         New-HeaderOnlyCsv -Path $CsvPath
     }
 }
@@ -348,7 +432,7 @@ function Get-EvtxFilesSafe {
         $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -ErrorAction Stop
     }
 
-    return @($files)
+    return @((Get-ArchiveSafeEvtxFiles -Files @($files)) | ForEach-Object { [string]$_ })
 }
 
 function Parse-DelimitedUsers {
@@ -401,14 +485,13 @@ function Process-Event4768 {
         if ($UseLiveLog) {
             Update-ProgressSafe -Value 15 -StatusText 'Exporting Security snapshot...'
             $snapshot = Export-LiveChannelSnapshot -ChannelName 'Security'
-            $sourceFiles = @([pscustomobject]@{ FullName = $snapshot; Name = [IO.Path]::GetFileName($snapshot) })
+            $sourceFiles = @([string]$snapshot)
         }
         else {
             Update-ProgressSafe -Value 15 -StatusText 'Enumerating archived EVTX files...'
             $sourceFiles = Get-EvtxFilesSafe -RootPath $EvtxFolder -IncludeSubfolders:$IncludeSubfolders
         }
-
-        $sourceCount = @($sourceFiles).Count
+$sourceCount = @($sourceFiles).Count
         if ($sourceCount -eq 0) {
             throw 'No .evtx files were found to process.'
         }
@@ -416,15 +499,24 @@ function Process-Event4768 {
         $index = 0
         foreach ($source in @($sourceFiles)) {
             $index++
+            $sourcePath = [string]$source
+            $sourceName = [IO.Path]::GetFileName($sourcePath)
             $percent = 15 + [int]([Math]::Floor(($index / $sourceCount) * 65))
-            Update-ProgressSafe -Value $percent -StatusText ("Processing {0} ({1} of {2})..." -f $source.Name, $index, $sourceCount)
+            Update-ProgressSafe -Value $percent -StatusText ("Processing {0} ({1} of {2})..." -f $sourceName, $index, $sourceCount)
 
             $tempCsv = Join-Path $env:TEMP ('Event4768-{0}-{1}.csv' -f $index, (Get-Date -Format 'yyyyMMdd_HHmmss_fff'))
             Register-TempArtifact -Path $tempCsv
             [void]$tempCsvFiles.Add($tempCsv)
 
-            Invoke-EventQueryToCsv -EvtxPath $source.FullName -CsvPath $tempCsv -UserAccounts $UserAccounts
-            Write-Log "Processed '$($source.FullName)'."
+            try {
+                $queryOk = Invoke-EventQueryToCsv -EvtxPath $sourcePath -CsvPath $tempCsv -UserAccounts $UserAccounts
+                if ($queryOk -eq $false) { continue }
+            }
+            catch {
+                Write-Log -Level 'WARNING' -Message "Skipped EVTX after non-fatal processing failure: '$sourcePath'. Error: $($_.Exception.Message)"
+                continue
+            }
+            Write-Log "Processed '$sourcePath'."
         }
 
         Update-ProgressSafe -Value 88 -StatusText 'Merging CSV files...'

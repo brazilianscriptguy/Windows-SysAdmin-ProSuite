@@ -1,10 +1,11 @@
 ﻿<#
 .SYNOPSIS
-    PowerShell Script for Identifying Kerberos Pre-Authentication Failures via Event ID 4771 using Log Parser.
+    PowerShell Script for Tracking Privileged Access Events using Log Parser.
 
 .DESCRIPTION
-    This script identifies Kerberos pre-authentication failures (Event ID 4771) from Security EVTX files 
-    in a selected folder using COM-based LogQuery, outputting a consolidated CSV report with user-configurable settings via a GUI.
+    This script tracks privileged access events (Event IDs 4720, 4732, 4735, 4728, 4756, 4672, and 4724) 
+    from Security EVTX files in a selected folder using COM-based LogQuery, generating a consolidated CSV 
+    report with user-configurable settings via a GUI.
 
 .AUTHOR
     Luiz Hamilton Silva - @brazilianscriptguy
@@ -105,7 +106,7 @@ function Select-Folder {
     return $null
 }
 
-function Compile-KerberosPreAuthFailures {
+function Compile-PrivilegedAccessEvents {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
@@ -115,7 +116,7 @@ function Compile-KerberosPreAuthFailures {
         [string]$OutputFolder,
         [string[]]$UserAccounts
     )
-    Write-Log "Starting to compile Kerberos pre-authentication failures (Event ID 4771) in folder '$LogFolderPath'"
+    Write-Log "Starting to compile privileged access events in folder '$LogFolderPath'"
 
     try {
         $evtxFiles = Get-ChildItem -Path $LogFolderPath -Filter "*.evtx" -ErrorAction Stop
@@ -131,8 +132,8 @@ function Compile-KerberosPreAuthFailures {
         $OutputFormat = New-Object -ComObject "MSUtil.LogQuery.CSVOutputFormat"
 
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-EventID4771-KerberosPreAuthFailed-$timestamp.csv"
-        $tempCsvPath = Join-Path $env:TEMP "temp_kerberos_$timestamp.csv"
+        $consolidatedFile = Join-Path $OutputFolder "$DomainServerName-PrivilegedAccessLogs-$timestamp.csv"
+        $tempCsvPath = Join-Path $env:TEMP "temp_privileged_$timestamp.csv"
 
         $userFilter = if ($UserAccounts -and $UserAccounts.Count -gt 0) { 
             "'" + ($UserAccounts -join "';'") + "'"
@@ -148,13 +149,14 @@ function Compile-KerberosPreAuthFailures {
 
             $SQLQuery = @"
             SELECT 
-                TimeGenerated AS EventTime,
-                EXTRACT_TOKEN(Strings, 0, '|') AS UserAccount,
-                EXTRACT_TOKEN(Strings, 3, '|') AS LockoutCode,
-                EXTRACT_TOKEN(Strings, 5, '|') AS StationIP
+                TimeGenerated AS DateTime,
+                EventID,
+                EXTRACT_TOKEN(Strings, 0, '|') AS AccountName,
+                EXTRACT_TOKEN(Strings, 1, '|') AS CallerUser,
+                EXTRACT_TOKEN(Strings, 2, '|') AS Domain
             INTO '$tempCsvPath'
             FROM '$($file.FullName)'
-            WHERE EventID = 4771
+            WHERE EventID IN (4720; 4732; 4735; 4728; 4756; 4672; 4724)
                 $(if ($userFilter) { "AND EXTRACT_TOKEN(Strings, 0, '|') IN ($userFilter)" } else { "" })
 "@
 
@@ -170,7 +172,7 @@ function Compile-KerberosPreAuthFailures {
                     Get-Content $tempCsvPath | Select-Object -Skip 1 | Add-Content $consolidatedFile -Encoding UTF8
                 }
                 Remove-Item $tempCsvPath -Force
-                Write-Log "Processed $($file.Name) for Kerberos pre-authentication failures"
+                Write-Log "Processed $($file.Name) for privileged access events"
             }
         }
 
@@ -181,15 +183,15 @@ function Compile-KerberosPreAuthFailures {
         $eventCount = if (Test-Path $consolidatedFile) { (Import-Csv $consolidatedFile).Count } else { 0 }
 
         Update-ProgressBar -Value 90
-        Write-Log "Found $eventCount Kerberos pre-authentication failures. Report exported to '$consolidatedFile'"
-        $script:statusLabel.Text = "Completed. Found $eventCount failures. Report saved to '$consolidatedFile'"
+        Write-Log "Found $eventCount privileged access events. Report exported to '$consolidatedFile'"
+        $script:statusLabel.Text = "Completed. Found $eventCount events. Report saved to '$consolidatedFile'"
 
         if ($AutoOpen -and (Test-Path $consolidatedFile)) { Start-Process -FilePath $consolidatedFile }
         Update-ProgressBar -Value 100
-        Show-MessageBox -Message "Found $eventCount Kerberos pre-authentication failures.`nReport exported to:`n$consolidatedFile" -Title "Success"
+        Show-MessageBox -Message "Found $eventCount privileged access events.`nReport exported to:`n$consolidatedFile" -Title "Success"
     } catch {
-        Write-Log -Message "Error compiling Kerberos pre-authentication failures: $_" -Level Error
-        Show-MessageBox -Message "Error compiling Kerberos pre-authentication failures: $_" -Title "Error" -Icon Error
+        Write-Log -Message "Error compiling privileged access events: $_" -Level Error
+        Show-MessageBox -Message "Error compiling privileged access events: $_" -Title "Error" -Icon Error
         $script:statusLabel.Text = "Error occurred. Check log for details."
     } finally {
         Update-ProgressBar -Value 0
@@ -200,7 +202,7 @@ function Compile-KerberosPreAuthFailures {
 
 #region GUI Setup
 $form = New-Object System.Windows.Forms.Form -Property @{
-    Text = 'Kerberos Pre-Auth Failure Auditor (Event ID 4771)'
+    Text = 'Privileged Access Auditor (Multiple Event IDs)'
     Size = [System.Drawing.Size]::new(450, 350)
     StartPosition = 'CenterScreen'
     FormBorderStyle = 'FixedSingle'
@@ -327,7 +329,7 @@ $button.Add_Click({
         $script:labelStatus.Text = "Processing files in '$evtxFolder'..."
         $script:form.Refresh()
 
-        Compile-KerberosPreAuthFailures -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
+        Compile-PrivilegedAccessEvents -LogFolderPath $evtxFolder -OutputFolder $outputFolder -UserAccounts $userAccounts
     })
 $form.Controls.Add($button)
 

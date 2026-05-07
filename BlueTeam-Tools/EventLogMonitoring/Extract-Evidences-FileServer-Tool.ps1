@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   FileServer Evidence Extraction Tool - Multi Scenario
 
@@ -265,17 +265,16 @@ function Get-EvtxSourceExpression {
         }
     }
 
-    if ([string]::IsNullOrWhiteSpace($EvtxFolder) -or -not (Test-Path -LiteralPath $EvtxFolder)) {
+    if ([string]::IsNullOrWhiteSpace($EvtxFolder) -or -not (Test-Path -LiteralPath $EvtxFolder -PathType Container)) {
         throw "Please provide a valid EVTX folder or enable live Security channel mode."
     }
 
-    $pattern = Join-Path $EvtxFolder "Archive-*.evtx"
-    if (-not (Get-ChildItem -LiteralPath $EvtxFolder -Filter "Archive-*.evtx" -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
-        $pattern = Join-Path $EvtxFolder "*.evtx"
-    }
-
-    return $pattern
+    # PATH-AGNOSTIC ARCHIVE RULE:
+    # Analyze any .evtx file in the selected folder. Do not prefer Archive-*.evtx
+    # and do not assume canonical Security.evtx naming semantics.
+    return (Join-Path $EvtxFolder "*.evtx")
 }
+
 
 function Invoke-LogParserQuery {
     param(

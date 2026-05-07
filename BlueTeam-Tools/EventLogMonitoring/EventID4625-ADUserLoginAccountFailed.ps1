@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#!
 .SYNOPSIS
   Audits failed Active Directory logon attempts using Event ID 4625 from live or archived Security EVTX files.
@@ -176,29 +176,74 @@ function Test-IsFileLocked {
 }
 
 function Test-IsActiveSecurityEvtx {
-    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
-    return ($File.Name -ieq 'Security.evtx')
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$File)
+
+    # PATH-AGNOSTIC ARCHIVE RULE:
+    # Do not skip archived evidence by filename. Lock checks protect true live files.
+    return $false
 }
 
+
 function Get-ArchiveSafeEvtxFiles {
-    param([Parameter(Mandatory)][string[]]$Paths)
-    $safe = New-Object System.Collections.Generic.List[string]
-    foreach ($path in @($Paths)) {
-        if ([string]::IsNullOrWhiteSpace($path)) { continue }
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
-        $file = Get-Item -LiteralPath $path -ErrorAction Stop
-        if (Test-IsActiveSecurityEvtx -File $file) {
-            Write-Log "Skipped active/canonical Security.evtx in archived mode: $($file.FullName)" 'WARN'
-            continue
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Files)
+
+    $safeFiles = New-Object System.Collections.Generic.List[string]
+    $enumeratedCount = 0
+    $selectedCount = 0
+    $lockedSkippedCount = 0
+    $invalidSkippedCount = 0
+
+    foreach ($file in @($Files)) {
+        $enumeratedCount++
+        try {
+            $path = $null
+            if ($file -is [System.IO.FileInfo]) {
+                $path = [string]$file.FullName
+            }
+            elseif ($file -and $file.PSObject.Properties['FullName']) {
+                $path = [string]$file.FullName
+            }
+            else {
+                $path = [string]$file
+            }
+
+            if ([string]::IsNullOrWhiteSpace($path)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            $absolutePath = [System.IO.Path]::GetFullPath($path)
+            if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if ([System.IO.Path]::GetExtension($absolutePath) -ine '.evtx') {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if (Test-IsFileLocked -Path $absolutePath) {
+                Write-Log "Skipped locked EVTX file in archived mode: '$absolutePath'" 'WARNING'
+                $lockedSkippedCount++
+                continue
+            }
+
+            [void]$safeFiles.Add([string]$absolutePath)
+            $selectedCount++
         }
-        if (Test-IsFileLocked -Path $file.FullName) {
-            Write-Log "Skipped locked EVTX in archived mode: $($file.FullName)" 'WARN'
-            continue
+        catch {
+            $invalidSkippedCount++
+            Write-Log "Skipped invalid EVTX source in archived mode. Error: $($_.Exception.Message)" 'WARNING'
         }
-        [void]$safe.Add($file.FullName)
     }
-    return @($safe)
+
+    Write-Log "Archive-safe PATH-AGNOSTIC EVTX selection completed. Enumerated=$enumeratedCount; Selected=$selectedCount; LockedSkipped=$lockedSkippedCount; InvalidSkipped=$invalidSkippedCount"
+    return @($safeFiles.ToArray())
 }
+
 
 function New-TempPath {
     param(
@@ -682,18 +727,23 @@ function Get-EvtxSources {
     )
     if ($UseLiveLog) {
         $snapshot = New-TempPath -Prefix ('Security-{0}' -f (Get-Date -Format 'yyyyMMdd_HHmmss')) -Extension '.evtx'
-        [void]$TempArtifacts.Add($snapshot)
+        [void]$TempArtifacts.Add([string]$snapshot)
         Export-LiveChannelSnapshot -ChannelName $script:LiveChannelName -DestinationPath $snapshot
-        return @($snapshot)
+        return @([string]$snapshot)
     }
     if ([string]::IsNullOrWhiteSpace($EvtxFolder)) { throw 'EVTX folder is required when live Security channel mode is disabled.' }
     if (-not (Test-Path -LiteralPath $EvtxFolder -PathType Container)) { throw "EVTX folder does not exist: $EvtxFolder" }
-    $searchOption = if ($IncludeSubfolders) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
-    $all = @([System.IO.Directory]::EnumerateFiles($EvtxFolder, '*.evtx', $searchOption))
-    $safe = @(Get-ArchiveSafeEvtxFiles -Paths $all)
+
+    Write-Log "Enumerating archived EVTX files using PATH-AGNOSTIC string-only pipeline. RootPath='$EvtxFolder'; IncludeSubfolders=$IncludeSubfolders"
+
+    $gciParams = @{ LiteralPath = $EvtxFolder; Filter = '*.evtx'; File = $true; ErrorAction = 'Stop' }
+    if ($IncludeSubfolders) { $gciParams['Recurse'] = $true }
+    $all = @(Get-ChildItem @gciParams | ForEach-Object { [string]$_.FullName })
+    $safe = @(Get-ArchiveSafeEvtxFiles -Files $all)
     if (@($safe).Count -eq 0) { throw "No archive-safe .evtx files were found in '$EvtxFolder'." }
-    return $safe
+    return @($safe | ForEach-Object { [string]$_ })
 }
+
 
 function Test-LiveChannelAccess {
     Set-Progress 10

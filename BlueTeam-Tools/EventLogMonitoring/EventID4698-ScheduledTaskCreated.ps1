@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PowerShell Script for detecting Event ID 4698 (Scheduled task created).
 
@@ -126,40 +126,74 @@ function Test-IsFileLocked {
 
 function Test-IsLikelyActiveEvtxFile {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
+    param([Parameter(Mandatory)][object]$File)
 
-    $activeNames = @(
-        'Application.evtx',
-        'Security.evtx',
-        'System.evtx',
-        'Setup.evtx',
-        'Microsoft-Windows-PrintService-Operational.evtx',
-        'Active Directory Web Services.evtx',
-        'State.evtx'
-    )
-
-    return ($activeNames -contains $File.Name)
+    # PATH-AGNOSTIC ARCHIVE RULE:
+    # Do not skip evidence files by canonical names such as Security.evtx/System.evtx.
+    # Archived EVTX files may legitimately keep their original channel filename in any folder.
+    return $false
 }
+
 
 function Get-ArchiveSafeEvtxFiles {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object[]]$Files)
 
-    $safeFiles = New-Object System.Collections.Generic.List[object]
+    $safeFiles = New-Object System.Collections.Generic.List[string]
+    $enumeratedCount = 0
+    $selectedCount = 0
+    $lockedSkippedCount = 0
+    $invalidSkippedCount = 0
+
     foreach ($file in @($Files)) {
-        if ($null -eq $file -or [string]::IsNullOrWhiteSpace([string]$file.FullName)) { continue }
-        if (Test-IsLikelyActiveEvtxFile -File $file) {
-            Write-Log "Skipped likely active/canonical EVTX in archived mode to avoid file-lock errors: '$($file.FullName)'" 'WARNING'
-            continue
+        $enumeratedCount++
+        try {
+            $path = $null
+            if ($file -is [System.IO.FileInfo]) {
+                $path = [string]$file.FullName
+            }
+            elseif ($file -and $file.PSObject.Properties['FullName']) {
+                $path = [string]$file.FullName
+            }
+            else {
+                $path = [string]$file
+            }
+
+            if ([string]::IsNullOrWhiteSpace($path)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            $absolutePath = [System.IO.Path]::GetFullPath($path)
+            if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if ([System.IO.Path]::GetExtension($absolutePath) -ine '.evtx') {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if (Test-IsFileLocked -Path $absolutePath) {
+                Write-Log "Skipped locked EVTX file in archived mode: '$absolutePath'" 'WARNING'
+                $lockedSkippedCount++
+                continue
+            }
+
+            [void]$safeFiles.Add([string]$absolutePath)
+            $selectedCount++
         }
-        if (Test-IsFileLocked -Path $file.FullName) {
-            Write-Log "Skipped locked EVTX file in archived mode: '$($file.FullName)'" 'WARNING'
-            continue
+        catch {
+            $invalidSkippedCount++
+            Write-Log "Skipped invalid EVTX source in archived mode. Error: $($_.Exception.Message)" 'WARNING'
         }
-        [void]$safeFiles.Add($file)
     }
-    return @($safeFiles)
+
+    Write-Log "Archive-safe PATH-AGNOSTIC EVTX selection completed. Enumerated=$enumeratedCount; Selected=$selectedCount; LockedSkipped=$lockedSkippedCount; InvalidSkipped=$invalidSkippedCount"
+    return @($safeFiles.ToArray())
 }
+
 
 function Show-Info {
     param([string]$Message, [string]$Title = 'Information')
@@ -693,18 +727,24 @@ function Get-EvtxFilesSafe {
         [Parameter(Mandatory)][bool]$IncludeSubfolders
     )
 
-    if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
+    if ([string]::IsNullOrWhiteSpace($RootPath) -or -not (Test-Path -LiteralPath $RootPath -PathType Container)) {
         throw "The EVTX folder '$RootPath' was not found."
     }
 
-    if ($IncludeSubfolders) {
-        $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -Recurse -ErrorAction Stop
-    } else {
-        $files = Get-ChildItem -LiteralPath $RootPath -Filter '*.evtx' -File -ErrorAction Stop
-    }
+    Write-Log "Enumerating archived EVTX files using PATH-AGNOSTIC string-only pipeline. RootPath='$RootPath'; IncludeSubfolders=$IncludeSubfolders"
 
-    return @(Get-ArchiveSafeEvtxFiles -Files @($files))
+    $gciParams = @{
+        LiteralPath = $RootPath
+        Filter      = '*.evtx'
+        File        = $true
+        ErrorAction = 'Stop'
+    }
+    if ($IncludeSubfolders) { $gciParams['Recurse'] = $true }
+
+    $paths = @(Get-ChildItem @gciParams | ForEach-Object { [string]$_.FullName })
+    return @(Get-ArchiveSafeEvtxFiles -Files $paths)
 }
+
 
 function Parse-DelimitedUsers {
     [CmdletBinding()]

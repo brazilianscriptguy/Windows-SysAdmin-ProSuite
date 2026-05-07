@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Audits Event ID 4648 explicit credential usage from Security EVTX logs.
 
@@ -221,32 +221,74 @@ function Test-IsFileLocked {
 }
 
 function Test-IsActiveSecurityEvtx {
-    param([Parameter(Mandatory)][System.IO.FileInfo]$File)
-    return ($File.Name -ieq 'Security.evtx')
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$File)
+
+    # PATH-AGNOSTIC ARCHIVE RULE:
+    # Do not skip archived evidence by filename. Lock checks protect true live files.
+    return $false
 }
 
+
 function Get-ArchiveSafeEvtxFiles {
-    param([Parameter(Mandatory)][string]$Folder, [bool]$IncludeSubfolders)
-    if (-not (Test-Path -LiteralPath $Folder -PathType Container)) { throw "EVTX folder does not exist: $Folder" }
-    $files = if ($IncludeSubfolders) {
-        @(Get-ChildItem -LiteralPath $Folder -Filter '*.evtx' -File -Recurse -ErrorAction Stop)
-    } else {
-        @(Get-ChildItem -LiteralPath $Folder -Filter '*.evtx' -File -ErrorAction Stop)
-    }
-    $safe = New-Object System.Collections.ArrayList
-    foreach ($file in $files) {
-        if (Test-IsActiveSecurityEvtx -File $file) {
-            Write-Log "Skipped active/canonical EVTX in archive mode: $($file.FullName)" 'WARN'
-            continue
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Files)
+
+    $safeFiles = New-Object System.Collections.Generic.List[string]
+    $enumeratedCount = 0
+    $selectedCount = 0
+    $lockedSkippedCount = 0
+    $invalidSkippedCount = 0
+
+    foreach ($file in @($Files)) {
+        $enumeratedCount++
+        try {
+            $path = $null
+            if ($file -is [System.IO.FileInfo]) {
+                $path = [string]$file.FullName
+            }
+            elseif ($file -and $file.PSObject.Properties['FullName']) {
+                $path = [string]$file.FullName
+            }
+            else {
+                $path = [string]$file
+            }
+
+            if ([string]::IsNullOrWhiteSpace($path)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            $absolutePath = [System.IO.Path]::GetFullPath($path)
+            if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if ([System.IO.Path]::GetExtension($absolutePath) -ine '.evtx') {
+                $invalidSkippedCount++
+                continue
+            }
+
+            if (Test-IsFileLocked -Path $absolutePath) {
+                Write-Log "Skipped locked EVTX file in archived mode: '$absolutePath'" 'WARNING'
+                $lockedSkippedCount++
+                continue
+            }
+
+            [void]$safeFiles.Add([string]$absolutePath)
+            $selectedCount++
         }
-        if (Test-IsFileLocked -Path $file.FullName) {
-            Write-Log "Skipped locked EVTX file: $($file.FullName)" 'WARN'
-            continue
+        catch {
+            $invalidSkippedCount++
+            Write-Log "Skipped invalid EVTX source in archived mode. Error: $($_.Exception.Message)" 'WARNING'
         }
-        [void]$safe.Add($file)
     }
-    return @($safe.ToArray())
+
+    Write-Log "Archive-safe PATH-AGNOSTIC EVTX selection completed. Enumerated=$enumeratedCount; Selected=$selectedCount; LockedSkipped=$lockedSkippedCount; InvalidSkipped=$invalidSkippedCount"
+    return @($safeFiles.ToArray())
 }
+
 
 function Invoke-LogParserBatch {
     param([Parameter(Mandatory)][string]$Sql, [Parameter(Mandatory)][string]$Context)
