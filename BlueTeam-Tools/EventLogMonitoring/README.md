@@ -79,9 +79,33 @@ All scripts are structured for **Windows Server 2019 environments using PowerShe
 
 # 🧠 Windows Event IDs Covered by the Toolkit
 
-## Authentication and Logon
+This toolkit provides forensic-oriented PowerShell utilities for:
 
-```
+* live Windows Event Log acquisition
+* archived `.evtx` forensic analysis
+* timeline reconstruction
+* privileged access auditing
+* authentication tracking
+* Active Directory object monitoring
+* persistence detection
+* restart attribution analysis
+* file server evidence extraction
+
+All tools support:
+
+* PowerShell 5.1+
+* structured CSV exports
+* forensic logging
+* GUI-based execution
+* PATH-AGNOSTIC archived EVTX processing
+* recursive EVTX folder analysis
+* live log acquisition and offline forensic workflows
+
+---
+
+# 🔐 Authentication and Logon Events
+
+```text
 4624  Successful Logon
 4625  Failed Logon
 4634  Logoff
@@ -90,19 +114,31 @@ All scripts are structured for **Windows Server 2019 environments using PowerShe
 4768  Kerberos TGT Request
 4769  Kerberos Service Ticket Request
 4771  Kerberos Pre-Authentication Failure
+4800  Workstation Locked
+4801  Workstation Unlocked
 ```
 
 ---
 
-## Active Directory Changes and Privileged Operations
+# 👑 Privileged Access and Persistence Monitoring
 
-```
+```text
+4672  Special Privileges Assigned
+4698  Scheduled Task Creation
 4720  User Account Created
 4724  Password Reset
 4728  User Added to Security Group
 4732  User Added to Local Group
 4735  Security Group Modified
 4756  User Added to Universal Security Group
+7045  Service Installation
+```
+
+---
+
+# 🏛 Active Directory Changes and Object Tracking
+
+```text
 5136  Directory Object Modified
 5137  Directory Object Created
 5141  Directory Object Deleted
@@ -110,84 +146,107 @@ All scripts are structured for **Windows Server 2019 environments using PowerShe
 
 ---
 
-## Endpoint and User Activity
+# 📂 File Server and Object Access Monitoring
 
-```
+```text
 4663  Object Access / Deletion Activity
-4698  Scheduled Task Creation
-4800  Workstation Locked
-4801  Workstation Unlocked
+```
+
+Additional forensic extraction workflows support:
+
+* bulk evidence extraction
+* EVTX correlation
+* file server investigation workflows
+* timeline reconstruction
+
+---
+
+# 🖨 Print Monitoring
+
+```text
+307  Print Job Activity
 ```
 
 ---
 
-## Print and Service Monitoring
+# 🛡 Log Integrity and Restart Attribution
 
-```
-307   Print Job Activity
-7045  Service Installation
-```
-
----
-
-## Log Integrity and Restart Attribution
-
-```
+```text
 1102  Security Log Cleared
+
 6005  Event Log Service Started
 6006  Event Log Service Stopped
 6008  Unexpected Shutdown
-6009  OS Version Logged
+6009  Operating System Version Logged
 6013  System Uptime
+
 1074  Planned Shutdown / Restart
 1076  Unexpected Shutdown Reason
 ```
 
 ---
 
-## EVTX Inventory and Bulk Analysis
+# 📦 EVTX Inventory and Bulk Analysis
 
-All event IDs present in archived `.evtx` files can be analyzed using:
+The toolkit also supports:
 
-```
-EventID-Count-AllEvtx-Events.ps1
-```
+* full EVTX inventory analysis
+* Event ID counting across archived `.evtx` repositories
+* recursive evidence scanning
+* large-scale forensic event enumeration
 
 ---
 
 # 🚀 How to Use
 
-1️⃣ Execute the desired script:
+## 1️⃣ Execute the Desired Script
+
+### GUI Execution
 
 * Right-click → **Run with PowerShell**
-* or launch from an **elevated PowerShell console**
+
+### Console Execution
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\ScriptName.ps1
+```
 
 ---
 
-2️⃣ Choose the analysis mode supported by the script:
+## 2️⃣ Choose the Analysis Mode
 
-**Live Log Mode**
+### Live Log Mode
 
 * reads directly from Windows Event Logs
+* uses live acquisition workflows
+* supports Security/System/Operational channels depending on the tool
 
-**Archived EVTX Mode**
+### Archived EVTX Mode
 
-* analyzes `.evtx` files selected from a folder
+* analyzes offline `.evtx` files
+* supports recursive folder scanning
+* supports PATH-AGNOSTIC evidence locations
+* accepts `.evtx` files from:
+  * local folders
+  * mounted forensic images
+  * external storage
+  * network shares
+  * exported evidence repositories
 
 ---
 
-3️⃣ Review exported artifacts:
+## 3️⃣ Review Exported Artifacts
 
-| File Type | Purpose                                    |
-| --------- | ------------------------------------------ |
-| `.csv`    | Structured analytical output               |
-| `.log`    | Execution trace and processing information |
+| File Type | Purpose |
+|---|---|
+| `.csv` | Structured analytical evidence |
+| `.log` | Execution trace and forensic processing lifecycle |
 
 ---
 
-# 🛠 Requirements
+# 🛠 Technical Requirements
 
-### PowerShell
+## PowerShell
 
 PowerShell **5.1 or later**
 
@@ -197,24 +256,32 @@ $PSVersionTable.PSVersion
 
 ---
 
-### Administrative Privileges
+## Administrative Privileges
 
-Scripts should be executed with **Administrator rights**.
+Scripts should be executed with:
 
----
-
-### Microsoft Log Parser 2.2
-
-Required only by scripts that perform **SQL-style EVTX parsing**.
+* local Administrator privileges
+* or equivalent forensic analyst privileges
 
 ---
 
-### Windows Event Logs
+## Microsoft Log Parser 2.2
 
-Scripts can analyze:
+Required by scripts using:
+
+* Log Parser COM
+* SQL-style EVTX parsing
+* forensic correlation workflows
+
+---
+
+## Windows Event Logs
+
+Supported evidence sources:
 
 * live Windows Event Logs
 * archived `.evtx` files
+* exported forensic snapshots
 
 ---
 
@@ -224,7 +291,7 @@ Scripts can analyze:
 
 Execution traces are written to:
 
-```
+```text
 C:\Logs-TEMP
 ```
 
@@ -234,17 +301,34 @@ C:\Logs-TEMP
 
 Structured reports are exported by default to:
 
-```
+```powershell
 $env:USERPROFILE\Documents
 ```
 
-These outputs are suitable for:
+Generated artifacts are suitable for:
 
 * Excel analysis
 * forensic timeline reconstruction
 * SIEM ingestion
-* incident documentation
+* DFIR workflows
+* incident response
 * audit evidence support
+* administrative investigations
+
+---
+
+# 🧬 Forensic Processing Architecture
+
+The toolkit implements:
+
+* PATH-AGNOSTIC archived EVTX processing
+* string-only EVTX path pipelines
+* live acquisition separation
+* offline evidence isolation
+* recursive EVTX enumeration
+* Log Parser COM + Get-WinEvent fallback workflows
+* structured forensic normalization
+* ordered evidence export schemas
 
 ---
 
@@ -252,33 +336,60 @@ These outputs are suitable for:
 
 ## Academic Reference
 
-**2017 - Audit of Event Logs - Master's Thesis.pdf**
+### `2017 - Audit of Event Logs - Master's Thesis.pdf`
 
-Provides conceptual background for Windows Event Log auditing.
+Provides conceptual background for:
+
+* Windows Event Log auditing
+* forensic event reconstruction
+* evidence correlation
+* security auditing methodologies
 
 ---
 
 ## Print Monitoring Support
 
-Files related to PrintService Operational logging:
+### Supporting Files
 
-* **PrintService-Operational-EventLogs.md**
-* **PrintService-Operational-EventLogs.reg**
+* `PrintService-Operational-EventLogs.md`
+* `PrintService-Operational-EventLogs.reg`
 
-These support the print monitoring workflow and help configure the necessary logging environment.
+These files assist with:
+
+* enabling PrintService Operational logging
+* configuring print auditing
+* validating print forensic workflows
 
 ---
 
 # 💡 Operational Recommendations
 
-For operational security deployments:
+For enterprise and forensic deployments:
 
-* preserve original `.evtx` files for evidentiary integrity
-* centralize `.csv` and `.log` artifacts in secured storage
-* use **archived EVTX mode** for retrospective investigations
-* use **live log mode** for triage and recurring audits
-* validate execution policy and administrative privileges before running scripts
+* preserve original `.evtx` files
+* maintain evidence chain-of-custody
+* centralize `.csv` and `.log` artifacts
+* use archived EVTX mode for retrospective investigations
+* use live mode for triage and recurring audits
+* validate execution policy before running scripts
+* preserve original timestamps and metadata
+* avoid modifying source evidence repositories
 
 ---
 
-© 2026 Luiz Hamilton Silva - All rights reserved.
+# ⚖️ Intended Usage
+
+This toolkit is intended for:
+
+* DFIR
+* Windows security auditing
+* Active Directory investigations
+* privileged access monitoring
+* insider threat investigations
+* administrative auditing
+* incident response
+* forensic evidence reconstruction
+
+---
+
+© 2026 Luiz Hamilton Roberto da Silva — All rights reserved.
