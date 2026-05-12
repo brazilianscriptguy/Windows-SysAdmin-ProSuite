@@ -92,6 +92,32 @@ Execution on elevated account:
 ```powershell
 powershell -ExecutionPolicy Bypass -File Remove-n-Clean-Winget-on-Windows-Servers.ps1
 ```
+## 🗓️ GLPI Agent Deferred Scheduled Task
+
+The `Deploy-GLPI-Agent-viaGPO.ps1` deployment framework uses a **deferred Scheduled Task orchestration model** instead of directly executing `glpi-inventory.bat`.
+
+This enterprise architecture improves:
+- deployment stability;
+- inventory convergence reliability;
+- offline execution resilience;
+- local repair capability;
+- artifact consistency;
+- enterprise-scale maintainability.
+
+---
+
+## ⚙️ Scheduled Task Configuration
+
+| Field | Value |
+|---|---|
+| Action | `Start a program` |
+| Program/script | `C:\ProgramData\SCRIPTGUY\GLPI-Agent-Deploy\run-glpi-agent-deferred.cmd` |
+| Add arguments | *(leave empty)* |
+| Start in | `C:\ProgramData\SCRIPTGUY\GLPI-Agent-Deploy` |
+| Run As | `SYSTEM` |
+| Run Level | `Highest privileges` |
+
+---
 
 ---
 
