@@ -52,8 +52,6 @@ All scripts align with the engineering standards used throughout **Windows-SysAd
 
 # 📄 Script Catalog
 
----
-
 ## 🟦 PowerShell Automation Suite (.ps1)
 
 | Script Name | Function |
