@@ -37,7 +37,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-05-25-v8.4.0-OPERATIONS-CENTER-UI
+    2026-05-25-v9.3.0-SORTABLE-COLUMNS-CLEANUP-BUTTON-VERIFIED
 
 .NOTES
     Requires:
@@ -52,42 +52,42 @@
     Removal requires explicit confirmation.
 #>
 
-#requires -version 5.1
+# Hide the PowerShell console window
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Window {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    public static void Hide() {
+        var handle = GetConsoleWindow();
+        ShowWindow(handle, 0); // 0 = SW_HIDE
+    }
+    public static void Show() {
+        var handle = GetConsoleWindow();
+        ShowWindow(handle, 5); // 5 = SW_SHOW
+    }
+}
+"@
+
+[Window]::Hide()
+
+$ProgressPreference = 'SilentlyContinue'
+$VerbosePreference = 'SilentlyContinue'
+$InformationPreference = 'SilentlyContinue'
+$WarningPreference = 'SilentlyContinue'
+$DebugPreference = 'SilentlyContinue'
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
-# ------------------------------------------------------------
-# Console visibility helpers
-# ------------------------------------------------------------
-try {
-    Add-Type -Namespace Win32 -Name NativeMethods -MemberDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public static class NativeMethods {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetConsoleWindow();
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
-"@ -ErrorAction SilentlyContinue
-}
-catch {}
-
-function Set-ConsoleVisibility {
-    param([Parameter(Mandatory)][bool]$Visible)
-
-    try {
-        $hwnd = [Win32.NativeMethods]::GetConsoleWindow()
-        if ($hwnd -eq [IntPtr]::Zero) { return }
-        $null = [Win32.NativeMethods]::ShowWindow($hwnd, $(if ($Visible) { 5 } else { 0 }))
-    }
-    catch {}
-}
-
-Set-ConsoleVisibility -Visible:$false
+$ProgressPreference = 'SilentlyContinue'
+$VerbosePreference = 'SilentlyContinue'
+$InformationPreference = 'SilentlyContinue'
+$WarningPreference = 'SilentlyContinue'
+$DebugPreference = 'SilentlyContinue'
 
 # ------------------------------------------------------------
 # Assemblies and visual styles
@@ -96,7 +96,7 @@ try {
     Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
     Add-Type -AssemblyName System.Drawing -ErrorAction Stop
     [System.Windows.Forms.Application]::EnableVisualStyles()
-}
+    }
 catch {
     Write-Error "Failed to load required .NET assemblies: $($_.Exception.Message)"
     exit 1
@@ -109,10 +109,10 @@ $scriptName = try {
     if ($script:PreferredScriptName) { [string]$script:PreferredScriptName }
     elseif ($PSCommandPath) { [IO.Path]::GetFileNameWithoutExtension($PSCommandPath) }
     elseif ($MyInvocation.MyCommand.Path) { [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Path) }
-    else { "Cleanup-Inactive-ADComputerAccounts-Governance" }
+    else { "Invoke-ADComputerGovernanceLifecycle" }
 }
 catch {
-    "Cleanup-Inactive-ADComputerAccounts-Governance"
+    "Invoke-ADComputerGovernanceLifecycle"
 }
 
 $Script:LogDir  = "C:\Logs-TEMP"
@@ -193,6 +193,7 @@ function Invoke-GuiSafe {
 }
 
 Write-Log -Message "==== Session started ====" -Level INFO
+Write-Log -Message "Startup model: GUI-first; no ActiveDirectory module import and no forest enumeration during window creation." -Level INFO
 Write-Log -Message ("Script: {0}" -f $PSCommandPath) -Level INFO
 Write-Log -Message ("LogPath: {0}" -f $Script:LogPath) -Level INFO
 Write-Log -Message ("StatePath: {0}" -f $Script:StatePath) -Level INFO
@@ -264,6 +265,14 @@ function Set-StatusText {
     )
 
     $Label.Text = $Text
+
+    try {
+        if ($null -ne $statusWorkflow) {
+            $statusWorkflow.Text = "Status: $Text"
+        }
+    }
+    catch {}
+
     [System.Windows.Forms.Application]::DoEvents()
 }
 
@@ -282,15 +291,16 @@ function Confirm-Action {
 }
 
 # ------------------------------------------------------------
-# Module validation
+# Deferred ActiveDirectory module loader
+# Same operational model used by Check-Shorter-ADComputerNames.ps1:
+# import only inside the AD operation path, not during startup.
 # ------------------------------------------------------------
-try {
-    Import-Module ActiveDirectory -ErrorAction Stop
-    Write-Log -Message "ActiveDirectory module loaded successfully." -Level SUCCESS
-}
-catch {
-    Show-AppMessage -Message "Failed to load the ActiveDirectory module. Install RSAT / Active Directory module for Windows PowerShell 5.1.`r`n$($_.Exception.Message)" -Type Error
-    exit 1
+$script:ActiveDirectoryModuleLoaded = $false
+
+function Ensure-ActiveDirectoryModule {
+    # ActiveDirectory PowerShell module intentionally not used.
+    # This tool uses System.DirectoryServices / LDAP to avoid AD module loading progress windows.
+    return $true
 }
 
 # ------------------------------------------------------------
@@ -1346,6 +1356,224 @@ function ConvertTo-NormalizedComputerObject {
     }
 }
 
+
+# ------------------------------------------------------------
+# LDAP Engine - no ActiveDirectory PowerShell module dependency
+# ------------------------------------------------------------
+
+function ConvertTo-LdapFileTimeDate {
+    param([AllowNull()]$Value)
+
+    try {
+        if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+            return $null
+        }
+
+        $i64 = [Int64]$Value
+        if ($i64 -le 0) {
+            return $null
+        }
+
+        return [DateTime]::FromFileTime($i64)
+    }
+    catch {
+        return $null
+    }
+}
+
+function Get-LdapPropertyFirst {
+    param(
+        [Parameter(Mandatory = $true)]$SearchResult,
+        [Parameter(Mandatory = $true)][string]$PropertyName
+    )
+
+    try {
+        $propertyKey = $PropertyName.ToLowerInvariant()
+
+        if ($SearchResult.Properties.Contains($propertyKey) -and $SearchResult.Properties[$propertyKey].Count -gt 0) {
+            return $SearchResult.Properties[$propertyKey][0]
+        }
+    }
+    catch {}
+
+    return $null
+}
+
+function Get-LdapPropertyArray {
+    param(
+        [Parameter(Mandatory = $true)]$SearchResult,
+        [Parameter(Mandatory = $true)][string]$PropertyName
+    )
+
+    $values = @()
+
+    try {
+        $propertyKey = $PropertyName.ToLowerInvariant()
+
+        if ($SearchResult.Properties.Contains($propertyKey)) {
+            foreach ($value in $SearchResult.Properties[$propertyKey]) {
+                if (-not [string]::IsNullOrWhiteSpace([string]$value)) {
+                    $values += [string]$value
+                }
+            }
+        }
+    }
+    catch {}
+
+    return @($values)
+}
+
+function ConvertTo-NormalizedComputerObjectFromLdap {
+    param(
+        [Parameter(Mandatory = $true)]$SearchResult,
+        [Parameter(Mandatory = $true)][string]$SourceDomain,
+        [Parameter(Mandatory = $true)][string]$SourceDomainController
+    )
+
+    $uac = 0
+    try { $uac = [int](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "userAccountControl") } catch { $uac = 0 }
+
+    $lastLogonTimestampRaw = Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "lastLogonTimestamp"
+    $pwdLastSetRaw = Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "pwdLastSet"
+    $whenCreatedRaw = Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "whenCreated"
+    $whenChangedRaw = Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "whenChanged"
+
+    $lastLogonDate = ConvertTo-LdapFileTimeDate -Value $lastLogonTimestampRaw
+    $passwordLastSet = ConvertTo-LdapFileTimeDate -Value $pwdLastSetRaw
+
+    $whenCreated = $null
+    $whenChanged = $null
+
+    try { if ($whenCreatedRaw) { $whenCreated = [DateTime]$whenCreatedRaw } } catch {}
+    try { if ($whenChangedRaw) { $whenChanged = [DateTime]$whenChangedRaw } } catch {}
+
+    return [PSCustomObject]@{
+        PSTypeName                = "ADGovernance.NormalizedComputer"
+        SourceDomain              = [string]$SourceDomain
+        SourceDomainController    = [string]$SourceDomainController
+        Name                      = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "name")
+        SamAccountName            = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "sAMAccountName")
+        DistinguishedName         = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "distinguishedName")
+        Enabled                   = [bool](($uac -band 2) -eq 0)
+        OperatingSystem           = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "operatingSystem")
+        OperatingSystemVersion    = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "operatingSystemVersion")
+        DNSHostName               = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "dNSHostName")
+        IPv4Address               = ""
+        LastLogonDate             = $lastLogonDate
+        LastLogonTimestamp        = if ($lastLogonTimestampRaw) { [Int64]$lastLogonTimestampRaw } else { $null }
+        PasswordLastSet           = $passwordLastSet
+        WhenCreated               = $whenCreated
+        WhenChanged               = $whenChanged
+        Description               = [string](Get-LdapPropertyFirst -SearchResult $SearchResult -PropertyName "description")
+        ServicePrincipalName      = @(Get-LdapPropertyArray -SearchResult $SearchResult -PropertyName "servicePrincipalName")
+        NormalizedAt              = Get-Date
+    }
+}
+
+function Search-LdapComputers {
+    param(
+        [Parameter(Mandatory = $true)][string]$Domain,
+        [Parameter(Mandatory = $true)][ValidateSet("DisabledOnly","AllWorkstations")][string]$Mode
+    )
+
+    $results = @()
+
+    try {
+        $ldapPath = "LDAP://$Domain"
+        $root = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+        $searcher = New-Object System.DirectoryServices.DirectorySearcher($root)
+        $searcher.PageSize = 1000
+        $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+
+        if ($Mode -eq "DisabledOnly") {
+            $searcher.Filter = "(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=2))"
+        }
+        else {
+            $searcher.Filter = "(&(objectCategory=computer)(objectClass=computer))"
+        }
+
+        foreach ($property in @(
+            "name",
+            "sAMAccountName",
+            "distinguishedName",
+            "userAccountControl",
+            "operatingSystem",
+            "operatingSystemVersion",
+            "dNSHostName",
+            "lastLogonTimestamp",
+            "pwdLastSet",
+            "whenCreated",
+            "whenChanged",
+            "description",
+            "servicePrincipalName"
+        )) {
+            [void]$searcher.PropertiesToLoad.Add($property)
+        }
+
+        $found = $searcher.FindAll()
+
+        foreach ($item in $found) {
+            $results += $item
+        }
+
+        try { $found.Dispose() } catch {}
+        try { $searcher.Dispose() } catch {}
+        try { $root.Dispose() } catch {}
+    }
+    catch {
+        Write-Log -Message ("LDAP search failed for domain {0}. {1}" -f $Domain, $_.Exception.Message) -Level ERROR
+    }
+
+    return @($results)
+}
+
+function Remove-LdapComputerObject {
+    param(
+        [Parameter(Mandatory = $true)][string]$DistinguishedName
+    )
+
+    $entry = $null
+
+    try {
+        $entry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DistinguishedName")
+        $parent = $entry.Parent
+
+        $parent.Children.Remove($entry)
+        $parent.CommitChanges()
+
+        try { $entry.Dispose() } catch {}
+        try { $parent.Dispose() } catch {}
+
+        return $true
+    }
+    catch {
+        try { if ($entry) { $entry.Dispose() } } catch {}
+        throw
+    }
+}
+
+function Test-LdapObjectHasChildren {
+    param(
+        [Parameter(Mandatory = $true)][string]$DistinguishedName
+    )
+
+    try {
+        $entry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DistinguishedName")
+        $children = $entry.Children
+
+        foreach ($child in $children) {
+            try { $entry.Dispose() } catch {}
+            return $true
+        }
+
+        try { $entry.Dispose() } catch {}
+        return $false
+    }
+    catch {
+        return $true
+    }
+}
+
 # ------------------------------------------------------------
 # Query and record construction
 # ------------------------------------------------------------
@@ -1467,34 +1695,14 @@ function Get-AdComputerInventoryForDomain {
         [bool]$IncludeServerLikeObjects
     )
 
-    $records = New-Object System.Collections.ArrayList
+    $records = @()
 
     try {
-        $domainController = Get-ADDomainController -Discover -DomainName $Domain -Service ADWS -ErrorAction Stop
-        $server = Resolve-ADServerName -DomainController $domainController -Domain $Domain
+        $server = $Domain
 
-        Write-Log -Message ("AD acquisition started. Domain={0} | Server={1} | Mode={2}" -f $Domain, $server, $Mode) -Level INFO
+        Write-Log -Message ("LDAP acquisition started. Domain={0} | Server={1} | Mode={2}" -f $Domain, $server, $Mode) -Level INFO
 
-        if ($Mode -eq "DisabledOnly") {
-            $computerObjects = @(
-                Get-ADComputer `
-                    -Server $server `
-                    -LDAPFilter "(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=2))" `
-                    -Properties OperatingSystem,OperatingSystemVersion,DNSHostName,IPv4Address,LastLogonDate,LastLogonTimestamp,PasswordLastSet,WhenCreated,WhenChanged,Enabled,Description,DistinguishedName,ServicePrincipalName,SamAccountName `
-                    -ResultSetSize $null `
-                    -ErrorAction Stop
-            )
-        }
-        else {
-            $computerObjects = @(
-                Get-ADComputer `
-                    -Server $server `
-                    -Filter * `
-                    -Properties OperatingSystem,OperatingSystemVersion,DNSHostName,IPv4Address,LastLogonDate,LastLogonTimestamp,PasswordLastSet,WhenCreated,WhenChanged,Enabled,Description,DistinguishedName,ServicePrincipalName,SamAccountName `
-                    -ResultSetSize $null `
-                    -ErrorAction Stop
-            )
-        }
+        $computerObjects = @(Search-LdapComputers -Domain $Domain -Mode $Mode)
 
         $rawCount = Get-SafeCount -InputObject $computerObjects
         $normalizedCount = 0
@@ -1503,8 +1711,8 @@ function Get-AdComputerInventoryForDomain {
 
         foreach ($rawComputer in (ConvertTo-SafeArray -InputObject $computerObjects)) {
             try {
-                $computer = ConvertTo-NormalizedComputerObject `
-                    -Computer $rawComputer `
+                $computer = ConvertTo-NormalizedComputerObjectFromLdap `
+                    -SearchResult $rawComputer `
                     -SourceDomain $Domain `
                     -SourceDomainController $server
 
@@ -1520,7 +1728,7 @@ function Get-AdComputerInventoryForDomain {
                     continue
                 }
 
-                [void]$records.Add($computer)
+                $records += $computer
                 $normalizedCount++
             }
             catch {
@@ -1530,48 +1738,13 @@ function Get-AdComputerInventoryForDomain {
             }
         }
 
-        Write-Log -Message ("AD acquisition completed. Domain={0} | Mode={1} | Raw={2} | Normalized={3} | Skipped={4} | Failures={5}" -f $Domain, $Mode, $rawCount, $normalizedCount, $skippedCount, $normalizationFailures) -Level SUCCESS
+        Write-Log -Message ("LDAP acquisition completed. Domain={0} | Mode={1} | Raw={2} | Normalized={3} | Skipped={4} | Failures={5}" -f $Domain, $Mode, $rawCount, $normalizedCount, $skippedCount, $normalizationFailures) -Level SUCCESS
     }
     catch {
-        Write-Log -Message ("Domain inventory failed for {0}. {1}" -f $Domain, $_.Exception.Message) -Level ERROR
+        Write-Log -Message ("Domain LDAP inventory failed for {0}. {1}" -f $Domain, $_.Exception.Message) -Level ERROR
     }
 
-    return @($records.ToArray())
-}
-
-function Invoke-DisabledWorkstationsGovernanceAudit {
-    param(
-        [bool]$EnableDNS,
-        [bool]$EnablePing,
-        [bool]$IncludeUnknownOS,
-        [bool]$IncludeServerLikeObjects,
-        [int]$InactiveDays
-    )
-
-    $results = New-Object System.Collections.Generic.List[object]
-    $domains = Get-ForestDomainsSafe
-
-    foreach ($domain in $domains) {
-        Write-Log -Message "Disabled workstation governance audit: processing domain $domain." -Level INFO
-
-        $computers = Get-AdComputerInventoryForDomain `
-            -Domain $domain `
-            -Mode DisabledOnly `
-            -IncludeUnknownOS $IncludeUnknownOS `
-            -IncludeServerLikeObjects $IncludeServerLikeObjects
-
-        foreach ($computer in (ConvertTo-SafeArray -InputObject $computers)) {
-            [void]$results.Add((New-ComputerGovernanceRecord `
-                -Computer $computer `
-                -SourceDomain $domain `
-                -Workflow "DISABLED_WORKSTATIONS_GOVERNANCE" `
-                -EnableDNS $EnableDNS `
-                -EnablePing $EnablePing `
-                -InactiveDays $InactiveDays))
-        }
-    }
-
-    return @($results.ToArray() | Sort-Object -Property @{Expression="GovernanceScore";Descending=$true}, SourceDomain, Name)
+    return @($records)
 }
 
 function Invoke-InactiveWorkstationsLifecycleDiscovery {
@@ -1653,27 +1826,14 @@ function Remove-SelectedWorkstationAccounts {
                 continue
             }
 
-            $children = @(
-                Get-ADObject `
-                    -LDAPFilter "(objectClass=*)" `
-                    -SearchBase $record.DistinguishedName `
-                    -SearchScope OneLevel `
-                    -Server $record.SourceDomain `
-                    -ErrorAction Stop
-            )
-
-            if ((Get-SafeCount -InputObject $children) -gt 0) {
+            if (Test-LdapObjectHasChildren -DistinguishedName $record.DistinguishedName) {
                 $skippedCount++
                 Set-GovernanceActionState -Record $record -ActionStatus "SKIPPED" -Action "REMOVE_AD_COMPUTER" -Notes "Skipped because object contains child objects."
                 Write-Log -Message "Skipped removal of $($record.Name). Object contains child objects." -Level WARNING
                 continue
             }
 
-            Remove-ADComputer `
-                -Identity $record.DistinguishedName `
-                -Confirm:$false `
-                -Server $record.SourceDomain `
-                -ErrorAction Stop
+            # Destructive cleanup operation: delete AD workstation object through LDAP.`r`n            Remove-LdapComputerObject -DistinguishedName $record.DistinguishedName | Out-Null
 
             [void]$removedComputers.Add($record)
             Set-OrchestrationTransition -Record $record -NewState "REMOVED" -Action "REMOVE_AD_COMPUTER" -Notes "AD computer object removed by operator through stateful lifecycle platform." -ApprovalStatus "APPROVED"
@@ -1708,7 +1868,53 @@ function Remove-SelectedWorkstationAccounts {
 # Sortable ListView
 # ------------------------------------------------------------
 $script:SortColumn = -1
-$script:SortOrder = "Ascending"
+$script:SortAscending = $true
+
+function Convert-ListViewSortValue {
+    param([AllowNull()][string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return ""
+    }
+
+    $trimmed = $Value.Trim()
+
+    $intValue = 0
+    if ([int]::TryParse($trimmed, [ref]$intValue)) {
+        return $intValue
+    }
+
+    $dateValue = [DateTime]::MinValue
+    if ([DateTime]::TryParse($trimmed, [ref]$dateValue)) {
+        return $dateValue
+    }
+
+    $boolValue = $false
+    if ([bool]::TryParse($trimmed, [ref]$boolValue)) {
+        return $boolValue
+    }
+
+    return $trimmed.ToUpperInvariant()
+}
+
+function Set-ListViewColumnSortIndicators {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.ListView]$ListView,
+        [Parameter(Mandatory = $true)][int]$ColumnIndex,
+        [Parameter(Mandatory = $true)][bool]$Ascending
+    )
+
+    for ($i = 0; $i -lt $ListView.Columns.Count; $i++) {
+        $text = $ListView.Columns[$i].Text
+        $text = $text -replace '\s*[▲▼]$', ''
+        $ListView.Columns[$i].Text = $text
+    }
+
+    if ($ColumnIndex -ge 0 -and $ColumnIndex -lt $ListView.Columns.Count) {
+        $arrow = if ($Ascending) { " ▲" } else { " ▼" }
+        $ListView.Columns[$ColumnIndex].Text = ($ListView.Columns[$ColumnIndex].Text -replace '\s*[▲▼]$', '') + $arrow
+    }
+}
 
 function Set-SortableListView {
     param([System.Windows.Forms.ListView]$ListView)
@@ -1717,28 +1923,42 @@ function Set-SortableListView {
         param($Sender, $EventArgs)
 
         if ($script:SortColumn -eq $EventArgs.Column) {
-            if ($script:SortOrder -eq "Ascending") { $script:SortOrder = "Descending" }
-            else { $script:SortOrder = "Ascending" }
+            $script:SortAscending = -not $script:SortAscending
         }
         else {
             $script:SortColumn = $EventArgs.Column
-            $script:SortOrder = "Ascending"
+            $script:SortAscending = $true
         }
 
-        $items = New-Object System.Collections.Generic.List[System.Windows.Forms.ListViewItem]
-        foreach ($item in $Sender.Items) { [void]$items.Add($item) }
+        $items = @()
+        foreach ($item in $Sender.Items) {
+            $items += $item
+        }
 
-        if ($script:SortOrder -eq "Ascending") {
-            $sorted = $items.ToArray() | Sort-Object { $_.SubItems[$EventArgs.Column].Text }
+        if ($script:SortAscending) {
+            $sorted = $items | Sort-Object {
+                Convert-ListViewSortValue -Value $_.SubItems[$EventArgs.Column].Text
+            }
         }
         else {
-            $sorted = $items.ToArray() | Sort-Object { $_.SubItems[$EventArgs.Column].Text } -Descending
+            $sorted = $items | Sort-Object {
+                Convert-ListViewSortValue -Value $_.SubItems[$EventArgs.Column].Text
+            } -Descending
         }
 
         $Sender.BeginUpdate()
-        $Sender.Items.Clear()
-        foreach ($item in $sorted) { [void]$Sender.Items.Add($item) }
-        $Sender.EndUpdate()
+        try {
+            $Sender.Items.Clear()
+
+            foreach ($item in $sorted) {
+                [void]$Sender.Items.Add($item)
+            }
+
+            Set-ListViewColumnSortIndicators -ListView $Sender -ColumnIndex $EventArgs.Column -Ascending $script:SortAscending
+        }
+        finally {
+            $Sender.EndUpdate()
+        }
     })
 }
 
@@ -1746,156 +1966,188 @@ function Set-SortableListView {
 # GUI construction
 # ------------------------------------------------------------
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "AD Computer Governance Operations Center"
-$form.ClientSize = New-Object System.Drawing.Size(1700, 820)
-$form.MinimumSize = New-Object System.Drawing.Size(1450, 760)
+$form.Text = "AD Computer Lifecycle Governance Operations Center"
+$form.ClientSize = New-Object System.Drawing.Size(1700, 850)
+$form.MinimumSize = New-Object System.Drawing.Size(1450, 780)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = [System.Drawing.Color]::White
 $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-$topPanel = New-Object System.Windows.Forms.Panel
-$topPanel.Location = New-Object System.Drawing.Point(10, 10)
-$topPanel.Size = New-Object System.Drawing.Size(1680, 120)
-$topPanel.Anchor = "Top,Left,Right"
-$topPanel.BackColor = [System.Drawing.Color]::FromArgb(245,245,245)
+$filterPanel = New-Object System.Windows.Forms.Panel
+$filterPanel.Location = New-Object System.Drawing.Point(10, 10)
+$filterPanel.Size = New-Object System.Drawing.Size(1680, 48)
+$filterPanel.Anchor = "Top,Left,Right"
+$filterPanel.BackColor = [System.Drawing.Color]::FromArgb(245,245,245)
+
+$actionPanel = New-Object System.Windows.Forms.Panel
+$actionPanel.Location = New-Object System.Drawing.Point(10, 62)
+$actionPanel.Size = New-Object System.Drawing.Size(1680, 58)
+$actionPanel.Anchor = "Top,Left,Right"
+$actionPanel.BackColor = [System.Drawing.Color]::FromArgb(245,245,245)
 
 $labelWorkflow = New-Object System.Windows.Forms.Label
-$labelWorkflow.Text = "Workflow:"
-$labelWorkflow.Location = New-Object System.Drawing.Point(12, 14)
+$labelWorkflow.Text = "Filter:"
+$labelWorkflow.Location = New-Object System.Drawing.Point(15, 15)
 $labelWorkflow.AutoSize = $true
 
 $comboWorkflow = New-Object System.Windows.Forms.ComboBox
-$comboWorkflow.Location = New-Object System.Drawing.Point(80, 10)
-$comboWorkflow.Size = New-Object System.Drawing.Size(360, 28)
+$comboWorkflow.Location = New-Object System.Drawing.Point(80, 11)
+$comboWorkflow.Size = New-Object System.Drawing.Size(300, 28)
 $comboWorkflow.DropDownStyle = "DropDownList"
-[void]$comboWorkflow.Items.Add("Disabled Workstations Governance Audit")
-[void]$comboWorkflow.Items.Add("Inactive Workstations Lifecycle Discovery and Cleanup")
+[void]$comboWorkflow.Items.Add("All Lifecycle Candidates")
+[void]$comboWorkflow.Items.Add("Disabled Only")
+[void]$comboWorkflow.Items.Add("Enabled Stale Only")
+[void]$comboWorkflow.Items.Add("Safe Remove")
+[void]$comboWorkflow.Items.Add("Manual Review")
+[void]$comboWorkflow.Items.Add("Risk Only")
 $comboWorkflow.SelectedIndex = 0
 
 $labelDomain = New-Object System.Windows.Forms.Label
 $labelDomain.Text = "Domain:"
-$labelDomain.Location = New-Object System.Drawing.Point(460, 14)
+$labelDomain.Location = New-Object System.Drawing.Point(400, 15)
 $labelDomain.AutoSize = $true
 
 $comboDomain = New-Object System.Windows.Forms.ComboBox
-$comboDomain.Location = New-Object System.Drawing.Point(520, 10)
-$comboDomain.Size = New-Object System.Drawing.Size(280, 28)
+$comboDomain.Location = New-Object System.Drawing.Point(460, 11)
+$comboDomain.Size = New-Object System.Drawing.Size(290, 28)
 $comboDomain.DropDownStyle = "DropDownList"
 [void]$comboDomain.Items.Add("ALL_FOREST_DOMAINS")
 
-foreach ($domain in (Get-ForestDomainsSafe)) {
-    [void]$comboDomain.Items.Add($domain)
-}
+# Domains are intentionally not enumerated during GUI startup.
+# This follows the Check-Shorter-ADComputerNames.ps1 model:
+# open the GUI first, then touch Active Directory only after an operator action.
 $comboDomain.SelectedIndex = 0
 
 $labelDays = New-Object System.Windows.Forms.Label
 $labelDays.Text = "Inactive Days:"
-$labelDays.Location = New-Object System.Drawing.Point(820, 14)
+$labelDays.Location = New-Object System.Drawing.Point(770, 15)
 $labelDays.AutoSize = $true
 
 $textInactiveDays = New-Object System.Windows.Forms.TextBox
-$textInactiveDays.Location = New-Object System.Drawing.Point(920, 10)
+$textInactiveDays.Location = New-Object System.Drawing.Point(870, 11)
 $textInactiveDays.Size = New-Object System.Drawing.Size(70, 28)
 $textInactiveDays.Text = "180"
 
 $checkboxDNS = New-Object System.Windows.Forms.CheckBox
 $checkboxDNS.Text = "DNS Check"
-$checkboxDNS.Location = New-Object System.Drawing.Point(1010, 12)
+$checkboxDNS.Location = New-Object System.Drawing.Point(965, 13)
 $checkboxDNS.AutoSize = $true
 
 $checkboxPing = New-Object System.Windows.Forms.CheckBox
 $checkboxPing.Text = "Ping Check"
-$checkboxPing.Location = New-Object System.Drawing.Point(1115, 12)
+$checkboxPing.Location = New-Object System.Drawing.Point(1075, 13)
 $checkboxPing.AutoSize = $true
 
 $checkboxUnknownOS = New-Object System.Windows.Forms.CheckBox
 $checkboxUnknownOS.Text = "Include Unknown OS"
-$checkboxUnknownOS.Location = New-Object System.Drawing.Point(1220, 12)
+$checkboxUnknownOS.Location = New-Object System.Drawing.Point(1185, 13)
 $checkboxUnknownOS.AutoSize = $true
 
 $checkboxServerLike = New-Object System.Windows.Forms.CheckBox
 $checkboxServerLike.Text = "Include Server-Like OS"
-$checkboxServerLike.Location = New-Object System.Drawing.Point(1380, 12)
+$checkboxServerLike.Location = New-Object System.Drawing.Point(1355, 13)
 $checkboxServerLike.AutoSize = $true
 
 $buttonRun = New-Object System.Windows.Forms.Button
-$buttonRun.Text = "Run Audit"
-$buttonRun.Location = New-Object System.Drawing.Point(12, 50)
-$buttonRun.Size = New-Object System.Drawing.Size(130, 32)
+$buttonRun.Text = "Run Lifecycle Scan"
+$buttonRun.Location = New-Object System.Drawing.Point(15, 12)
+$buttonRun.Size = New-Object System.Drawing.Size(155, 34)
 $buttonRun.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
 $buttonRun.ForeColor = [System.Drawing.Color]::White
 $buttonRun.FlatStyle = "Flat"
 
 $buttonExport = New-Object System.Windows.Forms.Button
 $buttonExport.Text = "Export CSV"
-$buttonExport.Location = New-Object System.Drawing.Point(160, 50)
-$buttonExport.Size = New-Object System.Drawing.Size(130, 32)
+$buttonExport.Location = New-Object System.Drawing.Point(185, 12)
+$buttonExport.Size = New-Object System.Drawing.Size(125, 34)
 $buttonExport.BackColor = [System.Drawing.Color]::FromArgb(46,204,113)
 $buttonExport.ForeColor = [System.Drawing.Color]::White
 $buttonExport.FlatStyle = "Flat"
 
 $buttonExportState = New-Object System.Windows.Forms.Button
 $buttonExportState.Text = "Export State"
-$buttonExportState.Location = New-Object System.Drawing.Point(310, 50)
-$buttonExportState.Size = New-Object System.Drawing.Size(130, 32)
+$buttonExportState.Location = New-Object System.Drawing.Point(320, 12)
+$buttonExportState.Size = New-Object System.Drawing.Size(125, 34)
 $buttonExportState.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
 $buttonExportState.ForeColor = [System.Drawing.Color]::White
 $buttonExportState.FlatStyle = "Flat"
 
+$buttonLoadDomains = New-Object System.Windows.Forms.Button
+$buttonLoadDomains.Text = "Load Domains"
+$buttonLoadDomains.Location = New-Object System.Drawing.Point(455, 12)
+$buttonLoadDomains.Size = New-Object System.Drawing.Size(130, 34)
+$buttonLoadDomains.BackColor = [System.Drawing.Color]::FromArgb(41,128,185)
+$buttonLoadDomains.ForeColor = [System.Drawing.Color]::White
+$buttonLoadDomains.FlatStyle = "Flat"
+
 $buttonRemove = New-Object System.Windows.Forms.Button
-$buttonRemove.Text = "Remove Checked Objects"
-$buttonRemove.Location = New-Object System.Drawing.Point(460, 50)
-$buttonRemove.Size = New-Object System.Drawing.Size(185, 32)
+$buttonRemove.Text = "Delete Checked AD Objects"
+$buttonRemove.Location = New-Object System.Drawing.Point(1010, 12)
+$buttonRemove.Size = New-Object System.Drawing.Size(185, 34)
 $buttonRemove.BackColor = [System.Drawing.Color]::FromArgb(192,57,43)
 $buttonRemove.ForeColor = [System.Drawing.Color]::White
 $buttonRemove.FlatStyle = "Flat"
 
 $buttonQuarantine = New-Object System.Windows.Forms.Button
 $buttonQuarantine.Text = "Quarantine"
-$buttonQuarantine.Location = New-Object System.Drawing.Point(665, 50)
-$buttonQuarantine.Size = New-Object System.Drawing.Size(105, 32)
+$buttonQuarantine.Location = New-Object System.Drawing.Point(610, 12)
+$buttonQuarantine.Size = New-Object System.Drawing.Size(110, 34)
 $buttonQuarantine.BackColor = [System.Drawing.Color]::FromArgb(243,156,18)
 $buttonQuarantine.ForeColor = [System.Drawing.Color]::White
 $buttonQuarantine.FlatStyle = "Flat"
 
 $buttonPendingRemoval = New-Object System.Windows.Forms.Button
 $buttonPendingRemoval.Text = "Pending Removal"
-$buttonPendingRemoval.Location = New-Object System.Drawing.Point(790, 50)
-$buttonPendingRemoval.Size = New-Object System.Drawing.Size(140, 32)
+$buttonPendingRemoval.Location = New-Object System.Drawing.Point(730, 12)
+$buttonPendingRemoval.Size = New-Object System.Drawing.Size(145, 34)
 $buttonPendingRemoval.BackColor = [System.Drawing.Color]::FromArgb(211,84,0)
 $buttonPendingRemoval.ForeColor = [System.Drawing.Color]::White
 $buttonPendingRemoval.FlatStyle = "Flat"
 
 $buttonExclude = New-Object System.Windows.Forms.Button
 $buttonExclude.Text = "Exclude"
-$buttonExclude.Location = New-Object System.Drawing.Point(950, 50)
-$buttonExclude.Size = New-Object System.Drawing.Size(90, 32)
+$buttonExclude.Location = New-Object System.Drawing.Point(885, 12)
+$buttonExclude.Size = New-Object System.Drawing.Size(95, 34)
 $buttonExclude.BackColor = [System.Drawing.Color]::FromArgb(52,73,94)
 $buttonExclude.ForeColor = [System.Drawing.Color]::White
 $buttonExclude.FlatStyle = "Flat"
 
+
+
 $buttonSelectAll = New-Object System.Windows.Forms.Button
 $buttonSelectAll.Text = "Select All"
-$buttonSelectAll.Location = New-Object System.Drawing.Point(1060, 50)
-$buttonSelectAll.Size = New-Object System.Drawing.Size(110, 32)
+$buttonSelectAll.Location = New-Object System.Drawing.Point(1225, 12)
+$buttonSelectAll.Size = New-Object System.Drawing.Size(105, 34)
 $buttonSelectAll.BackColor = [System.Drawing.Color]::FromArgb(127,140,141)
 $buttonSelectAll.ForeColor = [System.Drawing.Color]::White
 $buttonSelectAll.FlatStyle = "Flat"
 
 $buttonClear = New-Object System.Windows.Forms.Button
 $buttonClear.Text = "Clear"
-$buttonClear.Location = New-Object System.Drawing.Point(1185, 50)
-$buttonClear.Size = New-Object System.Drawing.Size(90, 32)
+$buttonClear.Location = New-Object System.Drawing.Point(1340, 12)
+$buttonClear.Size = New-Object System.Drawing.Size(95, 34)
 $buttonClear.BackColor = [System.Drawing.Color]::FromArgb(127,140,141)
 $buttonClear.ForeColor = [System.Drawing.Color]::White
 $buttonClear.FlatStyle = "Flat"
 
-$labelSummary = New-Object System.Windows.Forms.Label
-$labelSummary.Text = "Ready."
-$labelSummary.Location = New-Object System.Drawing.Point(1285, 57)
-$labelSummary.Size = New-Object System.Drawing.Size(260, 22)
+$toolTip = New-Object System.Windows.Forms.ToolTip
+$toolTip.SetToolTip($buttonRun, "Run the unified lifecycle governance scan.")
+$toolTip.SetToolTip($buttonExport, "Export current result dataset to CSV.")
+$toolTip.SetToolTip($buttonExportState, "Export the persistent governance state database to CSV.")
+$toolTip.SetToolTip($buttonLoadDomains, "Load forest domains into the domain selector.")
+$toolTip.SetToolTip($buttonQuarantine, "Mark checked objects as quarantined in governance state.")
+$toolTip.SetToolTip($buttonPendingRemoval, "Mark checked objects as pending removal.")
+$toolTip.SetToolTip($buttonExclude, "Exclude checked objects from normal lifecycle remediation.")
+$toolTip.SetToolTip($buttonRemove, "DESTRUCTIVE: deletes checked SAFE_REMOVE workstation objects from Active Directory.")
+$toolTip.SetToolTip($buttonSelectAll, "Select or deselect all visible rows.")
+$toolTip.SetToolTip($buttonClear, "Clear the current grid view.")
 
-[void]$topPanel.Controls.AddRange(@(
+# Legacy summary label retained only for compatibility; hidden from GUI.
+$labelSummary = New-Object System.Windows.Forms.Label
+$labelSummary.Visible = $false
+$labelSummary.Text = ""
+
+[void]$filterPanel.Controls.AddRange(@(
     $labelWorkflow,
     $comboWorkflow,
     $labelDomain,
@@ -1905,22 +2157,25 @@ $labelSummary.Size = New-Object System.Drawing.Size(260, 22)
     $checkboxDNS,
     $checkboxPing,
     $checkboxUnknownOS,
-    $checkboxServerLike,
+    $checkboxServerLike
+))
+
+[void]$actionPanel.Controls.AddRange(@(
     $buttonRun,
     $buttonExport,
     $buttonExportState,
-    $buttonRemove,
+    $buttonLoadDomains,
     $buttonQuarantine,
     $buttonPendingRemoval,
     $buttonExclude,
+    $buttonRemove,
     $buttonSelectAll,
-    $buttonClear,
-    $labelSummary
+    $buttonClear
 ))
 
 $listView = New-Object System.Windows.Forms.ListView
-$listView.Location = New-Object System.Drawing.Point(10, 140)
-$listView.Size = New-Object System.Drawing.Size(1180, 615)
+$listView.Location = New-Object System.Drawing.Point(10, 132)
+$listView.Size = New-Object System.Drawing.Size(1225, 665)
 $listView.Anchor = "Top,Bottom,Left,Right"
 $listView.View = "Details"
 $listView.FullRowSelect = $true
@@ -1931,8 +2186,8 @@ $listView.MultiSelect = $true
 
 $inspectorPanel = New-Object System.Windows.Forms.GroupBox
 $inspectorPanel.Text = "Object Inspector"
-$inspectorPanel.Location = New-Object System.Drawing.Point(1200, 140)
-$inspectorPanel.Size = New-Object System.Drawing.Size(480, 615)
+$inspectorPanel.Location = New-Object System.Drawing.Point(1245, 132)
+$inspectorPanel.Size = New-Object System.Drawing.Size(445, 665)
 $inspectorPanel.Anchor = "Top,Bottom,Right"
 $inspectorPanel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
@@ -1942,7 +2197,7 @@ $txtInspector.ReadOnly = $true
 $txtInspector.ScrollBars = "Vertical"
 $txtInspector.WordWrap = $false
 $txtInspector.Location = New-Object System.Drawing.Point(10, 25)
-$txtInspector.Size = New-Object System.Drawing.Size(460, 575)
+$txtInspector.Size = New-Object System.Drawing.Size(425, 625)
 $txtInspector.Anchor = "Top,Bottom,Left,Right"
 $txtInspector.Font = New-Object System.Drawing.Font("Consolas", 9)
 
@@ -2010,49 +2265,35 @@ Update-Inspector -Record $null
 
 function Set-GridColumns {
     param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet("DisabledAudit","LifecycleDiscovery")]
-        [string]$Mode
+        [Parameter()]
+        [string]$Mode = "LifecycleGovernance"
     )
 
+    $script:SortColumn = -1
+    $script:SortAscending = $true
     $listView.Columns.Clear()
 
-    if ($Mode -eq "DisabledAudit") {
-        [void]$listView.Columns.Add("Domain", 145)
-        [void]$listView.Columns.Add("Name", 170)
-        [void]$listView.Columns.Add("Enabled", 70)
-        [void]$listView.Columns.Add("Lifecycle", 160)
-        [void]$listView.Columns.Add("OS", 210)
-        [void]$listView.Columns.Add("Last Logon", 150)
-        [void]$listView.Columns.Add("Days", 70)
-        [void]$listView.Columns.Add("Pwd Days", 80)
-        [void]$listView.Columns.Add("SPN", 70)
-        [void]$listView.Columns.Add("Score", 60)
-        [void]$listView.Columns.Add("Class", 115)
-    }
-    else {
-        [void]$listView.Columns.Add("Domain", 145)
-        [void]$listView.Columns.Add("Name", 170)
-        [void]$listView.Columns.Add("Enabled", 70)
-        [void]$listView.Columns.Add("Inactive", 70)
-        [void]$listView.Columns.Add("Lifecycle", 160)
-        [void]$listView.Columns.Add("OS", 210)
-        [void]$listView.Columns.Add("Last Logon", 150)
-        [void]$listView.Columns.Add("Days", 70)
-        [void]$listView.Columns.Add("Pwd LastSet", 140)
-        [void]$listView.Columns.Add("Pwd Days", 80)
-        [void]$listView.Columns.Add("Score", 60)
-        [void]$listView.Columns.Add("Class", 115)
-    }
+    [void]$listView.Columns.Add("Domain", 145)
+    [void]$listView.Columns.Add("Name", 170)
+    [void]$listView.Columns.Add("Enabled", 70)
+    [void]$listView.Columns.Add("Inactive", 70)
+    [void]$listView.Columns.Add("Lifecycle", 165)
+    [void]$listView.Columns.Add("OS", 210)
+    [void]$listView.Columns.Add("Last Logon", 150)
+    [void]$listView.Columns.Add("Days", 70)
+    [void]$listView.Columns.Add("Pwd Days", 80)
+    [void]$listView.Columns.Add("SPN", 70)
+    [void]$listView.Columns.Add("Score", 60)
+    [void]$listView.Columns.Add("Class", 115)
 }
 
-Set-GridColumns -Mode "DisabledAudit"
+Set-GridColumns
 Set-SortableListView -ListView $listView
 
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
 
 $statusWorkflow = New-Object System.Windows.Forms.ToolStripStatusLabel
-$statusWorkflow.Text = "Workflow: Ready"
+$statusWorkflow.Text = "Filter: Ready"
 
 $statusObjects = New-Object System.Windows.Forms.ToolStripStatusLabel
 $statusObjects.Text = "Objects: 0"
@@ -2081,12 +2322,12 @@ function Set-TelemetryStatus {
         [int]$Risk = 0
     )
 
-    $statusWorkflow.Text = "Workflow: $Workflow"
+    $statusWorkflow.Text = "Filter: $Workflow"
     $statusObjects.Text = "Objects: $Objects"
     $statusLifecycle.Text = "Lifecycle: Active $Active | Stale $Stale | Safe $Safe | Review $Review | Risk $Risk"
 }
 
-[void]$form.Controls.AddRange(@($topPanel, $listView, $inspectorPanel, $statusStrip))
+[void]$form.Controls.AddRange(@($filterPanel, $actionPanel, $listView, $inspectorPanel, $statusStrip))
 
 $script:CurrentResults = @()
 $script:AllSelectedState = $false
@@ -2094,34 +2335,19 @@ $script:AllSelectedState = $false
 function Add-RecordToGrid {
     param([Parameter(Mandatory = $true)]$Record)
 
-    $isDisabledAudit = ($Record.Workflow -eq "DISABLED_WORKSTATIONS_GOVERNANCE")
     $item = New-Object System.Windows.Forms.ListViewItem([string]$Record.SourceDomain)
 
-    if ($isDisabledAudit) {
-        [void]$item.SubItems.Add([string]$Record.Name)
-        [void]$item.SubItems.Add([string]$Record.Enabled)
-        [void]$item.SubItems.Add([string]$Record.LifecycleState)
-        [void]$item.SubItems.Add([string]$Record.OperatingSystem)
-        [void]$item.SubItems.Add([string]$Record.EffectiveLastLogon)
-        [void]$item.SubItems.Add([string]$Record.DaysSinceLastLogon)
-        [void]$item.SubItems.Add([string]$Record.DaysSincePasswordSet)
-        [void]$item.SubItems.Add([string]$Record.SPNRiskTier)
-        [void]$item.SubItems.Add([string]$Record.GovernanceScore)
-        [void]$item.SubItems.Add([string]$Record.Classification)
-    }
-    else {
-        [void]$item.SubItems.Add([string]$Record.Name)
-        [void]$item.SubItems.Add([string]$Record.Enabled)
-        [void]$item.SubItems.Add([string]$Record.InactiveCandidate)
-        [void]$item.SubItems.Add([string]$Record.LifecycleState)
-        [void]$item.SubItems.Add([string]$Record.OperatingSystem)
-        [void]$item.SubItems.Add([string]$Record.EffectiveLastLogon)
-        [void]$item.SubItems.Add([string]$Record.DaysSinceLastLogon)
-        [void]$item.SubItems.Add([string]$Record.PasswordLastSet)
-        [void]$item.SubItems.Add([string]$Record.DaysSincePasswordSet)
-        [void]$item.SubItems.Add([string]$Record.GovernanceScore)
-        [void]$item.SubItems.Add([string]$Record.Classification)
-    }
+    [void]$item.SubItems.Add([string]$Record.Name)
+    [void]$item.SubItems.Add([string]$Record.Enabled)
+    [void]$item.SubItems.Add([string]$Record.InactiveCandidate)
+    [void]$item.SubItems.Add([string]$Record.LifecycleState)
+    [void]$item.SubItems.Add([string]$Record.OperatingSystem)
+    [void]$item.SubItems.Add([string]$Record.EffectiveLastLogon)
+    [void]$item.SubItems.Add([string]$Record.DaysSinceLastLogon)
+    [void]$item.SubItems.Add([string]$Record.DaysSincePasswordSet)
+    [void]$item.SubItems.Add([string]$Record.SPNRiskTier)
+    [void]$item.SubItems.Add([string]$Record.GovernanceScore)
+    [void]$item.SubItems.Add([string]$Record.Classification)
 
     $item.Tag = $Record
 
@@ -2151,6 +2377,36 @@ function Add-RecordToGrid {
     [void]$listView.Items.Add($item)
 }
 
+function Select-LifecycleResultsByFilter {
+    param(
+        [Parameter(Mandatory = $true)]$Results,
+        [Parameter(Mandatory = $true)][string]$Filter
+    )
+
+    $items = @(ConvertTo-SafeArray -InputObject $Results)
+
+    switch ($Filter) {
+        "Disabled Only" {
+            return @($items | Where-Object { $_.Enabled -eq $false })
+        }
+        "Enabled Stale Only" {
+            return @($items | Where-Object { $_.Enabled -eq $true -and $_.InactiveCandidate -eq $true })
+        }
+        "Safe Remove" {
+            return @($items | Where-Object { $_.Classification -eq "SAFE_REMOVE" -or $_.LifecycleState -eq "SAFE_REMOVE" })
+        }
+        "Manual Review" {
+            return @($items | Where-Object { $_.Classification -eq "REVIEW" -or $_.LifecycleState -eq "DISABLED_PENDING_REVIEW" })
+        }
+        "Risk Only" {
+            return @($items | Where-Object { $_.Classification -eq "RISK" -or $_.LifecycleState -eq "RISK_MANUAL_REVIEW" })
+        }
+        default {
+            return @($items)
+        }
+    }
+}
+
 # ------------------------------------------------------------
 # Events
 # ------------------------------------------------------------
@@ -2168,73 +2424,62 @@ $listView.Add_SelectedIndexChanged({
 })
 
 $comboWorkflow.Add_SelectedIndexChanged({
-    Invoke-GuiSafe -Context "Workflow changed" -ScriptBlock {
+    Invoke-GuiSafe -Context "Lifecycle filter changed" -ScriptBlock {
         $listView.Items.Clear()
         Update-Inspector -Record $null
-        $script:CurrentResults = @()
         $script:AllSelectedState = $false
         $buttonSelectAll.Text = "Select All"
 
-        if ($comboWorkflow.SelectedIndex -eq 0) {
-            Set-GridColumns -Mode "DisabledAudit"
-            $comboDomain.Enabled = $false
-            $textInactiveDays.Enabled = $false
-            $buttonRemove.Visible = $false
-            $buttonRemove.Enabled = $false
-            $buttonQuarantine.Visible = $false
-            $buttonQuarantine.Enabled = $false
-            $buttonPendingRemoval.Visible = $false
-            $buttonPendingRemoval.Enabled = $false
-            $buttonExclude.Visible = $false
-            $buttonExclude.Enabled = $false
-            $buttonSelectAll.Visible = $false
-            $buttonSelectAll.Enabled = $false
-            $checkboxUnknownOS.Enabled = $true
-            $checkboxServerLike.Enabled = $true
-            $listView.CheckBoxes = $false
+        Set-GridColumns
 
-            Set-StatusText -Label $labelSummary -Text "Disabled workstation governance audit mode. Read-only actions: Run Audit and Export CSV."
+        $comboDomain.Enabled = $true
+        $textInactiveDays.Enabled = $true
+        $buttonRemove.Visible = $true
+        $buttonRemove.Enabled = $true
+        $buttonQuarantine.Visible = $true
+        $buttonQuarantine.Enabled = $true
+        $buttonPendingRemoval.Visible = $true
+        $buttonPendingRemoval.Enabled = $true
+        $buttonExclude.Visible = $true
+        $buttonExclude.Enabled = $true
+        $buttonSelectAll.Visible = $true
+        $buttonSelectAll.Enabled = $true
+        $checkboxUnknownOS.Enabled = $true
+        $checkboxServerLike.Enabled = $true
+        $listView.CheckBoxes = $true
+
+        if ((Get-SafeCount -InputObject $script:CurrentResults) -gt 0) {
+            $filtered = @(Select-LifecycleResultsByFilter -Results $script:CurrentResults -Filter ([string]$comboWorkflow.SelectedItem))
+
+            foreach ($record in $filtered) {
+                Add-RecordToGrid -Record $record
+            }
+
+            Set-StatusText -Label $labelSummary -Text "Filtered: $((Get-SafeCount -InputObject $filtered))"
         }
         else {
-            Set-GridColumns -Mode "LifecycleDiscovery"
-            $comboDomain.Enabled = $true
-            $textInactiveDays.Enabled = $true
-            $buttonRemove.Visible = $true
-            $buttonRemove.Enabled = $true
-            $buttonQuarantine.Visible = $true
-            $buttonQuarantine.Enabled = $true
-            $buttonPendingRemoval.Visible = $true
-            $buttonPendingRemoval.Enabled = $true
-            $buttonExclude.Visible = $true
-            $buttonExclude.Enabled = $true
-            $buttonSelectAll.Visible = $true
-            $buttonSelectAll.Enabled = $true
-            $checkboxUnknownOS.Enabled = $false
-            $checkboxServerLike.Enabled = $false
-            $listView.CheckBoxes = $true
-
-            Set-StatusText -Label $labelSummary -Text "Inactive workstation lifecycle mode. Removal requires explicit confirmation."
+            Set-StatusText -Label $labelSummary -Text "Ready."
         }
     }
 })
 
 $comboWorkflow.SelectedIndex = 0
-$comboDomain.Enabled = $false
-$textInactiveDays.Enabled = $false
-$buttonRemove.Visible = $false
-$buttonRemove.Enabled = $false
-$buttonQuarantine.Visible = $false
-$buttonQuarantine.Enabled = $false
-$buttonPendingRemoval.Visible = $false
-$buttonPendingRemoval.Enabled = $false
-$buttonExclude.Visible = $false
-$buttonExclude.Enabled = $false
-$buttonSelectAll.Visible = $false
-$buttonSelectAll.Enabled = $false
-$listView.CheckBoxes = $false
+$comboDomain.Enabled = $true
+$textInactiveDays.Enabled = $true
+$buttonRemove.Visible = $true
+$buttonRemove.Enabled = $true
+$buttonQuarantine.Visible = $true
+$buttonQuarantine.Enabled = $true
+$buttonPendingRemoval.Visible = $true
+$buttonPendingRemoval.Enabled = $true
+$buttonExclude.Visible = $true
+$buttonExclude.Enabled = $true
+$buttonSelectAll.Visible = $true
+$buttonSelectAll.Enabled = $true
+$listView.CheckBoxes = $true
 
 $buttonRun.Add_Click({
-    Invoke-GuiSafe -Context "Run selected workflow" -ScriptBlock {
+    Invoke-GuiSafe -Context "Run unified lifecycle governance scan" -ScriptBlock {
         $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
         $buttonRun.Enabled = $false
         $listView.BeginUpdate()
@@ -2249,58 +2494,43 @@ $buttonRun.Add_Click({
                 $inactiveDays = 180
             }
 
-            if ($comboWorkflow.SelectedIndex -eq 0) {
-                Set-GridColumns -Mode "DisabledAudit"
-                $buttonRemove.Visible = $false
-                $buttonSelectAll.Visible = $false
-                $listView.CheckBoxes = $false
+            Set-GridColumns
+            $listView.CheckBoxes = $true
 
-                Set-StatusText -Label $labelSummary -Text "Running disabled workstation governance audit..."
-                Write-Log -Message "Started Disabled Workstations Governance Audit." -Level INFO
-
-                $script:CurrentResults = Invoke-DisabledWorkstationsGovernanceAudit `
-                    -EnableDNS ([bool]$checkboxDNS.Checked) `
-                    -EnablePing ([bool]$checkboxPing.Checked) `
-                    -IncludeUnknownOS ([bool]$checkboxUnknownOS.Checked) `
-                    -IncludeServerLikeObjects ([bool]$checkboxServerLike.Checked) `
-                    -InactiveDays $inactiveDays
-            }
-            else {
-                Set-GridColumns -Mode "LifecycleDiscovery"
-                $buttonRemove.Visible = $true
-                $buttonSelectAll.Visible = $true
-                $listView.CheckBoxes = $true
-
-                $domainScope = [string]$comboDomain.SelectedItem
-
-                Set-StatusText -Label $labelSummary -Text "Running inactive workstation lifecycle discovery..."
-                Write-Log -Message "Started Inactive Workstations Lifecycle Discovery. Scope: $domainScope | Days: $inactiveDays" -Level INFO
-
-                $script:CurrentResults = Invoke-InactiveWorkstationsLifecycleDiscovery `
-                    -DomainScope $domainScope `
-                    -InactiveDays $inactiveDays `
-                    -EnableDNS ([bool]$checkboxDNS.Checked) `
-                    -EnablePing ([bool]$checkboxPing.Checked)
+            $domainScope = [string]$comboDomain.SelectedItem
+            if ([string]::IsNullOrWhiteSpace($domainScope)) {
+                $domainScope = "ALL_FOREST_DOMAINS"
             }
 
-            $workflowStateName = if ($comboWorkflow.SelectedIndex -eq 0) { "DISABLED_WORKSTATIONS_GOVERNANCE" } else { "INACTIVE_WORKSTATIONS_LIFECYCLE" }
+            Set-StatusText -Label $labelSummary -Text "Scanning..."
+            Write-Log -Message "Started Unified AD Computer Lifecycle Governance Scan. Scope: $domainScope | Days: $inactiveDays" -Level INFO
+
+            $script:CurrentResults = Invoke-InactiveWorkstationsLifecycleDiscovery `
+                -DomainScope $domainScope `
+                -InactiveDays $inactiveDays `
+                -EnableDNS ([bool]$checkboxDNS.Checked) `
+                -EnablePing ([bool]$checkboxPing.Checked)
+
+            $workflowStateName = "UNIFIED_AD_COMPUTER_LIFECYCLE_GOVERNANCE"
             Update-GovernanceStateFromResults -Results $script:CurrentResults -Workflow $workflowStateName
 
-            foreach ($record in (ConvertTo-SafeArray -InputObject $script:CurrentResults)) {
+            $filtered = @(Select-LifecycleResultsByFilter -Results $script:CurrentResults -Filter ([string]$comboWorkflow.SelectedItem))
+
+            foreach ($record in (ConvertTo-SafeArray -InputObject $filtered)) {
                 Add-RecordToGrid -Record $record
             }
 
             $total = Get-SafeCount -InputObject $script:CurrentResults
+            $visible = Get-SafeCount -InputObject $filtered
             $active = Get-SafeCount -InputObject ($script:CurrentResults | Where-Object { $_.LifecycleState -eq "ACTIVE" })
             $stale = Get-SafeCount -InputObject ($script:CurrentResults | Where-Object { $_.LifecycleState -eq "STALE_ENABLED" })
             $safe = Get-SafeCount -InputObject ($script:CurrentResults | Where-Object { $_.LifecycleState -eq "SAFE_REMOVE" })
             $review = Get-SafeCount -InputObject ($script:CurrentResults | Where-Object { $_.LifecycleState -eq "DISABLED_PENDING_REVIEW" })
             $risk = Get-SafeCount -InputObject ($script:CurrentResults | Where-Object { $_.LifecycleState -eq "RISK_MANUAL_REVIEW" })
 
-            $workflowText = if ($comboWorkflow.SelectedIndex -eq 0) { "Disabled Governance" } else { "Lifecycle Discovery" }
-            Set-TelemetryStatus -Workflow $workflowText -Objects $total -Active $active -Stale $stale -Safe $safe -Review $review -Risk $risk
-            Set-StatusText -Label $labelSummary -Text "Objects: $total | Safe: $safe | Review: $review | Risk: $risk"
-            Write-Log -Message "Execution completed. Objects: $total | Active: $active | Stale Enabled: $stale | Safe Remove: $safe | Review: $review | Risk: $risk" -Level SUCCESS
+            Set-TelemetryStatus -Workflow "Unified Lifecycle Governance" -Objects $total -Active $active -Stale $stale -Safe $safe -Review $review -Risk $risk
+            Set-StatusText -Label $labelSummary -Text "Visible: $visible / $total"
+            Write-Log -Message "Unified scan completed. Objects: $total | Visible: $visible | Active: $active | Stale Enabled: $stale | Safe Remove: $safe | Review: $review | Risk: $risk" -Level SUCCESS
         }
         finally {
             $listView.EndUpdate()
@@ -2330,6 +2560,20 @@ $buttonExport.Add_Click({
 $buttonExportState.Add_Click({
     Invoke-GuiSafe -Context "Export governance state" -ScriptBlock {
         Export-GovernanceStateCsv
+    }
+})
+
+$buttonLoadDomains.Add_Click({
+    Invoke-GuiSafe -Context "Load forest domains" -ScriptBlock {
+        $comboDomain.Items.Clear()
+        [void]$comboDomain.Items.Add("ALL_FOREST_DOMAINS")
+
+        foreach ($domain in (Get-ForestDomainsSafe)) {
+            [void]$comboDomain.Items.Add($domain)
+        }
+
+        $comboDomain.SelectedIndex = 0
+        Show-AppMessage -Message "Forest domains loaded into the domain selector." -Type Information
     }
 })
 
@@ -2411,12 +2655,8 @@ $buttonExclude.Add_Click({
 })
 
 $buttonRemove.Add_Click({
-    Invoke-GuiSafe -Context "Remove checked workstation objects" -ScriptBlock {
-        if ($comboWorkflow.SelectedIndex -ne 1) {
-            Show-AppMessage -Message "Remove Checked Objects is only available for the Inactive Workstations Lifecycle Discovery and Cleanup workflow." -Type Warning
-            return
-        }
-
+    Invoke-GuiSafe -Context "Delete checked AD workstation objects" -ScriptBlock {
+        Write-Log -Message "Delete Checked AD Objects button clicked. This is the destructive AD workstation cleanup action." -Level WARNING
         $checkedItems = @(Get-ListViewCheckedItemsSafe -ListView $listView)
 
         if ((Get-SafeCount -InputObject $checkedItems) -eq 0) {
@@ -2424,7 +2664,7 @@ $buttonRemove.Add_Click({
             return
         }
 
-        $msg = "Remove $((Get-SafeCount -InputObject $checkedItems)) checked inactive workstation account(s)?`r`n`r`nThis will DELETE the selected AD computer object(s).`r`n`r`nProceed only after validating the exported evidence."
+        $msg = "DELETE $((Get-SafeCount -InputObject $checkedItems)) checked AD workstation object(s)?`r`n`r`nThis is the cleanup/removal action and will DELETE the selected AD computer object(s).`r`n`r`nOnly SAFE_REMOVE objects are eligible. Proceed only after exporting and validating the evidence."
 
         if (-not (Confirm-Action -Message $msg)) {
             return
