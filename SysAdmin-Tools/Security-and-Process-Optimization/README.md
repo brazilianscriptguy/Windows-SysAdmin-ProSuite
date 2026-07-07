@@ -42,7 +42,6 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 
 | Script Name | Description |
 |-------------|-------------|
-| **Check-ServicesPort-Connectivity.ps1** | Tests real-time TCP connectivity to specified service ports for diagnostics and troubleshooting. |
 | **Cleanup-CertificateAuthority.ps1** | Removes obsolete certificate records from Microsoft AD CS Certificate Authority databases based on configurable retention policies. |
 | **Cleanup-Repository-ExpiredCertificates.ps1** | Removes expired certificate files from repository locations according to configurable retention policies. |
 | **Initiate-MultipleRDPSessions.ps1** | Launches multiple Remote Desktop (RDP) sessions simultaneously to streamline administrative access. |
