@@ -46,6 +46,7 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 | **Cleanup-CertificateAuthority-Tool.ps1** | Removes expired certificate data from CA servers |
 | **Cleanup-Repository-ExpiredCertificates-Tool.ps1** | Deletes expired certificates from shared repositories |
 | **Initiate-MultipleRDPSessions.ps1** | Initiates multiple RDP sessions on supported systems |
+| **Manage-PKICertificateLifecycle.ps1** | MManages Microsoft AD CS certificate lifecycle, automated revocation, CA database maintenance, CRL publication, and governance reporting. |
 | **Organize-CERTs-Repository.ps1** | Organizes SSL/TLS certificates by issuer or expiration |
 | **Purge-ExpiredInstalledCertificates-Tool.ps1** | Removes expired certificates from the local machine store |
 | **Purge-ExpiredInstalledCertificates-viaGPO.ps1** | GPO-compatible cleanup of expired certificates |
