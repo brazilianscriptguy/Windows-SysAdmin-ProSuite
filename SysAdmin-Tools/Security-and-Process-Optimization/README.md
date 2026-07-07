@@ -42,16 +42,16 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 
 | Script Name | Description |
 |-------------|-------------|
-| **Cleanup-CertificateAuthority.ps1** | Removes obsolete certificate records from Microsoft AD CS Certificate Authority databases based on configurable retention policies. |
-| **Cleanup-Repository-ExpiredCertificates.ps1** | Removes expired certificate files from repository locations according to configurable retention policies. |
+| **Cleanup-CertificateAuthority-Tool.ps1** | Removes obsolete certificate records from Microsoft AD CS Certificate Authority databases based on configurable retention policies. |
+| **Cleanup-Repository-ExpiredCertificates-Tool.ps1** | Removes expired certificate files from repository locations according to configurable retention policies. |
 | **Initiate-MultipleRDPSessions.ps1** | Launches multiple Remote Desktop (RDP) sessions simultaneously to streamline administrative access. |
-| **Manage-PKICertificateLifecycle.ps1** | Manages Microsoft AD CS certificate lifecycle, automated revocation, CA database maintenance, CRL publication, and governance reporting. |
+| **Manage-PKICertificateLifecycle-Tool.ps1** | Manages Microsoft AD CS certificate lifecycle, automated revocation, CA database maintenance, CRL publication, and governance reporting. |
 | **Organize-CERTs-Repository.ps1** | Organizes SSL/TLS certificate repositories by issuer, expiration date, and certificate metadata. |
+| **Purge-ExpiredInstalledCertificates-Tool.ps1** | Removes expired certificates from local Windows certificate stores. |
 | **Purge-ExpiredInstalledCertificates-viaGPO.ps1** | Automates enterprise-wide removal of expired certificates through Group Policy deployment. |
-| **Purge-ExpiredInstalledCertificates.ps1** | Removes expired certificates from local Windows certificate stores. |
 | **Remove-EmptyFiles-or-DateRange.ps1** | Removes empty files or files older than a specified age from selected directories. |
 | **Retrieve-Windows-ProductKey.ps1** | Retrieves the installed Windows product key for inventory, auditing, and asset management. |
-| **Shorten-LongFileNames.ps1** | Renames excessively long file and folder paths to improve compatibility with backup, synchronization, and legacy applications. |
+| **Shorten-LongFileNames-Tool.ps1** | Renames excessively long file and folder paths to improve compatibility with backup, synchronization, and legacy applications. |
 | **Unjoin-ADComputer-and-Cleanup.ps1** | Securely removes computers from Active Directory and performs post-unjoin cleanup operations. |
 
 ---
