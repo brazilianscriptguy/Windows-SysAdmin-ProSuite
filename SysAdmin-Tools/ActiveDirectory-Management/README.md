@@ -91,6 +91,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Forces domain controller replication and performs Active Directory forest health validation |
 | **Update-ADComputer-Descriptions.ps1** | Updates and standardizes Active Directory computer object descriptions |
 | **Update-ADUserDisplayName.ps1** | Applies standardized display name formatting to Active Directory user accounts |
+| **Update-ADUserLoginIdentity.ps1** | Migrates and aligns sAMAccountName and UserPrincipalName using an external identity mapping file. |
 
 ---
 
