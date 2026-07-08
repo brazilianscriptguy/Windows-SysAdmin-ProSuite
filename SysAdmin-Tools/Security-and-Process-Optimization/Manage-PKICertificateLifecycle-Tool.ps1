@@ -1,6 +1,6 @@
-﻿<#
+<#
 .SYNOPSIS
-  PKI Certificate Lifecycle Manager v5.5.2 Enterprise Edition - Enterprise AD CS lifecycle governance console.
+  PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition - Enterprise AD CS lifecycle governance console.
 
 .DESCRIPTION
   Enterprise Windows Forms GUI and console tool for Microsoft AD CS lifecycle maintenance.
@@ -26,7 +26,7 @@
   Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-  2026-07-07-v5.5.2-ENTERPRISE-EDITION
+  2026-07-08-v5.6.1-ENTERPRISE-EDITION
 
 .REQUIREMENTS
   - Windows PowerShell 5.1
@@ -46,7 +46,7 @@ param(
     [int]$RetentionDays = 365,
     [switch]$CleanupDatabase,
     [switch]$BackupCA,
-    [string]$BackupRoot = 'D:\PKIBackup',
+    [string]$BackupRoot = (Join-Path $env:SystemDrive 'PKIBackup'),
     [switch]$ExportOnly,
     [string]$ConfigPath = ''
 )
@@ -96,78 +96,38 @@ $script:LogFile    = Join-Path $script:LogRoot "$($script:ScriptName)-$($script:
 $script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'config.json' } else { $ConfigPath }
 $script:Config = $null
 $script:DefaultConfig = [ordered]@{
-    # CA identity
-    # Use empty string for auto-discovery / operator configuration.
-    # Example: 'CAHOST.domain.local\CA-NAME'
-    CAConfig = ''
-
-    # Retention windows
-    # Legacy fallback only. Prefer explicit windows below.
-    RetentionDays              = 365
-    LifecycleRetentionDays     = 30
-    RevokedRetentionDays       = 365
-    FailedRetentionDays        = 365
-
-    # AD CS disposition values for failed/denied request repositories.
-    FailedRequestDispositions  = @(30, 31)
-
-    # CRL publication
-    PublishDeltaCRL            = $true
-    PublishFullCRL             = $false
-    VerifyCRLPublication       = $true
-
-    # Lifecycle safety
-    VerifyReplacement          = $true
-    VerifyRevocation           = $true
-    AutoMode                   = $false
-
-    # Cleanup / maintenance
-    CleanupFailedRequests      = $true
-    CompactDatabase            = $true
-    BackupBeforeCleanup        = $true
-    BackupBeforeFailedCleanup  = $true
-
-    # Backup policy
-    BackupBeforeApply          = $true
-    BackupPrivateKey           = $false
-    BackupRoot                 = "$env:SystemDrive\PKIBackup"
-    RequireBackup              = $true
-    RequireSnapshot            = $true
-
-    # Execution controls
-    DefaultDryRun              = $true
-    RequireCommitConfirmation  = $true
-    ShowExecutionModeInStatus  = $true
-    EnablePreFlightChecks      = $true
-    EnableRiskAnalysis         = $true
-    EnableExecutionHistory     = $true
-    ExecutionHistoryDays       = 90
-
-    # Performance
-    EnableRepositoryCache      = $true
-    MaxParallelLookup          = 8
-
-    # Template policy
-    # Keep this intentionally generic. Add enterprise/custom templates in config.json.
-    AllowedTemplates = @(
-        'Computer',
-        'User',
-        'Web Server',
-        'Client Authentication',
-        'IPSec',
-        'EFS'
-    )
-
-    ExcludedTemplates = @(
-        'CA Exchange',
-        'Domain Controller',
-        'Domain Controller Authentication',
-        'Kerberos Authentication',
-        'SubCA',
-        'Certification Authority',
-        'Enrollment Agent',
-        'OCSP Response Signing'
-    )
+    CAConfig            = ''
+    RetentionDays       = 365  # Legacy fallback only. Prefer explicit windows below.
+    LifecycleRetentionDays = 30
+    RevokedRetentionDays = 365
+    FailedRetentionDays = 365
+    FailedRequestDispositions = @(30,31)
+    PublishDeltaCRL     = $true
+    PublishFullCRL      = $false
+    VerifyReplacement   = $true
+    AutoMode            = $false
+    CompactDatabase     = $true
+    BackupBeforeCleanup = $true
+    BackupBeforeFailedCleanup = $true
+    CleanupFailedRequests = $true
+    BackupBeforeApply   = $true
+    BackupPrivateKey    = $false
+    BackupRoot          = (Join-Path $env:SystemDrive 'PKIBackup')
+    RequireSnapshot     = $true
+    RequireBackup       = $true
+    EnablePreFlightChecks = $true
+    EnableRiskAnalysis  = $true
+    EnableExecutionHistory = $true
+    ExecutionHistoryDays = 90
+    VerifyCRLPublication = $true
+    VerifyRevocation    = $true
+    EnableRepositoryCache = $true
+    MaxParallelLookup   = 8
+    DefaultDryRun      = $true
+    RequireCommitConfirmation = $true
+    ShowExecutionModeInStatus = $true
+    AllowedTemplates    = @('Computer','User','Web Server','Client Authentication','IPSec','EFS')
+    ExcludedTemplates   = @('CA Exchange','Domain Controller','Domain Controller Authentication','Kerberos Authentication','SubCA','Certification Authority')
 }
 
 $script:CAConfig = $CAConfig
@@ -180,6 +140,7 @@ $script:CurrentOperationStarted = $null
 $script:lblProgressDetail = $null
 $script:ActionControls = @()
 $script:PreviewItems = New-Object System.Collections.ArrayList
+$script:CurrentPreviewModel = 'Generic'
 $script:Stats = [ordered]@{
     IssuedLoaded       = 0
     ExpiredFound       = 0
@@ -619,92 +580,99 @@ function Get-PKIBoolConfigValue {
 }
 
 
-function Get-PKIComputerSamCandidate {
-    param([object]$Cert)
-    foreach ($v in @($Cert.RequesterName, $Cert.CommonName, $Cert.Subject)) {
-        $n = Normalize-PKIText $v
-        if (-not $n) { continue }
-        if ($n -match '([^\\]+)\\([^\\]+)\$?$') { return $Matches[2].TrimEnd('$') }
-        if ($n -match 'cn=([^,]+)') { return $Matches[1].TrimEnd('$') }
-        if ($n -match '^([a-z0-9][a-z0-9\-]{1,62})\$?$') { return $Matches[1].TrimEnd('$') }
-    }
-    return $null
+
+function Get-PreviewValue {
+    param(
+        [Parameter(Mandatory=$true)][object]$Item,
+        [Parameter(Mandatory=$true)][string]$Name,
+        [AllowNull()][object]$Default = $null
+    )
+    if ($null -eq $Item) { return $Default }
+    try {
+        $prop = $Item.PSObject.Properties[$Name]
+        if ($null -ne $prop) { return $prop.Value }
+    } catch { }
+    return $Default
 }
 
-function Resolve-PKIDeviceClass {
-    param([object]$Cert)
+function Test-PreviewModel {
+    param(
+        [AllowEmptyCollection()]
+        [object[]]$Items = @(),
 
-    $sam = Get-PKIComputerSamCandidate -Cert $Cert
-    if ([string]::IsNullOrWhiteSpace($sam)) {
-        return [pscustomobject]@{ DeviceClass='Unknown'; ComputerName=$null; OperatingSystem=$null; DistinguishedName=$null; Source='NoComputerIdentity' }
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Lifecycle','Revoked','Failed','Generic')]
+        [string]$Model
+    )
+
+    $Items = @($Items)
+
+    if ($Items.Count -eq 0) {
+        Write-AppLog "[$Model] Preview model validation skipped: empty preview result." 'INFO'
+        return $true
     }
 
-    if (-not (Get-Variable -Name ComputerClassCache -Scope Script -ErrorAction SilentlyContinue)) { $script:ComputerClassCache = @{} }
-    if ($null -eq $script:ComputerClassCache) { $script:ComputerClassCache = @{} }
-    $key = $sam.ToUpperInvariant()
-    if ($script:ComputerClassCache.ContainsKey($key)) { return $script:ComputerClassCache[$key] }
+    $required = switch ($Model) {
+        'Lifecycle' { @('Status','Decision','OldRequestID','OldNotAfter','ReplacementFound','ReplacementCandidateCount','DaysExpired','Result') }
+        'Revoked'   { @('Status','Decision','OldRequestID','RevocationDate','RetentionCutoff','Result') }
+        'Failed'    { @('Status','Decision','OldRequestID','SubmittedWhen','RetentionCutoff','DispositionMessage','Result') }
+        default     { @('Status','Decision','OldRequestID','Result') }
+    }
 
-    # v4.1: classify safely first without AD lookup. AD lookup is optional because DirectoryServices can
-    # throw non-terminating COM/type mismatch errors on some hosts/locales and must never break PKI preview.
-    $class = 'Workstation'
-    $os = $null
-    $dn = $null
-    $source = 'Heuristic'
+    $missing = New-Object System.Collections.Generic.List[string]
+    $first = $Items | Select-Object -First 1
 
-    if ($sam -match '(?i)(^|[-_])(dc|adds)([-_]|\d|$)') { $class = 'DomainController' }
-    elseif ($sam -match '(?i)(^|[-_])(srv|server|fs|file|sql|db|adfs|wsus|print|prn|ca|pki|iis|web|rds|rd|app|mail|exch|dns|dhcp|kms|wds|glpi|kes)([-_]|\d|$)') { $class = 'Server' }
-    elseif ($sam -match '(?i)(adfs|adcs|adds|wsus|print|prn|srv|server|sql|pki|ca|rds|glpi|kms|wds)') { $class = 'Server' }
+    if ($null -eq $first) {
+        Write-AppLog "[$Model] Preview model validation skipped: first item is null." 'INFO'
+        return $true
+    }
 
-    if ($script:UseADComputerLookup) {
-        try {
-            $root = [ADSI]'LDAP://RootDSE'
-            $basePath = [string]$root.defaultNamingContext
-            if (-not [string]::IsNullOrWhiteSpace($basePath)) {
-                $base = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$basePath")
-                $ds = New-Object System.DirectoryServices.DirectorySearcher
-                $ds.SearchRoot = $base
-                $safeSam = $sam.Replace('\\','\\5c').Replace('*','\\2a').Replace('(','\\28').Replace(')','\\29')
-                $ds.Filter = "(&(objectCategory=computer)(sAMAccountName=$safeSam`$))"
-                $ds.PageSize = 1
-                foreach ($p in @('operatingSystem','distinguishedName','dNSHostName','userAccountControl')) { try { [void]$ds.PropertiesToLoad.Add([string]$p) } catch {} }
-                $found = $ds.FindOne()
-                if ($found) {
-                    if ($found.Properties.Contains('operatingsystem') -and $found.Properties['operatingsystem'].Count -gt 0) { $os = [string]$found.Properties['operatingsystem'][0] }
-                    if ($found.Properties.Contains('distinguishedname') -and $found.Properties['distinguishedname'].Count -gt 0) { $dn = [string]$found.Properties['distinguishedname'][0] }
-                    if ($os -match '(?i)server') { $class = 'Server' }
-                    if ($dn -match '(?i)OU=Domain Controllers|CN=Domain Controllers') { $class = 'DomainController' }
-                    if ($found.Properties.Contains('useraccountcontrol') -and $found.Properties['useraccountcontrol'].Count -gt 0) {
-                        $uac = 0
-                        if ([int]::TryParse([string]$found.Properties['useraccountcontrol'][0], [ref]$uac)) {
-                            if (($uac -band 0x2000) -ne 0) { $class = 'DomainController' }
-                        }
-                    }
-                    $source = 'ActiveDirectory'
-                }
-            }
-        } catch {
-            $source = 'HeuristicADLookupFailed'
+    foreach ($name in $required) {
+        if (-not $first.PSObject.Properties[$name]) {
+            [void]$missing.Add($name)
         }
     }
 
-    $result = [pscustomobject]@{ DeviceClass=$class; ComputerName=$sam; OperatingSystem=$os; DistinguishedName=$dn; Source=$source }
-    $script:ComputerClassCache[$key] = $result
-    return $result
+    if ($missing.Count -gt 0) {
+        Write-AppLog "[$Model] Preview model validation warning. Missing properties on first row: $($missing -join ', ')" 'WARN'
+        return $false
+    }
+
+    return $true
 }
 
-function Resolve-CAConfigSafe {
-    param([string]$Preferred)
-    if (-not [string]::IsNullOrWhiteSpace($Preferred)) { return $Preferred.Trim() }
-    try {
-        $out = & certutil.exe -config - -ping 2>&1
-        $line = $out | Where-Object { $_ -match '\\\\|\\' -and $_ -match '-' } | Select-Object -First 1
-        if ($line) { return ([string]$line).Trim().Trim('"') }
-    } catch { }
-    return $env:COMPUTERNAME
+function Get-CurrentPreviewModel {
+    if (-not $script:PreviewItems -or $script:PreviewItems.Count -eq 0) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$script:CurrentPreviewModel)) {
+            return [string]$script:CurrentPreviewModel
+        }
+        return 'Generic'
+    }
+
+    $first = $script:PreviewItems[0]
+    $repo = [string](Get-PreviewValue -Item $first -Name 'CleanupRepository' -Default '')
+
+    if ($repo -eq 'Revoked') {
+        $script:CurrentPreviewModel = 'Revoked'
+        return 'Revoked'
+    }
+
+    if ($repo -eq 'Failed') {
+        $script:CurrentPreviewModel = 'Failed'
+        return 'Failed'
+    }
+
+    if ($first.PSObject.Properties['ReplacementFound'] -or $first.PSObject.Properties['DaysExpired']) {
+        $script:CurrentPreviewModel = 'Lifecycle'
+        return 'Lifecycle'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CurrentPreviewModel)) {
+        return [string]$script:CurrentPreviewModel
+    }
+
+    return 'Generic'
 }
-
-
-
 
 function Add-ExecutionTimeline {
     param(
@@ -806,6 +774,68 @@ function Assert-PKIPreFlight {
     Add-ExecutionTimeline -Stage "PreFlight $Mode" -Detail 'Passed' -Level 'SUCCESS'
 }
 
+
+function Resolve-CAConfigSafe {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [string]$ConfiguredCAConfig
+    )
+
+    # Environment-neutral resolver.
+    # 1) Prefer explicit config.json / GUI value.
+    # 2) If empty, attempt local Enterprise CA discovery from the AD CS registry.
+    # 3) If discovery fails, return an empty string and let PreFlight/GUI request operator input.
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredCAConfig)) {
+        return ([string]$ConfiguredCAConfig).Trim()
+    }
+
+    try {
+        $configRoot = 'HKLM:\SYSTEM\CurrentControlSet\Services\CertSvc\Configuration'
+        if (Test-Path -LiteralPath $configRoot) {
+            $caKeys = @(Get-ChildItem -LiteralPath $configRoot -ErrorAction Stop | Where-Object { $_.PSChildName -ne 'Configuration' })
+            foreach ($caKey in $caKeys) {
+                try {
+                    $props = Get-ItemProperty -LiteralPath $caKey.PSPath -ErrorAction Stop
+                    $caName = [string]$caKey.PSChildName
+                    if ([string]::IsNullOrWhiteSpace($caName)) { continue }
+
+                    $serverName = $null
+                    foreach ($candidateProperty in @('CAServerName','ServerName')) {
+                        if ($props.PSObject.Properties[$candidateProperty] -and -not [string]::IsNullOrWhiteSpace([string]$props.$candidateProperty)) {
+                            $serverName = [string]$props.$candidateProperty
+                            break
+                        }
+                    }
+
+                    if ([string]::IsNullOrWhiteSpace($serverName)) {
+                        try {
+                            $fqdn = [System.Net.Dns]::GetHostEntry($env:COMPUTERNAME).HostName
+                            if (-not [string]::IsNullOrWhiteSpace($fqdn)) { $serverName = $fqdn }
+                        } catch { }
+                    }
+
+                    if ([string]::IsNullOrWhiteSpace($serverName)) { $serverName = $env:COMPUTERNAME }
+
+                    if (-not [string]::IsNullOrWhiteSpace($serverName) -and -not [string]::IsNullOrWhiteSpace($caName)) {
+                        $resolved = ('{0}\{1}' -f $serverName.Trim(), $caName.Trim())
+                        try { Write-AppLog "CAConfig auto-discovered from local AD CS registry: $resolved" 'SUCCESS' } catch { }
+                        return $resolved
+                    }
+                } catch {
+                    try { Write-AppLog "CAConfig registry discovery skipped key '$($caKey.PSChildName)': $($_.Exception.Message)" 'WARN' } catch { }
+                }
+            }
+        }
+    } catch {
+        try { Write-AppLog "CAConfig auto-discovery failed: $($_.Exception.Message)" 'WARN' } catch { }
+    }
+
+    try { Write-AppLog 'CAConfig is not configured and could not be auto-discovered. Configure it in config.json or the GUI before running CA operations.' 'WARN' } catch { }
+    return ''
+}
+
 # =====================================================================================
 # Configuration - v5.0
 # =====================================================================================
@@ -840,7 +870,7 @@ function Load-Configuration {
     if (-not (Get-Member -InputObject $cfg -Name 'FailedRequestDispositions' -MemberType NoteProperty -ErrorAction SilentlyContinue) -or -not $cfg.FailedRequestDispositions) { $cfg | Add-Member -NotePropertyName FailedRequestDispositions -NotePropertyValue @(30,31) -Force }
     if (-not $cfg.AllowedTemplates) { $cfg.AllowedTemplates = $script:DefaultConfig.AllowedTemplates }
     if (-not $cfg.ExcludedTemplates) { $cfg.ExcludedTemplates = $script:DefaultConfig.ExcludedTemplates }
-    if ([string]::IsNullOrWhiteSpace([string]$cfg.BackupRoot)) { $cfg.BackupRoot = 'D:\PKIBackup' }
+    if ([string]::IsNullOrWhiteSpace([string]$cfg.BackupRoot)) { $cfg.BackupRoot = (Join-Path $env:SystemDrive 'PKIBackup') }
     $script:Config = $cfg
     return $cfg
 }
@@ -1012,7 +1042,7 @@ function Invoke-RevokeSupersededCertificates {
             continue
         }
         $requireReplacementAtApply = Get-PKIBoolConfigValue -Name 'VerifyReplacement' -Default $true
-        # v5.5.2 correction:
+        # v5.6 lifecycle correction:
         # Apply honors the Lifecycle Preview READY decision. READY is based on OldNotAfter being beyond
         # the lifecycle retention cutoff. Replacement presence is logged as diagnostic evidence and no
         # longer downgrades a selected READY row to Manual Review at apply time.
@@ -1172,7 +1202,7 @@ function Get-RevokedCleanupCandidates {
             CleanupRepository='Revoked'; OldRequestID=$cert.RequestID; OldSerialNumber=$cert.SerialNumber; OldRequesterName=$cert.RequesterName; OldCommonName=$cert.CommonName; OldTemplate=$cert.Template; OldTemplateRaw=$cert.TemplateRaw; OldTemplateOID=$cert.TemplateOID; OldTemplateName=$cert.TemplateName; OldTemplateResolved=$cert.TemplateResolved; RevocationReason=$cert.RevocationReason
             DeviceClass=$cert.DeviceClass; ComputerName=$cert.ComputerName; OperatingSystem=$cert.OperatingSystem; DeviceClassSource=$cert.DeviceClassSource
             OldNotBefore=$cert.NotBefore; OldNotAfter=$cert.NotAfter; RevocationDate=$revDate; RetentionCutoff=$cutoff
-            ReplacementFound=$false; ReplacementRequestID=$null; ReplacementSerialNumber=$null; ReplacementNotBefore=$null; ReplacementNotAfter=$null
+            ReplacementFound=$false; ReplacementCandidateCount=$null; ReplacementDecisionTrace=$null; ReplacementRequestID=$null; ReplacementSerialNumber=$null; ReplacementNotBefore=$null; ReplacementNotAfter=$null
         })
     }
     $script:Stats.CleanupCandidates = $list.Count
@@ -1237,7 +1267,7 @@ function Get-FailedCleanupCandidates {
             CleanupRepository='Failed'; OldRequestID=$cert.RequestID; OldSerialNumber=$cert.SerialNumber; OldRequesterName=$cert.RequesterName; OldCommonName=$cert.CommonName; OldTemplate=$cert.Template; OldTemplateRaw=$cert.TemplateRaw; OldTemplateOID=$cert.TemplateOID; OldTemplateName=$cert.TemplateName; OldTemplateResolved=$cert.TemplateResolved; RevocationReason=$null
             DeviceClass=$cert.DeviceClass; ComputerName=$cert.ComputerName; OperatingSystem=$cert.OperatingSystem; DeviceClassSource=$cert.DeviceClassSource
             OldNotBefore=$cert.NotBefore; OldNotAfter=$cert.NotAfter; RequestDate=$requestDate; SubmittedWhen=$cert.SubmittedWhen; ResolvedWhen=$cert.ResolvedWhen; DispositionMessage=$failureMessage; RetentionCutoff=$cutoff
-            ReplacementFound=$false; ReplacementRequestID=$null; ReplacementSerialNumber=$null; ReplacementNotBefore=$null; ReplacementNotAfter=$null; RevocationDate=$null
+            ReplacementFound=$false; ReplacementCandidateCount=$null; ReplacementDecisionTrace=$null; ReplacementRequestID=$null; ReplacementSerialNumber=$null; ReplacementNotBefore=$null; ReplacementNotAfter=$null; RevocationDate=$null
         })
     }
     $script:Stats.FailedCleanupCandidates = $list.Count
@@ -1376,21 +1406,45 @@ function Refresh-StatisticsView {
 
 function Export-Reports {
     param([string]$NamePrefix = 'PKI-Lifecycle')
+    if ($null -eq $script:PreviewItems) { $script:PreviewItems = New-Object System.Collections.ArrayList }
     $csv = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).csv"
     $json = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).json"
     $html = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).html"
     $script:PreviewItems | Export-Csv -Path $csv -NoTypeInformation -Encoding UTF8
-    $script:PreviewItems | ConvertTo-Json -Depth 5 | Set-Content -Path $json -Encoding UTF8
+    $script:PreviewItems | ConvertTo-Json -Depth 6 | Set-Content -Path $json -Encoding UTF8
+
+    $model = Get-CurrentPreviewModel
+    [void](Test-PreviewModel -Items @($script:PreviewItems) -Model $model)
+
     $style = '<style>body{font-family:Segoe UI,Arial;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px}th{background:#e9eef5}.READY{background:#fff4ce}.REVOKED{background:#dff6dd}.FAILED{background:#fde7e9}.SKIPPED{background:#f3f2f1}</style>'
+
+    $header = switch ($model) {
+        'Revoked' { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Revocation Date</th><th>Retention Cutoff</th><th>Result</th></tr>' }
+        'Failed'  { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Submission Date</th><th>Retention Cutoff</th><th>Disposition Message</th><th>Result</th></tr>' }
+        default   { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Old NotAfter</th><th>Days Expired</th><th>Replacement</th><th>Candidates</th><th>Result</th></tr>' }
+    }
+
     $rows = foreach ($i in $script:PreviewItems) {
-        $cls = if ($i.Decision -eq 'Revoked') {'REVOKED'} elseif ($i.Decision -eq 'RevokeFailed') {'FAILED'} elseif ($i.Status -eq 'READY') {'READY'} else {'SKIPPED'}
-        '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td><td>{11}</td></tr>' -f $cls,$i.Status,$i.Decision,$i.RiskLevel,$i.OldRequestID,$i.OldRequesterName,$i.OldTemplate,$i.OldNotAfter,$i.DaysExpired,$i.ReplacementFound,$i.ReplacementCandidateCount,$i.Result
+        $status = [string](Get-PreviewValue -Item $i -Name 'Status' -Default '')
+        $decision = [string](Get-PreviewValue -Item $i -Name 'Decision' -Default '')
+        $cls = if ($decision -eq 'Revoked') {'REVOKED'} elseif ($decision -eq 'RevokeFailed' -or $status -eq 'FAILED') {'FAILED'} elseif ($status -eq 'READY' -or $status -eq 'CLEANUP_READY' -or $status -eq 'FAILED_CLEANUP_READY') {'READY'} else {'SKIPPED'}
+        switch ($model) {
+            'Revoked' {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'RevocationDate' ''),(Get-PreviewValue $i 'RetentionCutoff' ''),(Get-PreviewValue $i 'Result' '')
+            }
+            'Failed' {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'SubmittedWhen' (Get-PreviewValue $i 'RequestDate' '')),(Get-PreviewValue $i 'RetentionCutoff' ''),(Get-PreviewValue $i 'DispositionMessage' ''),(Get-PreviewValue $i 'Result' '')
+            }
+            default {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td><td>{11}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'OldNotAfter' ''),(Get-PreviewValue $i 'DaysExpired' ''),(Get-PreviewValue $i 'ReplacementFound' ''),(Get-PreviewValue $i 'ReplacementCandidateCount' ''),(Get-PreviewValue $i 'Result' '')
+            }
+        }
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.5.2 Enterprise Edition</h1>
-<p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig)</p>
-<table><tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Old NotAfter</th><th>Days Expired</th><th>Replacement</th><th>Candidates</th><th>Result</th></tr>
+<h1>PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition</h1>
+<p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
+<table>$header
 $($rows -join [Environment]::NewLine)
 </table></body></html>
 "@ | Set-Content -Path $html -Encoding UTF8
@@ -1398,6 +1452,7 @@ $($rows -join [Environment]::NewLine)
     Write-AppLog "Reports exported: $script:ReportRoot" 'SUCCESS'
     return @{ Csv=$csv; Json=$json; Html=$html }
 }
+
 
 
 # =====================================================================================
@@ -1962,7 +2017,7 @@ function Build-LifecyclePreview {
                 $replacementTrace = Get-ReplacementDecisionFromIndex -OldCert $old -ReplacementIndex $script:ReplacementIndex -AllIssued $script:IssuedCerts -Now $now
                 $replacement = $replacementTrace.Candidate
                 $replacementCandidateCount = [int]$replacementTrace.CandidateCount
-                # v5.5.2 correction:
+                # v5.6 lifecycle correction:
                 # Lifecycle readiness is driven by the old certificate expiration date (OldNotAfter).
                 # If OldNotAfter is older than the lifecycle cutoff, the row is READY for operator-selected revocation.
                 # Replacement discovery remains visible as diagnostic evidence, but it no longer blocks READY status.
@@ -2089,21 +2144,45 @@ function Refresh-StatisticsView {
 
 function Export-Reports {
     param([string]$NamePrefix = 'PKI-Lifecycle')
+    if ($null -eq $script:PreviewItems) { $script:PreviewItems = New-Object System.Collections.ArrayList }
     $csv = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).csv"
     $json = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).json"
     $html = Join-Path $script:ReportRoot "$NamePrefix-$($script:RunStamp).html"
     $script:PreviewItems | Export-Csv -Path $csv -NoTypeInformation -Encoding UTF8
-    $script:PreviewItems | ConvertTo-Json -Depth 5 | Set-Content -Path $json -Encoding UTF8
+    $script:PreviewItems | ConvertTo-Json -Depth 6 | Set-Content -Path $json -Encoding UTF8
+
+    $model = Get-CurrentPreviewModel
+    [void](Test-PreviewModel -Items @($script:PreviewItems) -Model $model)
+
     $style = '<style>body{font-family:Segoe UI,Arial;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px}th{background:#e9eef5}.READY{background:#fff4ce}.REVOKED{background:#dff6dd}.FAILED{background:#fde7e9}.SKIPPED{background:#f3f2f1}</style>'
+
+    $header = switch ($model) {
+        'Revoked' { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Revocation Date</th><th>Retention Cutoff</th><th>Result</th></tr>' }
+        'Failed'  { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Submission Date</th><th>Retention Cutoff</th><th>Disposition Message</th><th>Result</th></tr>' }
+        default   { '<tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Old NotAfter</th><th>Days Expired</th><th>Replacement</th><th>Candidates</th><th>Result</th></tr>' }
+    }
+
     $rows = foreach ($i in $script:PreviewItems) {
-        $cls = if ($i.Decision -eq 'Revoked') {'REVOKED'} elseif ($i.Decision -eq 'RevokeFailed') {'FAILED'} elseif ($i.Status -eq 'READY') {'READY'} else {'SKIPPED'}
-        '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td><td>{11}</td></tr>' -f $cls,$i.Status,$i.Decision,$i.RiskLevel,$i.OldRequestID,$i.OldRequesterName,$i.OldTemplate,$i.OldNotAfter,$i.DaysExpired,$i.ReplacementFound,$i.ReplacementCandidateCount,$i.Result
+        $status = [string](Get-PreviewValue -Item $i -Name 'Status' -Default '')
+        $decision = [string](Get-PreviewValue -Item $i -Name 'Decision' -Default '')
+        $cls = if ($decision -eq 'Revoked') {'REVOKED'} elseif ($decision -eq 'RevokeFailed' -or $status -eq 'FAILED') {'FAILED'} elseif ($status -eq 'READY' -or $status -eq 'CLEANUP_READY' -or $status -eq 'FAILED_CLEANUP_READY') {'READY'} else {'SKIPPED'}
+        switch ($model) {
+            'Revoked' {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'RevocationDate' ''),(Get-PreviewValue $i 'RetentionCutoff' ''),(Get-PreviewValue $i 'Result' '')
+            }
+            'Failed' {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'SubmittedWhen' (Get-PreviewValue $i 'RequestDate' '')),(Get-PreviewValue $i 'RetentionCutoff' ''),(Get-PreviewValue $i 'DispositionMessage' ''),(Get-PreviewValue $i 'Result' '')
+            }
+            default {
+                '<tr class="{0}"><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td><td>{6}</td><td>{7}</td><td>{8}</td><td>{9}</td><td>{10}</td><td>{11}</td></tr>' -f $cls,$status,$decision,(Get-PreviewValue $i 'RiskLevel' ''),(Get-PreviewValue $i 'OldRequestID' ''),(Get-PreviewValue $i 'OldRequesterName' ''),(Get-PreviewValue $i 'OldTemplate' ''),(Get-PreviewValue $i 'OldNotAfter' ''),(Get-PreviewValue $i 'DaysExpired' ''),(Get-PreviewValue $i 'ReplacementFound' ''),(Get-PreviewValue $i 'ReplacementCandidateCount' ''),(Get-PreviewValue $i 'Result' '')
+            }
+        }
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.5.2 Enterprise Edition</h1>
-<p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig)</p>
-<table><tr><th>Status</th><th>Decision</th><th>Risk</th><th>RequestID</th><th>Requester</th><th>Template</th><th>Old NotAfter</th><th>Days Expired</th><th>Replacement</th><th>Candidates</th><th>Result</th></tr>
+<h1>PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition</h1>
+<p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
+<table>$header
 $($rows -join [Environment]::NewLine)
 </table></body></html>
 "@ | Set-Content -Path $html -Encoding UTF8
@@ -2111,6 +2190,7 @@ $($rows -join [Environment]::NewLine)
     Write-AppLog "Reports exported: $script:ReportRoot" 'SUCCESS'
     return @{ Csv=$csv; Json=$json; Html=$html }
 }
+
 
 # =====================================================================================
 # GUI rendering
@@ -2127,60 +2207,56 @@ function Add-TextRow {
 }
 
 function Refresh-PreviewGrid {
+    if ($null -eq $script:PreviewItems) { $script:PreviewItems = New-Object System.Collections.ArrayList }
     if (-not $script:grid -or $script:grid.IsDisposed) { return }
     $script:grid.DataSource = $null
-    $table = New-Object System.Data.DataTable
-    foreach ($col in @('Select','Index','Status','Decision','RiskLevel','RiskReason','OldRequestID','OldSerialNumber','OldRequesterName','OldCommonName','OldTemplate','DeviceClass','ComputerName','OperatingSystem','OldNotAfter','ReplacementFound','ReplacementCandidateCount','ReplacementRequestID','ReplacementSerialNumber','ReplacementNotAfter','DaysExpired','RevocationDate','RetentionCutoff','Result')) {
-        if ($col -eq 'Select') {
-            [void]$table.Columns.Add($col, [bool])
-        } else {
-            [void]$table.Columns.Add($col)
-        }
+    $model = Get-CurrentPreviewModel
+    [void](Test-PreviewModel -Items @($script:PreviewItems) -Model $model)
+
+    $columns = switch ($model) {
+        'Revoked' { @('Select','Index','Status','Decision','RiskLevel','RiskReason','OldRequestID','OldSerialNumber','OldRequesterName','OldCommonName','OldTemplate','RevocationReason','RevocationDate','RetentionCutoff','Result') }
+        'Failed'  { @('Select','Index','Status','Decision','RiskLevel','RiskReason','OldRequestID','OldRequesterName','OldCommonName','OldTemplate','SubmittedWhen','ResolvedWhen','DispositionMessage','RetentionCutoff','Result') }
+        default   { @('Select','Index','Status','Decision','RiskLevel','RiskReason','OldRequestID','OldSerialNumber','OldRequesterName','OldCommonName','OldTemplate','DeviceClass','ComputerName','OperatingSystem','OldNotAfter','DaysExpired','ReplacementFound','ReplacementCandidateCount','ReplacementRequestID','ReplacementSerialNumber','ReplacementNotAfter','Result') }
     }
+
+    $table = New-Object System.Data.DataTable
+    foreach ($col in $columns) {
+        if ($col -eq 'Select') { [void]$table.Columns.Add($col, [bool]) }
+        else { [void]$table.Columns.Add($col) }
+    }
+
     foreach ($item in $script:PreviewItems) {
         $row = $table.NewRow()
-        $row['Select'] = [bool]$item.Selected
-        $row['Index'] = [string]$item.Index
-        $row['Status'] = [string]$item.Status
-        $row['Decision'] = [string]$item.Decision
-        if ($table.Columns.Contains('RiskLevel')) { $row['RiskLevel'] = [string]$item.RiskLevel }
-        if ($table.Columns.Contains('RiskReason')) { $row['RiskReason'] = [string]$item.RiskReason }
-        $row['OldRequestID'] = [string]$item.OldRequestID
-        $row['OldSerialNumber'] = [string]$item.OldSerialNumber
-        $row['OldRequesterName'] = [string]$item.OldRequesterName
-        $row['OldCommonName'] = [string]$item.OldCommonName
-        $row['OldTemplate'] = [string]$item.OldTemplate
-        $row['DeviceClass'] = [string]$item.DeviceClass
-        $row['ComputerName'] = [string]$item.ComputerName
-        $row['OperatingSystem'] = [string]$item.OperatingSystem
-        $row['OldNotAfter'] = [string]$item.OldNotAfter
-        $row['ReplacementFound'] = [string]$item.ReplacementFound
-        if ($table.Columns.Contains('ReplacementCandidateCount')) { $row['ReplacementCandidateCount'] = [string]$item.ReplacementCandidateCount }
-        $row['ReplacementRequestID'] = [string]$item.ReplacementRequestID
-        $row['ReplacementSerialNumber'] = [string]$item.ReplacementSerialNumber
-        $row['ReplacementNotAfter'] = [string]$item.ReplacementNotAfter
-        if ($table.Columns.Contains('DaysExpired')) { $row['DaysExpired'] = [string]$item.DaysExpired }
-        if ($table.Columns.Contains('RevocationDate')) { $row['RevocationDate'] = [string]$item.RevocationDate }
-        if ($table.Columns.Contains('RetentionCutoff')) { $row['RetentionCutoff'] = [string]$item.RetentionCutoff }
-        $row['Result'] = [string]$item.Result
-        try { [void]$table.Rows.Add($row) } catch { Write-AppLog "Grid row add failed for index $($item.Index): $($_.Exception.Message)" 'WARN' }
+        foreach ($col in $columns) {
+            if ($col -eq 'Select') { $row[$col] = [bool](Get-PreviewValue -Item $item -Name 'Selected' -Default $false) }
+            else { $row[$col] = [string](Get-PreviewValue -Item $item -Name $col -Default '') }
+        }
+        try { [void]$table.Rows.Add($row) } catch { Write-AppLog "Grid row add failed for index $(Get-PreviewValue -Item $item -Name 'Index' -Default ''): $($_.Exception.Message)" 'WARN' }
     }
+
     $script:grid.DataSource = $table
-    if ($script:grid.Columns.Contains('Select')) {
-        $script:grid.Columns['Select'].Width = 60
-    }
+    if ($script:grid.Columns.Contains('Select')) { $script:grid.Columns['Select'].Width = 60 }
+    foreach ($name in @('Status','Decision','OldRequestID','OldRequesterName')) { if ($script:grid.Columns.Contains($name)) { $script:grid.Columns[$name].Frozen = $true } }
+
     foreach ($row in $script:grid.Rows) {
+        if (-not $row.Cells['Status']) { continue }
         $status = [string]$row.Cells['Status'].Value
         switch ($status) {
             'READY' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(255,244,206) }
             'CLEANUP_READY' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(255,244,206) }
+            'FAILED_CLEANUP_READY' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(255,244,206) }
             'REVOKED' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(223,246,221) }
             'CLEANED' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(223,246,221) }
+            'FAILED_CLEANED' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(223,246,221) }
             'DRYRUN' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(232,242,254) }
             'FAILED' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(253,231,233) }
+            'MANUAL REVIEW' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(243,242,241) }
+            'GRACE PERIOD' { $row.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(232,242,254) }
         }
     }
+    Update-StatusBar "Rows: $($table.Rows.Count) | Model: $model"
 }
+
 
 function Sync-GridSelection {
     if (-not $script:grid -or $script:grid.IsDisposed) { return }
@@ -2223,7 +2299,7 @@ function Show-RowDetails {
 
 function Build-GUI {
     $script:form = New-Object System.Windows.Forms.Form
-    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.5.2 Enterprise Edition - AD CS Governance Console'
+    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition - AD CS Governance Console'
     $script:form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:form.Size = New-Object System.Drawing.Size(1380,780)
     $script:form.MinimumSize = New-Object System.Drawing.Size(1200,720)
@@ -2466,6 +2542,7 @@ function Build-GUI {
         Set-Busy $true 'Building revoked cleanup preview...'
         try {
             $script:CAConfig = Resolve-CAConfigSafe ([string]$script:txtCAConfig.Text).Trim()
+            $script:CurrentPreviewModel = 'Revoked'
             [void]$script:PreviewItems.Clear()
             $cleanupCandidates = @(Get-RevokedCleanupCandidates -RetentionDays (& $getRevokedRetention))
             foreach ($c in $cleanupCandidates) { [void]$script:PreviewItems.Add($c) }
@@ -2485,6 +2562,7 @@ function Build-GUI {
         Set-Busy $true 'Building failed request preview...'
         try {
             $script:CAConfig = Resolve-CAConfigSafe ([string]$script:txtCAConfig.Text).Trim()
+            $script:CurrentPreviewModel = 'Failed'
             [void]$script:PreviewItems.Clear()
             $days = (& $getFailedRetention)
             $failedCandidates = @(Get-FailedCleanupCandidates -RetentionDays $days)
@@ -2515,7 +2593,7 @@ function Build-GUI {
     $btnReports.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miReportsExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' })
     $btnLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miReportsOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' })
     $miExit.Add_Click({ $script:form.Close() })
-    $miAbout.Add_Click({ Show-AppMessage "PKI Certificate Lifecycle Manager v5.5.2 Enterprise Edition`r`nEnterprise AD CS lifecycle governance, lifecycle preview, revoked cleanup, and failed request maintenance console.`r`n`r`nAuthor: Luiz Hamilton Roberto da Silva - @brazilianscriptguy" 'About' })
+    $miAbout.Add_Click({ Show-AppMessage "PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition`r`nEnterprise AD CS lifecycle governance, lifecycle preview, revoked cleanup, and failed request maintenance console.`r`n`r`nAuthor: Luiz Hamilton Roberto da Silva - @brazilianscriptguy" 'About' })
     $script:grid.Add_CurrentCellDirtyStateChanged({ if ($script:grid.IsCurrentCellDirty) { $script:grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit) } })
     $script:grid.Add_CellValueChanged({ if ($_.ColumnIndex -ge 0 -and $script:grid.Columns.Count -gt $_.ColumnIndex -and $script:grid.Columns[$_.ColumnIndex].Name -eq 'Select') { Sync-GridSelection } })
     $script:grid.Add_CellDoubleClick({ if ($_.RowIndex -ge 0) { $idx=0; if ([int]::TryParse([string]$script:grid.Rows[$_.RowIndex].Cells['Index'].Value,[ref]$idx)) { Show-RowDetails -Index $idx } } })
@@ -2537,7 +2615,7 @@ function Invoke-ConsoleWorkflow {
     if (-not $ExportOnly) {
         if (-not [bool]$script:Config.AutoMode -and -not $WhatIfPreference) { Write-AppLog 'Console apply blocked because AutoMode=false in config.json. Use -WhatIf for preview/export or set AutoMode=true.' 'WARN' } else { Invoke-RevokeSupersededCertificates -DryRun $WhatIfPreference }
     }
-    if ($CleanupDatabase) { [void]$script:PreviewItems.Clear(); foreach ($c in @(Get-RevokedCleanupCandidates -RetentionDays $RetentionDays)) { [void]$script:PreviewItems.Add($c) }; Invoke-RemoveOldRevokedCertificates -RetentionDays $RetentionDays -DryRun $WhatIfPreference -CompactDatabase ([bool]$script:Config.CompactDatabase) }
+    if ($CleanupDatabase) { $script:CurrentPreviewModel = 'Revoked'; [void]$script:PreviewItems.Clear(); foreach ($c in @(Get-RevokedCleanupCandidates -RetentionDays $RetentionDays)) { [void]$script:PreviewItems.Add($c) }; Invoke-RemoveOldRevokedCertificates -RetentionDays $RetentionDays -DryRun $WhatIfPreference -CompactDatabase ([bool]$script:Config.CompactDatabase) }
     if ($BackupCA) { Invoke-CABackup -Root $BackupRoot -IncludePrivateKey ([bool]$script:Config.BackupPrivateKey) }
     Export-Reports | Out-Null
     Write-AppLog 'Console workflow completed.' 'SUCCESS'
