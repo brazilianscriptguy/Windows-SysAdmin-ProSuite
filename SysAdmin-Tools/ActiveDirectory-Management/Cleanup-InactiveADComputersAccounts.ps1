@@ -819,8 +819,7 @@ function Load-ForestDomainsIntoGui {
         $domains = @(Get-ForestDomainNames)
 
         $script:cmbDomain.Items.Clear()
-        [void]$script:cmbDomain.Items.Add('ALL_FOREST_DOMAINS')
-
+        
         foreach ($domain in $domains) {
             [void]$script:cmbDomain.Items.Add($domain)
         }
