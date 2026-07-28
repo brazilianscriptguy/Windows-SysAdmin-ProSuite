@@ -65,7 +65,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user provisioning for organizational units |
 | **Adjust-ExpirationDate-ADUserAccount.ps1** | Modifies expiration dates for Active Directory user accounts |
 | **Check-Shorter-ADComputerNames.ps1** | Identifies short, invalid or non-compliant computer naming standards |
-| **Cleanup-InactiveADComputersAccounts.ps1** | Discovers, classifies, orchestrates and governs inactive AD computer lifecycle states across the enterprise forest |
+| **Cleanup-InactiveADComputersAccounts.ps1** | Collects and removes inactive Active Directory computer objects across all domains. |
 | **Cleanup-MetaData-ADForest-Tool.ps1** | Removes orphaned metadata objects and reconciles Active Directory forest consistency |
 | **Create-OUsDefaultADStructure.ps1** | Creates a standardized organizational unit hierarchy for Active Directory domains |
 | **Enforce-Expiration-ADUserPasswords.ps1** | Enforces password expiration governance policies for Active Directory users |
