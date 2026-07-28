@@ -65,6 +65,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user provisioning for organizational units |
 | **Adjust-ExpirationDate-ADUserAccount.ps1** | Modifies expiration dates for Active Directory user accounts |
 | **Check-Shorter-ADComputerNames.ps1** | Identifies short, invalid or non-compliant computer naming standards |
+| **Cleanup-InactiveADComputersAccounts.ps1** | Discovers, classifies, orchestrates and governs inactive AD computer lifecycle states across the enterprise forest |
 | **Cleanup-MetaData-ADForest-Tool.ps1** | Removes orphaned metadata objects and reconciles Active Directory forest consistency |
 | **Create-OUsDefaultADStructure.ps1** | Creates a standardized organizational unit hierarchy for Active Directory domains |
 | **Enforce-Expiration-ADUserPasswords.ps1** | Enforces password expiration governance policies for Active Directory users |
@@ -78,7 +79,6 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Inventory-ADUserLastLogon.ps1** | Retrieves and analyzes Active Directory user last logon timestamps |
 | **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies user accounts configured with non-expiring passwords |
 | **Inventory-InactiveADComputerAccounts.ps1** | Detects stale and inactive Active Directory computer accounts |
-| **Invoke-ADComputerGovernanceLifecycle.ps1** | Discovers, classifies, orchestrates and governs inactive AD computer lifecycle states across the enterprise forest |
 | **Manage-Disabled-Expired-ADUserAccounts.ps1** | Manages disabled, expired and inactive Active Directory user accounts |
 | **Manage-FSMOs-Roles.ps1** | Displays, validates and transfers FSMO role ownership across domain controllers |
 | **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share permissions and audits NTFS access rights for Active Directory groups |
