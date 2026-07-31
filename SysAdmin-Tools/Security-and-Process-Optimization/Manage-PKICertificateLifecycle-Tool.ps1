@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition - Enterprise AD CS lifecycle governance console.
+  PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition - Enterprise AD CS lifecycle governance console.
 
 .DESCRIPTION
   Enterprise Windows Forms GUI and console tool for Microsoft AD CS lifecycle maintenance.
@@ -26,7 +26,7 @@
   Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-  2026-07-08-v5.6.1-ENTERPRISE-EDITION
+  2026-07-31-v5.6.2-ENTERPRISE-EDITION
 
 .REQUIREMENTS
   - Windows PowerShell 5.1
@@ -559,6 +559,96 @@ function Get-PKIIdentityKeys {
         }
     }
     return @($keys)
+}
+
+function Resolve-PKIDeviceClass {
+    <#
+      Classifies a certificate conservatively. Template evidence is used first;
+      an AD lookup is optional and disabled by default. The function always
+      returns the same object shape so repository normalization remains stable.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Cert
+    )
+
+    $templateValues = New-Object System.Collections.Generic.List[string]
+    foreach ($propertyName in @('TemplateDisplayName','TemplateName','Template','TemplateRaw')) {
+        if ($Cert.PSObject.Properties.Name -contains $propertyName) {
+            $value = Normalize-PKIText ([string]$Cert.$propertyName)
+            if ($value -and -not $templateValues.Contains($value)) { [void]$templateValues.Add($value) }
+        }
+    }
+    $templateText = ($templateValues -join ' ')
+
+    $identityValues = New-Object System.Collections.Generic.List[string]
+    foreach ($propertyName in @('RequesterName','CommonName','Subject')) {
+        if ($Cert.PSObject.Properties.Name -contains $propertyName) {
+            $value = [string]$Cert.$propertyName
+            if (-not [string]::IsNullOrWhiteSpace($value)) { [void]$identityValues.Add($value.Trim()) }
+        }
+    }
+
+    $computerName = $null
+    foreach ($identity in $identityValues) {
+        if ($identity -match '(?i)(?:^|\\)([^\\,=]+)\$$') {
+            $computerName = $Matches[1]
+            break
+        }
+        if ($identity -match '(?i)(?:^|,)\s*CN\s*=\s*([^,]+)') {
+            $candidate = $Matches[1].Trim()
+            if ($candidate -and $candidate -notmatch '@' -and $candidate -notmatch '\s') {
+                $computerName = ($candidate -split '\.')[0].TrimEnd('$')
+            }
+        }
+    }
+
+    if ($script:UseADComputerLookup -and $computerName) {
+        $getADComputer = Get-Command -Name 'Get-ADComputer' -CommandType Cmdlet -ErrorAction SilentlyContinue
+        if ($getADComputer) {
+            try {
+                $adComputer = Get-ADComputer -Identity $computerName -Properties OperatingSystem,userAccountControl -ErrorAction Stop
+                $operatingSystem = [string]$adComputer.OperatingSystem
+                $uac = [int64]$adComputer.userAccountControl
+                $deviceClass = if (($uac -band 0x2000) -ne 0) {
+                    'DomainController'
+                } elseif ($operatingSystem -match '(?i)server') {
+                    'Server'
+                } else {
+                    'Workstation'
+                }
+                return [pscustomobject]@{
+                    DeviceClass     = $deviceClass
+                    ComputerName    = [string]$adComputer.Name
+                    OperatingSystem = $operatingSystem
+                    Source          = 'ActiveDirectory'
+                }
+            } catch {
+                # An unavailable or stale computer account is not a repository error;
+                # continue with deterministic template heuristics.
+            }
+        }
+    }
+
+    $deviceClass = 'Unknown'
+    $source = 'InsufficientEvidence'
+    if ($templateText -match 'domain controller|controlador de dominio|kerberos authentication') {
+        $deviceClass = 'DomainController'
+        $source = 'CertificateTemplate'
+    } elseif ($templateText -match 'web server|servidor web|server authentication') {
+        $deviceClass = 'Server'
+        $source = 'CertificateTemplate'
+    } elseif ($templateText -match 'workstation authentication|autenticacao de estacao') {
+        $deviceClass = 'Workstation'
+        $source = 'CertificateTemplate'
+    }
+
+    return [pscustomobject]@{
+        DeviceClass     = $deviceClass
+        ComputerName    = $computerName
+        OperatingSystem = $null
+        Source          = $source
+    }
 }
 
 function Test-SamePKISubject {
@@ -1442,7 +1532,7 @@ function Export-Reports {
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition</h1>
+<h1>PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition</h1>
 <p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
 <table>$header
 $($rows -join [Environment]::NewLine)
@@ -1612,7 +1702,7 @@ function Invoke-CertViewRepositoryQuery {
         $available | Set-Content -Path (Join-Path $script:ReportRoot "ICertView-Columns-$($script:RunStamp).txt") -Encoding UTF8
     } else { Write-AppLog 'Could not enumerate ICertView columns; proceeding with canonical AD CS column names.' 'WARN' }
 
-    $wanted = @('RequestID','SerialNumber','RequesterName','CommonName','CertificateTemplate','Subject','NotBefore','NotAfter','Disposition','Request.SubmittedWhen','Request.ResolvedWhen','Request.DispositionMessage','DispositionMessage','Request.StatusCode','Request.DispositionMessage')
+    $wanted = @('RequestID','SerialNumber','RequesterName','CommonName','CertificateTemplate','Subject','NotBefore','NotAfter','Disposition','Request.SubmittedWhen','Request.ResolvedWhen','Request.DispositionMessage','Request.StatusCode')
     if ($IncludeRevocationColumns) { $wanted += @('Request.RevokedWhen','Request.RevokedEffectiveWhen','Request.RevokedReason','RevokedWhen','RevokedEffectiveWhen','RevocationDate','Revoked Effective Date','Revocation Reason') }
     $resolved = New-Object System.Collections.Generic.List[string]
     foreach ($w in $wanted) {
@@ -1712,6 +1802,9 @@ function Get-IssuedCertificates {
     }
 
     Write-AppLog 'Repository stage: classifying devices using safe heuristic engine.' 'INFO'
+    if (-not (Get-Command -Name 'Resolve-PKIDeviceClass' -CommandType Function -ErrorAction SilentlyContinue)) {
+        throw "Required function 'Resolve-PKIDeviceClass' is unavailable. Device classification cannot continue."
+    }
     $classErrors = 0
     foreach ($item in $items) {
         try {
@@ -1726,8 +1819,15 @@ function Get-IssuedCertificates {
             if ($classErrors -le 20) { Write-AppLog "Device classification failed for RequestID=$($item.RequestID): $($_.Exception.Message)" 'WARN' }
         }
     }
-    if ($classErrors -gt 0) { Write-AppLog "Device classification errors: $classErrors" 'WARN' }
-    Write-AppLog 'Repository stage: completed.' 'SUCCESS'
+    if ($classErrors -gt 0) {
+        Write-AppLog "Device classification errors: $classErrors" 'WARN'
+        if ($items.Count -gt 0 -and $classErrors -eq $items.Count) {
+            throw "Device classification failed for every repository row ($classErrors of $($items.Count)). Lifecycle processing was stopped."
+        }
+        Write-AppLog "Repository stage: completed with device-classification warnings. Classified=$($items.Count - $classErrors), Failed=$classErrors." 'WARN'
+    } else {
+        Write-AppLog "Repository stage: completed. Device classifications=$($items.Count), Errors=0." 'SUCCESS'
+    }
     return @($items)
 }
 
@@ -2180,7 +2280,7 @@ function Export-Reports {
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition</h1>
+<h1>PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition</h1>
 <p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
 <table>$header
 $($rows -join [Environment]::NewLine)
@@ -2299,7 +2399,7 @@ function Show-RowDetails {
 
 function Build-GUI {
     $script:form = New-Object System.Windows.Forms.Form
-    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition - AD CS Governance Console'
+    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition - AD CS Governance Console'
     $script:form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:form.Size = New-Object System.Drawing.Size(1380,780)
     $script:form.MinimumSize = New-Object System.Drawing.Size(1200,720)
@@ -2593,7 +2693,7 @@ function Build-GUI {
     $btnReports.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miReportsExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' })
     $btnLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miReportsOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' })
     $miExit.Add_Click({ $script:form.Close() })
-    $miAbout.Add_Click({ Show-AppMessage "PKI Certificate Lifecycle Manager v5.6.1 Enterprise Edition`r`nEnterprise AD CS lifecycle governance, lifecycle preview, revoked cleanup, and failed request maintenance console.`r`n`r`nAuthor: Luiz Hamilton Roberto da Silva - @brazilianscriptguy" 'About' })
+    $miAbout.Add_Click({ Show-AppMessage "PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition`r`nEnterprise AD CS lifecycle governance, lifecycle preview, revoked cleanup, and failed request maintenance console.`r`n`r`nAuthor: Luiz Hamilton Roberto da Silva - @brazilianscriptguy" 'About' })
     $script:grid.Add_CurrentCellDirtyStateChanged({ if ($script:grid.IsCurrentCellDirty) { $script:grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit) } })
     $script:grid.Add_CellValueChanged({ if ($_.ColumnIndex -ge 0 -and $script:grid.Columns.Count -gt $_.ColumnIndex -and $script:grid.Columns[$_.ColumnIndex].Name -eq 'Select') { Sync-GridSelection } })
     $script:grid.Add_CellDoubleClick({ if ($_.RowIndex -ge 0) { $idx=0; if ([int]::TryParse([string]$script:grid.Rows[$_.RowIndex].Cells['Index'].Value,[ref]$idx)) { Show-RowDetails -Index $idx } } })
