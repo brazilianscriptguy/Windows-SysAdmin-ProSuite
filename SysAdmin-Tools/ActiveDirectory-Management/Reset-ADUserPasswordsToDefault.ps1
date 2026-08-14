@@ -1,337 +1,602 @@
-﻿<#
+<#
 .SYNOPSIS
-    PowerShell Script for Resetting AD User Passwords to a Default Value.
+  Active Directory Bulk Password Reset Manager v2.0.0 Enterprise Edition.
 
 .DESCRIPTION
-    This script resets the passwords for all Active Directory (AD) users within a selected Organizational Unit (OU) in a selected domain to a default value,
-    providing an efficient way to manage password policies and quickly reset multiple user accounts.
+  Enterprise Windows Forms tool for controlled bulk password resets of selected
+  Active Directory user accounts within a selected domain and OU.
+
+  The tool:
+  - Supports Windows PowerShell 5.1 and Windows Server 2019
+  - Hides the PowerShell console before importing ActiveDirectory
+  - Discovers all domains in the current forest
+  - Lists OUs for the selected domain
+  - Provides live OU search/filtering by Name and DistinguishedName
+  - Inventories users before any reset operation
+  - Provides searchable/filterable and sortable user columns
+  - Uses DistinguishedName + ObjectGUID stable identity
+  - Uses Dry Run by default
+  - Requires explicit per-user selection
+  - Blocks adminCount=1 accounts by default
+  - Blocks disabled accounts by default
+  - Never writes the password value to logs
+  - Converts the entered password to SecureString only at execution time
+  - Resets password and optionally enforces ChangePasswordAtLogon
+  - Re-reads the user after reset and verifies pwdLastSet/change-at-logon state
+  - Uses explicit -Server targeting for all AD reads/writes
+  - Produces SUCCESS / FAILED / SKIPPED counts
+  - Produces timestamped audit logs in C:\Logs-TEMP
 
 .AUTHOR
-    Luiz Hamilton Silva - @brazilianscriptguy
+  Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-    Last Updated: October 25, 2024
+  2026-08-14-v2.1.0-ENTERPRISE-EDITION
+
+.REQUIREMENTS
+  - Windows PowerShell 5.1
+  - Windows Server 2019
+  - RSAT ActiveDirectory PowerShell module
+  - Delegated rights sufficient to reset passwords on selected users
 #>
 
-# Hide the PowerShell console window
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Window {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    public static void Hide() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 0); // 0 = SW_HIDE
-    }
-    public static void Show() {
-        var handle = GetConsoleWindow();
-        ShowWindow(handle, 5); // 5 = SW_SHOW
-    }
-}
-"@
-[Window]::Hide()
+#Requires -Version 5.1
 
-# Import necessary assemblies and modules
+[CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+param([switch]$ShowConsole)
+
+Set-StrictMode -Version 2.0
+$ErrorActionPreference='Stop'
+
 try {
+    if (-not $ShowConsole) {
+        try {
+            Add-Type -Name Win32ShowWindowAsync -Namespace ConsoleControl -MemberDefinition @"
+[DllImport("user32.dll")]
+public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+[DllImport("kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+"@
+            $ptr=[ConsoleControl.Win32ShowWindowAsync]::GetConsoleWindow()
+            if($ptr-ne[IntPtr]::Zero){[void][ConsoleControl.Win32ShowWindowAsync]::ShowWindowAsync($ptr,0)}
+        } catch {}
+    }
+
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
-} catch {
-    [System.Windows.Forms.MessageBox]::Show("Failed to load required assemblies. $_", "Initialization Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    exit
-}
+    [System.Windows.Forms.Application]::EnableVisualStyles()
 
-try {
+    if(-not(Get-Module -ListAvailable ActiveDirectory)){throw 'ActiveDirectory module is not available.'}
     Import-Module ActiveDirectory -ErrorAction Stop
 } catch {
-    [System.Windows.Forms.MessageBox]::Show("Failed to import ActiveDirectory module. Please ensure it is installed.", "Module Import Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    exit
+    Write-Error "Initialization failed: $($_.Exception.Message)"
+    return
 }
 
-# Determine script name and set up logging paths
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$logDir = 'C:\Logs-TEMP'
-$logFileName = "${scriptName}.log"
-$logPath = Join-Path $logDir $logFileName
+$script:ScriptName=[IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$script:LogRoot='C:\Logs-TEMP'
+$script:RunStamp=Get-Date -Format 'yyyyMMdd-HHmmss'
+$script:LogFile=Join-Path $script:LogRoot "$($script:ScriptName)-$($script:RunStamp).log"
+$script:Users=@()
+$script:DisplayedUsers=@()
+$script:OUs=@()
+$script:SortColumn=-1
+$script:SortDescending=$false
+$script:CurrentDomain=$null
+$script:listView=$null
+$script:txtRuntimeLog=$null
+$script:statusMain=$null
+$script:chkDryRun=$null
 
-# Ensure the log directory exists
-if (-not (Test-Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Failed to create log directory at $logDir. Logging will not be possible.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        exit
-    }
+if(-not(Test-Path -LiteralPath $script:LogRoot)){
+    New-Item -ItemType Directory -Path $script:LogRoot -Force|Out-Null
 }
 
-# Enhanced logging function with error handling
-function Log-Message {
-    param (
-        [Parameter(Mandatory = $true)][string]$Message,
-        [Parameter(Mandatory = $false)][ValidateSet("INFO", "WARN", "ERROR")][string]$MessageType = "INFO"
+function Write-AppLog {
+    param(
+        [Parameter(Mandatory=$true)][string]$Message,
+        [ValidateSet('INFO','SUCCESS','WARN','ERROR')][string]$Level='INFO'
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$MessageType] $Message"
-    try {
-        Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show("Failed to write to log: $_", "Logging Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    $line="{0} [{1}] {2}"-f(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$Level,$Message
+    try{Add-Content -LiteralPath $script:LogFile -Value $line -Encoding UTF8}catch{}
+    if($script:txtRuntimeLog-and-not$script:txtRuntimeLog.IsDisposed){
+        $script:txtRuntimeLog.AppendText($line+[Environment]::NewLine)
+        $script:txtRuntimeLog.SelectionStart=$script:txtRuntimeLog.Text.Length
+        $script:txtRuntimeLog.ScrollToCaret()
+    }elseif($ShowConsole){Write-Host $line}
+}
+
+function Set-AppStatus {
+    param([string]$Text)
+    if($script:statusMain-and-not$script:statusMain.IsDisposed){
+        $script:statusMain.Text=$Text
+        [System.Windows.Forms.Application]::DoEvents()
     }
 }
 
-# Function to display error messages
-function Show-ErrorMessage {
-    param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Error', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    Log-Message $Message -MessageType "ERROR"
-}
-
-# Function to display information messages
-function Show-InfoMessage {
-    param ([string]$Message)
-    [System.Windows.Forms.MessageBox]::Show($Message, 'Information', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    Log-Message $Message -MessageType "INFO"
-}
-
-# Function to retrieve all domain names in the current forest
-function Get-AllDomains {
-    try {
-        $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-        return $forest.Domains | ForEach-Object { $_.Name }
-    } catch {
-        Log-Message "Failed to retrieve domains: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to retrieve domains. Please check the log for details."
-        return @()
+function Show-AppMessage {
+    param(
+        [Parameter(Mandatory=$true)][string]$Message,
+        [ValidateSet('Information','Warning','Error')][string]$Type='Information'
+    )
+    switch($Type){
+        'Error'{$icon=[System.Windows.Forms.MessageBoxIcon]::Error;Write-AppLog $Message ERROR}
+        'Warning'{$icon=[System.Windows.Forms.MessageBoxIcon]::Warning;Write-AppLog $Message WARN}
+        default{$icon=[System.Windows.Forms.MessageBoxIcon]::Information;Write-AppLog $Message INFO}
     }
+    [void][System.Windows.Forms.MessageBox]::Show($Message,$Type,[System.Windows.Forms.MessageBoxButtons]::OK,$icon)
 }
 
-# Function to load OUs from the selected domain
+function Get-ForestDomains {
+    $forest=Get-ADForest -ErrorAction Stop
+    return @($forest.Domains|Sort-Object)
+}
+
+function Get-DomainOUs {
+    param([Parameter(Mandatory=$true)][string]$Server)
+    return @(
+        Get-ADOrganizationalUnit -Server $Server -Filter * -ErrorAction Stop|
+        Select-Object Name,DistinguishedName,ObjectGUID|
+        Sort-Object DistinguishedName
+    )
+}
+
+function Get-OUUsers {
+    param(
+        [Parameter(Mandatory=$true)][string]$Server,
+        [Parameter(Mandatory=$true)][string]$SearchBase
+    )
+
+    $users=@(
+        Get-ADUser -Server $Server -SearchBase $SearchBase -SearchScope Subtree -Filter * `
+          -Properties DisplayName,Enabled,Title,Description,adminCount,pwdLastSet,
+                      PasswordNeverExpires,LockedOut,DistinguishedName,ObjectGUID `
+          -ErrorAction Stop |
+        Sort-Object SamAccountName
+    )
+
+    return @(
+        foreach($u in $users){
+            [pscustomobject]@{
+                SamAccountName=[string]$u.SamAccountName
+                DisplayName=[string]$u.DisplayName
+                Enabled=[bool]$u.Enabled
+                Title=[string]$u.Title
+                Description=[string]$u.Description
+                AdminCount=if($null-eq$u.adminCount){0}else{[int]$u.adminCount}
+                LockedOut=[bool]$u.LockedOut
+                PasswordNeverExpires=[bool]$u.PasswordNeverExpires
+                PwdLastSet=[Int64]$u.pwdLastSet
+                DistinguishedName=[string]$u.DistinguishedName
+                ObjectGUID=[Guid]$u.ObjectGUID
+            }
+        }
+    )
+}
+
+function Set-UserList {
+    param([Parameter(Mandatory=$true)][AllowEmptyCollection()][object[]]$Users)
+
+    $checked=@{}
+    foreach($i in $script:listView.CheckedItems){
+        if($i.Tag){$checked[[string]$i.Tag.ObjectGUID]=$true}
+    }
+
+    $script:listView.BeginUpdate()
+    try{
+        $script:listView.Items.Clear()
+        foreach($u in $Users){
+            $item=New-Object System.Windows.Forms.ListViewItem($u.SamAccountName)
+            [void]$item.SubItems.Add($u.DisplayName)
+            [void]$item.SubItems.Add([string]$u.Enabled)
+            [void]$item.SubItems.Add($u.Title)
+            [void]$item.SubItems.Add($u.Description)
+            [void]$item.SubItems.Add([string]$u.AdminCount)
+            [void]$item.SubItems.Add([string]$u.LockedOut)
+            [void]$item.SubItems.Add([string]$u.PasswordNeverExpires)
+            [void]$item.SubItems.Add($u.DistinguishedName)
+            $item.Tag=$u
+            if($checked.ContainsKey([string]$u.ObjectGUID)){$item.Checked=$true}
+            [void]$script:listView.Items.Add($item)
+        }
+    }finally{$script:listView.EndUpdate()}
+}
+
+function Test-UserMatchesFilter {
+    param($User,[string]$Filter)
+    if([string]::IsNullOrWhiteSpace($Filter)){return $true}
+    $n=$Filter.Trim()
+    foreach($v in @(
+        $User.SamAccountName,$User.DisplayName,[string]$User.Enabled,$User.Title,
+        $User.Description,[string]$User.AdminCount,[string]$User.LockedOut,
+        [string]$User.PasswordNeverExpires,$User.DistinguishedName
+    )){
+        if(([string]$v).IndexOf($n,[StringComparison]::OrdinalIgnoreCase)-ge 0){return $true}
+    }
+    return $false
+}
+
+function Apply-UserFilter {
+    param([string]$Filter)
+    $script:DisplayedUsers=@($script:Users|Where-Object{Test-UserMatchesFilter $_ $Filter})
+    Set-UserList -Users $script:DisplayedUsers
+    Set-AppStatus ("Displayed {0} of {1} user(s)."-f$script:DisplayedUsers.Count,$script:Users.Count)
+}
+
+function Sort-Users {
+    param([int]$Column,[bool]$Descending)
+    switch($Column){
+        0{$p='SamAccountName'}1{$p='DisplayName'}2{$p='Enabled'}3{$p='Title'}
+        4{$p='Description'}5{$p='AdminCount'}6{$p='LockedOut'}7{$p='PasswordNeverExpires'}
+        8{$p='DistinguishedName'}default{$p='SamAccountName'}
+    }
+    $script:Users=@($script:Users|Sort-Object -Property $p -Descending:$Descending)
+}
+
+function Get-CheckedUsers {
+    $a=New-Object System.Collections.ArrayList
+    foreach($i in $script:listView.CheckedItems){if($i.Tag){[void]$a.Add($i.Tag)}}
+    return @($a)
+}
+
+function Test-ResetEligibility {
+    param(
+        [Parameter(Mandatory=$true)]$User,
+        [switch]$AllowDisabled,
+        [switch]$AllowAdminCount
+    )
+
+    if(-not$AllowAdminCount-and$User.AdminCount-eq 1){
+        return [pscustomobject]@{Eligible=$false;Reason='adminCount=1 protected/sensitive account.'}
+    }
+    if(-not$AllowDisabled-and-not$User.Enabled){
+        return [pscustomobject]@{Eligible=$false;Reason='Account is disabled.'}
+    }
+    return [pscustomobject]@{Eligible=$true;Reason='Eligible.'}
+}
+
+function Show-Preview {
+    param([object[]]$Users,[bool]$AllowDisabled,[bool]$AllowAdminCount)
+
+    $lines=New-Object System.Collections.Generic.List[string]
+    $eligible=0;$blocked=0
+    foreach($u in $Users){
+        $e=Test-ResetEligibility -User $u -AllowDisabled:$AllowDisabled -AllowAdminCount:$AllowAdminCount
+        if($e.Eligible){$eligible++}else{$blocked++}
+        $lines.Add(("{0,-24} {1,-8} adminCount={2}  {3}"-f$u.SamAccountName,
+            $(if($e.Eligible){'READY'}else{'BLOCKED'}),$u.AdminCount,$e.Reason))
+    }
+
+    $text="Mode: $(if($script:chkDryRun.Checked){'DRY RUN'}else{'COMMIT'})`r`nSelected: $($Users.Count)`r`nEligible: $eligible`r`nBlocked: $blocked`r`n`r`n"+($lines-join"`r`n")
+    $dlg=New-Object System.Windows.Forms.Form
+    $dlg.Text='Password Reset Preview';$dlg.Size=New-Object System.Drawing.Size(850,550);$dlg.StartPosition='CenterParent'
+    $box=New-Object System.Windows.Forms.TextBox
+    $box.Multiline=$true;$box.ReadOnly=$true;$box.ScrollBars='Both';$box.WordWrap=$false
+    $box.Font=New-Object System.Drawing.Font('Consolas',9);$box.Dock='Fill';$box.Text=$text
+    $dlg.Controls.Add($box)
+    [void]$dlg.ShowDialog()
+}
+
+function Reset-SelectedUserPasswords {
+    [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+    param(
+        [Parameter(Mandatory=$true)][object[]]$Users,
+        [Parameter(Mandatory=$true)][string]$Server,
+        [Parameter(Mandatory=$true)][Security.SecureString]$Password,
+        [Parameter(Mandatory=$true)][bool]$ChangeAtLogon,
+        [Parameter(Mandatory=$true)][bool]$AllowDisabled,
+        [Parameter(Mandatory=$true)][bool]$AllowAdminCount
+    )
+
+    $results=New-Object System.Collections.ArrayList
+
+    foreach($record in $Users){
+        try{
+            $eligibility=Test-ResetEligibility -User $record -AllowDisabled:$AllowDisabled -AllowAdminCount:$AllowAdminCount
+            if(-not$eligibility.Eligible){
+                Write-AppLog "Skipped '$($record.SamAccountName)': $($eligibility.Reason)" WARN
+                [void]$results.Add([pscustomobject]@{User=$record.SamAccountName;Result='SKIPPED';Detail=$eligibility.Reason})
+                continue
+            }
+
+            $current=Get-ADUser -Identity $record.DistinguishedName -Server $Server `
+                -Properties ObjectGUID,Enabled,adminCount,pwdLastSet -ErrorAction Stop
+
+            if([Guid]$current.ObjectGUID-ne[Guid]$record.ObjectGUID){
+                throw 'ObjectGUID changed since discovery.'
+            }
+
+            if(-not$AllowAdminCount-and$current.adminCount-eq 1){throw 'Account became adminCount=1 before commit.'}
+            if(-not$AllowDisabled-and-not$current.Enabled){throw 'Account became disabled before commit.'}
+
+            $beforePwdLastSet=[Int64]$current.pwdLastSet
+            $target="$($record.SamAccountName) [$($record.DistinguishedName)]"
+
+            if($PSCmdlet.ShouldProcess($target,'Reset AD password')){
+                Set-ADAccountPassword -Identity $record.DistinguishedName -Server $Server `
+                    -Reset -NewPassword $Password -ErrorAction Stop
+
+                Set-ADUser -Identity $record.DistinguishedName -Server $Server `
+                    -ChangePasswordAtLogon:$ChangeAtLogon -ErrorAction Stop
+
+                $verified=Get-ADUser -Identity $record.DistinguishedName -Server $Server `
+                    -Properties ObjectGUID,pwdLastSet -ErrorAction Stop
+
+                if([Guid]$verified.ObjectGUID-ne[Guid]$record.ObjectGUID){
+                    throw 'Post-reset ObjectGUID verification failed.'
+                }
+
+                $afterPwdLastSet=[Int64]$verified.pwdLastSet
+
+                if($ChangeAtLogon){
+                    if($afterPwdLastSet-ne 0){
+                        throw "Verification failed: ChangePasswordAtLogon expected pwdLastSet=0; effective value=$afterPwdLastSet."
+                    }
+                }else{
+                    if($afterPwdLastSet-eq$beforePwdLastSet){
+                        Write-AppLog "Password reset for '$($record.SamAccountName)' completed; pwdLastSet value did not visibly change during immediate verification." WARN
+                    }
+                }
+
+                Write-AppLog "Password reset verified for '$($record.SamAccountName)'. ChangeAtLogon=$ChangeAtLogon." SUCCESS
+                [void]$results.Add([pscustomobject]@{User=$record.SamAccountName;Result='SUCCESS';Detail='Password reset completed and AD state verified.'})
+            }
+        }catch{
+            Write-AppLog "Password reset failed for '$($record.SamAccountName)': $($_.Exception.Message)" ERROR
+            [void]$results.Add([pscustomobject]@{User=$record.SamAccountName;Result='FAILED';Detail=$_.Exception.Message})
+        }
+    }
+    return @($results)
+}
+
+# =====================================================================================
+# GUI
+# =====================================================================================
+$form=New-Object System.Windows.Forms.Form
+$form.Text='AD Bulk Password Reset Manager - Enterprise Edition'
+$form.Size=New-Object System.Drawing.Size(1320,840)
+$form.MinimumSize=New-Object System.Drawing.Size(1080,720)
+$form.StartPosition='CenterScreen'
+
+$main=New-Object System.Windows.Forms.TableLayoutPanel
+$main.Dock='Fill';$main.Padding=New-Object System.Windows.Forms.Padding(10);$main.ColumnCount=1;$main.RowCount=8
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',60)))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent',40)))
+$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+$form.Controls.Add($main)
+
+$p1=New-Object System.Windows.Forms.FlowLayoutPanel;$p1.Dock='Fill';$p1.AutoSize=$true;$p1.WrapContents=$true
+$l=New-Object System.Windows.Forms.Label;$l.Text='Domain:';$l.AutoSize=$true;$l.Margin=New-Object System.Windows.Forms.Padding(3,7,3,3);$p1.Controls.Add($l)
+$cmbDomain=New-Object System.Windows.Forms.ComboBox;$cmbDomain.Width=300;$cmbDomain.DropDownStyle='DropDownList';$p1.Controls.Add($cmbDomain)
+
+$lOUSearch=New-Object System.Windows.Forms.Label;$lOUSearch.Text='OU Search:';$lOUSearch.AutoSize=$true;$lOUSearch.Margin=New-Object System.Windows.Forms.Padding(20,7,3,3);$p1.Controls.Add($lOUSearch)
+$txtOUSearch=New-Object System.Windows.Forms.TextBox;$txtOUSearch.Width=260;$p1.Controls.Add($txtOUSearch)
+$btnClearOUSearch=New-Object System.Windows.Forms.Button;$btnClearOUSearch.Text='Clear OU Search';$btnClearOUSearch.Width=120;$p1.Controls.Add($btnClearOUSearch)
+
+$l2=New-Object System.Windows.Forms.Label;$l2.Text='OU:';$l2.AutoSize=$true;$l2.Margin=New-Object System.Windows.Forms.Padding(20,7,3,3);$p1.Controls.Add($l2)
+$cmbOU=New-Object System.Windows.Forms.ComboBox;$cmbOU.Width=620;$cmbOU.DropDownStyle='DropDownList';$cmbOU.DisplayMember='DistinguishedName';$p1.Controls.Add($cmbOU)
+$btnLoad=New-Object System.Windows.Forms.Button;$btnLoad.Text='Load Users';$btnLoad.Width=100;$p1.Controls.Add($btnLoad)
+$main.Controls.Add($p1,0,0)
+
+$p2=New-Object System.Windows.Forms.FlowLayoutPanel;$p2.Dock='Fill';$p2.AutoSize=$true
+$l3=New-Object System.Windows.Forms.Label;$l3.Text='Filter displayed columns:';$l3.AutoSize=$true;$l3.Margin=New-Object System.Windows.Forms.Padding(3,7,3,3);$p2.Controls.Add($l3)
+$txtFilter=New-Object System.Windows.Forms.TextBox;$txtFilter.Width=500;$p2.Controls.Add($txtFilter)
+$btnClear=New-Object System.Windows.Forms.Button;$btnClear.Text='Clear Filter';$btnClear.Width=100;$p2.Controls.Add($btnClear)
+$btnSelect=New-Object System.Windows.Forms.Button;$btnSelect.Text='Select All';$btnSelect.Width=100;$p2.Controls.Add($btnSelect)
+$main.Controls.Add($p2,0,1)
+
+$p3=New-Object System.Windows.Forms.FlowLayoutPanel;$p3.Dock='Fill';$p3.AutoSize=$true
+$l4=New-Object System.Windows.Forms.Label;$l4.Text='Default Password:';$l4.AutoSize=$true;$l4.Margin=New-Object System.Windows.Forms.Padding(3,7,3,3);$p3.Controls.Add($l4)
+$txtPassword=New-Object System.Windows.Forms.TextBox;$txtPassword.Width=280;$txtPassword.UseSystemPasswordChar=$true;$p3.Controls.Add($txtPassword)
+$chkChange=New-Object System.Windows.Forms.CheckBox;$chkChange.Text='Require change at next logon';$chkChange.Checked=$true;$chkChange.AutoSize=$true;$p3.Controls.Add($chkChange)
+$chkAllowDisabled=New-Object System.Windows.Forms.CheckBox;$chkAllowDisabled.Text='Allow disabled accounts';$chkAllowDisabled.AutoSize=$true;$p3.Controls.Add($chkAllowDisabled)
+$chkAllowAdmin=New-Object System.Windows.Forms.CheckBox;$chkAllowAdmin.Text='Allow adminCount=1 accounts';$chkAllowAdmin.AutoSize=$true;$p3.Controls.Add($chkAllowAdmin)
+$chkDryRun=New-Object System.Windows.Forms.CheckBox;$chkDryRun.Text='Dry Run';$chkDryRun.Checked=$true;$chkDryRun.AutoSize=$true;$script:chkDryRun=$chkDryRun;$p3.Controls.Add($chkDryRun)
+$btnPreview=New-Object System.Windows.Forms.Button;$btnPreview.Text='Preview';$btnPreview.Width=90;$p3.Controls.Add($btnPreview)
+$btnReset=New-Object System.Windows.Forms.Button;$btnReset.Text='Reset Selected';$btnReset.Width=115;$p3.Controls.Add($btnReset)
+$main.Controls.Add($p3,0,2)
+
+$listView=New-Object System.Windows.Forms.ListView
+$listView.Dock='Fill';$listView.View='Details';$listView.CheckBoxes=$true;$listView.FullRowSelect=$true;$listView.GridLines=$true
+[void]$listView.Columns.Add('sAMAccountName',145)
+[void]$listView.Columns.Add('Display Name',180)
+[void]$listView.Columns.Add('Enabled',70)
+[void]$listView.Columns.Add('Title',160)
+[void]$listView.Columns.Add('Description',190)
+[void]$listView.Columns.Add('adminCount',80)
+[void]$listView.Columns.Add('LockedOut',75)
+[void]$listView.Columns.Add('PwdNeverExpires',100)
+[void]$listView.Columns.Add('DistinguishedName',420)
+$script:listView=$listView
+$main.Controls.Add($listView,0,3)
+
+$summary=New-Object System.Windows.Forms.Label;$summary.AutoSize=$true;$summary.Text='No user inventory loaded.';$main.Controls.Add($summary,0,4)
+$note=New-Object System.Windows.Forms.Label;$note.AutoSize=$true;$note.MaximumSize=New-Object System.Drawing.Size(1240,0)
+$note.Text='Safety defaults: Dry Run enabled; disabled users blocked; adminCount=1 accounts blocked; only explicitly checked users are eligible. Password values are never written to the log.'
+$main.Controls.Add($note,0,5)
+
+$txtRuntimeLog=New-Object System.Windows.Forms.TextBox;$txtRuntimeLog.Dock='Fill';$txtRuntimeLog.Multiline=$true;$txtRuntimeLog.ReadOnly=$true;$txtRuntimeLog.ScrollBars='Vertical';$txtRuntimeLog.Font=New-Object System.Drawing.Font('Consolas',8.5);$script:txtRuntimeLog=$txtRuntimeLog
+$main.Controls.Add($txtRuntimeLog,0,6)
+
+$statusStrip=New-Object System.Windows.Forms.StatusStrip
+$statusMain=New-Object System.Windows.Forms.ToolStripStatusLabel;$statusMain.Spring=$true;$statusMain.Text='Ready';$script:statusMain=$statusMain;[void]$statusStrip.Items.Add($statusMain)
+$statusMode=New-Object System.Windows.Forms.ToolStripStatusLabel;$statusMode.Text='Mode: DRY RUN';[void]$statusStrip.Items.Add($statusMode)
+$main.Controls.Add($statusStrip,0,7)
+
+function Refresh-OUCombo {
+    param([AllowEmptyString()][string]$FilterText='')
+
+    $selectedDn=$null
+    if($null-ne$cmbOU.SelectedItem){
+        $selectedDn=[string]$cmbOU.SelectedItem.DistinguishedName
+    }
+
+    $filtered=@(
+        $script:OUs | Where-Object {
+            if([string]::IsNullOrWhiteSpace($FilterText)){
+                $true
+            }else{
+                ([string]$_.Name).IndexOf($FilterText,[StringComparison]::OrdinalIgnoreCase)-ge 0 -or
+                ([string]$_.DistinguishedName).IndexOf($FilterText,[StringComparison]::OrdinalIgnoreCase)-ge 0
+            }
+        }
+    )
+
+    $cmbOU.BeginUpdate()
+    try{
+        $cmbOU.Items.Clear()
+        foreach($ou in $filtered){[void]$cmbOU.Items.Add($ou)}
+
+        $restored=$false
+        if($selectedDn){
+            for($i=0;$i-lt$cmbOU.Items.Count;$i++){
+                if([string]$cmbOU.Items[$i].DistinguishedName-eq$selectedDn){
+                    $cmbOU.SelectedIndex=$i
+                    $restored=$true
+                    break
+                }
+            }
+        }
+
+        if(-not$restored-and$cmbOU.Items.Count-gt 0){
+            $cmbOU.SelectedIndex=0
+        }
+    }finally{
+        $cmbOU.EndUpdate()
+    }
+
+    Set-AppStatus ("Displayed {0} of {1} OU(s)."-f$filtered.Count,$script:OUs.Count)
+}
+
 function Load-OUs {
-    param ([string]$DomainName)
-    try {
-        $script:allOUs = Get-ADOrganizationalUnit -Server $DomainName -Filter * | Select-Object -ExpandProperty DistinguishedName
-        $cmbOUs.Items.Clear()
-        $script:allOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
-        if ($cmbOUs.Items.Count -gt 0) {
-            $cmbOUs.SelectedIndex = 0
-        } else {
-            $cmbOUs.Text = 'No OUs found'
-            Show-InfoMessage "No Organizational Units found in the domain."
-        }
-    } catch {
-        Log-Message "Failed to load OUs: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to load Organizational Units. Check the log for details."
-    }
+    try{
+        $d=[string]$cmbDomain.SelectedItem
+        if([string]::IsNullOrWhiteSpace($d)){return}
+        Set-AppStatus "Loading OUs from $d..."
+        $script:OUs=@(Get-DomainOUs -Server $d)
+        $txtOUSearch.Clear()
+        Refresh-OUCombo
+        Write-AppLog "Loaded $($script:OUs.Count) OUs from '$d'." SUCCESS
+    }catch{Show-AppMessage "OU discovery failed: $($_.Exception.Message)" Error}
 }
 
-# Function to reset user passwords in a specific OU within a domain
-function Reset-UserPasswords {
-    param (
-        [Parameter(Mandatory = $true)][string]$DomainName,
-        [Parameter(Mandatory = $true)][string]$OU,
-        [Parameter(Mandatory = $true)][System.Security.SecureString]$DefaultPassword
-    )
+$cmbDomain.Add_SelectedIndexChanged({Load-OUs})
 
-    Log-Message "Starting password reset process in OU '$OU' of domain '$DomainName'."
-
-    try {
-        $users = Get-ADUser -Filter * -SearchBase $OU -Server $DomainName -Properties SamAccountName
-
-        if ($users.Count -eq 0) {
-            Show-InfoMessage "No users found in the selected OU."
-            Log-Message "No users found in OU '$OU' of domain '$DomainName'." -MessageType "WARN"
-            return
-        }
-
-        $progressForm = New-Object System.Windows.Forms.Form
-        $progressForm.Text = "Resetting Passwords"
-        $progressForm.Size = New-Object System.Drawing.Size(400, 100)
-        $progressForm.StartPosition = 'CenterScreen'
-
-        $progressBar = New-Object System.Windows.Forms.ProgressBar
-        $progressBar.Location = New-Object System.Drawing.Point(10, 20)
-        $progressBar.Size = New-Object System.Drawing.Size(360, 20)
-        $progressBar.Minimum = 0
-        $progressBar.Maximum = $users.Count
-        $progressBar.Step = 1
-        $progressForm.Controls.Add($progressBar)
-
-        $progressForm.Show()
-
-        foreach ($user in $users) {
-            try {
-                Set-ADAccountPassword -Identity $user -Reset -NewPassword $DefaultPassword -Server $DomainName -ErrorAction Stop
-                Set-ADUser -Identity $user -ChangePasswordAtLogon $true -Server $DomainName -ErrorAction Stop
-                Log-Message "Password reset for $($user.SamAccountName) with 'change at login' enforced."
-            } catch {
-                Log-Message "Failed to reset password for $($user.SamAccountName): $_" -MessageType "ERROR"
-            }
-            $progressBar.PerformStep()
-            [System.Windows.Forms.Application]::DoEvents()
-        }
-        $progressForm.Close()
-        Show-InfoMessage "Password reset process completed successfully. All users are required to change their password at next login."
-    } catch {
-        Log-Message "Error encountered during password reset process: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Error encountered during password reset process. Check the log for details."
-    }
-}
-
-# Initialize the form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = 'Reset User Passwords in Active Directory'
-$form.Size = New-Object System.Drawing.Size(500, 400)
-$form.StartPosition = 'CenterScreen'
-
-# Label for Domain selection
-$labelDomain = New-Object System.Windows.Forms.Label
-$labelDomain.Text = 'Select a Domain:'
-$labelDomain.Location = New-Object System.Drawing.Point(10, 20)
-$labelDomain.AutoSize = $true
-$form.Controls.Add($labelDomain)
-
-# ComboBox for displaying domains
-$cmbDomains = New-Object System.Windows.Forms.ComboBox
-$cmbDomains.Location = New-Object System.Drawing.Point(10, 45)
-$cmbDomains.Size = New-Object System.Drawing.Size(460, 25)
-$cmbDomains.DropDownStyle = 'DropDownList'
-$form.Controls.Add($cmbDomains)
-
-# Button to load domains
-$btnLoadDomains = New-Object System.Windows.Forms.Button
-$btnLoadDomains.Text = 'Refresh Domains List'
-$btnLoadDomains.Location = New-Object System.Drawing.Point(10, 80)
-$btnLoadDomains.Size = New-Object System.Drawing.Size(150, 30)
-$btnLoadDomains.Add_Click({
-        Load-Domains
-    })
-$form.Controls.Add($btnLoadDomains)
-
-# Label for OU search
-$labelOUSearch = New-Object System.Windows.Forms.Label
-$labelOUSearch.Text = 'Search for an OU:'
-$labelOUSearch.Location = New-Object System.Drawing.Point(10, 130)
-$labelOUSearch.AutoSize = $true
-$form.Controls.Add($labelOUSearch)
-
-# TextBox for OU search
-$txtOUSearch = New-Object System.Windows.Forms.TextBox
-$txtOUSearch.Location = New-Object System.Drawing.Point(10, 155)
-$txtOUSearch.Size = New-Object System.Drawing.Size(460, 20)
-$form.Controls.Add($txtOUSearch)
-
-# ComboBox for displaying OUs
-$cmbOUs = New-Object System.Windows.Forms.ComboBox
-$cmbOUs.Location = New-Object System.Drawing.Point(10, 185)
-$cmbOUs.Size = New-Object System.Drawing.Size(460, 25)
-$cmbOUs.DropDownStyle = 'DropDownList'
-$form.Controls.Add($cmbOUs)
-
-# Button to load OUs
-$btnLoadOUs = New-Object System.Windows.Forms.Button
-$btnLoadOUs.Text = 'Refresh OUs List'
-$btnLoadOUs.Location = New-Object System.Drawing.Point(10, 220)
-$btnLoadOUs.Size = New-Object System.Drawing.Size(150, 30)
-$btnLoadOUs.Add_Click({
-        $domainName = $cmbDomains.SelectedItem
-        if ($null -eq $domainName) {
-            Show-ErrorMessage "Please select a domain first."
-            return
-        }
-        Load-OUs -DomainName $domainName
-    })
-$form.Controls.Add($btnLoadOUs)
-
-# Search functionality for OUs
 $txtOUSearch.Add_TextChanged({
-        $searchText = $txtOUSearch.Text
-        $filteredOUs = $script:allOUs | Where-Object { $_ -like "*$searchText*" }
-        $cmbOUs.Items.Clear()
-        $filteredOUs | ForEach-Object { $cmbOUs.Items.Add($_) }
-        if ($cmbOUs.Items.Count -gt 0) {
-            $cmbOUs.SelectedIndex = 0
-        } else {
-            $cmbOUs.Text = 'No matching OU found'
-        }
-    })
-
-# Label for Default Password
-$labelPassword = New-Object System.Windows.Forms.Label
-$labelPassword.Text = 'Enter the default password:'
-$labelPassword.Location = New-Object System.Drawing.Point(10, 270)
-$labelPassword.AutoSize = $true
-$form.Controls.Add($labelPassword)
-
-# TextBox for Default Password input
-$textBoxPassword = New-Object System.Windows.Forms.TextBox
-$textBoxPassword.Location = New-Object System.Drawing.Point(10, 295)
-$textBoxPassword.Size = New-Object System.Drawing.Size(460, 20)
-$textBoxPassword.UseSystemPasswordChar = $true
-$form.Controls.Add($textBoxPassword)
-
-# Button to execute password reset
-$buttonExecute = New-Object System.Windows.Forms.Button
-$buttonExecute.Text = 'Reset Passwords'
-$buttonExecute.Location = New-Object System.Drawing.Point(10, 330)
-$buttonExecute.Size = New-Object System.Drawing.Size(150, 30)
-$buttonExecute.Add_Click({
-        Log-Message "Reset Passwords button clicked, starting password reset process."
-        $domainName = $cmbDomains.SelectedItem
-        $ou = $cmbOUs.SelectedItem
-        $defaultPassword = $textBoxPassword.Text
-
-        if (![string]::IsNullOrWhiteSpace($domainName) -and ![string]::IsNullOrWhiteSpace($ou) -and ![string]::IsNullOrWhiteSpace($defaultPassword)) {
-            # Convert the plain text password to a secure string
-            $securePassword = ConvertTo-SecureString -String $defaultPassword -AsPlainText -Force
-
-            # Confirm action
-            $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to reset passwords for all users in the selected OU?", "Confirm Password Reset", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-                Reset-UserPasswords -DomainName $domainName -OU $ou -DefaultPassword $securePassword
-            } else {
-                Log-Message "Password reset operation cancelled by user."
-            }
-        } else {
-            Show-ErrorMessage "Please select a valid domain, OU, and provide a default password."
-        }
-    })
-$form.Controls.Add($buttonExecute)
-
-# Function to load domains into the ComboBox
-function Load-Domains {
-    try {
-        $script:allDomains = Get-AllDomains
-        $cmbDomains.Items.Clear()
-        $script:allDomains | ForEach-Object { $cmbDomains.Items.Add($_) }
-        if ($cmbDomains.Items.Count -gt 0) {
-            $cmbDomains.SelectedIndex = 0
-        } else {
-            $cmbDomains.Text = 'No domains found'
-            Show-InfoMessage "No domains found in the forest."
-        }
-    } catch {
-        Log-Message "Failed to load domains: $_" -MessageType "ERROR"
-        Show-ErrorMessage "Failed to load domains. Check the log for details."
+    try{
+        Refresh-OUCombo -FilterText $txtOUSearch.Text.Trim()
+    }catch{
+        Write-AppLog "OU search failed: $($_.Exception.Message)" ERROR
     }
-}
+})
 
-# Event handler for domain selection change
-$cmbDomains.Add_SelectedIndexChanged({
-        $domainName = $cmbDomains.SelectedItem
-        if ($null -ne $domainName) {
-            Load-OUs -DomainName $domainName
+$btnClearOUSearch.Add_Click({
+    $txtOUSearch.Clear()
+})
+$chkDryRun.Add_CheckedChanged({$statusMode.Text=if($chkDryRun.Checked){'Mode: DRY RUN'}else{'Mode: COMMIT'}})
+$txtFilter.Add_TextChanged({Apply-UserFilter -Filter $txtFilter.Text;$summary.Text="Displayed: $($script:DisplayedUsers.Count) | Total: $($script:Users.Count)"})
+$btnClear.Add_Click({$txtFilter.Clear()})
+$btnSelect.Add_Click({foreach($i in $script:listView.Items){$i.Checked=$true}})
+$listView.Add_ColumnClick({
+    param($sender,$e)
+    if($script:SortColumn-eq$e.Column){$script:SortDescending=-not$script:SortDescending}else{$script:SortColumn=$e.Column;$script:SortDescending=$false}
+    Sort-Users -Column $script:SortColumn -Descending $script:SortDescending
+    Apply-UserFilter -Filter $txtFilter.Text
+})
+$btnLoad.Add_Click({
+    try{
+        if($null-eq$cmbOU.SelectedItem){throw 'Select an OU.'}
+        $script:CurrentDomain=[string]$cmbDomain.SelectedItem
+        $ou=[string]$cmbOU.SelectedItem.DistinguishedName
+        Set-AppStatus 'Loading users...'
+        $script:Users=@(Get-OUUsers -Server $script:CurrentDomain -SearchBase $ou)
+        $script:DisplayedUsers=@($script:Users)
+        $txtFilter.Clear()
+        Set-UserList -Users $script:DisplayedUsers
+        $summary.Text="Users loaded: $($script:Users.Count)"
+        Write-AppLog "Loaded $($script:Users.Count) users from OU '$ou' in '$($script:CurrentDomain)'." SUCCESS
+    }catch{Show-AppMessage "User inventory failed: $($_.Exception.Message)" Error}
+})
+$btnPreview.Add_Click({
+    $u=@(Get-CheckedUsers)
+    if($u.Count-eq 0){Show-AppMessage 'Select at least one user.' Warning;return}
+    Show-Preview -Users $u -AllowDisabled:$chkAllowDisabled.Checked -AllowAdminCount:$chkAllowAdmin.Checked
+})
+$btnReset.Add_Click({
+    try{
+        $u=@(Get-CheckedUsers)
+        if($u.Count-eq 0){throw 'Select at least one user.'}
+        if([string]::IsNullOrWhiteSpace($txtPassword.Text)){throw 'Enter the default password.'}
+
+        Show-Preview -Users $u -AllowDisabled:$chkAllowDisabled.Checked -AllowAdminCount:$chkAllowAdmin.Checked
+
+        if($chkDryRun.Checked){
+            Write-AppLog "DRY RUN: Selected=$($u.Count); no passwords reset."
+            Show-AppMessage 'Dry Run completed. No passwords were changed.' Information
+            return
         }
-    })
 
-# Load domains on form load
-$form.Add_Shown({
-        Load-Domains
-    })
+        $eligible=@($u|Where-Object{(Test-ResetEligibility $_ -AllowDisabled:$chkAllowDisabled.Checked -AllowAdminCount:$chkAllowAdmin.Checked).Eligible})
+        if($eligible.Count-eq 0){throw 'No selected users are eligible under the current safety settings.'}
 
-# Show the form
-[void]$form.ShowDialog()
+        $confirm=@"
+COMMIT bulk password reset?
+
+Domain: $($script:CurrentDomain)
+Selected users: $($u.Count)
+Eligible users: $($eligible.Count)
+Require change at next logon: $($chkChange.Checked)
+Allow disabled accounts: $($chkAllowDisabled.Checked)
+Allow adminCount=1: $($chkAllowAdmin.Checked)
+
+The password value will not be written to the audit log.
+"@
+        $ans=[System.Windows.Forms.MessageBox]::Show($confirm,'Confirm Bulk Password Reset',
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button2)
+        if($ans-ne[System.Windows.Forms.DialogResult]::Yes){Write-AppLog 'Commit cancelled by operator.' WARN;return}
+
+        $secure=ConvertTo-SecureString -String $txtPassword.Text -AsPlainText -Force
+        $txtPassword.Clear()
+
+        Set-AppStatus 'Resetting selected user passwords...'
+        $r=@(Reset-SelectedUserPasswords -Users $u -Server $script:CurrentDomain -Password $secure `
+            -ChangeAtLogon:$chkChange.Checked -AllowDisabled:$chkAllowDisabled.Checked `
+            -AllowAdminCount:$chkAllowAdmin.Checked -Confirm:$false)
+
+        $success=@($r|Where-Object Result -eq 'SUCCESS').Count
+        $failed=@($r|Where-Object Result -eq 'FAILED').Count
+        $skipped=@($r|Where-Object Result -eq 'SKIPPED').Count
+
+        $msg="Execution completed.`r`n`r`nSuccess: $success`r`nFailed: $failed`r`nSkipped: $skipped`r`n`r`nLog: $($script:LogFile)"
+        if($failed-gt 0){Show-AppMessage $msg Warning}else{
+            Write-AppLog ("Reset summary: Success={0}; Failed={1}; Skipped={2}"-f$success,$failed,$skipped) SUCCESS
+            [void][System.Windows.Forms.MessageBox]::Show($msg,'Execution Summary',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
+        }
+        Set-AppStatus ("Completed: Success={0}, Failed={1}, Skipped={2}"-f$success,$failed,$skipped)
+    }catch{Show-AppMessage "Execution failed: $($_.Exception.Message)" Error}
+})
+
+try{
+    Write-AppLog "Starting $($script:ScriptName)."
+    Write-AppLog ("Host PowerShell: {0}; OS: {1}"-f$PSVersionTable.PSVersion,[Environment]::OSVersion.VersionString)
+    $domains=@(Get-ForestDomains)
+    foreach($d in $domains){[void]$cmbDomain.Items.Add($d)}
+    if($cmbDomain.Items.Count-eq 0){throw 'No AD domains discovered.'}
+    $cmbDomain.SelectedIndex=0
+    Write-AppLog ("Discovered forest domains: {0}"-f($domains-join', ')) SUCCESS
+    [void]$form.ShowDialog()
+}catch{
+    Write-AppLog "Fatal startup error: $($_.Exception.Message)" ERROR
+    [void][System.Windows.Forms.MessageBox]::Show("Fatal startup error:`r`n$($_.Exception.Message)",'AD Bulk Password Reset Manager',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error)
+}finally{
+    Write-AppLog "Closing $($script:ScriptName)."
+}
 
 # End of script
