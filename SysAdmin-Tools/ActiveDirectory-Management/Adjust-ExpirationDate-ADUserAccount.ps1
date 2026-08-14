@@ -26,7 +26,7 @@
   Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-  2026-08-14-v2.2.0-ENTERPRISE-EDITION
+  2026-08-14-v2.2.1-ENTERPRISE-EDITION
 
 .REQUIREMENTS
   - Windows PowerShell 5.1
@@ -36,7 +36,6 @@
 #>
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
@@ -68,6 +67,14 @@ public static extern IntPtr GetConsoleWindow();
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
+
+    # ActiveDirectory is intentionally imported only after console suppression.
+    # '#Requires -Modules ActiveDirectory' would load the module before script code
+    # executes, preventing the script from hiding the console first.
+    if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+        throw 'The ActiveDirectory PowerShell module is not installed or available.'
+    }
+
     Import-Module ActiveDirectory -ErrorAction Stop
 } catch {
     Write-Error "Failed to initialize required components: $($_.Exception.Message)"
