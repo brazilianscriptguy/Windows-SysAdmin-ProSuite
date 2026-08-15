@@ -1,13 +1,13 @@
 # Per-repo Language Breakdown (GitHub Linguist)
 
-- Generated (UTC): 2026-08-14T04:18:31Z
+- Generated (UTC): 2026-08-15T03:05:24Z
 - User: brazilianscriptguy
 
 ## Windows-SysAdmin-ProSuite
-- PowerShell: 3330622 bytes (98.3%)
-- HTML: 12495 bytes (0.4%)
-- VBScript: 12289 bytes (0.4%)
-- TSQL: 8947 bytes (0.3%)
+- PowerShell: 3586750 bytes (98.4%)
+- HTML: 12495 bytes (0.3%)
+- VBScript: 12289 bytes (0.3%)
+- TSQL: 8947 bytes (0.2%)
 - Java: 7078 bytes (0.2%)
 
 ## brazilianscriptguy
