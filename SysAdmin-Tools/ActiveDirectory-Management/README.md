@@ -60,7 +60,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 
 | Script Name | Description |
 |------------|-------------|
-| **Add-ADComputers-GrantPermissions.ps1** | Adds and pre-stages Active Directory computer accounts in organizational units, including controlled re-ingress and required domain join permissions. |
+| **Add-ADComputers-Pre-Staging.ps1** | Adds and pre-stages Active Directory computer accounts in organizational units, including controlled re-ingress and required domain join permissions. |
 | **Add-ADInetOrgPerson.ps1** | Creates `InetOrgPerson` directory objects with extended enterprise attributes |
 | **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user provisioning for organizational units |
 | **Adjust-ExpirationDate-ADUserAccount.ps1** | Modifies expiration dates for Active Directory user accounts |
