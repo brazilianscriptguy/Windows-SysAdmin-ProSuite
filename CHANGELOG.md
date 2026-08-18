@@ -27,6 +27,12 @@ All notable repository changes are documented in this file.
 ## All-Repository-Files
 
 
+
+### 2026-08-18
+
+#### Fixed
+- Fix formatting issue at the end of the script (`28fa6d2`)
+
 ### 2026-08-18
 
 #### Added
@@ -72,6 +78,12 @@ All notable repository changes are documented in this file.
 ---
 
 ## Core-ScriptLibrary
+
+
+### 2026-08-18
+
+#### Fixed
+- Fix formatting issue at the end of the script (`28fa6d2`)
 
 ### Added
 - Built a reusable **PowerShell foundation** shared across repository toolsets.
