@@ -26,6 +26,12 @@ All notable repository changes are documented in this file.
 
 ## All-Repository-Files
 
+
+### 2026-08-18
+
+#### Added
+- Update Add-ADComputers-Pre-Staging.ps1 (`0fe4f96`)
+
 ### Added
 - Created a consolidated archive containing the repository's principal components.
 - Included root-level `README.md` and `LICENSE.txt`.
@@ -170,6 +176,12 @@ All notable repository changes are documented in this file.
 ---
 
 ## SysAdmin-Tools
+
+
+### 2026-08-18
+
+#### Added
+- Update Add-ADComputers-Pre-Staging.ps1 (`0fe4f96`)
 
 ### Added
 - Delivered a comprehensive **PowerShell automation suite for Windows systems and infrastructure administration**.
