@@ -35,7 +35,7 @@
     Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-    2026-08-17-v3.3.3-FOREST-AGNOSTIC-MULTIDOMAIN-BATCH
+    2026-08-18-v3.3.6-FOREST-AGNOSTIC-MULTIDOMAIN-BATCH-HOSTNAME-POLICY
 
 .REQUIREMENTS
     - Windows PowerShell 5.1
@@ -112,7 +112,7 @@ catch {
 # Application state / constants
 # =====================================================================================
 $script:AppName      = 'AD Computer Pre-Staging Manager'
-$script:AppVersion   = '3.3.3'
+$script:AppVersion   = '3.3.6'
 $script:ScriptName   = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $script:LogRoot      = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'ADComputerPreStaging\Logs'
 $script:RunStamp     = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -411,53 +411,121 @@ function Get-ComputerOUsForDomain {
 # Naming / input
 # =====================================================================================
 function Test-ComputerNamePolicy {
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$ComputerName,
+        [Parameter(Mandatory=$true)]
+        [string]$ComputerName,
+
         [int]$MaximumLength = 15,
+
         [bool]$RequireUppercase = $false,
-        [string]$Pattern = '^[A-Za-z0-9-]+$'
+
+        # ASCII letters, digits, and internal hyphen only.
+        # Hyphen cannot be first or last.
+        [string]$Pattern = '^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$'
     )
 
     $name = $ComputerName.Trim()
 
     if([string]::IsNullOrWhiteSpace($name)){
-        return [pscustomobject]@{Valid=$false;Reason='Computer name is empty.'}
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = 'Computer name is empty.'
+        }
     }
 
     if($MaximumLength -lt 1 -or $MaximumLength -gt 63){
-        return [pscustomobject]@{Valid=$false;Reason='Configured hostname length must be between 1 and 63 characters.'}
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = 'Configured hostname length must be between 1 and 63 characters.'
+        }
     }
 
     if($name.Length -ne $MaximumLength){
-        return [pscustomobject]@{Valid=$false;Reason="Hostname must contain exactly $MaximumLength characters. Current length: $($name.Length)."}
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = "Hostname must contain exactly $MaximumLength characters. Current length: $($name.Length)."
+        }
+    }
+
+    # Strict ASCII character policy.
+    if($name -notmatch '^[A-Za-z0-9-]+$'){
+        $invalidChars = @(
+            $name.ToCharArray() |
+            Where-Object {
+                $_ -notmatch '[A-Za-z0-9-]'
+            } |
+            Select-Object -Unique
+        )
+
+        $display = if($invalidChars.Count -gt 0){
+            ($invalidChars | ForEach-Object { "'$_'" }) -join ', '
+        }else{
+            'unknown'
+        }
+
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = "Invalid hostname character(s): $display. Allowed characters are A-Z, a-z, 0-9, and hyphen (-) only."
+        }
+    }
+
+    if($name.StartsWith('-') -or $name.EndsWith('-')){
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = 'Computer name cannot begin or end with a hyphen.'
+        }
     }
 
     if($RequireUppercase -and $name -cne $name.ToUpperInvariant()){
-        return [pscustomobject]@{Valid=$false;Reason='Configured naming policy requires uppercase characters.'}
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = 'Configured naming policy requires uppercase letters.'
+        }
     }
 
     try{
         if($name -notmatch $Pattern){
-            return [pscustomobject]@{Valid=$false;Reason="Computer name does not match configured pattern '$Pattern'."}
+            return [pscustomobject]@{
+                Valid  = $false
+                Reason = 'Computer name does not match the configured hostname policy.'
+            }
         }
-    }catch{
-        return [pscustomobject]@{Valid=$false;Reason="Invalid naming-policy regex: $Pattern"}
+    }
+    catch{
+        return [pscustomobject]@{
+            Valid  = $false
+            Reason = "Invalid naming-policy regex: $Pattern"
+        }
     }
 
-    if($name.StartsWith('-') -or $name.EndsWith('-')){
-        return [pscustomobject]@{Valid=$false;Reason='Computer name cannot begin or end with a hyphen.'}
+    return [pscustomobject]@{
+        Valid  = $true
+        Reason = 'Valid hostname.'
     }
-
-    return [pscustomobject]@{Valid=$true;Reason='Valid.'}
 }
 
 function ConvertTo-ComputerNameList {
-    param([string]$Text)
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()]
+        [string]$Text
+    )
 
+    if([string]::IsNullOrWhiteSpace($Text)){
+        return @()
+    }
+
+    # Regex escapes \r and \n are intentional.
+    # Do not use PowerShell backtick escapes inside this single-quoted regex.
     return @(
-        $Text -split '[,;`r`n]+' |
-        ForEach-Object { $_.Trim() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        $Text -split '[,;\r\n]+' |
+        ForEach-Object {
+            $_.Trim()
+        } |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        } |
         Sort-Object -Unique
     )
 }
@@ -1559,7 +1627,7 @@ $pSettings.Controls.Add($lblHostnameExample,3,2)
 $pSettings.SetColumnSpan($lblHostnameExample,2)
 
 $lblHostnameRule=New-Object Windows.Forms.Label
-$lblHostnameRule.Text='Exactly 15 characters required'
+$lblHostnameRule.Text='Exactly 15 chars | A-Z, 0-9, hyphen (-) only'
 $lblHostnameRule.AutoSize=$true
 $lblHostnameRule.Anchor='Left'
 $lblHostnameRule.Margin=New-Object Windows.Forms.Padding(8,7,3,3)
@@ -1567,7 +1635,7 @@ $pSettings.Controls.Add($lblHostnameRule,5,2)
 $pSettings.SetColumnSpan($lblHostnameRule,3)
 
 # Forest-agnostic default computer-name validation policy.
-$script:ComputerNameRegex='^[A-Za-z0-9-]+$'
+$script:ComputerNameRegex='^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$'
 
 # -------------------------------------------------------------------------
 # Row 4 - Re-Ingress policy
@@ -1864,8 +1932,7 @@ $script:PrincipalValidationTimer.Add_Tick({
 function Update-HostnameLengthFeedback {
     $requiredLength = [int]$numMaxLength.Value
 
-    # Keep all visible policy text synchronized with the selected numeric value.
-    $lblHostnameRule.Text = "Exactly $requiredLength characters required"
+    $lblHostnameRule.Text = "Exactly $requiredLength chars | A-Z, 0-9, hyphen (-) only"
 
     $raw = $txtComputers.Text.Trim()
 
@@ -1881,26 +1948,51 @@ function Update-HostnameLengthFeedback {
         return
     }
 
-    if($names.Count -eq 1){
-        $actual = $names[0].Length
+    $results = @(
+        foreach($name in $names){
+            $policy = Test-ComputerNamePolicy `
+                -ComputerName $name `
+                -MaximumLength $requiredLength `
+                -RequireUppercase ([bool]$chkUppercase.Checked) `
+                -Pattern $script:ComputerNameRegex
 
-        if($actual -eq $requiredLength){
-            $lblHostnameCount.Text = "$actual/$requiredLength - VALID"
-        }else{
-            $lblHostnameCount.Text = "$actual/$requiredLength - INVALID"
+            [pscustomobject]@{
+                Name   = $name
+                Length = $name.Length
+                Valid  = [bool]$policy.Valid
+                Reason = [string]$policy.Reason
+            }
         }
+    )
+
+    if($results.Count -eq 1){
+        $result = $results[0]
+
+        if($result.Valid){
+            $lblHostnameCount.Text = "$($result.Length)/$requiredLength - VALID"
+        }
+        elseif($result.Length -ne $requiredLength){
+            $lblHostnameCount.Text = "$($result.Length)/$requiredLength - INVALID LENGTH"
+        }
+        elseif($result.Reason -like 'Invalid hostname character*'){
+            $lblHostnameCount.Text = "$($result.Length)/$requiredLength - INVALID CHARACTERS"
+        }
+        elseif($result.Reason -like '*uppercase*'){
+            $lblHostnameCount.Text = "$($result.Length)/$requiredLength - INVALID CASE"
+        }
+        else{
+            $lblHostnameCount.Text = "$($result.Length)/$requiredLength - INVALID"
+        }
+
         return
     }
 
-    $invalid = @(
-        $names |
-        Where-Object { $_.Length -ne $requiredLength }
-    )
+    $invalid = @($results | Where-Object { -not $_.Valid })
 
     if($invalid.Count -eq 0){
-        $lblHostnameCount.Text = "$($names.Count) names - ALL VALID ($requiredLength chars)"
+        $lblHostnameCount.Text = "$($results.Count) names - ALL VALID"
     }else{
-        $lblHostnameCount.Text = "$($invalid.Count) of $($names.Count) INVALID - require exactly $requiredLength chars"
+        $lblHostnameCount.Text = "$($invalid.Count) of $($results.Count) INVALID"
     }
 }
 
@@ -1909,6 +2001,10 @@ $txtComputers.Add_TextChanged({
 })
 
 $numMaxLength.Add_ValueChanged({
+    Update-HostnameLengthFeedback
+})
+
+$chkUppercase.Add_CheckedChanged({
     Update-HostnameLengthFeedback
 })
 
@@ -2067,40 +2163,64 @@ $btnPreview.Add_Click({
             return
         }
 
-        $invalidLengthNames = @(
-            $previewNames | Where-Object { $_.Length -ne $requiredLength }
+        $invalidPolicyNames = @(
+            foreach($previewName in $previewNames){
+                $policy = Test-ComputerNamePolicy `
+                    -ComputerName $previewName `
+                    -MaximumLength $requiredLength `
+                    -RequireUppercase ([bool]$chkUppercase.Checked) `
+                    -Pattern $script:ComputerNameRegex
+
+                if(-not $policy.Valid){
+                    [pscustomobject]@{
+                        Name   = $previewName
+                        Length = $previewName.Length
+                        Reason = $policy.Reason
+                    }
+                }
+            }
         )
 
-        if($invalidLengthNames.Count -gt 0){
+        if($invalidPolicyNames.Count -gt 0){
             $details = @(
-                $invalidLengthNames |
-                ForEach-Object { "'$_' = $($_.Length) character(s)" }
+                $invalidPolicyNames |
+                ForEach-Object {
+                    "'$($_.Name)' [$($_.Length) chars] - $($_.Reason)"
+                }
             ) -join [Environment]::NewLine
 
             $message = @"
-Hostname Length validation failed.
+Hostname policy validation failed.
 
 Required length: exactly $requiredLength characters.
+Allowed characters: A-Z, 0-9, and hyphen (-) only.
+Hyphen cannot be the first or last character.
+Uppercase required: $($chkUppercase.Checked)
 
 Invalid computer name(s):
 $details
 
 Build Preview has been blocked.
-Correct the computer name(s) or change the Hostname Length setting.
+Correct the hostname(s) before continuing.
 "@
 
             [Windows.Forms.MessageBox]::Show(
                 $message,
-                'Invalid Hostname Length',
+                'Invalid Hostname Policy',
                 [Windows.Forms.MessageBoxButtons]::OK,
                 [Windows.Forms.MessageBoxIcon]::Warning
             ) | Out-Null
 
-            Write-AppLog ("Build Preview blocked: {0} computer name(s) do not match required hostname length of exactly {1} characters." -f $invalidLengthNames.Count,$requiredLength) WARN
-            Set-AppStatus ("Build Preview blocked - hostname(s) must contain exactly {0} characters." -f $requiredLength)
+            Write-AppLog (
+                "Build Preview blocked: {0} computer name(s) violate the configured hostname policy." -f
+                $invalidPolicyNames.Count
+            ) WARN
+
+            Set-AppStatus 'Build Preview blocked - invalid hostname policy.'
             $txtComputers.Focus()
             return
         }
+
         if($null -eq $cmbOU.SelectedItem){ throw 'Select a target OU.' }
 
         if(-not (Resolve-GuiJoinPrincipal)){ return }
