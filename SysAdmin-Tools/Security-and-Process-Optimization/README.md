@@ -50,6 +50,7 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 | **Purge-ExpiredInstalledCertificates-Tool.ps1** | Removes expired certificates from local Windows certificate stores. |
 | **Purge-ExpiredInstalledCertificates-viaGPO.ps1** | Automates enterprise-wide removal of expired certificates through Group Policy deployment. |
 | **Remove-EmptyFiles-or-DateRange.ps1** | Removes empty files or files older than a specified age from selected directories. |
+| **Repair-CyberArkIdentityConnector-DCReArm.ps1** | Re-arms the CyberArk Identity Connector service on selected Active Directory Domain Controllers. |
 | **Retrieve-Windows-ProductKey.ps1** | Retrieves the installed Windows product key for inventory, auditing, and asset management. |
 | **Shorten-LongFileNames-Tool.ps1** | Renames excessively long file and folder paths to improve compatibility with backup, synchronization, and legacy applications. |
 | **Unjoin-ADComputer-and-Cleanup.ps1** | Securely removes computers from Active Directory and performs post-unjoin cleanup operations. |
