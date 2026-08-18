@@ -1,196 +1,161 @@
 # Changelog
 
-All notable changes to this repository are documented in this file.
+All notable repository changes are documented in this file.
 
-This changelog is structured to support enterprise governance, operational traceability, release management, and long-term maintainability across the repository.
-
-The repository provides reusable automation and reference implementations for **Active Directory**, **Identity & Access Management (IAM)**, **Windows administration**, **Blue Team / DFIR**, **Group Policy**, **ITSM standardization**, **infrastructure operations**, and **application authentication integration**.
-
-> **Change management model:** Future releases should be recorded under versioned sections using semantic versioning (`MAJOR.MINOR.PATCH`) and ISO-formatted release dates (`YYYY-MM-DD`). Changes should be classified under **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, and **Security** where applicable.
+> **Compatibility note:** The `## <Component-Name>` headings are intentionally preserved because the GitHub Actions release workflow uses these second-level headings to locate component-specific changelog content. Do not rename them or demote them to `###` without updating the release workflow parser.
 
 ---
 
-## [Unreleased]
+## AD-SSO-APIs-Integration
 
 ### Added
-
-- Enterprise changelog structure for controlled release documentation.
-- Repository-wide change classification aligned with maintainable software release practices.
-- Explicit sections for security, compatibility, operational impact, and documentation changes.
+- Delivered reusable **Active Directory LDAP / SSO integration patterns** for enterprise applications and services.
+- Added implementation samples for **PHP, .NET, Python/Flask, Node.js, and Spring Boot**.
+- Added per-platform README documentation covering prerequisites, configuration, integration flow, and operational guidance.
 
 ### Changed
+- Standardized integration templates for **modularity, portability, maintainability, and cross-platform deployment**.
+- Separated authentication logic, environment-specific configuration, and sensitive credential material.
 
-- Consolidated historical repository capabilities into an enterprise-oriented baseline.
-- Standardized terminology across PowerShell, IAM, infrastructure, ITSM, and security toolsets.
-- Improved distinction between repository capabilities, operational controls, and distribution artifacts.
-
----
-
-## Repository Baseline
-
-### AD-SSO-APIs-Integration
-
-#### Added
-
-- Active Directory **LDAP and SSO integration patterns** for enterprise applications and services.
-- Implementation samples for **PHP, .NET, Python/Flask, Node.js, and Spring Boot**.
-- Reusable application authentication and directory-access patterns.
-- Platform-specific README documentation covering configuration, prerequisites, and implementation guidance.
-
-#### Security
-
-- Standardized secure bind patterns using **environment variables and externalized configuration**.
-- Removed the requirement for hardcoded credentials from reference implementations.
-- Improved separation between application logic, authentication configuration, and sensitive credential material.
-- Promoted secure LDAP/SSO integration patterns suitable for controlled enterprise environments.
-
-#### Changed
-
-- Structured integration templates for **modularity, portability, maintainability, and cross-platform deployment**.
+### Security
+- Standardized **secure bind** patterns using environment variables and externalized configuration.
+- Removed the need for hardcoded credentials in reference implementations.
+- Reinforced encrypted directory communication and least-privilege service access where applicable.
 
 ---
 
-### All-Repository-Files
+## All-Repository-Files
 
-#### Added
+### Added
+- Created a consolidated archive containing the repository's principal components.
+- Included root-level `README.md` and `LICENSE.txt`.
+- Added an offline-ready distribution model for controlled deployment, archival, migration, and recovery use cases.
 
-- Consolidated distribution package containing the repository's primary components.
-- Offline-ready repository distribution model.
-- Root-level `README.md` and `LICENSE.txt` within distribution packages.
-
-#### Changed
-
-- Standardized package layout to preserve the repository's logical component structure.
-- Aligned distribution structure with staging and automated release workflows.
-- Improved portability for archival, migration, controlled deployment, and offline administration.
-
-#### Included Components
-
+### Included
 - `BlueTeam-Tools`
 - `Core-ScriptLibrary`
 - `ITSM-Templates-WKS`
 - `ITSM-Templates-SVR`
 - `SysAdmin-Tools`
 
----
-
-### BlueTeam-Tools
-
-#### Added
-
-- PowerShell tooling for **Blue Team, defensive security, incident response, and DFIR workflows**.
-- `EventLogMonitoring` components supporting Windows security-event visibility and investigation.
-- `IncidentResponse` utilities supporting collection, triage, and investigation workflows.
-- Structured and CSV-compatible reporting patterns where applicable.
-- Module-level documentation covering prerequisites, execution, and operational scope.
-
-#### Changed
-
-- Organized defensive-security functionality into modular components.
-- Standardized logging and reporting patterns to improve operational traceability.
-- Improved repeatability of Windows security investigation workflows.
-
-#### Security
-
-- Expanded security-oriented automation intended to support evidence collection, event analysis, and incident-response operations.
+### Changed
+- Aligned the packaged directory structure with automated staging and release workflows.
+- Preserved logical separation between security, administration, infrastructure, ITSM, and shared framework components.
+- Improved repository portability and repeatable distribution.
 
 ---
 
-### Core-ScriptLibrary
+## BlueTeam-Tools
 
-#### Added
+### Added
+- Delivered a modular **PowerShell toolkit for Blue Team, defensive security, incident response, and DFIR operations**.
+- Added `EventLogMonitoring` components for Windows security visibility, audit analysis, and investigation.
+- Added `IncidentResponse` helpers for collection, triage, evidence gathering, and investigation workflows.
+- Added structured and CSV-compatible output patterns where applicable.
+- Added module-level README documentation describing purpose, prerequisites, execution, and scope.
 
-- Reusable PowerShell foundation shared across repository toolsets.
-- Common helpers, execution patterns, and modular components.
-- Script scaffolding utilities for new automation development.
-- NuGet packaging assets and package-publishing support.
-- Release automation support components.
-- Dedicated documentation for:
+### Changed
+- Standardized logging and reporting patterns across applicable security tooling.
+- Improved modular separation between monitoring, triage, collection, and investigation functions.
+- Improved repeatability and operational traceability of Windows security-analysis workflows.
+
+### Security
+- Expanded defensive automation supporting security-event analysis and incident-response activities.
+- Reinforced auditable execution patterns for privileged or investigation-related operations where applicable.
+
+---
+
+## Core-ScriptLibrary
+
+### Added
+- Built a reusable **PowerShell foundation** shared across repository toolsets.
+- Added common helpers, execution patterns, reusable components, and scaffolding utilities.
+- Added **NuGet packaging assets** and package-publication support.
+- Added release and staging automation support modules.
+- Added dedicated documentation for:
   - `Modular-PS1-Scripts`
   - `Nuget-Package-Publisher`
 
-#### Changed
+### Changed
+- Centralized reusable functionality to reduce duplication across tool suites.
+- Standardized script structure and common execution behavior.
+- Improved maintainability, extensibility, packaging, and release readiness.
 
-- Centralized reusable functionality to reduce code duplication.
-- Standardized script organization and common execution behavior.
-- Improved maintainability and extensibility across dependent toolsets.
-- Improved support for build, staging, packaging, and release workflows.
+### Reliability
+- Promoted deterministic execution patterns and reusable validation logic where applicable.
+- Improved common error-handling and operational consistency across dependent scripts.
 
 ---
 
-### GPOs-Templates
+## GPOs-Templates
 
-#### Added
+### Added
+- Delivered reusable **Group Policy Object templates** for Active Directory domain and forest governance.
+- Added policy templates supporting security baselines, compliance enforcement, configuration control, and administrative standardization.
+- Added dedicated README documentation covering scope, prerequisites, usage, and operational considerations.
 
-- Reusable **Group Policy Object templates** for Active Directory domain and forest governance.
-- Policy templates supporting security baselines, configuration enforcement, compliance, and administrative standardization.
-- Documentation covering scope, prerequisites, usage, and operational considerations.
-
-#### Changed
-
+### Changed
 - Structured templates for controlled GPO **backup, export, import, migration, and lifecycle management**.
 - Improved separation between reusable policy definitions and environment-specific configuration.
-- Standardized organization for reuse across domains, deployments, and migration scenarios.
+- Standardized organization for repeatable use across domains, deployments, and migrations.
 
-#### Security
-
-- Expanded reusable policy patterns supporting Windows security and configuration governance.
-
----
-
-### ITSM-Templates-SVR
-
-#### Added
-
-- Windows Server automation and standardization templates aligned with ITSM operational practices.
-- Automation supporting provisioning, configuration, validation, maintenance, and operational readiness.
-- Suite-level documentation covering requirements, execution guidance, and scope boundaries.
-
-#### Changed
-
-- Standardized server automation around repeatable and predictable execution.
-- Improved configuration consistency and baseline enforcement.
-- Increased operational auditability through structured execution and reporting patterns where applicable.
-
-#### Security
-
-- Incorporated server hardening and security-oriented configuration practices where applicable.
+### Security
+- Expanded reusable policy patterns supporting Windows security configuration and governance.
 
 ---
 
-### ITSM-Templates-WKS
+## ITSM-Templates-SVR
 
-#### Added
+### Added
+- Delivered **Windows Server standardization and automation templates** aligned with ITSM operational practices.
+- Added automation supporting provisioning, configuration, validation, maintenance, and operational readiness.
+- Added suite-level documentation covering requirements, execution guidance, and scope boundaries.
 
-- Windows 10/11 workstation standardization templates aligned with ITSM lifecycle operations.
-- Automation supporting provisioning, configuration, maintenance, compliance, and baseline enforcement.
-- User-experience and desktop-layout standardization components where applicable.
-- Suite-level documentation covering deployment and operational usage.
+### Changed
+- Standardized server automation for predictable and repeatable execution.
+- Improved baseline enforcement, configuration consistency, and operational auditability.
+- Improved structured logging and reporting patterns where applicable.
 
-#### Changed
+### Security
+- Incorporated server hardening and security-oriented configuration controls where applicable.
+- Reinforced least-privilege and controlled administrative execution principles.
 
+### Reliability
+- Promoted prerequisite validation, post-change verification, and idempotent behavior where practical.
+
+---
+
+## ITSM-Templates-WKS
+
+### Added
+- Delivered **Windows 10/11 workstation standardization templates** aligned with ITSM lifecycle operations.
+- Added automation supporting provisioning, configuration, maintenance, baseline enforcement, and compliance.
+- Added UX and desktop-layout standardization components where applicable.
+- Added suite-level README documentation covering deployment and operational usage.
+
+### Changed
 - Standardized recurring workstation administration workflows.
-- Improved repeatability and predictability of endpoint configuration.
-- Improved structured execution and reporting where supported.
+- Improved repeatability, predictability, and configuration consistency across managed endpoints.
+- Improved structured execution and reporting patterns where supported.
 
-#### Security
+### Security
+- Added configuration controls intended to reduce workstation configuration drift and improve endpoint security posture.
 
-- Added configuration controls intended to reduce workstation configuration drift and improve endpoint consistency.
+### Reliability
+- Promoted validation-first execution and predictable administrative outcomes where applicable.
 
 ---
 
-### READMEs-Files-Package
+## READMEs-Files-Package
 
-#### Added
+### Added
+- Extracted and centralized README documentation across top-level suites and submodules.
+- Added `main-README.md` as the centralized documentation entry point.
+- Added a portable documentation archive for offline consultation and controlled distribution.
 
-- Consolidated documentation package covering primary repository suites and submodules.
-- `main-README.md` as a centralized documentation entry point.
-- Portable documentation archive for offline consultation and controlled distribution.
-
-#### Changed
-
-- Standardized README naming and organization.
-- Improved documentation discovery, navigation, indexing, and maintenance.
+### Changed
+- Standardized README naming for consistent discovery and indexing.
+- Improved documentation navigation, organization, and maintainability.
 - Expanded documentation coverage across:
   - API and SSO integrations
   - Blue Team and DFIR tooling
@@ -199,220 +164,125 @@ The repository provides reusable automation and reference implementations for **
   - System administration tooling
   - Packaging and publishing utilities
 
----
-
-### SysAdmin-Tools
-
-#### Added
-
-- Comprehensive PowerShell automation suite for Windows systems and infrastructure administration.
-- `ActiveDirectory-Management` tooling for directory administration and object lifecycle operations.
-- `Network-and-Infrastructure-Management` tooling for Windows network and infrastructure administration.
-- `WSUS-Management-Tools` for WSUS cleanup, maintenance, and operational administration.
-- `SystemConfiguration-and-Deployment` tooling for repeatable Windows configuration and deployment workflows.
-- `Security-and-Process-Optimization` tooling for system security, maintenance, and optimization.
-- Documentation covering script purpose, prerequisites, execution requirements, and administrative scope.
-
-#### Changed
-
-- Improved modular separation between identity, infrastructure, deployment, security, and maintenance functions.
-- Standardized automation patterns around repeatability, structured logging, operational visibility, and predictable execution where applicable.
-- Improved maintainability of administrative tooling through functional separation.
-
-#### Security
-
-- Expanded administrative security and optimization capabilities for managed Windows environments.
+### Documentation
+- Improved prerequisite, scope, usage, and operational-boundary documentation across supported components.
 
 ---
 
-## Repository-Wide Engineering Improvements
+## SysAdmin-Tools
+
+### Added
+- Delivered a comprehensive **PowerShell automation suite for Windows systems and infrastructure administration**.
+- Added `ActiveDirectory-Management` tooling for directory administration and object lifecycle operations.
+- Added `Network-and-Infrastructure-Management` tooling for Windows network and infrastructure services.
+- Added `WSUS-Management-Tools` for WSUS cleanup, maintenance, and operational administration.
+- Added `SystemConfiguration-and-Deployment` tooling for repeatable Windows configuration and deployment workflows.
+- Added `Security-and-Process-Optimization` tooling for security configuration, maintenance, and system optimization.
+- Added documentation covering script purpose, prerequisites, execution requirements, and administrative scope.
+
+### Changed
+- Improved modular separation between **identity, infrastructure, deployment, security, and maintenance functions**.
+- Standardized automation around repeatability, structured logging, operational visibility, and predictable execution where applicable.
+- Improved maintainability through functional separation and reusable administrative patterns.
+
+### Security
+- Expanded Windows administrative security and optimization capabilities.
+- Reinforced secure credential handling, least privilege, and auditable privileged operations where applicable.
+
+### Reliability
+- Promoted prerequisite validation, clear success/warning/error states, and post-change verification.
+- Promoted idempotent behavior and dry-run/validation modes for potentially disruptive operations where appropriate.
+
+---
+
+## Enterprise-Engineering-Standards
 
 ### Architecture
-
 - Standardized the repository around a **modular, suite-based architecture**.
-- Increased reuse of common PowerShell components and administrative patterns.
-- Improved separation of concerns between identity, infrastructure, security, deployment, ITSM, and documentation components.
-- Improved extensibility for future modules and enterprise automation workflows.
+- Increased reuse of common PowerShell helpers and execution patterns.
+- Reinforced separation of concerns between identity, infrastructure, security, deployment, ITSM, and documentation.
 
 ### Security
+- Prohibited hardcoded production credentials and secrets.
+- Promoted externalized configuration and secure credential handling.
+- Reinforced encrypted transport, least privilege, and auditability for privileged workflows.
+- Required security-sensitive assumptions and prerequisites to be documented.
 
-- Reinforced avoidance of hardcoded credentials.
-- Promoted externalized configuration and secure credential-handling patterns.
-- Expanded defensive-security, Active Directory, Group Policy, and Windows hardening capabilities.
-- Improved security-focused documentation and operational boundaries where applicable.
+### Reliability
+- Promoted prerequisite validation before changes are applied.
+- Promoted deterministic and idempotent behavior for configuration-management operations where practical.
+- Required actionable errors rather than silent failure.
+- Promoted post-change state validation and structured operational logging.
+- Encouraged distinct discovery, validation, dry-run, remediation, and reporting execution paths where appropriate.
 
-### Observability
-
-- Standardized structured logging patterns across applicable automation.
-- Improved machine-readable and CSV-compatible output patterns where supported.
-- Increased operational traceability for administrative and security workflows.
+### Compatibility
+- Required component-specific platform and dependency requirements to remain explicitly documented.
+- Discouraged undocumented platform-specific dependencies.
+- Required compatibility-impacting changes to be identified in release documentation.
 
 ### Documentation
-
-- Expanded README coverage across major scripts, modules, templates, and integrations.
-- Standardized documentation naming and organization.
-- Improved offline documentation availability.
-- Added clearer descriptions of prerequisites, execution requirements, scope, and operational boundaries.
-
-### Packaging and Distribution
-
-- Improved repository readiness for controlled packaging and distribution.
-- Added consolidated offline-ready archives.
-- Improved staging and release-oriented directory organization.
-- Expanded support for NuGet packaging and automated publication workflows.
+- Expanded repository-wide README coverage.
+- Improved documentation naming, discovery, navigation, and offline availability.
+- Required production-impacting, security-sensitive, and breaking changes to be documented explicitly.
 
 ---
 
-## Enterprise Compatibility Principles
+## Release-Governance
 
-Repository components should be developed and maintained according to the following compatibility principles:
+### Change Classification
+Future release entries should use the following categories where applicable:
 
-- Preserve compatibility requirements explicitly documented by each tool or module.
-- Avoid introducing platform-specific dependencies without documentation.
-- Validate administrative privileges and required modules before privileged operations where applicable.
-- Prefer deterministic and idempotent behavior for configuration-management operations.
-- Support controlled execution modes such as validation or dry-run behavior where operationally appropriate.
-- Produce actionable errors rather than silently suppressing failures.
-- Maintain predictable exit behavior for automation and orchestration scenarios.
-- Keep environment-specific values externalized whenever practical.
-- Document potentially disruptive operations before production use.
+- **Added** — new scripts, modules, templates, integrations, or capabilities.
+- **Changed** — changes to existing behavior, architecture, interfaces, defaults, or workflows.
+- **Deprecated** — functionality retained temporarily but scheduled for removal or replacement.
+- **Removed** — deleted features, scripts, parameters, dependencies, or behaviors.
+- **Fixed** — defect, reliability, compatibility, or correctness corrections.
+- **Security** — hardening, access-control, credential-handling, auditing, or vulnerability-related changes.
+- **Reliability** — resiliency, validation, idempotency, error-handling, and operational-safety improvements.
+- **Documentation** — material documentation additions or corrections.
 
----
+### Versioning
+- Use **Semantic Versioning** (`MAJOR.MINOR.PATCH`) where the release model permits it.
+- Increment **MAJOR** for incompatible architectural, interface, or operational changes.
+- Increment **MINOR** for backward-compatible functionality and significant enhancements.
+- Increment **PATCH** for backward-compatible fixes, hardening, and minor improvements.
 
-## Enterprise Security Principles
+### Breaking Changes
+Breaking changes must be explicitly identified and should include migration guidance where practical.
 
-Security-sensitive components should follow these repository-wide principles:
-
-- No plaintext or hardcoded production credentials.
-- Apply **least privilege** to administrative and service operations.
-- Prefer secure authentication and encrypted transport.
-- Validate user-controlled or externally supplied input where applicable.
-- Avoid destructive operations without explicit safeguards.
-- Record security-relevant administrative actions through structured logging where practical.
-- Preserve auditability for privileged automation.
-- Clearly document security assumptions and prerequisites.
-- Treat secrets, tokens, certificates, and private keys as sensitive material.
-- Do not include production secrets or environment-specific confidential information in source control.
-
----
-
-## Operational Reliability Principles
-
-Administrative automation should, where applicable:
-
-- Perform prerequisite and environment validation before making changes.
-- Fail safely when mandatory dependencies are unavailable.
-- Provide clear success, warning, and error states.
-- Avoid partial configuration changes where transactional behavior can reasonably be implemented.
-- Support repeatable execution without unnecessary side effects.
-- Validate resulting state after configuration changes.
-- Produce sufficient logging for troubleshooting and audit review.
-- Distinguish discovery, validation, dry-run, remediation, and reporting operations where appropriate.
-
----
-
-## Change Classification
-
-Future versioned releases should use the following categories:
-
-### Added
-New functionality, modules, scripts, integrations, or capabilities.
-
-### Changed
-Changes to existing behavior, architecture, interfaces, defaults, or operational workflows.
-
-### Deprecated
-Capabilities retained temporarily but scheduled for removal or replacement.
-
-### Removed
-Features, scripts, parameters, dependencies, or behaviors removed from the repository.
-
-### Fixed
-Corrections to defects, reliability problems, compatibility issues, or incorrect behavior.
-
-### Security
-Changes addressing security weaknesses, hardening, credential handling, access control, auditing, or other security-relevant behavior.
-
----
-
-## Versioning Policy
-
-The repository should use **Semantic Versioning** where practical:
-
-`MAJOR.MINOR.PATCH`
-
-- **MAJOR** — incompatible architectural, interface, or operational changes.
-- **MINOR** — backward-compatible functionality and significant enhancements.
-- **PATCH** — backward-compatible fixes, hardening, documentation corrections, and minor improvements.
-
-Example:
-
-```text
-## [3.1.0] - 2026-08-18
-
-### Added
-- Added new Active Directory forest discovery capability.
-
-### Changed
-- Improved GUI filtering and search behavior.
-
-### Fixed
-- Corrected Windows PowerShell 5.1 compatibility issue.
-
-### Security
-- Removed plaintext credential handling from legacy workflow.
-```
-
----
-
-## Breaking Changes
-
-Breaking changes should be explicitly identified in the applicable release section.
-
-A breaking change includes, but is not limited to:
-
+Examples include:
 - Removal or renaming of public parameters.
-- Changes to expected input or output formats.
+- Changes to input or output formats.
 - Changes to directory or configuration structures consumed by automation.
 - Removal of backward compatibility.
-- Changes requiring administrator intervention before upgrade.
-- Changes to authentication or authorization requirements.
+- Authentication or authorization changes requiring administrator intervention.
 
-Where practical, breaking changes should include migration guidance.
-
----
-
-## Deprecation Policy
-
+### Deprecation
 Deprecated functionality should:
-
-1. Be identified under the **Deprecated** section of a release.
-2. Include the recommended replacement where available.
+1. Be identified explicitly.
+2. Name the recommended replacement where available.
 3. Remain documented during the transition period.
-4. Be listed under **Removed** when deletion occurs.
-5. Include migration guidance when removal affects existing deployments.
+4. Be listed as removed when deletion occurs.
+5. Include migration guidance when existing deployments are affected.
 
----
-
-## Release Documentation Requirements
-
+### Release Documentation
 Each production release should document, where applicable:
-
-- Version number.
+- Release identifier or version.
 - Release date.
 - Added functionality.
 - Behavioral changes.
-- Bug fixes.
+- Fixes.
 - Security changes.
+- Reliability changes.
 - Deprecated or removed functionality.
 - Breaking changes.
-- Compatibility changes.
+- Compatibility impact.
 - Migration requirements.
-- Relevant documentation updates.
+- Documentation changes.
 
 ---
 
-## Project Scope
+## Repository-Scope
 
 The repository currently covers:
 
@@ -436,10 +306,4 @@ The repository currently covers:
 
 ---
 
-## Maintenance Notice
-
-This changelog records significant repository-level changes and is not intended to replace component-specific documentation.
-
-Individual scripts, modules, templates, and integration examples may contain additional implementation details, prerequisites, compatibility requirements, known limitations, and operational instructions in their respective README files.
-
-Security-sensitive or production-impacting changes should always be documented explicitly in the relevant release section before deployment.
+> **Maintenance note:** Component names used as `##` headings are part of the release-workflow contract. If a component is renamed, the corresponding GitHub Actions parsing logic must be updated in the same change.
