@@ -41,6 +41,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Documentation
+- Update README.md to remove obsolete content (`3b0d1b6`)
+
 ### 2026-08-19
 
 #### Changed
@@ -280,6 +286,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Documentation
+- Update README.md to remove obsolete content (`3b0d1b6`)
 
 ### 2026-08-19
 
