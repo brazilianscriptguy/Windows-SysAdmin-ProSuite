@@ -35,6 +35,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Added
+- Move PKI Certificate Lifecycle Tool to a new directory (`aad475e`)
+
 ### 2026-08-19
 
 #### Changed
@@ -238,6 +244,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Added
+- Move PKI Certificate Lifecycle Tool to a new directory (`aad475e`)
 
 ### 2026-08-19
 
