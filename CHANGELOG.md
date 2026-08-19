@@ -40,6 +40,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Purge-ExpiredInstalledCertificates script to ADCS tools (`ced0e50`)
+
 ### 2026-08-19
 
 #### Changed
@@ -273,6 +279,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Purge-ExpiredInstalledCertificates script to ADCS tools (`ced0e50`)
 
 ### 2026-08-19
 
