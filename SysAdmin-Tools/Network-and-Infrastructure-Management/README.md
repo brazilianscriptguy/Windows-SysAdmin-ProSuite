@@ -55,7 +55,6 @@ These tools are designed to help administrators ensure **service availability**,
 | **Create-n-Retrieve-DHCPReservations.ps1** | Creates and retrieves DHCP reservations, detects duplicate MAC or IP address assignments |
 | **Check-ServicesPort-Connectivity.ps1** | Tests network connectivity for service ports across target hosts |
 | **Discovery-Network-ADComputers.ps1** | Discovers AD computers, resolves IPv4 addresses, and exports results |
-| **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
 | **Restart-NetworkAdapter.ps1** | Safely restarts local or remote network adapters |
 | **Restart-SpoolerPoolServices.ps1** | Restarts print spooler services with structured logging |
 | **Retrieve-Empty-DNSReverseLookupZone.ps1** | Identifies unused or empty reverse DNS lookup zones |
