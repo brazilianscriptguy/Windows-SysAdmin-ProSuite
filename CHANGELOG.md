@@ -38,6 +38,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Organize-CERTs-Repository.ps1 to ADCS tools (`722b887`)
+
 ### 2026-08-19
 
 #### Changed
@@ -259,6 +265,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Organize-CERTs-Repository.ps1 to ADCS tools (`722b887`)
 
 ### 2026-08-19
 
