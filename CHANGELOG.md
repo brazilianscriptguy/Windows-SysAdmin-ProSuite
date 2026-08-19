@@ -39,6 +39,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Purge-ExpiredInstalledCertificates-Tool.ps1 to ADCS tools (`869c60b`)
+
 ### 2026-08-19
 
 #### Changed
@@ -266,6 +272,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Purge-ExpiredInstalledCertificates-Tool.ps1 to ADCS tools (`869c60b`)
 
 ### 2026-08-19
 
