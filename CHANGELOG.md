@@ -36,6 +36,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Added
+- Add Manage-PKICertificateLifecycle-Tool.ps1 (`22724e9`)
+
 ### 2026-08-19
 
 #### Added
@@ -245,6 +251,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Added
+- Add Manage-PKICertificateLifecycle-Tool.ps1 (`22724e9`)
 
 ### 2026-08-19
 
