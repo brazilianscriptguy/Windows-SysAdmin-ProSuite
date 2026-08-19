@@ -234,6 +234,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 | Script                              | Purpose                                                                                                                                                                                        |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Maintenance-WSUS-Admin-Tool.ps1** | Consolidated enterprise WSUS GUI: preflight validation, inventory export, decline & cleanup operations, SQL generation, SUSDB maintenance (WID/SQL), sequencing controls and safety guardrails |
+| **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
 
 > Legacy helper scripts were consolidated into the main GUI tool. They may remain for testing/reference, but production usage should rely on the unified tool.
 
