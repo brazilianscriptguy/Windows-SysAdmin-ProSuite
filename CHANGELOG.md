@@ -32,6 +32,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Rename Cleanup-CertificateAuthority-Tool.ps1Cleanup-CertificateAuthority-Tool.ps1 to Cleanup-CertificateAuthority-Tool.ps1 (`81b90e6`)
+
 ### 2026-08-19
 
 #### Security
@@ -217,6 +223,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Rename Cleanup-CertificateAuthority-Tool.ps1Cleanup-CertificateAuthority-Tool.ps1 to Cleanup-CertificateAuthority-Tool.ps1 (`81b90e6`)
 
 ### 2026-08-19
 
