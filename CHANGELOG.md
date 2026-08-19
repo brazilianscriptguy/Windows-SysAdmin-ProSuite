@@ -34,6 +34,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Cleanup-Repository-ExpiredCertificates-Tool.ps1 (`d2acd7d`)
+
 ### 2026-08-19
 
 #### Changed
@@ -231,6 +237,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Cleanup-Repository-ExpiredCertificates-Tool.ps1 (`d2acd7d`)
 
 ### 2026-08-19
 
