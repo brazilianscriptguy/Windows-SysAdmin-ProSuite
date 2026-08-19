@@ -1,9 +1,4 @@
 ## 🛡️ Security and Process Optimization Tools  
-### Certificate Hygiene · Compliance Audits · Privileged Operations
-
-![Suite](https://img.shields.io/badge/Suite-Security%20%26%20Process%20Optimization-0A66C2?style=for-the-badge&logo=windows&logoColor=white) ![Scope](https://img.shields.io/badge/Scope-Certificates%20%7C%20Access%20%7C%20Storage-informational?style=for-the-badge) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white) ![Focus](https://img.shields.io/badge/Focus-Security%20Posture%20%7C%20Compliance-critical?style=for-the-badge)
-
----
 
 ## 🧭 Overview
 
@@ -15,7 +10,6 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 
 ## 🌟 Key Features
 
-- 🔐 **Certificate Management** — Cleanup of expired certificates and organization of shared repositories  
 - 📋 **Access & Compliance Audits** — Inventory of product keys, elevated accounts, shared folders, and software  
 - 🗄️ **Storage & File Optimization** — Cleanup of empty, aged, or non-compliant files and long paths  
 - 🧹 **Safe Offboarding** — Secure domain unjoin with cleanup of AD, DNS, and metadata  
@@ -42,13 +36,7 @@ These scripts enable **safe automation of sensitive operations**, reduce manual 
 
 | Script Name | Description |
 |-------------|-------------|
-| **Cleanup-CertificateAuthority-Tool.ps1** | Removes obsolete certificate records from Microsoft AD CS Certificate Authority databases based on configurable retention policies. |
-| **Cleanup-Repository-ExpiredCertificates-Tool.ps1** | Removes expired certificate files from repository locations according to configurable retention policies. |
 | **Initiate-MultipleRDPSessions.ps1** | Launches multiple Remote Desktop (RDP) sessions simultaneously to streamline administrative access. |
-| **Manage-PKICertificateLifecycle-Tool.ps1** | Manages Microsoft AD CS certificate lifecycle, automated revocation, CA database maintenance, CRL publication, and governance reporting. |
-| **Organize-CERTs-Repository.ps1** | Organizes SSL/TLS certificate repositories by issuer, expiration date, and certificate metadata. |
-| **Purge-ExpiredInstalledCertificates-Tool.ps1** | Removes expired certificates from local Windows certificate stores. |
-| **Purge-ExpiredInstalledCertificates-viaGPO.ps1** | Automates enterprise-wide removal of expired certificates through Group Policy deployment. |
 | **Remove-EmptyFiles-or-DateRange.ps1** | Removes empty files or files older than a specified age from selected directories. |
 | **Repair-CyberArkIdentityConnector-DCReArm.ps1** | Re-arms the CyberArk Identity Connector service on selected Active Directory Domain Controllers. |
 | **Retrieve-Windows-ProductKey.ps1** | Retrieves the installed Windows product key for inventory, auditing, and asset management. |
