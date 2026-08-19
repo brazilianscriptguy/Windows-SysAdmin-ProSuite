@@ -33,6 +33,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Inventory-WSUSConfigs-Tool.ps1 to WSUS-Management-Tools (`1611764`)
+
 ### 2026-08-19
 
 #### Changed
@@ -224,6 +230,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Inventory-WSUSConfigs-Tool.ps1 to WSUS-Management-Tools (`1611764`)
 
 ### 2026-08-19
 
