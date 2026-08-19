@@ -44,6 +44,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Documentation
+- Create README.md (`59513c5`)
+
 ### 2026-08-19
 
 #### Documentation
@@ -301,6 +307,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Documentation
+- Create README.md (`59513c5`)
 
 ### 2026-08-19
 
