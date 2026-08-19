@@ -31,6 +31,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Security
+- Rename SysAdmin-Tools/Security-and-Process-Optimization/ADCS-Management-Tools/Cleanup-CertificateAuthority-Tool.ps1 to SysAdmin-Tools/ADCS-Management-Tools/Cleanup-CertificateAuthority-Tool.ps1Cleanup-CertificateAuthority-Tool.ps1 (`078b988`)
+
 ### 2026-08-19
 
 #### Changed
@@ -210,6 +216,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Security
+- Rename SysAdmin-Tools/Security-and-Process-Optimization/ADCS-Management-Tools/Cleanup-CertificateAuthority-Tool.ps1 to SysAdmin-Tools/ADCS-Management-Tools/Cleanup-CertificateAuthority-Tool.ps1Cleanup-CertificateAuthority-Tool.ps1 (`078b988`)
 
 ### 2026-08-19
 
