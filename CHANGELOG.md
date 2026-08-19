@@ -42,6 +42,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Documentation
+- Remove Inventory-WSUSConfigs-Tool.ps1 from README (`0b4ce1c`)
+
 ### 2026-08-19
 
 #### Documentation
@@ -287,6 +293,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Documentation
+- Remove Inventory-WSUSConfigs-Tool.ps1 from README (`0b4ce1c`)
 
 ### 2026-08-19
 
