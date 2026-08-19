@@ -37,6 +37,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Delete SysAdmin-Tools/ADCS-Management-Tools/Teste.ps1 (`8545774`)
+
 ### 2026-08-19
 
 #### Added
@@ -252,6 +258,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Delete SysAdmin-Tools/ADCS-Management-Tools/Teste.ps1 (`8545774`)
 
 ### 2026-08-19
 
