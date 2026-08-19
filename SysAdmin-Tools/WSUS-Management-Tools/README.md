@@ -1,8 +1,8 @@
 # ⚙️ WSUS Management Tools
 
-![WSUS](https://img.shields.io/badge/WSUS-Management-blue?style=for-the-badge&logo=microsoft)
-![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=for-the-badge&logo=powershell&logoColor=white)
-![Windows Server](https://img.shields.io/badge/Platform-Windows%20Server-0078D6?style=for-the-badge&logo=windows)
+![WSUS](https://img.shields.io/badge/WSUS-Management-blue?style=for-the-badge\&logo=microsoft)
+![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=for-the-badge\&logo=powershell\&logoColor=white)
+![Windows Server](https://img.shields.io/badge/Platform-Windows%20Server-0078D6?style=for-the-badge\&logo=windows)
 ![GUI](https://img.shields.io/badge/Interface-GUI%20%7C%20Automation-4CAF50?style=for-the-badge)
 ![Database](https://img.shields.io/badge/SUSDB-WID%20%7C%20SQL-9C27B0?style=for-the-badge)
 
@@ -14,30 +14,31 @@ The **WSUS Management Tools** suite delivers an enterprise-grade, fully auditabl
 
 This repository follows the same **GUI standards, logging model, execution safeguards, and operational patterns** used across **Windows-SysAdmin-ProSuite**. It is designed for corporate environments requiring:
 
-- Repeatable execution
-- Deterministic sequencing
-- Safe defaults
-- Guardrails against destructive actions
-- Clear audit trails and structured logs
+* Repeatable execution
+* Deterministic sequencing
+* Safe defaults
+* Guardrails against destructive actions
+* Clear audit trails and structured logs
 
 ---
 
-✅ **Current Flagship (All-in-One Tool)**  
+✅ **Current Flagship (All-in-One Tool)**
 `Maintenance-WSUS-Admin-Tool.ps1`
 
 A hardened, consolidated GUI that integrates:
 
-- Preflight validation
-- Environment inventory
-- Decline routines
-- Cleanup execution
-- SUSDB/WID SQL maintenance
-- Enterprise-grade sequencing controls
+* Preflight validation
+* Environment inventory
+* Decline routines
+* Cleanup execution
+* SUSDB/WID SQL maintenance
+* Enterprise-grade sequencing controls
 
 **Hardened Branch Includes:**
-- Database-first execution pipeline
-- Resilient cleanup (timeout-aware continuation)
-- StrictMode-compliant UI configuration handling
+
+* Database-first execution pipeline
+* Resilient cleanup (timeout-aware continuation)
+* StrictMode-compliant UI configuration handling
 
 ---
 
@@ -45,14 +46,15 @@ A hardened, consolidated GUI that integrates:
 
 ### 🧰 Unified WSUS Maintenance GUI
 
-- Single consolidated tool for:
-  - Preflight validation
-  - Inventory export
-  - Decline & cleanup operations
-  - SQL script generation
-  - SUSDB maintenance
-- Safe-by-default execution model
-- Explicit logging boundaries and deterministic flow
+* Single consolidated tool for:
+
+  * Preflight validation
+  * Inventory export
+  * Decline & cleanup operations
+  * SQL script generation
+  * SUSDB maintenance
+* Safe-by-default execution model
+* Explicit logging boundaries and deterministic flow
 
 ---
 
@@ -60,17 +62,19 @@ A hardened, consolidated GUI that integrates:
 
 Automatic validation and discovery of:
 
-- `Microsoft.UpdateServices.Administration.dll`
-- `UpdateServices` PowerShell module (when present)
+* `Microsoft.UpdateServices.Administration.dll`
+* `UpdateServices` PowerShell module (when present)
 
 Includes:
 
-- WSUS Admin API connectivity validation (server / port / SSL)
-- Service validation:
-  - `W3SVC`
-  - `WSUSService`
-- IIS Application Pool validation:
-  - `WsusPool` (start-only by default; recycle is opt-in)
+* WSUS Admin API connectivity validation (server / port / SSL)
+* Service validation:
+
+  * `W3SVC`
+  * `WSUSService`
+* IIS Application Pool validation:
+
+  * `WsusPool` (start-only by default; recycle is opt-in)
 
 ---
 
@@ -78,13 +82,13 @@ Includes:
 
 Exports structured **JSON + CSV summaries** capturing:
 
-- WSUS endpoint (server / port / SSL)
-- WSUS Admin API readiness
-- `wsusutil.exe` detection
-- `sqlcmd.exe` detection
-- WID / SQL connectivity validation
-- IIS and service states
-- Configured WSUS paths
+* WSUS endpoint (server / port / SSL)
+* WSUS Admin API readiness
+* `wsusutil.exe` detection
+* `sqlcmd.exe` detection
+* WID / SQL connectivity validation
+* IIS and service states
+* Configured WSUS paths
 
 Designed for compliance evidence and operational auditing.
 
@@ -94,19 +98,19 @@ Designed for compliance evidence and operational auditing.
 
 Decline routines (policy-driven):
 
-- Unapproved updates (older-than threshold)
-- Expired updates
-- Superseded updates
-- Optional legacy platform declines (allowlist-based policy)
+* Unapproved updates (older-than threshold)
+* Expired updates
+* Superseded updates
+* Optional legacy platform declines (allowlist-based policy)
 
 WSUS Cleanup Wizard-aligned operations:
 
-- Obsolete updates (**timeout-aware**)
-- Unneeded content files
-- Obsolete computers
-- Optional compression (guarded execution)
+* Obsolete updates (**timeout-aware**)
+* Unneeded content files
+* Obsolete computers
+* Optional compression (guarded execution)
 
-> ⚠️ Note: `CleanupObsoleteUpdates` may legitimately time out on large SUSDB/WID deployments.  
+> ⚠️ Note: `CleanupObsoleteUpdates` may legitimately time out on large SUSDB/WID deployments.
 > The tool logs the timeout event and continues safely with remaining selected actions.
 
 ---
@@ -115,19 +119,19 @@ WSUS Cleanup Wizard-aligned operations:
 
 Structured SQL maintenance scripts generated for repeatable database optimization:
 
-- `wsus-verify-fragmentation.sql` — Fragmentation visibility and recommendations
-- `wsus-reindex-smart.sql` — Dynamic REORGANIZE (<30%) vs REBUILD (≥30%)
-- `SUSDB-WID-IndexMaintenance-Reindex-UpdateStats.sql` — Full enterprise maintenance (Microsoft-recommended indexes + dynamic reindex + statistics update)
-- `wsusdbmaintenance-classic.sql` — Optional legacy maintenance routine
+* `wsus-verify-fragmentation.sql` — Fragmentation visibility and recommendations
+* `wsus-reindex-smart.sql` — Dynamic REORGANIZE (<30%) vs REBUILD (≥30%)
+* `SUSDB-WID-IndexMaintenance-Reindex-UpdateStats.sql` — Full enterprise maintenance (Microsoft-recommended indexes + dynamic reindex + statistics update)
+* `wsusdbmaintenance-classic.sql` — Optional legacy maintenance routine
 
 Database integrity validation:
 
-- `DBCC CHECKDB (SUSDB) WITH NO_INFOMSGS`
+* `DBCC CHECKDB (SUSDB) WITH NO_INFOMSGS`
 
 Execution model:
 
-- Uses `sqlcmd.exe` with robust argument quoting
-- Prevents command parsing failures in scheduled or automated contexts
+* Uses `sqlcmd.exe` with robust argument quoting
+* Prevents command parsing failures in scheduled or automated contexts
 
 ---
 
@@ -135,16 +139,16 @@ Execution model:
 
 **Database-first pipeline (recommended for large environments):**
 
-1. SUSDB index maintenance  
-2. WSUS cleanup operations  
-3. Decline routines  
+1. SUSDB index maintenance
+2. WSUS cleanup operations
+3. Decline routines
 
 Additional architectural improvements:
 
-- Single WSUS server connection per execution cycle (connection reuse)
-- Per-action timeout handling
-- No aggressive IIS AppPool recycling during long maintenance
-- StrictMode-safe UI configuration persistence
+* Single WSUS server connection per execution cycle (connection reuse)
+* Per-action timeout handling
+* No aggressive IIS AppPool recycling during long maintenance
+* StrictMode-safe UI configuration persistence
 
 ---
 
@@ -152,18 +156,16 @@ Additional architectural improvements:
 
 Default session log:
 
-```
-
+```text
 C:\Logs-TEMP\WSUS-GUI\Logs\Maintenance-WSUS-Admin-Tool.log
-
-````
+```
 
 Includes:
 
-- Structured INFO / WARN / ERROR boundaries
-- Timestamped inventory exports
-- Predictable output paths
-- Clear failure visibility
+* Structured INFO / WARN / ERROR boundaries
+* Timestamped inventory exports
+* Predictable output paths
+* Clear failure visibility
 
 ---
 
@@ -171,11 +173,11 @@ Includes:
 
 ### 1️⃣ PowerShell
 
-- Windows PowerShell **5.1+** (recommended on WSUS host)
+* Windows PowerShell **5.1+** (recommended on WSUS host)
 
 ```powershell
 $PSVersionTable.PSVersion
-````
+```
 
 ---
 
@@ -198,7 +200,7 @@ Required:
 
 Default location:
 
-```
+```text
 C:\Program Files\Update Services\Api\
 ```
 
@@ -210,7 +212,7 @@ Required to query WID or SQL Server.
 
 Typical WID named pipe:
 
-```
+```text
 np:\\.\pipe\MICROSOFT##WID\tsql\query
 ```
 
@@ -231,28 +233,43 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 
 ## 📜 Script Inventory
 
-| Script                              | Purpose                                                                                                                                                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Maintenance-WSUS-Admin-Tool.ps1** | Consolidated enterprise WSUS GUI: preflight validation, inventory export, decline & cleanup operations, SQL generation, SUSDB maintenance (WID/SQL), sequencing controls and safety guardrails |
-| **Inventory-WSUSConfigs-Tool.ps1** | Collects WSUS configuration, patch status, and repository metrics |
+| Script                              | Purpose                                                                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Check-WSUS-AdminAssembly.ps1**    | Validates availability and loading of the Microsoft WSUS Administration assembly required for WSUS API operations.                                                                               |
+| **Generate-WSUS-ReindexScript.ps1** | Generates SQL reindexing and database-maintenance scripts for WSUS SUSDB optimization.                                                                                                           |
+| **Inventory-WSUS-Environment.ps1**  | Inventories the WSUS environment and collects operational information about the server, services, database, and supporting components.                                                           |
+| **Inventory-WSUSConfigs-Tool.ps1**  | Collects WSUS configuration, patch status, and repository metrics for administration and auditing.                                                                                               |
+| **Maintenance-WSUS-Admin-Tool.ps1** | Consolidated enterprise WSUS GUI: preflight validation, inventory export, decline & cleanup operations, SQL generation, SUSDB maintenance (WID/SQL), sequencing controls, and safety guardrails. |
 
-> Legacy helper scripts were consolidated into the main GUI tool. They may remain for testing/reference, but production usage should rely on the unified tool.
+### Tool Roles
+
+* **`Maintenance-WSUS-Admin-Tool.ps1`** — Primary all-in-one administration and maintenance interface
+* **`Check-WSUS-AdminAssembly.ps1`** — WSUS Administration API prerequisite validation
+* **`Generate-WSUS-ReindexScript.ps1`** — SUSDB reindexing and SQL maintenance generation
+* **`Inventory-WSUS-Environment.ps1`** — Infrastructure and operational environment discovery
+* **`Inventory-WSUSConfigs-Tool.ps1`** — WSUS configuration, update, and repository inventory
 
 ---
 
 ## 🚀 Usage (Recommended Workflow)
 
-1. Copy `Maintenance-WSUS-Admin-Tool.ps1` to the WSUS host
+1. Copy the required WSUS management scripts to the WSUS host
 2. Run **as Administrator**
-3. Confirm:
+3. Use the supporting tools as required to validate and inventory the environment:
+
+   * `Check-WSUS-AdminAssembly.ps1`
+   * `Inventory-WSUS-Environment.ps1`
+   * `Inventory-WSUSConfigs-Tool.ps1`
+4. Launch `Maintenance-WSUS-Admin-Tool.ps1`
+5. Confirm:
 
    * WSUS Server (default: local FQDN)
    * Port (default: 8530)
    * SSL setting (if applicable)
-4. Execute **Preflight**
-5. Review inventory export
-6. Run maintenance steps
-7. Review logs and SQL output
+6. Execute **Preflight**
+7. Review inventory exports
+8. Run database and WSUS maintenance steps
+9. Review logs and generated SQL output
 
 ---
 
@@ -260,7 +277,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 
 Default base directory:
 
-```
+```text
 C:\Logs-TEMP\WSUS-GUI\
 ├── Logs\
 │   ├── Maintenance-WSUS-Admin-Tool.log
@@ -278,7 +295,7 @@ C:\Logs-TEMP\WSUS-GUI\
 
 Optional SQL generation path:
 
-```
+```text
 C:\Scripts\SUSDB\
 ├── wsus-verify-fragmentation.sql
 ├── wsus-reindex-smart.sql
