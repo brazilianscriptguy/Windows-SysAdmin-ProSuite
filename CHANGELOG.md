@@ -30,6 +30,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-19
+
+#### Changed
+- Move Cleanup-CertificateAuthority-Tool.ps1 to ADCS-Management-Tools (`bdf8dfb`)
+
 ### 2026-08-19
 
 #### Added
@@ -203,6 +209,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-19
+
+#### Changed
+- Move Cleanup-CertificateAuthority-Tool.ps1 to ADCS-Management-Tools (`bdf8dfb`)
 
 ### 2026-08-19
 
