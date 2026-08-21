@@ -1,5 +1,5 @@
 ' Author: @brazilianscriptguy
-' Updated: June 19, 2025
+' Updated: June 19, 2025 
 ' Script for installing local ADCS, RDS, and WSUS server certificates for secure connections via certificates
 
 ' Define variables
