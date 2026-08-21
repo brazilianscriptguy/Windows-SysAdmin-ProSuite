@@ -105,6 +105,7 @@ All notable repository changes are documented in this file.
 -   Preserved logical separation between PKI, security, administration,
     infrastructure, ITSM, and shared framework components.
 -   Improved repository portability and repeatable distribution.
+- Update All-Certificates-Install.vbs (`4eff651`)
 
 ### Security
 
@@ -248,6 +249,7 @@ All notable repository changes are documented in this file.
 -   Standardized recurring workstation administration workflows.
 -   Improved repeatability, predictability, configuration consistency,
     validation-first execution, and reporting across managed endpoints.
+- Update All-Certificates-Install.vbs (`4eff651`)
 
 ### Security
 
