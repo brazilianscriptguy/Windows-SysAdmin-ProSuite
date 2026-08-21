@@ -1,4 +1,4 @@
-name: Manual Keyword Search in Repository
+name: Repository Keyword Search
 
 on:
   workflow_dispatch:
@@ -12,14 +12,17 @@ on:
         required: false
         default: "14"
 
+permissions:
+  contents: read
+
 jobs:
   search-keyword:
     name: Search Keyword in Files
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+      - name: Checkout Repository Repository
+        uses: actions/checkout@v7
 
       - name: Initialize search term
         shell: bash
@@ -34,7 +37,7 @@ jobs:
 
           mkdir -p results
 
-          echo "🔍 Searching for '${SEARCH_TERM}' in repository files..."
+          echo " Searching for '${SEARCH_TERM}' in repository files..."
           # Console output (nice for runtime visibility)
           grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . || true
 
@@ -43,21 +46,21 @@ jobs:
             echo "Keyword Search Report"
             echo "===================="
             echo "Repository: ${{ github.repository }}"
-            echo "Ref:        ${{ github.ref }}"
-            echo "Run:        ${{ github.run_id }}"
-            echo "Search:     ${SEARCH_TERM}"
-            echo "Timestamp:  $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Ref: ${{ github.ref }}"
+            echo "Run: ${{ github.run_id }}"
+            echo "Search: ${SEARCH_TERM}"
+            echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
             echo
             echo "Matches:"
             echo "--------"
           } > results/report.txt
 
           if grep -rIn --exclude-dir=.git --color=never "${SEARCH_TERM}" . > results/matches.txt; then
-            echo "✅ Matches found: $(wc -l < results/matches.txt)" | tee -a results/report.txt
+            echo " Matches found: $(wc -l < results/matches.txt)" | tee -a results/report.txt
             echo >> results/report.txt
             cat results/matches.txt >> results/report.txt
           else
-            echo "✅ No matches found." | tee -a results/report.txt
+            echo " No matches found." | tee -a results/report.txt
             : > results/matches.txt
           fi
 
@@ -65,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "## 🔎 Keyword Search Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Keyword Search Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**Search term:** \`${SEARCH_TERM}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "**Artifact retention:** \`${{ github.event.inputs.retention_days }} day(s)\`" >> "$GITHUB_STEP_SUMMARY"

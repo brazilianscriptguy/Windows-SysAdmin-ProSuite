@@ -1,4 +1,4 @@
-name: PowerShell Corporate Lint (PSScriptAnalyzer + SARIF + Reports) [Report-Only]
+name: PowerShell Static Analysis
 
 on:
   push:
@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   psa-analyze:
-    name: PSScriptAnalyzer Report-Only (SARIF + Artifacts + Summary)
+    name: PSScriptAnalyzer Report-Only (SARIF, Artifacts, and Summary)
     runs-on: windows-latest
     timeout-minutes: 35
 
@@ -62,8 +62,8 @@ jobs:
       UI_WRAPPER_FN_REGEX: '^(Show-|New-.*(Form|Dialog|Window)$|Initialize-.*(UI|Form)$|Update-.*UI$|Refresh-.*UI$|Set-.*(UI|Form)$)'
 
     steps:
-      - name: Checkout (sparse)
-        uses: actions/checkout@v4
+      - name: Checkout Repository Repository (Sparse)
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           sparse-checkout-cone-mode: false
@@ -207,7 +207,7 @@ jobs:
 
           exit 0
 
-      - name: PS 5.1 Compatibility Scan (report-only)
+      - name: PS 5.1 Compatibility Scan (report only)
         if: always()
         shell: pwsh
         run: |
@@ -299,7 +299,7 @@ jobs:
 
           exit 0
 
-      - name: Run PSScriptAnalyzer + Build Reports (REPORT-ONLY)
+      - name: Run PSScriptAnalyzer + Build Reports (REPORT ONLY)
         if: always()
         shell: pwsh
         run: |
@@ -513,7 +513,7 @@ jobs:
 
           exit 0
 
-      - name: Publish report to Run Summary (View Runs)
+      - name: Publish Workflow Summary
         if: always()
         shell: pwsh
         run: |
@@ -542,7 +542,7 @@ jobs:
           $summaryFile = $env:GITHUB_STEP_SUMMARY
 
           @(
-            "## 🧪 PSScriptAnalyzer Corporate Lint (Report-Only)"
+            "##  PSScriptAnalyzer Corporate Lint (Report-Only)"
             ""
             "**Event:** ``$($env:GITHUB_EVENT_NAME)``"
             "**Ref:** ``$($env:GITHUB_REF)``"
@@ -595,7 +595,7 @@ jobs:
           }
 
           if (-not (Test-Path $sarifOut)) {
-            Write-Host "SARIF missing — creating baseline now."
+            Write-Host "SARIF missing - creating baseline now."
             $baseline = @{
               '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
               version   = '2.1.0'
@@ -606,7 +606,7 @@ jobs:
 
           exit 0
 
-      - name: Upload lint artifacts (never fail if empty)
+      - name: Upload Static Analysis Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -615,7 +615,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Upload SARIF to GitHub Code Scanning (report-only)
+      - name: Upload SARIF to GitHub Code Scanning
         if: always() && hashFiles(format('{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
         uses: github/codeql-action/upload-sarif@v4
         with:

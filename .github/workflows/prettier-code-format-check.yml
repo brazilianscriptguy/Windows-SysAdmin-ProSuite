@@ -50,12 +50,12 @@ permissions:
 
 jobs:
   prettier:
-    name: "💅 Prettier Code Format Validation"
+    name: " Prettier Code Format Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     env:
-      # "true"  => report-only (never fail CI)
+      # "true"  => report only (never fail CI)
       # "false" => enforce formatting (fail CI on issues)
       ALLOW_WARNINGS: "true"
 
@@ -68,10 +68,10 @@ jobs:
       NPM_DEBUG_LOG: "npm-debug.log"
 
     steps:
-      - name: "📦 Checkout Repository"
-        uses: actions/checkout@v4
+      - name: " Checkout Repository Repository"
+        uses: actions/checkout@v7
 
-      - name: "🧾 Detect Package Manager + Tooling"
+      - name: " Detect Package Manager + Tooling"
         id: pm
         shell: bash
         run: |
@@ -93,13 +93,13 @@ jobs:
             echo "has_package_json=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: "⚙️ Setup Node.js (LTS) + Cache"
-        uses: actions/setup-node@v4
+      - name: "️ Set Up Node.js (LTS) + Cache"
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "${{ steps.pm.outputs.manager }}"
 
-      - name: "📥 Install Dependencies (only if package.json exists)"
+      - name: " Install Dependencies (only if package.json exists)"
         id: install
         if: "${{ steps.pm.outputs.has_package_json == 'true' }}"
         shell: bash
@@ -125,7 +125,7 @@ jobs:
             fi
           fi
 
-      - name: "🧰 Ensure Prettier Available"
+      - name: " Ensure Prettier Available"
         id: ensure_prettier
         shell: bash
         run: |
@@ -155,7 +155,7 @@ jobs:
             echo "prettier_source=bootstrap-failed" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: "🧾 Build file list (tracked files only)"
+      - name: " Build file list (tracked files only)"
         id: files
         shell: bash
         run: |
@@ -176,7 +176,7 @@ jobs:
           count="$(tr -cd '\0' < prettier-files.txt | wc -c | tr -d ' ')"
           echo "count=${count}" >> "$GITHUB_OUTPUT"
 
-      - name: "🔍 Run Prettier Check (tracked files)"
+      - name: " Run Prettier Check (tracked files)"
         id: run_prettier
         shell: bash
         run: |
@@ -209,7 +209,7 @@ jobs:
           echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
           echo "Prettier exit code: $ec"
 
-      - name: "🧾 Capture npm debug log (if any)"
+      - name: " Capture npm debug log (if any)"
         if: always()
         shell: bash
         run: |
@@ -221,7 +221,7 @@ jobs:
             echo "No npm debug log found." > "${NPM_DEBUG_LOG}"
           fi
 
-      - name: "📄 Generate Job Summary"
+      - name: " Generate Job Summary"
         if: always()
         shell: bash
         run: |
@@ -235,7 +235,7 @@ jobs:
           files_count="${{ steps.files.outputs.count }}"
 
           {
-            echo "### 💅 Prettier Format Summary"
+            echo "### Prettier Format Summary"
             echo
             echo "- **Workflow:** \`${GITHUB_WORKFLOW}\`"
             echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
@@ -251,7 +251,7 @@ jobs:
             echo
 
             if [[ "${prettier_present}" != "true" ]]; then
-              echo "❗ Prettier was not available, so formatting was not checked."
+              echo " Prettier was not available, so formatting was not checked."
               echo
               echo "**Fix (recommended):** add Prettier to devDependencies:"
               echo
@@ -259,7 +259,7 @@ jobs:
               echo 'npm i -D prettier'
               echo '```'
             elif [[ "$exit_code" != "0" ]]; then
-              echo "⚠️ Formatting issues detected."
+              echo "️ Formatting issues detected."
               echo
               echo "**Top 120 lines:**"
               echo
@@ -275,11 +275,11 @@ jobs:
               echo 'npx prettier --write .'
               echo '```'
             else
-              echo "✅ No formatting issues found."
+              echo " No formatting issues found."
             fi
           } | tee "${PRETTIER_SUMMARY}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: "📦 Upload Artifacts"
+      - name: " Upload Report Artifacts"
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -291,14 +291,14 @@ jobs:
             prettier-files.txt
           retention-days: 30
 
-      - name: "✅ Policy Gate"
+      - name: " Policy Gate"
         if: always()
         shell: bash
         run: |
           set -euo pipefail
 
           if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
-            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            echo "ALLOW_WARNINGS=true -> report only mode. Passing."
             exit 0
           fi
 
@@ -306,14 +306,14 @@ jobs:
           exit_code="${{ steps.run_prettier.outputs.exit_code }}"
 
           if [[ "${prettier_present}" != "true" ]]; then
-            echo "❌ Enforced mode requires Prettier available in node_modules."
-            echo "   Add it: npm i -D prettier"
+            echo " Enforced mode requires Prettier available in node_modules."
+            echo " Add it: npm i -D prettier"
             exit 1
           fi
 
           if [[ "$exit_code" != "0" ]]; then
-            echo "❌ Failing due to Prettier formatting violations."
+            echo " Failing due to Prettier formatting violations."
             exit 1
           fi
 
-          echo "✅ Prettier passed."
+          echo " Prettier passed."

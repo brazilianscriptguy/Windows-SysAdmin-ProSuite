@@ -1,4 +1,4 @@
-name: Publish NuGet Package to GitHub (Manual Only)
+name: Publish NuGet Package to GitHub Packages
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: publish-nuget-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   publish-nuget:
-    name: 📦 Publish NuGet Package (GitHub Packages)
+    name: Publish NuGet Package (GitHub Packages)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -30,13 +30,13 @@ jobs:
       NUGET_SOURCE: "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
 
     steps:
-      - name: 🧾 Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout Repository Repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: 🏷️ Resolve package version (manual input)
+      - name: ️ Resolve package version (manual input)
         id: ver
         shell: bash
         run: |
@@ -59,7 +59,7 @@ jobs:
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $ver"
 
-      - name: 🧰 Install dependencies
+      - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -75,7 +75,7 @@ jobs:
           mono --version
           nuget help | head -n 5 || true
 
-      - name: ✅ Validate required repo files
+      - name: Validate required repo files
         shell: bash
         run: |
           set -euo pipefail
@@ -86,7 +86,7 @@ jobs:
           [[ -f "LICENSE.txt" ]] || { echo "::error file=LICENSE.txt::LICENSE.txt not found"; exit 1; }
           [[ -f "icon.png" ]] || { echo "::error file=icon.png::icon.png not found (required by <icon> in nuspec)"; exit 1; }
 
-      - name: 📁 Prepare and stage files
+      - name: Prepare and stage files
         shell: bash
         run: |
           set -euo pipefail
@@ -108,7 +108,7 @@ jobs:
           cp LICENSE.txt "${STAGE_DIR}/LICENSE.txt"
           cp icon.png "${STAGE_DIR}/icon.png"
 
-      - name: ✍️ Patch .nuspec version to input version
+      - name: ️ Patch .nuspec version to input version
         shell: bash
         run: |
           set -euo pipefail
@@ -122,7 +122,7 @@ jobs:
           echo "Nuspec version patched to: ${{ steps.ver.outputs.version }}"
           xmlstarlet sel -N n="$NS" -t -v "normalize-space(//n:package/n:metadata/n:version)" "$nuspec" && echo ""
 
-      - name: 🔎 Validate .nuspec metadata (readme / repository / license / icon)
+      - name: Validate .nuspec metadata (readme / repository / license / icon)
         shell: bash
         run: |
           set -euo pipefail
@@ -153,13 +153,13 @@ jobs:
           [[ "$repo_type" == "git" ]] || { echo "::error file=${PKG_ID}.nuspec::Expected repository type=\"git\"."; exit 1; }
 
           echo "Validated nuspec metadata:"
-          echo "  version:  ${{ steps.ver.outputs.version }}"
-          echo "  readme:   $readme"
-          echo "  license:  type=$license_type file=$license_file"
-          echo "  icon:     $icon"
-          echo "  repo:     type=$repo_type url=$repo_url"
+          echo " version: ${{ steps.ver.outputs.version }}"
+          echo " readme: $readme"
+          echo " license: type=$license_type file=$license_file"
+          echo " icon: $icon"
+          echo " repo: type=$repo_type url=$repo_url"
 
-      - name: 🛠️ Pack NuGet package (.nupkg, optional .snupkg when PDBs exist)
+      - name: ️ Pack NuGet package (.nupkg, optional .snupkg when PDBs exist)
         shell: bash
         run: |
           set -euo pipefail
@@ -193,7 +193,7 @@ jobs:
             exit 1
           fi
 
-      - name: 🚀 Push .nupkg to GitHub Packages
+      - name: Push .nupkg to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -210,7 +210,7 @@ jobs:
               -SkipDuplicate
           done
 
-      - name: 📦 Upload packages as artifacts
+      - name: Upload packages as artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -220,7 +220,7 @@ jobs:
             ${{ env.OUT_DIR }}/*.snupkg
           retention-days: 30
 
-      - name: 🧹 Clean up
+      - name: Clean up
         if: always()
         shell: bash
         run: |

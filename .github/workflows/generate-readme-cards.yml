@@ -1,4 +1,4 @@
-name: Generate README Cards (No External Services)
+name: Generate README Cards
 
 on:
   schedule:
@@ -14,22 +14,22 @@ permissions:
 
 jobs:
   build-cards:
-    name: 🧩 Generate README Cards
+    name: Generate README Cards
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: 📦 Checkout
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
+      - name: Set Up Python
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: ✅ Validate generator script exists
+      - name: Validate generator script exists
         shell: bash
         run: |
           set -euo pipefail
@@ -38,7 +38,7 @@ jobs:
             exit 1
           fi
 
-      - name: 🧠 Generate SVG cards
+      - name: Generate README SVG Cards
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +48,7 @@ jobs:
           python -V
           python .github/scripts/generate_readme_cards.py
 
-      - name: 🧾 Commit & push if changed (safe rebase)
+      - name: Commit and Push Changes
         shell: bash
         run: |
           set -euo pipefail
@@ -70,7 +70,7 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
-            echo "✅ No README card changes detected." >> "$GITHUB_STEP_SUMMARY"
+            echo " No README card changes detected." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -81,4 +81,4 @@ jobs:
 
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
-          echo "✅ README cards updated and pushed to '${GITHUB_REF_NAME}'." >> "$GITHUB_STEP_SUMMARY"
+          echo " README cards updated and pushed to '${GITHUB_REF_NAME}'." >> "$GITHUB_STEP_SUMMARY"

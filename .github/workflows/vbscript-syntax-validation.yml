@@ -1,4 +1,4 @@
-name: VBScript Syntax Validation (Wine + SARIF + Summary) [Report-Only]
+name: VBScript Syntax Validation
 
 on:
   push:
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   vbscript-syntax-check:
-    name: 🔍 VBScript Syntax Validation (SARIF + Artifacts)
+    name: VBScript Syntax Validation (SARIF and Artifacts)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -43,13 +43,13 @@ jobs:
       WINEDEBUG: "-all"
 
     steps:
-      - name: 📦 Checkout repository (short path)
-        uses: actions/checkout@v4
+      - name: Checkout Repository Repository (short path)
+        uses: actions/checkout@v7
         with:
           path: repo
           fetch-depth: 0
 
-      - name: 🍷 Setup Wine
+      - name: Setup Wine
         shell: bash
         run: |
           set -euo pipefail
@@ -58,13 +58,13 @@ jobs:
           sudo apt-get install -y wine64
           WINEDEBUG="${WINEDEBUG}" wineboot --init
 
-      - name: 📁 Ensure output folder
+      - name: Prepare Report Directory
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "repo/${OUT_DIR}"
 
-      - name: 🧱 Initialize baseline outputs (always)
+      - name: Initialize baseline outputs (always)
         if: always()
         shell: bash
         run: |
@@ -96,7 +96,7 @@ jobs:
           : > "${out}/${OUT_RAW}"
           echo "[]" > "${out}/${OUT_JSON}"
 
-      - name: 🧪 Scan (.vbs + .hta with VBScript blocks) [Report-Only]
+      - name: Scan (.vbs + .hta with VBScript blocks) (Report Only)
         id: scan
         working-directory: repo
         shell: bash
@@ -199,7 +199,7 @@ jobs:
           rm -f "${files_list}"
 
           if [[ "${findings}" -eq 0 ]]; then
-            echo "| ✅ No syntax errors found. | - | - |" >> "${md}"
+            echo "| No syntax errors found. | - | - |" >> "${md}"
           fi
 
           python3 - <<'PY'
@@ -258,14 +258,14 @@ jobs:
             json.dump(sarif, f, ensure_ascii=False, indent=2)
           PY
 
-          echo "total_files=${total_files}"   >> "${GITHUB_OUTPUT}"
+          echo "total_files=${total_files}" >> "${GITHUB_OUTPUT}"
           echo "scanned_files=${scanned_files}" >> "${GITHUB_OUTPUT}"
           echo "skipped_files=${skipped_files}" >> "${GITHUB_OUTPUT}"
-          echo "findings=${findings}"         >> "${GITHUB_OUTPUT}"
+          echo "findings=${findings}" >> "${GITHUB_OUTPUT}"
 
           exit 0
 
-      - name: 📝 Publish Job Summary (View Runs)
+      - name: Publish Workflow Summary
         if: always()
         working-directory: repo
         shell: bash
@@ -275,7 +275,7 @@ jobs:
           outdir="${OUT_DIR}"
 
           {
-            echo "## 🧪 VBScript Syntax Validation (Report-Only)"
+            echo "## VBScript Syntax Validation (Report-Only)"
             echo
             echo "- **Workflow:** \`${GITHUB_WORKFLOW}\`"
             echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
@@ -305,7 +305,7 @@ jobs:
             echo "- \`${outdir}/${OUT_RAW}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 📦 Upload artifacts (reports)
+      - name: Upload Report Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -314,28 +314,28 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: 🛰️ Upload SARIF to GitHub Code Scanning (report-only)
+      - name: ️ Upload SARIF to GitHub Code Scanning
         if: always() && hashFiles(format('repo/{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: repo/${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
           category: vbscript/syntax
 
-      - name: ✅ Policy Gate (optional)
+      - name: Apply Enforcement Policy
         if: always()
         shell: bash
         run: |
           set -euo pipefail
 
           if [[ "${ALLOW_WARNINGS}" == "true" ]]; then
-            echo "ALLOW_WARNINGS=true -> report-only mode. Passing."
+            echo "ALLOW_WARNINGS=true -> report only mode. Passing."
             exit 0
           fi
 
           findings="${{ steps.scan.outputs.findings || '0' }}"
           if [[ "${findings}" != "0" ]]; then
-            echo "❌ VBScript syntax findings detected (${findings}). Failing (enforced mode)."
+            echo " VBScript syntax findings detected (${findings}). Failing (enforced mode)."
             exit 1
           fi
 
-          echo "✅ No VBScript syntax issues. Passing."
+          echo " No VBScript syntax issues. Passing."
