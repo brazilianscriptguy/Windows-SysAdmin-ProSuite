@@ -1,0 +1,583 @@
+name: Auto Update CHANGELOG
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - CHANGELOG.md
+  workflow_dispatch: {}
+
+concurrency:
+  group: changelog-auto-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    name: Update Component Changelog
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Commit Range
+        id: range
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            after="${{ github.sha }}"
+
+            if [[ -z "$before" || "$before" == "0000000000000000000000000000000000000000" ]]; then
+              before="$(git rev-list --max-parents=0 "$after" | tail -n 1)"
+            fi
+          else
+            after="${GITHUB_SHA}"
+            before="$(git rev-parse "${after}^" 2>/dev/null || git rev-list --max-parents=0 "$after" | tail -n 1)"
+          fi
+
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "after=$after" >> "$GITHUB_OUTPUT"
+
+          echo "Commit range:"
+          echo "  before: $before"
+          echo "  after : $after"
+
+      - name: Detect Changed Release Components
+        id: components
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ steps.range.outputs.before }}
+          AFTER_SHA: ${{ steps.range.outputs.after }}
+        run: |
+          set -euo pipefail
+
+          changed_files="$(git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}" || true)"
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          declare -A selected=()
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            case "$file" in
+              SysAdmin-Tools/ActiveDirectory-SSO-Integrations/*)
+                selected["AD-SSO-APIs-Integration"]=1
+                selected["SysAdmin-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              SysAdmin-Tools/GroupPolicyObjects-Templates/*)
+                selected["GPOs-Templates"]=1
+                selected["SysAdmin-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              SysAdmin-Tools/ADCS-Management-Tools/*)
+                selected["ADCS-Management-Tools"]=1
+                selected["SysAdmin-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              SysAdmin-Tools/*)
+                selected["SysAdmin-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              BlueTeam-Tools/*)
+                selected["BlueTeam-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              Core-ScriptLibrary/*)
+                selected["Core-ScriptLibrary"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              ITSM-Templates-SVR/*)
+                selected["ITSM-Templates-SVR"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              ITSM-Templates-WKS/*)
+                selected["ITSM-Templates-WKS"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
+              README.md|*/README.md)
+                selected["READMEs-Files-Package"]=1
+                ;;
+
+              LICENSE|LICENSE.txt)
+                selected["All-Repository-Files"]=1
+                ;;
+
+              CHANGELOG.md)
+                # Explicitly ignored to prevent self-referential entries.
+                ;;
+
+              *)
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          order=(
+            "AD-SSO-APIs-Integration"
+            "ADCS-Management-Tools"
+            "All-Repository-Files"
+            "BlueTeam-Tools"
+            "Core-ScriptLibrary"
+            "GPOs-Templates"
+            "ITSM-Templates-SVR"
+            "ITSM-Templates-WKS"
+            "READMEs-Files-Package"
+            "SysAdmin-Tools"
+          )
+
+          components=()
+          for component in "${order[@]}"; do
+            if [[ -n "${selected[$component]+x}" ]]; then
+              components+=("$component")
+            fi
+          done
+
+          if [[ "${#components[@]}" -eq 0 ]]; then
+            echo "No managed release component was affected."
+            echo "has_components=false" >> "$GITHUB_OUTPUT"
+            echo "components=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          joined="$(IFS=,; echo "${components[*]}")"
+
+          echo "Managed components: $joined"
+          echo "has_components=true" >> "$GITHUB_OUTPUT"
+          echo "components=$joined" >> "$GITHUB_OUTPUT"
+
+      - name: Build Changelog Entries
+        if: steps.components.outputs.has_components == 'true'
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ steps.range.outputs.before }}
+          AFTER_SHA: ${{ steps.range.outputs.after }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .changelog-tmp
+
+          # Exclude prior automated changelog commits if history contains any.
+          git log \
+            --reverse \
+            --no-merges \
+            --format='%H%x09%s' \
+            "${BEFORE_SHA}..${AFTER_SHA}" \
+            | grep -v $'\tdocs(changelog): auto update CHANGELOG.md' \
+            > .changelog-tmp/commits.tsv || true
+
+          if [[ ! -s .changelog-tmp/commits.tsv ]]; then
+            # workflow_dispatch on a single commit or edge-case range
+            subject="$(git log -1 --format='%s' "${AFTER_SHA}")"
+            printf '%s\t%s\n' "${AFTER_SHA}" "$subject" > .changelog-tmp/commits.tsv
+          fi
+
+          echo "Commits selected:"
+          cat .changelog-tmp/commits.tsv
+
+      - name: Update CHANGELOG.md
+        id: update
+        if: steps.components.outputs.has_components == 'true'
+        shell: bash
+        env:
+          COMPONENTS: ${{ steps.components.outputs.components }}
+          BEFORE_SHA: ${{ steps.range.outputs.before }}
+          AFTER_SHA: ${{ steps.range.outputs.after }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          from __future__ import annotations
+
+          import os
+          import re
+          import subprocess
+          from collections import defaultdict
+          from pathlib import Path
+
+          changelog_path = Path("CHANGELOG.md")
+          commits_path = Path(".changelog-tmp/commits.tsv")
+
+          components = [x for x in os.environ["COMPONENTS"].split(",") if x]
+          before_sha = os.environ["BEFORE_SHA"]
+          after_sha = os.environ["AFTER_SHA"]
+
+          component_order = [
+              "AD-SSO-APIs-Integration",
+              "ADCS-Management-Tools",
+              "All-Repository-Files",
+              "BlueTeam-Tools",
+              "Core-ScriptLibrary",
+              "GPOs-Templates",
+              "ITSM-Templates-SVR",
+              "ITSM-Templates-WKS",
+              "READMEs-Files-Package",
+              "SysAdmin-Tools",
+          ]
+
+          def run_git(*args: str) -> str:
+              result = subprocess.run(
+                  ["git", *args],
+                  check=True,
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              return result.stdout
+
+          def files_for_commit(sha: str) -> list[str]:
+              out = run_git(
+                  "diff-tree",
+                  "--no-commit-id",
+                  "--name-only",
+                  "-r",
+                  sha,
+              )
+              return [line.strip() for line in out.splitlines() if line.strip()]
+
+          def map_file(path: str) -> set[str]:
+              result: set[str] = set()
+
+              if path.startswith("SysAdmin-Tools/ActiveDirectory-SSO-Integrations/"):
+                  result.update({
+                      "AD-SSO-APIs-Integration",
+                      "SysAdmin-Tools",
+                      "All-Repository-Files",
+                  })
+              elif path.startswith("SysAdmin-Tools/GroupPolicyObjects-Templates/"):
+                  result.update({
+                      "GPOs-Templates",
+                      "SysAdmin-Tools",
+                      "All-Repository-Files",
+                  })
+              elif path.startswith("SysAdmin-Tools/ADCS-Management-Tools/"):
+                  result.update({
+                      "ADCS-Management-Tools",
+                      "SysAdmin-Tools",
+                      "All-Repository-Files",
+                  })
+              elif path.startswith("SysAdmin-Tools/"):
+                  result.update({"SysAdmin-Tools", "All-Repository-Files"})
+              elif path.startswith("BlueTeam-Tools/"):
+                  result.update({"BlueTeam-Tools", "All-Repository-Files"})
+              elif path.startswith("Core-ScriptLibrary/"):
+                  result.update({"Core-ScriptLibrary", "All-Repository-Files"})
+              elif path.startswith("ITSM-Templates-SVR/"):
+                  result.update({"ITSM-Templates-SVR", "All-Repository-Files"})
+              elif path.startswith("ITSM-Templates-WKS/"):
+                  result.update({"ITSM-Templates-WKS", "All-Repository-Files"})
+              elif path == "README.md" or path.endswith("/README.md"):
+                  result.add("READMEs-Files-Package")
+              elif path in {"LICENSE", "LICENSE.txt"}:
+                  result.add("All-Repository-Files")
+
+              return result
+
+          def classify(subject: str) -> tuple[str, str]:
+              """Classify every entry into the repository's three canonical sections."""
+              raw = subject.strip()
+
+              conventional = re.match(
+                  r"^(?P<type>[A-Za-z]+)(?:\([^)]+\))?(?P<breaking>!)?:\s*(?P<text>.+)$",
+                  raw,
+              )
+
+              if conventional:
+                  kind = conventional.group("type").lower()
+                  text = conventional.group("text").strip()
+                  breaking = bool(conventional.group("breaking"))
+
+                  if breaking:
+                      return "Changed", f"**BREAKING:** {text}"
+
+                  category = {
+                      "feat": "Added",
+                      "add": "Added",
+                      "security": "Security",
+                      "sec": "Security",
+                      # Fixes, docs, refactors, maintenance, CI and build changes
+                      # are intentionally consolidated under Changed so the
+                      # CHANGELOG keeps exactly Added / Changed / Security.
+                      "fix": "Changed",
+                      "bugfix": "Changed",
+                      "docs": "Changed",
+                      "doc": "Changed",
+                      "refactor": "Changed",
+                      "perf": "Changed",
+                      "change": "Changed",
+                      "chore": "Changed",
+                      "build": "Changed",
+                      "ci": "Changed",
+                      "test": "Changed",
+                      "revert": "Changed",
+                  }.get(kind, "Changed")
+                  return category, text
+
+              lowered = raw.lower()
+              if any(x in lowered for x in (
+                  "security", "secure", "credential", "hardening",
+                  "vulnerability", "certificate private key", "least privilege"
+              )):
+                  return "Security", raw
+              if any(x in lowered for x in ("add", "added", "new ", "implement", "feature", "create")):
+                  return "Added", raw
+              return "Changed", raw
+
+          # Load commit subjects.
+          commits: list[tuple[str, str]] = []
+          for line in commits_path.read_text(encoding="utf-8").splitlines():
+              if not line.strip():
+                  continue
+              sha, subject = line.split("\t", 1)
+              commits.append((sha, subject))
+
+          # Build per-component categorized entries.
+          entries: dict[str, dict[str, list[str]]] = {
+              component: defaultdict(list) for component in components
+          }
+
+          for sha, subject in commits:
+              affected: set[str] = set()
+              try:
+                  for file_path in files_for_commit(sha):
+                      affected.update(map_file(file_path))
+              except subprocess.CalledProcessError:
+                  # Fallback: apply to components detected from the overall push.
+                  affected.update(components)
+
+              affected.intersection_update(components)
+              if not affected:
+                  continue
+
+              category, text = classify(subject)
+              short_sha = sha[:7]
+              entry = f"- {text} (`{short_sha}`)"
+
+              for component in affected:
+                  if entry not in entries[component][category]:
+                      entries[component][category].append(entry)
+
+          # Ensure a usable changelog exists.
+          if changelog_path.exists():
+              text = changelog_path.read_text(encoding="utf-8")
+          else:
+              text = (
+                  "# Changelog\n\n"
+                  "All notable repository changes are documented in this file.\n\n"
+              )
+
+          category_order = ["Added", "Changed", "Security"]
+
+          def ensure_component_section(source: str, component: str) -> str:
+              heading = f"## {component}"
+              if re.search(rf"(?m)^{re.escape(heading)}\s*$", source):
+                  return source
+
+              suffix = "" if source.endswith("\n") else "\n"
+              return (
+                  source + suffix + f"\n{heading}\n\n"
+                  "### Added\n\n"
+                  "### Changed\n\n"
+                  "### Security\n\n"
+              )
+
+          def ensure_category_section(source: str, component: str, category: str) -> str:
+              source = ensure_component_section(source, component)
+              component_heading = f"## {component}"
+              component_match = re.search(rf"(?m)^{re.escape(component_heading)}\s*$", source)
+              if not component_match:
+                  raise RuntimeError(f"Unable to locate component: {component}")
+
+              next_component = re.search(r"(?m)^## .+$", source[component_match.end():])
+              component_end = (
+                  component_match.end() + next_component.start()
+                  if next_component else len(source)
+              )
+              section = source[component_match.end():component_end]
+              category_heading = f"### {category}"
+              if re.search(rf"(?m)^{re.escape(category_heading)}\s*$", section):
+                  return source
+
+              # Insert missing canonical category before the next component.
+              insertion = f"\n### {category}\n\n"
+              return source[:component_end].rstrip() + insertion + "\n" + source[component_end:].lstrip("\n")
+
+          def insert_entries(source: str, component: str, category: str, values: list[str]) -> tuple[str, bool]:
+              if not values:
+                  return source, False
+
+              source = ensure_category_section(source, component, category)
+              component_heading = f"## {component}"
+              component_match = re.search(rf"(?m)^{re.escape(component_heading)}\s*$", source)
+              next_component = re.search(r"(?m)^## .+$", source[component_match.end():])
+              component_end = (
+                  component_match.end() + next_component.start()
+                  if next_component else len(source)
+              )
+
+              component_text = source[component_match.end():component_end]
+              category_heading = f"### {category}"
+              category_match_rel = re.search(rf"(?m)^{re.escape(category_heading)}\s*$", component_text)
+              if not category_match_rel:
+                  raise RuntimeError(f"Unable to locate category {category} in {component}")
+
+              category_start = component_match.end() + category_match_rel.end()
+              tail = source[category_start:component_end]
+              next_category_rel = re.search(r"(?m)^### .+$", tail)
+              category_end = category_start + (next_category_rel.start() if next_category_rel else len(tail))
+              category_text = source[category_start:category_end]
+
+              new_values = [value for value in values if value not in category_text]
+              if not new_values:
+                  return source, False
+
+              insertion = "\n" + "\n".join(new_values) + "\n"
+              updated = source[:category_end].rstrip() + insertion + "\n" + source[category_end:].lstrip("\n")
+              return updated, True
+
+          changed = False
+
+          for component in component_order:
+              if component not in components:
+                  continue
+
+              text = ensure_component_section(text, component)
+              for category in category_order:
+                  text, inserted = insert_entries(
+                      text,
+                      component,
+                      category,
+                      entries[component].get(category, []),
+                  )
+                  changed = changed or inserted
+
+          if changed:
+              changelog_path.write_text(text.rstrip() + "\n", encoding="utf-8")
+              print("CHANGELOG.md updated.")
+          else:
+              print("No new changelog entries were required.")
+          PY
+
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No CHANGELOG.md modification detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "CHANGELOG.md modification detected."
+          fi
+
+      - name: Validate Release Parser Compatibility
+        if: steps.update.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_sections=(
+            "AD-SSO-APIs-Integration"
+            "ADCS-Management-Tools"
+            "All-Repository-Files"
+            "BlueTeam-Tools"
+            "Core-ScriptLibrary"
+            "GPOs-Templates"
+            "ITSM-Templates-SVR"
+            "ITSM-Templates-WKS"
+            "READMEs-Files-Package"
+            "SysAdmin-Tools"
+          )
+
+          failed=0
+
+          for section in "${required_sections[@]}"; do
+            count="$(grep -Fxc "## ${section}" CHANGELOG.md || true)"
+            if [[ "$count" -ne 1 ]]; then
+              echo "::error::Expected exactly one '## ${section}' heading; found ${count}."
+              failed=1
+              continue
+            fi
+
+            section_body="$(awk -v section="## ${section}" '
+              $0 == section {found=1; next}
+              /^## / && found {exit}
+              found {print}
+            ' CHANGELOG.md)"
+
+            for category in Added Changed Security; do
+              category_count="$(printf '%s\n' "$section_body" | grep -Fxc "### ${category}" || true)"
+              if [[ "$category_count" -ne 1 ]]; then
+                echo "::error::${section}: expected exactly one '### ${category}' heading; found ${category_count}."
+                failed=1
+              fi
+            done
+
+            unexpected="$(printf '%s\n' "$section_body" | grep -E '^### ' | grep -Ev '^### (Added|Changed|Security)$' || true)"
+            if [[ -n "$unexpected" ]]; then
+              echo "::error::${section}: unsupported third-level heading(s):"
+              printf '%s\n' "$unexpected"
+              failed=1
+            fi
+
+            echo "OK: ## ${section}"
+          done
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi
+
+          echo "CHANGELOG.md is compatible with the current release-section AWK parser."
+
+      - name: Commit and Push CHANGELOG.md
+        if: steps.update.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): auto update CHANGELOG.md [skip ci]"
+
+          # Rebase onto current branch state in case another commit landed while
+          # this workflow was running.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Publish Workflow Summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "##  Automatic CHANGELOG Update"
+            echo
+            echo "- **Repository:** \`${GITHUB_REPOSITORY}\`"
+            echo "- **Branch:** \`${GITHUB_REF_NAME}\`"
+            echo "- **Source commit:** \`${GITHUB_SHA}\`"
+            echo "- **Managed components:** \`${{ steps.components.outputs.components || 'none' }}\`"
+            echo "- **CHANGELOG modified:** \`${{ steps.update.outputs.changed || 'false' }}\`"
+            echo
+            echo "### Release-workflow compatibility"
+            echo
+            echo "The workflow preserves the exact \`## <release-name>\` headings required by the existing release parser."
+          } >> "$GITHUB_STEP_SUMMARY"
