@@ -1,61 +1,70 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-Weekly Windows Server maintenance with forced restart.
+Runs governed maintenance on Windows Server systems.
 
 .DESCRIPTION
-PowerShell refactor of the original VBS server maintenance workflow, preserving the functional server flow while applying the final hardening patterns validated in production:
-- Basic server inventory.
-- Optional SFC / DISM execution.
-- Controlled local GPO cache reset without applying security.inf.
-- Controlled Windows Update component reset.
-- AD / DC / time / Kerberos / certificate validation.
-- Controlled cleanup with minimum 6-day retention in C:\Temp, C:\Logs-TEMP, and C:\Scripts-LOGS.
-- Forced restart policy for servers, with open sessions detected and logged for audit only.
-- Local operational state and script synchronization under C:\ProgramData\SCRIPTGUY\Maintenance-Servers.
-- Local script hash validation against the NETLOGON master script.
-- Enriched restart-state JSON with total sessions, active users, disconnected users, and forced restart flag.
-- Hardened restart with shutdown.exe /r /f, exit-code validation, and a local scheduled fallback restart task.
+Provides a generalized enterprise server-maintenance workflow with local runtime
+staging, deterministic logging, inventory, optional SFC and DISM repair, controlled
+Group Policy and Windows Update cache maintenance, domain health operations, folder
+retention cleanup, session auditing, and a forced-restart fallback task.
 
-.AUTHOR
-Luiz Hamilton Silva - @brazilianscriptguy
+No forest, domain controller, WSUS server, GPO, OU, or institutional UNC path is
+assumed. Critical server roles are blocked by default and require explicit operator
+authorization through AllowCriticalServerRoles.
 
-.VERSION
-2026.04.28-SVR-v1.2.6-REBOOT-FIXED-GITHUB-ENGLISH-PS51
+.PARAMETER MasterScriptPath
+Optional authoritative UNC or local script used to refresh the staged runtime.
+
+.PARAMETER AllowCriticalServerRoles
+Explicitly authorizes maintenance and restart on domain controllers, failover-cluster
+nodes, and Hyper-V hosts. Review workload redundancy before using this switch.
+
+.PARAMETER ShowConsole
+Keeps the console visible for interactive troubleshooting.
+
+.NOTES
+Author: Luiz Hamilton Silva - github.com/brazilianscriptguy
+Organization template: SCRIPTGUY
+Version: 2.0.0-GENERALIZED-ENTERPRISE-SERVER
+Requires: Windows PowerShell 5.1; administrative or SYSTEM context
 #>
-
 
 [CmdletBinding()]
 param(
-    [switch]$ShowConsole
+    [switch]$ShowConsole,
+    [string]$MasterScriptPath = '',
+    [switch]$AllowCriticalServerRoles
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ==================== Configuration ====================
+$OrganizationName            = 'SCRIPTGUY'
 $LogRetentionDays            = 6
-$LogRetentionPath         = 'C:\Scripts-LOGS'
+$LogRetentionPath            = 'C:\Scripts-LOGS'
 $LogDir                      = 'C:\Scripts-LOGS'
 $ScriptName                  = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$ScriptVersion               = '2026.04.28-SVR-v1.2.6-REBOOT-FIXED-GITHUB-ENGLISH-PS51'
+$ScriptVersion               = '2.0.0-GENERALIZED-ENTERPRISE-SERVER'
 $script:ExecutionSource      = $MyInvocation.MyCommand.Path
-$script:ExpectedUncSource    = '\\headq.scriptguy\netlogon\system-maintenance-servers\system-maintenance-servers.ps1'
-$script:LocalScriptRoot      = 'C:\ProgramData\SCRIPTGUY\Maintenance-Servers'
-$script:LocalScriptPath      = Join-Path $script:LocalScriptRoot 'system-maintenance-servers.ps1'
+$script:ExpectedUncSource    = $MasterScriptPath
+$script:LocalScriptRoot      = Join-Path $env:ProgramData "$OrganizationName\Maintenance-Servers"
+$script:LocalScriptPath      = Join-Path $script:LocalScriptRoot 'Invoke-EnterpriseServerMaintenance.ps1'
 $script:StateRoot            = $script:LocalScriptRoot
 $script:StateFilePath        = Join-Path $script:StateRoot 'restart-state.json'
 $script:IdleThresholdMinutes = 120
-$script:MaxDeferredRunsBeforeForcedReboot = 5
+$script:MaxDeferredRunsBeforeForcedReboot = 0
 $LogFile                     = Join-Path $LogDir "$ScriptName.log"
 $PathSoftDist                = 'C:\Windows\SoftwareDistribution'
 $PathCatroot2                = 'C:\Windows\System32\catroot2'
 $DefaultUserImagePath        = 'C:\ProgramData\Microsoft\User Account Pictures\user.png'
-$GpUpdateWaitSeconds         = 30
+$GroupPolicyUpdateWaitSeconds         = 30
 $CleanWuTimeoutSec           = 600
 $RebootFinalDelaySec         = 0
 $ServerCleanupPaths          = @('C:\Temp','C:\Logs-TEMP','C:\Scripts-LOGS')
 $ShutdownNoticeSeconds       = 900
+$script:RebootFallbackTaskName = "$OrganizationName-Maintenance-Servers-Reboot-Fallback"
 
 $RunSfcDism                  = $true
 $ResetLocalGpo               = $true
@@ -116,12 +125,37 @@ function Test-AdministratorContext {
     }
 }
 
+function Get-ServerRoleSafetyAssessment {
+    $roles = New-Object System.Collections.Generic.List[string]
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+    if ([int]$os.ProductType -eq 1) {
+        throw "Unsupported operating system: '$($os.Caption)'. This script is intended for Windows Server."
+    }
+
+    $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+    if ([int]$computerSystem.DomainRole -ge 4) { $roles.Add('Active Directory Domain Controller') }
+    if (Get-Service -Name 'ClusSvc' -ErrorAction SilentlyContinue) { $roles.Add('Failover Cluster Node') }
+    if (Get-Service -Name 'vmms' -ErrorAction SilentlyContinue) { $roles.Add('Hyper-V Host') }
+
+    [pscustomobject]@{
+        OperatingSystem = [string]$os.Caption
+        CriticalRoles   = @($roles)
+        IsCritical      = ($roles.Count -gt 0)
+    }
+}
+
 function Invoke-PreValidation {
     Ensure-Directory -Path $script:LocalScriptRoot
     Ensure-Directory -Path $LogDir
 
     if (-not (Test-AdministratorContext)) {
         throw 'Insufficient context: the script must run with administrative privileges or as SYSTEM.'
+    }
+
+    $roleAssessment = Get-ServerRoleSafetyAssessment
+    Write-Log -Level INFO -Message "Server role preflight: OS='$($roleAssessment.OperatingSystem)'; CriticalRoles='$(@($roleAssessment.CriticalRoles) -join ', ')'; ExplicitAuthorization=$([bool]$AllowCriticalServerRoles)."
+    if ($roleAssessment.IsCritical -and -not $AllowCriticalServerRoles) {
+        throw "Critical server role protection blocked maintenance. Roles='$(@($roleAssessment.CriticalRoles) -join ', ')'. Re-run with -AllowCriticalServerRoles only after validating redundancy, failover, and the approved change window."
     }
 
     try {
@@ -133,7 +167,7 @@ function Invoke-PreValidation {
         Remove-Item -LiteralPath $probeFile -Force -ErrorAction SilentlyContinue
         Write-Log -Level INFO -Message "Pre-validation completed. Local root: $script:LocalScriptRoot | State: $script:StateFilePath | Local script: $script:LocalScriptPath"
     } catch {
-        throw "Pre-validation failed for state directory '$script:StateRoot': $($_.Exception.Message)"
+        throw "State-directory pre-validation failed for '$script:StateRoot': $($_.Exception.Message)"
     }
 }
 
@@ -170,25 +204,35 @@ function Write-LogSection {
     [System.IO.File]::AppendAllText($LogFile, $chunk, [System.Text.UTF8Encoding]::new($false))
 }
 
-# ==================== Command Execution ====================
+# ==================== Command execution ====================
 function Test-LocalScriptSynchronization {
     [CmdletBinding()]
     param()
 
     try {
-        Write-Log -Level INFO -Message "Local script synchronization check started. Local='$script:LocalScriptPath' | Mestre='$script:ExpectedUncSource'"
+        Write-Log -Level INFO -Message "Local script synchronization check started. Local='$script:LocalScriptPath'; Authoritative='$script:ExpectedUncSource'."
+
+        if ([string]::IsNullOrWhiteSpace($script:ExpectedUncSource)) {
+            if (-not (Test-Path -LiteralPath $script:LocalScriptPath) -and (Test-Path -LiteralPath $script:ExecutionSource)) {
+                Copy-Item -LiteralPath $script:ExecutionSource -Destination $script:LocalScriptPath -Force
+                Write-Log -Level INFO -Message "No authoritative source was configured. The current script was copied to local staging at '$script:LocalScriptPath'."
+            } else {
+                Write-Log -Level INFO -Message 'No authoritative source was configured. The current local runtime remains authoritative for this run.'
+            }
+            return
+        }
 
         if (-not (Test-Path -LiteralPath $script:ExpectedUncSource)) {
-            Write-Log -Level WARN -Message "UNC master file is not currently accessible: $script:ExpectedUncSource. Continuing with the local/current running version."
+            Write-Log -Level WARN -Message "The authoritative script is currently unavailable: $script:ExpectedUncSource. Continuing with the local/current runtime."
             return
         }
 
         if (-not (Test-Path -LiteralPath $script:LocalScriptPath)) {
             try {
                 Copy-Item -LiteralPath $script:ExpectedUncSource -Destination $script:LocalScriptPath -Force
-                Write-Log -Level INFO -Message "Local file missing. Initial copy performed from NETLOGON to: $script:LocalScriptPath"
+                Write-Log -Level INFO -Message "The local runtime did not exist and was initialized from the authoritative source: $script:LocalScriptPath"
             } catch {
-                Write-Log -Level WARN -Message "Failed to copy master file to local path '$script:LocalScriptPath': $($_.Exception.Message). Continuing with current execution."
+                Write-Log -Level WARN -Message "Failed to copy the authoritative script to '$script:LocalScriptPath': $($_.Exception.Message). Continuing with the current runtime."
             }
             return
         }
@@ -197,11 +241,11 @@ function Test-LocalScriptSynchronization {
         $localHash = (Get-FileHash -LiteralPath $script:LocalScriptPath -Algorithm SHA256).Hash
 
         if ($uncHash -eq $localHash) {
-            Write-Log -Level INFO -Message "Local code validated: hash identical to the NETLOGON master script. SHA256=$localHash"
+            Write-Log -Level INFO -Message "Local runtime validated: SHA-256 matches the authoritative script. SHA256=$localHash"
             return
         }
 
-        Write-Log -Level WARN -Message "Local code outdated withpared to NETLOGON. LocalSHA256=$localHash | UncSHA256=$uncHash"
+        Write-Log -Level WARN -Message "The local runtime differs from the authoritative script. LocalSHA256=$localHash; AuthoritativeSHA256=$uncHash."
 
         $tempPath = Join-Path $script:LocalScriptRoot ("{0}.next" -f ([System.IO.Path]::GetFileName($script:LocalScriptPath)))
         Copy-Item -LiteralPath $script:ExpectedUncSource -Destination $tempPath -Force
@@ -209,14 +253,14 @@ function Test-LocalScriptSynchronization {
         $tempHash = (Get-FileHash -LiteralPath $tempPath -Algorithm SHA256).Hash
         if ($tempHash -ne $uncHash) {
             Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
-            Write-Log -Level WARN -Message "Temporary copy created, but hash does not match the master file. Local update aborted. TempSHA256=$tempHash | UncSHA256=$uncHash"
+            Write-Log -Level WARN -Message "The temporary copy hash does not match the authoritative script. Local update aborted. TempSHA256=$tempHash; AuthoritativeSHA256=$uncHash."
             return
         }
 
         Move-Item -LiteralPath $tempPath -Destination $script:LocalScriptPath -Force
-        Write-Log -Level WARN -Message "Local code updated from NETLOGON. The updated version will be effectively used on the next scheduled task run."
+        Write-Log -Level INFO -Message 'The local runtime was updated from the authoritative source and will be used on the next run.'
     } catch {
-        Write-Log -Level WARN -Message "Failed to verify/update local code from NETLOGON: $($_.Exception.Message). Continuing with current execution."
+        Write-Log -Level WARN -Message "Local runtime synchronization failed: $($_.Exception.Message). Continuing with the current runtime."
     }
 }
 
@@ -229,6 +273,15 @@ function Normalize-ExternalText {
     return $normalized
 }
 
+function Get-NativeOutputEncoding {
+    try {
+        $codePage = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage
+        return [System.Text.Encoding]::GetEncoding($codePage)
+    } catch {
+        return [System.Text.Encoding]::Default
+    }
+}
+
 function Invoke-CapturedCommand {
     param(
         [Parameter(Mandatory)][string]$CommandLine,
@@ -238,16 +291,16 @@ function Invoke-CapturedCommand {
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "$env:ComSpec"
-    $psi.Arguments = "/c chcp 65001 >nul && $CommandLine"
+    $psi.Arguments = "/d /c $CommandLine"
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
-    # Avoids CMD noise when running from a UNC path (NETLOGON/SYSVOL).
-    # Without a local WorkingDirectory, cmd.exe logs a warning about unsupported UNC paths.
+    # A local working directory avoids CMD warnings when the script starts from UNC.
     $psi.WorkingDirectory = $env:WINDIR
-    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-    $psi.StandardErrorEncoding  = [System.Text.Encoding]::UTF8
+    $nativeEncoding = Get-NativeOutputEncoding
+    $psi.StandardOutputEncoding = $nativeEncoding
+    $psi.StandardErrorEncoding  = $nativeEncoding
 
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $psi
@@ -286,7 +339,7 @@ function Invoke-LoggedCommand {
     )
     $result = Invoke-CapturedCommand -CommandLine $CommandLine -Title $Title -TimeoutSec $TimeoutSec
     if ($result.ExitCode -ne 0) {
-        Write-Log -Level WARN -Message "Command '$Title' returned rc=$($result.ExitCode)."
+        Write-Log -Level WARN -Message "Command '$Title' returned exit code $($result.ExitCode)."
     }
     $result
 }
@@ -302,7 +355,7 @@ function Invoke-TimedOperation {
         & $ScriptBlock
     } finally {
         $elapsed = [int]((Get-Date) - $t0).TotalSeconds
-        Write-Log -Level INFO -Message "[TIMER] Block finished: $Name ($elapsed s)"
+        Write-Log -Level INFO -Message "[TIMER] Block ended: $Name ($elapsed s)"
     }
 }
 
@@ -337,7 +390,7 @@ function Rename-IfExists {
     $newName = '{0}._purge_{1}' -f $name, (Get-Date).ToString('yyyyMMdd_HHmmss')
     try {
         Rename-Item -LiteralPath $src -NewName $newName -ErrorAction Stop
-        Write-Log -Level INFO -Message "Pasta renomeada: $src -> $(Join-Path $parent $newName)"
+        Write-Log -Level INFO -Message "Folder renamed: $src -> $(Join-Path $parent $newName)"
     } catch {
         Write-Log -Level WARN -Message "Failed to rename $src - $($_.Exception.Message)"
     }
@@ -413,7 +466,7 @@ function Get-ServiceStateSafe {
         $svc = Get-CimInstance -ClassName Win32_Service -Filter "Name='$Name'" -ErrorAction Stop
         return [string]$svc.State
     } catch {
-        return 'DESCONHECIDO'
+        return 'UNKNOWN'
     }
 }
 
@@ -431,7 +484,7 @@ function Start-ServiceSilentSafe {
         if ($state -eq 'Running') {
             Write-Log -Level INFO -Message "Service $Name started successfully."
         } else {
-            Write-Log -Level WARN -Message "Failed to start $Name. current state: $state"
+            Write-Log -Level WARN -Message "Failed to start $Name. Current state: $state"
         }
     } catch {
         Write-Log -Level WARN -Message "Failed to start $Name - $($_.Exception.Message)"
@@ -456,10 +509,10 @@ function Stop-ServiceWithRetry {
                 Write-Log -Level INFO -Message "Service $Name stopped successfully."
                 return $true
             }
-            Write-Log -Level WARN -Message "Protected service detected: $Name could not be stopped. Continuing."
+            Write-Log -Level WARN -Message "Service protected service detected: $Name could not be stopped. Continuing."
             return $false
         } catch {
-            Write-Log -Level WARN -Message "Protected service detected: $Name could not be stopped. Continuing."
+            Write-Log -Level WARN -Message "Service protected service detected: $Name could not be stopped. Continuing."
             return $false
         }
     }
@@ -486,7 +539,7 @@ function Stop-ServiceWithRetry {
 
     $state = Get-ServiceStateSafe -Name $Name
     if ($state -eq 'Stopped') { return $true }
-    Write-Log -Level WARN -Message "Could not stop $Name. Continuing."
+    Write-Log -Level WARN -Message "Unable to stop $Name. Continuing."
     return $false
 }
 
@@ -496,18 +549,28 @@ function Invoke-SfcDism {
     $t0 = Get-Date
     $rc = (Start-Process -FilePath "$env:windir\system32\sfc.exe" -ArgumentList '/scannow' -Wait -PassThru -WindowStyle Hidden).ExitCode
     if ($rc -eq 0) {
-        Write-Log -Level INFO -Message "SFC completed successfully (rc=0, duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
+        Write-Log -Level INFO -Message "SFC completed successfully (ExitCode=0; Duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
     } else {
-        Write-Log -Level WARN -Message "SFC returned code $rc (duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
+        Write-Log -Level WARN -Message "SFC returned ExitCode=$rc; Duration=$([int]((Get-Date)-$t0).TotalSeconds)s."
     }
 
     Write-Log -Level INFO -Message 'Running DISM /RestoreHealth...'
     $t0 = Get-Date
     $rc = (Start-Process -FilePath "$env:windir\system32\dism.exe" -ArgumentList '/online','/cleanup-image','/restorehealth' -Wait -PassThru -WindowStyle Hidden).ExitCode
     if ($rc -eq 0) {
-        Write-Log -Level INFO -Message "DISM /restorehealth completed (rc=0, duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
+        Write-Log -Level INFO -Message "DISM /RestoreHealth completed successfully (ExitCode=0; Duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
     } else {
-        Write-Log -Level WARN -Message "DISM returned $rc (duration=$([int]((Get-Date)-$t0).TotalSeconds)s)."
+        $unsignedRc = [System.BitConverter]::ToUInt32([System.BitConverter]::GetBytes([int32]$rc), 0)
+        $hexRc = ('0x{0:X8}' -f $unsignedRc)
+        $diagnosis = switch ($hexRc) {
+            '0x800F081F' { 'Source files were not found. Validate the repair source and component-repair policy.' }
+            '0x800F0906' { 'Repair content could not be downloaded. Validate proxy, WSUS/Microsoft Update, and connectivity.' }
+            '0x800F0954' { 'WSUS policy may be blocking optional or repair content. Validate the alternate component source.' }
+            '0x800F0922' { 'Servicing failure. Validate system-partition free space, CBS.log, and DISM.log.' }
+            '0x800F0915' { 'CBS/servicing engine failure. Review DISM.log and CBS.log and validate a repair source matching the installed build.' }
+            default      { 'Code is not mapped locally. Review DISM.log and CBS.log before retrying repair.' }
+        }
+        Write-Log -Level WARN -Message "DISM /RestoreHealth failed. ExitCodeDecimal=$rc; ExitCodeHex=$hexRc; Duration=$([int]((Get-Date)-$t0).TotalSeconds)s; Diagnosis='$diagnosis'"
     }
 }
 
@@ -517,18 +580,18 @@ function Reset-LocalGpoCache {
     Remove-FolderIfExists -PathLiteral '%windir%\System32\GroupPolicyUsers'
     Remove-FolderIfExists -PathLiteral '%windir%\SysWOW64\GroupPolicy'
     Remove-FolderIfExists -PathLiteral '%windir%\SysWOW64\GroupPolicyUsers'
-    Write-Log -Level INFO -Message 'Local GPO cache removed (folders). No security.inf will be applied.'
+    Write-Log -Level INFO -Message 'Local Group Policy cache removed. No security.inf file will be applied.'
 
     $key = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy'
     if (Test-Path -LiteralPath $key) {
         try {
             Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop
-            Write-Log -Level INFO -Message 'Local GPO registry key removed.'
+            Write-Log -Level INFO -Message 'Local Group Policy registry key removed.'
         } catch {
-            Write-Log -Level WARN -Message "Failed to remove GPO registry key - $($_.Exception.Message)"
+            Write-Log -Level WARN -Message "Failed to remove the local Group Policy registry key - $($_.Exception.Message)"
         }
     } else {
-        Write-Log -Level INFO -Message 'Local GPO registry key not found (nothing to remove).'
+        Write-Log -Level INFO -Message 'Local Group Policy registry key not found (nothing to remove).'
     }
 }
 
@@ -547,94 +610,125 @@ function Set-WuRecurringTasksState {
     )
 
     $action = if ($Enable) { '/enable' } else { '/disable' }
-    $label  = if ($Enable) { 'reabilitadas (best-effort)' } else { 'desabilitadas temporariamente' }
+    $label  = if ($Enable) { 're-enabled (best effort)' } else { 'temporarily disabled' }
 
     foreach ($task in $tasks) {
-        if (Test-TaskExists -TaskName $task) {
-            try {
-                & schtasks.exe /change /tn $task $action *>> $LogFile
-            } catch {}
+        try {
+            if (Test-TaskExists -TaskName $task) {
+                $command = 'schtasks.exe /change /tn "{0}" {1}' -f $task, $action
+                $result = Invoke-CapturedCommand -CommandLine $command -Title "SCHTASKS $($action.ToUpper()) $task" -TimeoutSec 30
+                if ($result.ExitCode -ne 0) {
+                    Write-Log -Level WARN -Message "Unable to update Windows Update task '$task' with action '$action'. rc=$($result.ExitCode). Continuing."
+                }
+            }
+        } catch {
+            Write-Log -Level WARN -Message "Failed to process Windows Update task '$task'. Nonfatal operation: $($_.Exception.Message)"
         }
     }
-    Write-Log -Level INFO -Message "WU tasks $label."
+    Write-Log -Level INFO -Message "Windows Update tasks $label."
 }
 
 function Invoke-WuCacheCleanup {
     if (-not $CleanWuCache) { return }
+
     $t0 = Get-Date
+    $wuHadPartialFailure = $false
     Write-Log -Level INFO -Message "[WU] Block started (timeout ${CleanWuTimeoutSec}s)."
 
-    Set-WuRecurringTasksState -Enable:$false
+    try {
+        try {
+            Set-WuRecurringTasksState -Enable:$false
+        } catch {
+            $wuHadPartialFailure = $true
+            Write-Log -Level WARN -Message "Unable to disable all Windows Update tasks. Nonfatal operation: $($_.Exception.Message)"
+        }
 
-    $okDo    = Stop-ServiceWithRetry -Name 'dosvc'
-    $okMedic = Stop-ServiceWithRetry -Name 'WaaSMedicSvc'
-    $okTI    = Stop-ServiceWithRetry -Name 'TrustedInstaller'
-    $okBits  = Stop-ServiceWithRetry -Name 'bits'
-    $okWua   = Stop-ServiceWithRetry -Name 'wuauserv'
-    $okCrypt = Stop-ServiceWithRetry -Name 'cryptsvc'
+        $okDo    = Stop-ServiceWithRetry -Name 'dosvc'
+        $okMedic = Stop-ServiceWithRetry -Name 'WaaSMedicSvc'
+        $okTI    = Stop-ServiceWithRetry -Name 'TrustedInstaller'
+        $okBits  = Stop-ServiceWithRetry -Name 'bits'
+        $okWua   = Stop-ServiceWithRetry -Name 'wuauserv'
+        $okCrypt = Stop-ServiceWithRetry -Name 'cryptsvc'
 
-    if (-not $okCrypt) {
-        Write-Log -Level WARN -Message 'CryptSvc did not stop (possible AV/EDR). catroot2 will be preserved.'
-    }
+        if (-not $okCrypt) {
+            $wuHadPartialFailure = $true
+            Write-Log -Level WARN -Message 'CryptSvc did not stop (possible AV/EDR). catroot2 will be preserved.'
+        }
 
-    if (((Get-Date) - $t0).TotalSeconds -le $CleanWuTimeoutSec) {
-        if ($okBits -and $okWua) {
-            if (Test-Path -LiteralPath $PathSoftDist) {
-                try {
-                    Remove-Item -LiteralPath $PathSoftDist -Recurse -Force -ErrorAction Stop
-                    Write-Log -Level INFO -Message 'SoftwareDistribution removed successfully.'
-                } catch {
-                    Write-Log -Level WARN -Message 'Failed to remove SoftwareDistribution. Trying rename...'
-                    Rename-IfExists -PathLiteral '%SystemRoot%\SoftwareDistribution'
+        if (((Get-Date) - $t0).TotalSeconds -le $CleanWuTimeoutSec) {
+            if ($okBits -and $okWua) {
+                if (Test-Path -LiteralPath $PathSoftDist) {
+                    try {
+                        Remove-Item -LiteralPath $PathSoftDist -Recurse -Force -ErrorAction Stop
+                        Write-Log -Level INFO -Message 'SoftwareDistribution removed successfully.'
+                    } catch {
+                        $wuHadPartialFailure = $true
+                        Write-Log -Level WARN -Message "Failed to remove SoftwareDistribution. Attempting rename. Nonfatal operation: $($_.Exception.Message)"
+                        Rename-IfExists -PathLiteral '%SystemRoot%\SoftwareDistribution'
+                    }
+                } else {
+                    Write-Log -Level INFO -Message 'SoftwareDistribution folder not found.'
                 }
             } else {
-                Write-Log -Level INFO -Message 'Pasta SoftwareDistribution not found.'
+                $wuHadPartialFailure = $true
+                Write-Log -Level WARN -Message 'BITS/WUAUSERV did not stop; SoftwareDistribution cleanup was skipped. Nonfatal operation.'
+            }
+
+            if ($okCrypt) {
+                if (Test-Path -LiteralPath $PathCatroot2) {
+                    try {
+                        Remove-Item -LiteralPath $PathCatroot2 -Recurse -Force -ErrorAction Stop
+                        Write-Log -Level INFO -Message 'catroot2 removed successfully.'
+                    } catch {
+                        $wuHadPartialFailure = $true
+                        Write-Log -Level WARN -Message "Failed to remove catroot2. Attempting rename. Nonfatal operation: $($_.Exception.Message)"
+                        Rename-IfExists -PathLiteral $PathCatroot2
+                    }
+                } else {
+                    Write-Log -Level INFO -Message 'catroot2 not found (skipping).'
+                }
             }
         } else {
-            Write-Log -Level ERROR -Message 'BITS/WUAUSERV did not stop; skipping SoftwareDistribution cleanup.'
+            $wuHadPartialFailure = $true
+            Write-Log -Level WARN -Message '[WU] Block timed out. Cleanup was partially completed; services and tasks will be restored on a best-effort basis.'
+        }
+    } catch {
+        $wuHadPartialFailure = $true
+        Write-Log -Level WARN -Message "Windows Update cleanup was partially completed. Nonfatal failure: $($_.Exception.Message)"
+    } finally {
+        try {
+            if ($ReEnableWuTasksAtEnd) { Set-WuRecurringTasksState -Enable:$true }
+        } catch {
+            Write-Log -Level WARN -Message "Unable to re-enable all Windows Update tasks. Nonfatal operation: $($_.Exception.Message)"
         }
 
-        if ($okCrypt) {
-            if (Test-Path -LiteralPath $PathCatroot2) {
-                try {
-                    Remove-Item -LiteralPath $PathCatroot2 -Recurse -Force -ErrorAction Stop
-                    Write-Log -Level INFO -Message 'catroot2 removed successfully.'
-                } catch {
-                    Write-Log -Level WARN -Message 'Failed to remove catroot2. Trying rename...'
-                    Rename-IfExists -PathLiteral $PathCatroot2
-                }
-            } else {
-                Write-Log -Level INFO -Message 'catroot2 not found (pular).'
+        foreach ($svc in 'cryptsvc','bits','wuauserv') {
+            try { Start-ServiceSilentSafe -Name $svc } catch { Write-Log -Level WARN -Message "Failed to start service $svc after Windows Update reset. Nonfatal operation: $($_.Exception.Message)" }
+        }
+
+        try { & bitsadmin.exe /reset /allusers *> $null } catch { Write-Log -Level WARN -Message "Failed to run bitsadmin /reset. Nonfatal operation: $($_.Exception.Message)" }
+        try { Start-Process -FilePath wuauclt.exe -ArgumentList '/resetauthorization','/detectnow' -WindowStyle Hidden -ErrorAction SilentlyContinue } catch { Write-Log -Level WARN -Message "Failed to invoke wuauclt. Nonfatal operation: $($_.Exception.Message)" }
+        if (Test-Path -LiteralPath "$env:SystemRoot\System32\UsoClient.exe") {
+            foreach ($arg in 'StartScan','StartDownload','StartInstall') {
+                try { Start-Process -FilePath "$env:SystemRoot\System32\UsoClient.exe" -ArgumentList $arg -WindowStyle Hidden -ErrorAction SilentlyContinue } catch { Write-Log -Level WARN -Message "Failed to invoke UsoClient $arg. Nonfatal operation: $($_.Exception.Message)" }
             }
         }
+    }
+
+    if ($wuHadPartialFailure) {
+        Write-Log -Level WARN -Message "[WU] Block completed with warnings in $([int]((Get-Date)-$t0).TotalSeconds)s. Execution will continue to the next steps."
     } else {
-        Write-Log -Level ERROR -Message '[WU] Block timeout. Aborting cleanup and re-enabling services/tasks.'
+        Write-Log -Level INFO -Message "[WU] Completed in $([int]((Get-Date)-$t0).TotalSeconds)s."
     }
-
-    if ($ReEnableWuTasksAtEnd) { Set-WuRecurringTasksState -Enable:$true }
-
-    foreach ($svc in 'cryptsvc','bits','wuauserv') {
-        Start-ServiceSilentSafe -Name $svc
-    }
-
-    try { & bitsadmin.exe /reset /allusers *> $null } catch {}
-    try { Start-Process -FilePath wuauclt.exe -ArgumentList '/resetauthorization','/detectnow' -WindowStyle Hidden } catch {}
-    if (Test-Path -LiteralPath "$env:SystemRoot\System32\UsoClient.exe") {
-        foreach ($arg in 'StartScan','StartDownload','StartInstall') {
-            try { Start-Process -FilePath "$env:SystemRoot\System32\UsoClient.exe" -ArgumentList $arg -WindowStyle Hidden } catch {}
-        }
-    }
-
-    Write-Log -Level INFO -Message "[WU] Completed in $([int]((Get-Date)-$t0).TotalSeconds)s."
 }
 
-# ==================== Certificados ====================
+# ==================== Certificates ====================
 function Invoke-CertSyncIfEnabled {
     if (-not $CertSyncEnable) {
-        Write-Log -Level INFO -Message 'Trusted root certificate synchronization DISABLED by institutional policy.'
+        Write-Log -Level INFO -Message 'Trusted root certificate synchronization is disabled by configuration.'
         return
     }
-    Write-Log -Level INFO -Message 'Sincronizando certificados raiz via Windows Update...'
+    Write-Log -Level INFO -Message 'Synchronizing root certificates through Windows Update...'
     $rc1 = (Start-Process -FilePath certutil.exe -ArgumentList '-setreg','chain\ChainCacheResyncFiletime','@now' -Wait -PassThru -WindowStyle Hidden).ExitCode
     $rc2 = (Start-Process -FilePath certutil.exe -ArgumentList '-f','-verifyCTL','AuthRoot' -Wait -PassThru -WindowStyle Hidden).ExitCode
     $rc3 = (Start-Process -FilePath certutil.exe -ArgumentList '-syncWithWU' -Wait -PassThru -WindowStyle Hidden).ExitCode
@@ -645,10 +739,10 @@ function Invoke-CertSyncIfEnabled {
     }
 }
 
-# ==================== Rede / AD ====================
+# ==================== Network / AD ====================
 function Invoke-KerberosPurgeAllSessions {
     [void](Invoke-CapturedCommand -CommandLine "$env:windir\System32\klist.exe -li 0x3e7 purge" -Title 'KLIST PURGE (SYSTEM 0x3e7)')
-    [void](Invoke-CapturedCommand -CommandLine "$env:windir\System32\klist.exe purge" -Title 'KLIST PURGE (Session Atual)')
+    [void](Invoke-CapturedCommand -CommandLine "$env:windir\System32\klist.exe purge" -Title 'KLIST PURGE (Current Session)')
 
     $count = 0
     try {
@@ -670,35 +764,35 @@ function Invoke-RedeAd {
     param([Parameter(Mandatory)][string]$DomainForNltest)
     if (-not $RunAdNetworkChecks) { return }
 
-    Write-Log -Level INFO -Message "Validating DC '$DomainForNltest'..."
+    Write-Log -Level INFO -Message "Validating domain controller '$DomainForNltest'..."
     [void](Invoke-LoggedCommand -CommandLine "nltest /dsgetdc:$DomainForNltest" -Title 'NLTEST /DSGETDC')
 
-    Write-Log -Level INFO -Message 'Resynchronizing time with the DC...'
+    Write-Log -Level INFO -Message 'Resynchronizing time with the domain controller...'
     [void](Invoke-LoggedCommand -CommandLine 'w32tm /resync' -Title 'W32TM /RESYNC')
 
-    Write-Log -Level INFO -Message 'Purging Kerberos tickets (all sessions)...'
+    Write-Log -Level INFO -Message 'Purging Kerberos tickets from all sessions...'
     Invoke-KerberosPurgeAllSessions
 }
 
-# ==================== Policys ====================
+# ==================== Policies ====================
 function Invoke-GpupdateComputerOnly {
-    $result = Invoke-CapturedCommand -CommandLine "gpupdate /target:computer /force /wait:$GpUpdateWaitSeconds" -Title "GPUPDATE COMPUTER (/wait:$GpUpdateWaitSeconds)" -TimeoutSec ($GpUpdateWaitSeconds + 10)
+    $result = Invoke-CapturedCommand -CommandLine "gpupdate /target:computer /force /wait:$GroupPolicyUpdateWaitSeconds" -Title "GPUPDATE COMPUTER (/wait:$GroupPolicyUpdateWaitSeconds)" -TimeoutSec ($GroupPolicyUpdateWaitSeconds + 10)
     if ($result.ExitCode -ne 0) {
-        Write-Log -Level WARN -Message "Computer GPUPDATE did not complete within the expected time (rc=$($result.ExitCode)). Forcing synchronous processing at the next boot."
+        Write-Log -Level WARN -Message "GPUPDATE (computer) did not complete within the expected time (rc=$($result.ExitCode)). Enabling synchronous processing at the next startup."
         [void](Invoke-CapturedCommand -CommandLine 'reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v SyncForegroundPolicy /t REG_DWORD /d 1 /f' -Title 'Enable SyncForegroundPolicy')
     }
 }
 
 function Invoke-Policies {
     if ($RunCertutilPulse) {
-        Write-Log -Level INFO -Message 'Updating internal CA chain (certutil -pulse)...'
+        Write-Log -Level INFO -Message 'Refreshing the internal CA chain (certutil -pulse)...'
         [void](Invoke-LoggedCommand -CommandLine 'certutil -pulse' -Title 'CERTUTIL -PULSE')
     }
     if ($RunGpupdateComputerOnly) {
-        Write-Log -Level INFO -Message 'Running computer gpupdate with short wait...'
+        Write-Log -Level INFO -Message 'Running gpupdate for computer policy with a short wait...'
         Invoke-GpupdateComputerOnly
     } else {
-        Write-Log -Level INFO -Message 'Computer gpupdate DISABLED by configuration.'
+        Write-Log -Level INFO -Message 'gpupdate de computer DISABLED by configuration.'
     }
 }
 
@@ -712,7 +806,7 @@ function Remove-DatAvatarFiles {
     Get-ChildItem -LiteralPath $path -File -ErrorAction SilentlyContinue | Where-Object Extension -eq '.dat' | ForEach-Object {
         try {
             Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
-            Write-Log -Level INFO -Message "Arquivo .dat removido: $($_.Name)"
+            Write-Log -Level INFO -Message ".dat file removed: $($_.Name)"
         } catch {}
     }
 }
@@ -720,7 +814,7 @@ function Remove-DatAvatarFiles {
 function Set-DefaultUserImage {
     if (-not $SetDefaultUserPicture) { return }
     if (-not (Test-Path -LiteralPath $DefaultUserImagePath)) {
-        Write-Log -Level WARN -Message "Default image NOT found: $DefaultUserImagePath"
+        Write-Log -Level WARN -Message "Default image was NOT found: $DefaultUserImagePath"
         return
     }
     try {
@@ -730,7 +824,7 @@ function Set-DefaultUserImage {
         New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AccountPicture\Users\DefaultUser' -Name 'Image' -PropertyType String -Value $DefaultUserImagePath -Force | Out-Null
         Write-Log -Level INFO -Message "Default image configured: $DefaultUserImagePath"
     } catch {
-        Write-Log -Level WARN -Message "Failed to configure default image - $($_.Exception.Message)"
+        Write-Log -Level WARN -Message "Failed to configure the default image: $($_.Exception.Message)"
     }
 }
 
@@ -777,11 +871,11 @@ function Invoke-ProfileMaintenance {
     Set-DefaultUserImage
 }
 
-# ==================== Log Retention ====================
+# ==================== Log retention ====================
 function Invoke-LogsRetention {
     $root = $LogRetentionPath
     if (-not (Test-Path -LiteralPath $root)) {
-        Write-Log -Level INFO -Message "Folder not found for log retention: $root"
+        Write-Log -Level INFO -Message "Log-retention folder not found: $root"
         return
     }
 
@@ -819,7 +913,7 @@ function Invoke-LogsRetention {
             }
         }
 
-    Write-Log -Level INFO -Message "Cleanup with retention of $LogRetentionDays day(s) completed in '$root'. Files removed: $removedFiles | Files skipped: $ignoredFiles | File failures: $failedFiles | Folders removed: $removedDirs | Folder failures: $failedDirs"
+    Write-Log -Level INFO -Message "Retention cleanup with $LogRetentionDays day(s) completed in '$root'. Files removed: $removedFiles | Files skipped: $ignoredFiles | File failures: $failedFiles | Folders removed: $removedDirs | Folder failures: $failedDirs"
 }
 
 # ==================== Infra ====================
@@ -834,7 +928,7 @@ function Invoke-Infrastructure {
     }
 
     if ($CleanUserTemp) {
-        Write-Log -Level INFO -Message 'Cleaning %TEMP% for the current context (SYSTEM/current process) (best-effort)...'
+        Write-Log -Level INFO -Message 'Cleaning %TEMP% for the current process context (best effort)...'
         try {
             Get-ChildItem -LiteralPath $env:TEMP -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
         } catch {}
@@ -853,24 +947,24 @@ function Invoke-NetworkSummary {
         [Parameter(Mandatory)][string]$Fqdn,
         [Parameter(Mandatory)][string]$NetBIOS
     )
-    Write-Log -Level INFO -Message '===== NETWORK SUMMARY ====='
-    Write-Log -Level INFO -Message "Domain FQDN (detected): $Fqdn"
-    Write-Log -Level INFO -Message "NetBIOS domain: $NetBIOS"
+    Write-Log -Level INFO -Message '===== RESUMO DE REDE ====='
+    Write-Log -Level INFO -Message "Detected domain FQDN: $Fqdn"
+    Write-Log -Level INFO -Message "Domain NetBIOS name: $NetBIOS"
 
     $r = Invoke-CapturedCommand -CommandLine "nltest /dsgetdc:$NetBIOS" -Title 'NLTEST /DSGETDC (NetBIOS)'
-    if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "NLTEST failed (NetBIOS) rc=$($r.ExitCode)." }
+    if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "NLTEST (NetBIOS) failed with exit code $($r.ExitCode)." }
 
     if ($Fqdn -ne 'WORKGROUP' -and $Fqdn.Contains('.')) {
         $r = Invoke-CapturedCommand -CommandLine "nltest /dsgetdc:$Fqdn" -Title 'NLTEST /DSGETDC (FQDN)'
-        if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "NLTEST failed (FQDN) rc=$($r.ExitCode)." }
+        if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "NLTEST (FQDN) failed with exit code $($r.ExitCode)." }
     }
 
     $r = Invoke-CapturedCommand -CommandLine 'w32tm /query /status' -Title 'W32TM STATUS'
-    if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "W32TM STATUS failed rc=$($r.ExitCode)." }
-    Write-Log -Level INFO -Message '===== END NETWORK SUMMARY ====='
+    if ($r.ExitCode -ne 0) { Write-Log -Level WARN -Message "W32TM STATUS failed with exit code $($r.ExitCode)." }
+    Write-Log -Level INFO -Message '===== END RESUMO DE REDE ====='
 }
 
-# ==================== Sessions / Notifications ====================
+# ==================== Sessions / notifications ====================
 function Convert-IdleStringToMinutes {
     param([string]$IdleString)
 
@@ -919,7 +1013,7 @@ function Get-LoggedOnSessions {
         $allLines = @($allLines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 
         if (-not $result.QueryOk) {
-            $result.Reason = 'quser did not return usable stdout.'
+            $result.Reason = 'QUSER did not return usable standard output.'
             if ($cmd.StdErr) {
                 Write-LogSection -Title 'QUERY USER (STDERR)' -Body $cmd.StdErr.TrimEnd()
             }
@@ -966,7 +1060,7 @@ function Get-LoggedOnSessions {
         if ($result.Sessions.Count -gt 0) {
             $result.ParseOk = $true
         } else {
-            $result.Reason = 'Unable to parse quser output.'
+            $result.Reason = 'Unable to interpret QUSER output.'
         }
 
         if ($result.ActiveUsers.Count -gt 0) {
@@ -978,10 +1072,10 @@ function Get-LoggedOnSessions {
         }
 
         if ($cmd.ExitCode -ne 0 -and -not $result.ParseOk) {
-            Write-Log -Level WARN -Message "'query user' returned rc=$($cmd.ExitCode) without reliable output parsing."
+            Write-Log -Level WARN -Message "'query user' returned exit code $($cmd.ExitCode) without reliable output interpretation."
             if ($cmd.StdErr) { Write-LogSection -Title 'QUERY USER (STDERR)' -Body $cmd.StdErr.TrimEnd() }
         } elseif ($cmd.ExitCode -ne 0) {
-            Write-Log -Level WARN -Message "'query user' returned rc=$($cmd.ExitCode), but usable output was returned; continuing with result parsing."
+            Write-Log -Level WARN -Message "'query user' returned exit code $($cmd.ExitCode), but usable output was returned; continuing with result interpretation."
             if ($cmd.StdErr) { Write-LogSection -Title 'QUERY USER (STDERR)' -Body $cmd.StdErr.TrimEnd() }
         }
     } catch {
@@ -997,12 +1091,12 @@ function Get-RebootDecision {
 
     $sessionInfo = Get-LoggedOnSessions
 
-    $noUserPattern = '(?i)(no user|no user|no user|no user exists|no users exist)'
+    $noUserPattern = '(?i)(n\u00E3o existe nenhum usu\u00E1rio|nao existe nenhum usuario|no user exists|no users exist)'
     $rawCombined = "{0}`n{1}" -f [string]$sessionInfo.RawOut, [string]$sessionInfo.RawErr
 
     if (-not $sessionInfo.QueryOk -or -not $sessionInfo.ParseOk) {
         if ($rawCombined -match $noUserPattern) {
-            Write-Log -Level INFO -Message 'Server restart policy: no user session found by quser. Restart authorized.'
+            Write-Log -Level INFO -Message 'Server restart policy: QUSER found no user session. Restart authorized.'
             return [pscustomobject]@{
                 AllowReboot = $true
                 Reason      = 'No user session detected'
@@ -1012,10 +1106,10 @@ function Get-RebootDecision {
         }
 
         $reason = if ($sessionInfo.Reason) { $sessionInfo.Reason } else { 'Session detection failed.' }
-        Write-Log -Level WARN -Message "Server restart policy: failed to query/parse sessions. Per server policy, the failure will be logged only and will NOT block restart. Reason: $reason"
+        Write-Log -Level WARN -Message "Server restart policy: session query or interpretation failed. The failure is recorded only and does NOT block restart. Reason: $reason"
         return [pscustomobject]@{
             AllowReboot = $true
-            Reason      = "Restart authorized even without reliable session inventory: $reason"
+            Reason      = "Restart authorized without reliable session inventory: $reason"
             ActiveUsers = @()
             Sessions    = @()
         }
@@ -1026,27 +1120,27 @@ function Get-RebootDecision {
     $disconnectedSessions = @($allSessions | Where-Object { $_.State -match '^(Disc|Disco|Disconnected|Descon)$' })
 
     if ($allSessions.Count -eq 0) {
-        Write-Log -Level INFO -Message 'Server restart policy: no interpreted session. Restart authorized.'
+        Write-Log -Level INFO -Message 'Server restart policy: no session was interpreted. Restart authorized.'
     }
 
     foreach ($session in $allSessions) {
         $classification = if ($session.IsActive) { 'ATIVA' } elseif ($session.State -match '^(Disc|Disco|Disconnected|Descon)$') { 'DESCONECTADA' } else { 'OUTRA' }
-        Write-Log -Level INFO -Message ("Session registered before restart: Classification='{0}', User='{1}', Session='{2}', ID={3}, State='{4}', Idle='{5}', IdleMin={6}, Logon='{7}'" -f `
+        Write-Log -Level INFO -Message ("Session recorded before restart: Classification='{0}', User='{1}', Session='{2}', ID={3}, State='{4}', Idle='{5}', IdleMinutes={6}, Logon='{7}'" -f `
             $classification, $session.UserName, $session.SessionName, $session.SessionId, $session.State, $session.IdleText, $session.IdleMinutes, $session.LogonTime)
     }
 
     $users = ($activeSessions | ForEach-Object { $_.UserName } | Sort-Object -Unique) -join ', '
     if ($activeSessions.Count -gt 0) {
-        Write-Log -Level WARN -Message ("Server restart policy: there are active session(s), but this does NOT block restart for this server profile. User(s): {0}" -f $users)
+        Write-Log -Level WARN -Message ("Server restart policy: active sessions exist, but they do NOT block restart under this server profile. User(s): {0}" -f $users)
     }
     if ($disconnectedSessions.Count -gt 0) {
         $discUsers = ($disconnectedSessions | ForEach-Object { $_.UserName } | Sort-Object -Unique) -join ', '
-        Write-Log -Level INFO -Message "Disconnected sessions registered before restart: $discUsers"
+        Write-Log -Level INFO -Message "Disconnected sessions recorded before restart: $discUsers"
     }
 
     return [pscustomobject]@{
         AllowReboot = $true
-        Reason      = 'Server restart authorized by institutional policy, regardless of open sessions'
+        Reason      = 'Server restart authorized by configured policy regardless of open sessions'
         ActiveUsers = @($activeSessions)
         Sessions    = @($allSessions)
     }
@@ -1080,12 +1174,12 @@ function Build-DeferredRestartMessage {
         [string[]]$Users,
         [int]$IdleThresholdMinutes = 120
     )
-    $usersText = if ($Users -and $Users.Count -gt 0) { ($Users | Sort-Object -Unique) -join ', ' } else { 'user logado' }
+    $usersText = if ($Users -and $Users.Count -gt 0) { ($Users | Sort-Object -Unique) -join ', ' } else { 'signed-in user' }
     return @"
 Maintenance completed on this server.
 An active session is registered for: $usersText.
-Per server policy, open sessions will only be logged and will not block the automatic restart.
-Save any administrative activity immediately.
+Under the server policy, open sessions are recorded only and do not block the automatic restart.
+Save any administrative work immediately.
 "@
 }
 
@@ -1096,7 +1190,7 @@ function Ensure-StateStore {
         }
         return $true
     } catch {
-        Write-Log -Level WARN -Message "Failed to prepare state directory '$script:StateRoot': $($_.Exception.Message)"
+        Write-Log -Level WARN -Message "Failed to prepare the state directory '$script:StateRoot': $($_.Exception.Message)"
         return $false
     }
 }
@@ -1134,6 +1228,26 @@ function Get-RestartState {
     } catch {
         Write-Log -Level WARN -Message "Failed to read persistent restart state: $($_.Exception.Message)"
         return [pscustomobject]$default
+    }
+}
+
+function Test-RestartRegisteredThisBoot {
+    try {
+        $state = Get-RestartState
+        if (-not [bool]$state.RebootForced) { return $false }
+        if ([string]::IsNullOrWhiteSpace([string]$state.LastRunTime)) { return $false }
+        if ([string]$state.LastDecision -notmatch '^Authorized') { return $false }
+
+        $lastRun = [datetime]::ParseExact(
+            [string]$state.LastRunTime,
+            'yyyy-MM-dd HH:mm:ss',
+            [System.Globalization.CultureInfo]::InvariantCulture
+        )
+        $bootTime = [datetime](Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime
+        return ($lastRun -gt $bootTime)
+    } catch {
+        Write-Log -Level WARN -Message "Unable to evaluate the same-boot restart guard: $($_.Exception.Message). Execution will continue."
+        return $false
     }
 }
 
@@ -1203,11 +1317,11 @@ function Write-RestartPolicySummary {
         [int]$DisconnectedCount,
         [int]$TotalSessions
     )
-    Write-Log -Level INFO -Message "FINAL SUMMARY - Server restart policy: Decision='$Decision' | Reason='$Reason' | SessionsTotal=$TotalSessions | ActiveSessions=$ActiveCount | DisconnectedSessions=$DisconnectedCount | State='$script:StateFilePath' | RebootForced=$ForceReboot"
+    Write-Log -Level INFO -Message "FINAL SUMMARY - Server restart policy: Decision='$Decision' | Reason='$Reason' | TotalSessions=$TotalSessions | ActiveSessions=$ActiveCount | DisconnectedSessions=$DisconnectedCount | State='$script:StateFilePath' | ForcedRestart=$ForceReboot"
 }
 
 function Clear-RebootFallbackTask {
-    $taskName = 'SCRIPTGUY-Maintenance-Servers-Reboot-Fallback'
+    $taskName = $script:RebootFallbackTaskName
     $taskPath = '\'
     try {
         $existing = Get-ScheduledTask -TaskName $taskName -TaskPath $taskPath -ErrorAction SilentlyContinue
@@ -1216,7 +1330,7 @@ function Clear-RebootFallbackTask {
             Write-Log -Level INFO -Message "Previous restart fallback task removed: ${taskPath}${taskName}."
         }
     } catch {
-        Write-Log -Level WARN -Message "Failed to remove previous restart fallback task: $($_.Exception.Message)"
+        Write-Log -Level WARN -Message "Failed to remove the previous restart fallback task: $($_.Exception.Message)"
     }
 }
 
@@ -1226,7 +1340,7 @@ function Register-RebootFallbackTask {
         [Parameter(Mandatory)][string]$Reason
     )
 
-    $taskName = 'SCRIPTGUY-Maintenance-Servers-Reboot-Fallback'
+    $taskName = $script:RebootFallbackTaskName
     $taskPath = '\'
     $runAt = (Get-Date).AddSeconds($DelaySeconds)
     $fallbackComment = 'SCRIPTGUY fallback: forced server restart to complete automated maintenance.'
@@ -1246,7 +1360,7 @@ function Register-RebootFallbackTask {
         Write-Log -Level INFO -Message "Local restart fallback task registered for $($runAt.ToString('yyyy-MM-dd HH:mm:ss')): ${taskPath}${taskName}. Reason: $Reason"
         return $true
     } catch {
-        Write-Log -Level ERROR -Message "Failed to register local restart fallback task: $($_.Exception.Message)"
+        Write-Log -Level ERROR -Message "Failed to register the local restart fallback task: $($_.Exception.Message)"
         return $false
     }
 }
@@ -1258,13 +1372,13 @@ function Invoke-ForcedServerReboot {
     )
 
     $shutdownExe = Join-Path $env:SystemRoot 'System32\shutdown.exe'
-    $comment = 'Server maintenance completed. Forced restart required to finalize repairs, policies, and Windows components.'
+    $comment = 'Server maintenance completed. A forced restart is required to finish repairs, policies, and Windows components.'
     $argumentString = ('/r /f /t {0} /c "{1}"' -f $DelaySeconds, $comment)
 
     Write-Log -Level INFO -Message "Preparing forced restart: $shutdownExe $argumentString"
 
     $fallbackDelay = [Math]::Max(($DelaySeconds + 60), 120)
-    [void](Register-RebootFallbackTask -DelaySeconds $fallbackDelay -Reason 'Ensure restart if shutdown.exe does not persist or is aborted by external interference.')
+    [void](Register-RebootFallbackTask -DelaySeconds $fallbackDelay -Reason 'Guarantee restart if shutdown.exe does not persist or is canceled by external interference.')
 
     try {
         $p = Start-Process -FilePath $shutdownExe -ArgumentList $argumentString -PassThru -Wait -WindowStyle Hidden -ErrorAction Stop
@@ -1274,10 +1388,10 @@ function Invoke-ForcedServerReboot {
             return $true
         }
 
-        Write-Log -Level ERROR -Message "shutdown.exe returned a non-zero code. ExitCode=$exitCode | PID=$($p.Id). Scheduled fallback remains active."
+        Write-Log -Level ERROR -Message "shutdown.exe returned a nonzero exit code. ExitCode=$exitCode | PID=$($p.Id). The scheduled fallback remains active."
         return $false
     } catch {
-        Write-Log -Level ERROR -Message "Failed to issue forced restart command through shutdown.exe: $($_.Exception.Message). Scheduled fallback remains active."
+        Write-Log -Level ERROR -Message "Failed to issue the forced restart command through shutdown.exe: $($_.Exception.Message). The scheduled fallback remains active."
         return $false
     }
 }
@@ -1298,36 +1412,36 @@ function Invoke-RestartNotificationPolicy {
 
     $finalReason = $decision.Reason
     Reset-RestartState -Sessions $allSessions
-    Write-Log -Level INFO -Message "Server restart policy: restart authorized even with an open session. Reason: $finalReason. Standard Windows warning in ${ShutdownNoticeSeconds}s."
+    Write-Log -Level INFO -Message "Server restart policy: restart authorized even with an open session. Reason: $finalReason. Standard Windows notice in ${ShutdownNoticeSeconds}s."
 
     if ($SendUserNotices) {
-        $msg = "Maintenance completed. This server will restart automatically in $([int]($ShutdownNoticeSeconds/60)) minute(s). Save any administrative activity immediately."
+        $msg = "Maintenance completed. This server will restart automatically in $([int]($ShutdownNoticeSeconds/60)) minute(s). Save any administrative work immediately."
         $rc = Send-MessageToAllSessions -Message $msg
         if ($rc -eq 0) {
             Write-Log -Level INFO -Message 'General restart notification sent before shutdown.'
         } else {
-            Write-Log -Level INFO -Message "General restart notification was not delivered through msg.exe (rc=$rc). The primary visual warning will remain the native shutdown.exe mechanism."
+            Write-Log -Level INFO -Message "General restart notification was not delivered through msg.exe (rc=$rc). The primary visual notice remains the native shutdown.exe mechanism."
         }
     }
 
     if ($ForceReboot) {
         $rebootIssued = Invoke-ForcedServerReboot -DelaySeconds $ShutdownNoticeSeconds -Reason $finalReason
         if ($rebootIssued) {
-            Write-Log -Level INFO -Message 'Open sessions were logged for audit only and did not block restart, according to the server policy.'
+            Write-Log -Level INFO -Message 'Open sessions were recorded for audit only and did not block the restart under the configured server policy.'
             Write-RestartPolicySummary -Decision 'Authorized' -Reason $finalReason -ActiveCount $activeSessions.Count -DisconnectedCount $disconnectedSessions.Count -TotalSessions $allSessions.Count
         } else {
-            Write-Log -Level WARN -Message 'The primary restart command did not confirm success; the local fallback task remains as a guarantee mechanism.'
-            Write-RestartPolicySummary -Decision 'AuthorizedWithFallback' -Reason $finalReason -ActiveCount $activeSessions.Count -DisconnectedCount $disconnectedSessions.Count -TotalSessions $allSessions.Count
+            Write-Log -Level WARN -Message 'The primary restart command did not confirm success; the local fallback task remains the guarantee mechanism.'
+            Write-RestartPolicySummary -Decision 'AuthorizedComFallback' -Reason $finalReason -ActiveCount $activeSessions.Count -DisconnectedCount $disconnectedSessions.Count -TotalSessions $allSessions.Count
         }
     } else {
-        Write-Log -Level INFO -Message 'Restart NOT will be forced (FORCE_REBOOT=0).'
+        Write-Log -Level INFO -Message 'Restart will NOT be forced (FORCE_REBOOT=0).'
         Clear-RebootFallbackTask
-        Write-RestartPolicySummary -Decision 'AuthorizedNoExecution' -Reason $finalReason -ActiveCount $activeSessions.Count -DisconnectedCount $disconnectedSessions.Count -TotalSessions $allSessions.Count
+        Write-RestartPolicySummary -Decision 'AuthorizedSemExecucao' -Reason $finalReason -ActiveCount $activeSessions.Count -DisconnectedCount $disconnectedSessions.Count -TotalSessions $allSessions.Count
     }
 }
 
 
-# ==================== Server Inventory and Cleanup ====================
+# ==================== Server inventory and cleanup ====================
 function Invoke-ServerInventory {
     Write-Log -Level INFO -Message 'Basic inventory:'
     Write-LogSection -Title 'BASIC INVENTORY' -Body @"
@@ -1347,7 +1461,7 @@ function Invoke-PathRetentionCleanup {
     )
 
     if (-not (Test-Path -LiteralPath $RootPath)) {
-        Write-Log -Level INFO -Message "Pasta not found: $RootPath"
+        Write-Log -Level INFO -Message "Folder not found: $RootPath"
         return
     }
 
@@ -1386,7 +1500,7 @@ function Invoke-PathRetentionCleanup {
             }
         }
 
-    Write-Log -Level INFO -Message "Cleanup with retention of $RetentionDays day(s) completed in '$RootPath'. Files removed: $removedFiles | Files skipped: $ignoredFiles | File failures: $failedFiles | Folders removed: $removedDirs | Folder failures: $failedDirs"
+    Write-Log -Level INFO -Message "Retention cleanup with $RetentionDays day(s) completed in '$RootPath'. Files removed: $removedFiles | Files skipped: $ignoredFiles | File failures: $failedFiles | Folders removed: $removedDirs | Folder failures: $failedDirs"
 }
 
 function Invoke-ServerFolderCleanup {
@@ -1402,36 +1516,42 @@ try {
     Set-Location -LiteralPath $script:LocalScriptRoot
     Test-LocalScriptSynchronization
 
+    if (Test-RestartRegisteredThisBoot) {
+        Write-Log -Level WARN -Message 'A forced restart was already registered during the current boot. Duplicate intensive maintenance and restart scheduling were skipped.'
+        Write-Log -Level INFO -Message "===== END $ScriptName - WAITING_RESTART ====="
+        exit 0
+    }
+
     $domainFqdn    = Get-DomainFQDN
     $domainNetBIOS = Get-DomainNetBIOS
     $computerDn    = Get-ComputerDN
 
     Write-Log -Level INFO -Message "===== START $ScriptName v$ScriptVersion ====="
-    Write-Log -Level INFO -Message "Running script source: $script:ExecutionSource"
-    Write-Log -Level INFO -Message "UNC master script: $script:ExpectedUncSource"
+    Write-Log -Level INFO -Message "Current script source: $script:ExecutionSource"
+    Write-Log -Level INFO -Message "Authoritative script: $script:ExpectedUncSource"
     Write-Log -Level INFO -Message "Expected local script: $script:LocalScriptPath"
-    Write-Log -Level INFO -Message "Operational directory and local state: $script:StateRoot"
+    Write-Log -Level INFO -Message "Operational and local-state directory: $script:StateRoot"
     Write-Log -Level INFO -Message "Working directory for external commands: $env:WINDIR"
     Write-Log -Level INFO -Message "Computer DN: $computerDn"
     Write-Log -Level INFO -Message "Detected domain FQDN: $domainFqdn"
-    Write-Log -Level INFO -Message "Detected NetBIOS domain: $domainNetBIOS"
-    Write-Log -Level INFO -Message 'Scope: controlled cleanup with minimum 6-day retention in C:\Temp ; C:\Logs-TEMP ; C:\Scripts-LOGS on production Windows Server systems.'
-    Write-Log -Level INFO -Message 'Policy: without security.inf; with GPO reset; with Windows Update component reset; forced server restart policy; open sessions are logged for audit.'
+    Write-Log -Level INFO -Message "Detected domain NetBIOS name: $domainNetBIOS"
+    Write-Log -Level INFO -Message "Scope: controlled cleanup with a minimum retention of $LogRetentionDays day(s) in: $($ServerCleanupPaths -join '; ') on production Windows Server systems."
+    Write-Log -Level INFO -Message 'Policy: no security.inf; Group Policy cache reset; Windows Update component reset; forced server restart policy with open-session audit logging.'
 
     Invoke-TimedOperation -Name 'Inventory' -ScriptBlock { Invoke-ServerInventory }
     if ($RunSfcDism)    { Invoke-TimedOperation -Name 'SFC-DISM' -ScriptBlock { Invoke-SfcDism } }
     if ($ResetLocalGpo) { Invoke-TimedOperation -Name 'Reset GPO' -ScriptBlock { Reset-LocalGpoCache } }
     if ($CleanWuCache)  { Invoke-TimedOperation -Name 'WU' -ScriptBlock { Invoke-WuCacheCleanup } }
-    if ($RunAdNetworkChecks -and $domainFqdn -ne 'WORKGROUP') { Invoke-TimedOperation -Name 'AD-Rede' -ScriptBlock { Invoke-RedeAd -DomainForNltest $domainFqdn } }
-    if ($RunCertutilPulse -or $RunGpupdateComputerOnly) { Invoke-TimedOperation -Name 'Policys-Certificados' -ScriptBlock { Invoke-Policies } }
+    if ($RunAdNetworkChecks -and $domainFqdn -ne 'WORKGROUP') { Invoke-TimedOperation -Name 'AD-Network' -ScriptBlock { Invoke-RedeAd -DomainForNltest $domainFqdn } }
+    if ($RunCertutilPulse -or $RunGpupdateComputerOnly) { Invoke-TimedOperation -Name 'Policies-Certificates' -ScriptBlock { Invoke-Policies } }
     if ($RunAdNetworkChecks) { Invoke-TimedOperation -Name 'Network Summary' -ScriptBlock { Invoke-NetworkSummary -Fqdn $domainFqdn -NetBIOS $domainNetBIOS } }
     Invoke-TimedOperation -Name 'Folder Cleanup' -ScriptBlock { Invoke-ServerFolderCleanup }
-    Invoke-TimedOperation -Name 'Restart Forced' -ScriptBlock { Invoke-RestartNotificationPolicy -IdleThresholdMinutes $script:IdleThresholdMinutes -MaxDeferredRunsBeforeForcedReboot $script:MaxDeferredRunsBeforeForcedReboot }
+    Invoke-TimedOperation -Name 'Forced Restart' -ScriptBlock { Invoke-RestartNotificationPolicy -IdleThresholdMinutes $script:IdleThresholdMinutes -MaxDeferredRunsBeforeForcedReboot $script:MaxDeferredRunsBeforeForcedReboot }
 
     Write-Log -Level INFO -Message "===== END $ScriptName ====="
     exit 0
 } catch {
-    Write-Log -Level ERROR -Message "Fatal failure: $($_.Exception.Message)"
+    Write-Log -Level ERROR -Message "Unhandled critical failure: $($_.Exception.Message)"
     Write-Log -Level INFO -Message "===== END $ScriptName ====="
     exit 1
 }
