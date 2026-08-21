@@ -47,6 +47,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+### 2026-08-21
+
+#### Changed
+- Update Baseline-Maintenance-Workstation.ps1 (`84822e2`)
+
 ### 2026-08-19
 
 #### Documentation
@@ -322,6 +328,12 @@ All notable repository changes are documented in this file.
 
 
 
+
+
+### 2026-08-21
+
+#### Changed
+- Update Baseline-Maintenance-Workstation.ps1 (`84822e2`)
 
 ### 2026-08-19
 
