@@ -5,8 +5,9 @@ type: software
 
 message: >
   If you use this software in academic research, technical reports,
-  professional documentation, compliance work, or derivative projects,
-  please cite it using the metadata below.
+  professional documentation, security assessments, compliance activities,
+  educational materials, or derivative projects, please cite it using
+  the metadata provided below.
 
 authors:
   - family-names: "Roberto da Silva"
@@ -28,28 +29,57 @@ license: "MIT"
 license-url: "https://opensource.org/licenses/MIT"
 
 abstract: >
-  Windows-SysAdmin-ProSuite is an enterprise-grade collection of PowerShell
-  and VBScript automation tools for Windows Server and Windows 10/11
-  environments. The project supports ITSM-aligned provisioning, security
-  hardening, identity and access management (IAM), digital forensics readiness,
-  and audit/compliance workflows, with strong emphasis on reproducibility,
-  governance, traceability, and institutional realism.
+  Windows-SysAdmin-ProSuite is an enterprise-oriented collection of
+  PowerShell and VBScript automation tools, reusable administrative
+  frameworks, configuration templates, and integration examples for
+  Microsoft Windows enterprise environments. The project covers Active
+  Directory and Identity and Access Management (IAM), Active Directory
+  Certificate Services (AD CS) and enterprise PKI, LDAP and SSO application
+  integration, Group Policy administration, Windows Server and Windows 10/11
+  management, WSUS administration, system configuration and deployment,
+  Blue Team and Digital Forensics and Incident Response (DFIR) operations,
+  security hardening, ITSM-aligned standardization, and infrastructure
+  administration. The repository emphasizes modularity, repeatability,
+  least-privilege administration, structured logging, operational
+  traceability, controlled change management, security governance,
+  maintainability, and automation suitable for enterprise environments.
 
 keywords:
   - PowerShell
   - VBScript
+  - Windows
   - Windows Server
   - Windows 10
   - Windows 11
-  - ITSM
+  - Active Directory
+  - Active Directory Domain Services
+  - Active Directory Certificate Services
+  - AD CS
+  - Public Key Infrastructure
+  - PKI
+  - Certificate Management
+  - Identity and Access Management
+  - IAM
+  - LDAP
+  - Single Sign-On
+  - SSO
+  - Group Policy
+  - GPO
+  - WSUS
+  - Windows Administration
+  - System Administration
+  - Infrastructure Automation
+  - Security Automation
+  - Blue Team
   - Digital Forensics
   - DFIR
-  - Active Directory
-  - Identity and Access Management
+  - Incident Response
+  - Security Hardening
+  - ITSM
   - Governance
-  - Automation
   - Compliance
-  - Public Sector IT
+  - GitHub Actions
+  - Release Automation
   - Enterprise IT
 
 preferred-citation:
