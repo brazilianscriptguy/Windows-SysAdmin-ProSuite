@@ -41,34 +41,44 @@ This is **not** a collection of demos or one-off scripts. It is a cohesive autom
 
 ## 📦 Suite Modules
 
-Eight specialized modules — each independently usable, collectively cohesive.
+Ten specialized modules — each independently usable, collectively cohesive.
 
 | Module | Purpose | Key Capabilities |
-|--------|---------|--------------------|
-| [![SysAdmin-Tools](https://img.shields.io/badge/SysAdmin--Tools-Automation-0078D6?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | PowerShell toolset for **Windows Server, AD, network services & WSUS**. | AD & OU lifecycle · GPO enforcement · WSUS & SUSDB · DNS, DHCP, CA, RDS |
+|--------|---------|------------------|
+| [![ADCS-Management-Tools](https://img.shields.io/badge/ADCS--Management--Tools-PKI-005A9C?style=flat-square&logo=letsencrypt&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ADCS-Management-Tools) | PowerShell toolset for **AD CS, enterprise PKI & certificate lifecycle** administration. | CA maintenance · Certificate lifecycle · Expired certificate cleanup · Repository organization |
+| [![AD-SSO-Integrations](https://img.shields.io/badge/AD--SSO--Integrations-LDAP%2FSSO-8A2BE2?style=flat-square&logo=auth0&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations) | **AD LDAP / SSO integration patterns** for cross-platform apps. | PHP · .NET · Flask · Node.js · Spring Boot · Secure env-var binding |
 | [![BlueTeam-Tools](https://img.shields.io/badge/BlueTeam--Tools-DFIR-E05C00?style=flat-square&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | Defensive security & **digital forensics** utilities for investigation and IR. | DFIR collection · EVTX parsers · Credential audits · Threat hunting |
 | [![Core-ScriptLibrary](https://img.shields.io/badge/Core--ScriptLibrary-Framework-C0392B?style=flat-square&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | **Modular PowerShell framework** shared by all modules. | Reusable helpers · Centralized logging · NuGet & SHA256 automation |
-| [![ITSM-Templates-WKS](https://img.shields.io/badge/ITSM--Templates-WKS-27AE60?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | **Windows 10/11 workstation lifecycle** automation aligned with ITSM. | Pre/post-join · Profile & printer standardization · Compliance hardening |
-| [![ITSM-Templates-SVR](https://img.shields.io/badge/ITSM--Templates-SVR-8E44AD?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | **Windows Server provisioning, hardening & ITSM compliance**. | Server baselines · Role configuration · GPO drift remediation |
 | [![GPO-Templates](https://img.shields.io/badge/GPO--Templates-Policies-F39C12?style=flat-square&logo=matrix&logoColor=black)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/GroupPolicyObjects-Templates) | Ready-to-import **Group Policy Objects** for domain and forest environments. | Security & UX GPOs · Forest-wide templates · Export/import automation |
-| [![AD-SSO-Integrations](https://img.shields.io/badge/AD--SSO--Integrations-LDAP%2FSSO-8A2BE2?style=flat-square&logo=auth0&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations) | **AD LDAP / SSO integration patterns** for cross-platform apps. | PHP · .NET · Flask · Node.js · Spring Boot · Secure env-var binding |
+| [![ITSM-Templates-SVR](https://img.shields.io/badge/ITSM--Templates-SVR-8E44AD?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | **Windows Server provisioning, hardening & ITSM compliance**. | Server baselines · Role configuration · GPO drift remediation |
+| [![ITSM-Templates-WKS](https://img.shields.io/badge/ITSM--Templates-WKS-27AE60?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | **Windows 10/11 workstation lifecycle** automation aligned with ITSM. | Pre/post-join · Profile & printer standardization · Compliance hardening |
 | [![ProSuite-Hub](https://img.shields.io/badge/ProSuite--Hub-Launcher-1ABC9C?style=flat-square&logo=powershell&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ProSuite-Hub) | Unified **GUI launcher and module orchestrator** for the entire suite. | Centralized tool discovery · Menu-driven interface · Single entry point |
+| [![SysAdmin-Tools](https://img.shields.io/badge/SysAdmin--Tools-Automation-0078D6?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | PowerShell toolset for **Windows Server, Active Directory & network infrastructure** administration. | AD & OU lifecycle · GPO enforcement · DNS · DHCP · RDS · System administration |
+| [![WSUS-Management-Tools](https://img.shields.io/badge/WSUS--Management--Tools-Updates-0078D4?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/WSUS-Management-Tools) | PowerShell toolset for **WSUS administration, maintenance & SUSDB optimization**. | WSUS inventory · Configuration auditing · Cleanup operations · WID/SQL maintenance · SUSDB reindexing · API validation |
 
 ---
 
 ## 🏗️ Engineering Principles
 
-Every script in this suite is built against the same safety contract:
+Every script and automation component in this suite is engineered against a consistent enterprise safety and operational contract:
 
-- ✅ **PowerShell 5.1 first** — PowerShell 7.x compatible where applicable
-- ✅ **No destructive action without explicit intent** — `ShouldProcess` enforced in all core logic
-- ✅ **GUI-driven execution** for operator safety in interactive scenarios
-- ✅ **Structured logging** (`.log`) and exportable audit reports (`.csv`) on every significant operation
-- ✅ **No hidden state, no silent failures** — every error path is surfaced and logged
-- ✅ **Credential hygiene by design** — secrets bound via environment variables, never hardcoded
-- ✅ **ITSM-aligned change management** — provisioning workflows follow standardized lifecycle patterns
+- **PowerShell 5.1 first** — Windows PowerShell 5.1 remains the primary compatibility baseline, with PowerShell 7.x support where applicable
+- **Explicit change intent** — potentially destructive or state-changing operations use confirmation controls, dry-run capabilities, `ShouldProcess`, or equivalent safeguards where technically applicable
+- **Operator-safe execution** — GUI-driven workflows are provided where interactive administration benefits from controlled selection, validation, and confirmation
+- **Preflight validation** — dependencies, privileges, target systems, modules, services, paths, and operational prerequisites are validated before significant changes
+- **Structured logging and reporting** — significant operations produce traceable `.log`, `.csv`, SARIF, or other structured evidence where applicable
+- **Transparent error handling** — failures are surfaced with actionable context and recorded rather than silently suppressed
+- **Credential hygiene by design** — credentials and secrets are externalized or securely supplied at runtime and are never intentionally hardcoded
+- **Least-privilege administration** — elevated privileges are required only when demanded by the underlying administrative operation
+- **Idempotent and repeatable automation** — workflows are designed to tolerate repeated execution and minimize unintended configuration drift
+- **Environment-aware execution** — tooling validates infrastructure context before applying Active Directory, AD CS, GPO, WSUS, SUSDB, Windows Server, or endpoint changes
+- **Controlled infrastructure maintenance** — high-impact operations incorporate sequencing, validation, recovery considerations, and post-change verification
+- **Auditability and operational traceability** — administrative actions are designed to support troubleshooting, governance, compliance, and change-review requirements
+- **Modular architecture** — reusable functions, standardized patterns, and component separation reduce duplication and improve maintainability
+- **ITSM-aligned change management** — provisioning, maintenance, remediation, and lifecycle workflows follow controlled and repeatable operational practices
+- **Secure DevOps integration** — repository automation incorporates static analysis, secret scanning, formatting validation, SARIF reporting, integrity verification, and controlled release workflows
 
-> Continuously evaluated via **PSScriptAnalyzer**, **SARIF reporting**, and **GitHub Actions CI** in report-only mode — visibility without blocking delivery.
+> Quality and security are continuously evaluated through **PSScriptAnalyzer**, **SARIF**, **CodeQL**, **Gitleaks**, **EditorConfig**, **Prettier**, **SHA256 integrity validation**, and **GitHub Actions CI/CD**, with enforcement or report-only behavior applied according to each workflow's operational purpose.
 
 ---
 
