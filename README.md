@@ -2,96 +2,107 @@
 
 ### DOI: [10.5281/zenodo.18487320](https://doi.org/10.5281/zenodo.18487320)
 
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite)
-[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#)
-[![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
-[![Active Directory](https://img.shields.io/badge/Active%20Directory-AD%20DS-0078D6?style=for-the-badge&logo=microsoft&logoColor=white)](#)
-[![AD CS](https://img.shields.io/badge/AD%20CS-Enterprise%20PKI-005A9C?style=for-the-badge&logo=letsencrypt&logoColor=white)](#)
-[![WSUS](https://img.shields.io/badge/WSUS-Update%20Management-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)](#)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE.txt)
-[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions)
-[![SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE.txt) [![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) [![SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
 
 ---
 
 ## 🧭 Overview
 
-**Windows-SysAdmin-ProSuite** is an enterprise-grade, research-aligned automation platform for Windows Server and Windows 10/11 environments — authored by **Luiz Hamilton Silva ([@brazilianscriptguy](https://github.com/brazilianscriptguy))**, Principal Identity Architect specializing in Identity and Access Management, Active Directory, Windows Security, enterprise PKI, PowerShell automation, and Digital Forensics & Incident Response.
+**Windows-SysAdmin-ProSuite** is an enterprise-grade, research-aligned automation platform for **Windows Server, Windows 10/11, Active Directory, Identity and Access Management, enterprise PKI, WSUS, Group Policy, ITSM, Blue Team, and DFIR operations** — authored and maintained by **Luiz Hamilton Silva ([@brazilianscriptguy](https://github.com/brazilianscriptguy))**.
 
-Built around **production-oriented PowerShell and VBScript toolchains**, reusable frameworks, administrative templates, and integration patterns, the suite addresses seven core operational pillars:
+Built around production-oriented **PowerShell and VBScript automation**, reusable administrative frameworks, structured logging, deterministic packaging, and GitHub Actions-based release engineering, the suite addresses seven core operational pillars:
 
 | Pillar | Scope |
 |--------|-------|
-| 🔐 Identity & Access Management | Active Directory lifecycle · AD DS · LDAP/SSO · Least privilege · Credential hygiene |
-| 🔏 Enterprise PKI & Certificate Services | AD CS · Certificate Authority administration · Certificate lifecycle · PKI repository management |
-| 🖥️ ITSM-Aligned Provisioning | Windows workstation and server provisioning · Standardization · Lifecycle management |
-| 🔄 Update & Patch Management | WSUS administration · SUSDB · WID/SQL maintenance · Update infrastructure · Compliance assessment |
-| 🛡️ Cybersecurity & Hardening | GPO enforcement · Security baselines · Configuration hardening · Drift remediation |
-| 🔬 Digital Forensics & DFIR | EVTX analysis · Event correlation · Evidence collection · Threat hunting · Incident response |
-| 📋 Governance & Operational Auditability | Structured logging · CSV reporting · Change traceability · Compliance · Controlled execution |
+| 🔐 Identity & Access Management | Active Directory lifecycle · LDAP/SSO · IAM · credential hygiene |
+| 🔏 Enterprise PKI & Certificate Services | AD CS · CA administration · certificate lifecycle · repository management |
+| 🖥️ ITSM-Aligned Provisioning | Standardized Windows workstation and server lifecycle automation |
+| 🛡️ Cybersecurity & Hardening | Group Policy · security baselines · configuration control · drift remediation |
+| 🔬 Digital Forensics & DFIR | EVTX analysis · event correlation · evidence collection · incident response |
+| 🔄 Update & Infrastructure Management | WSUS · SUSDB · DNS · DHCP · network services · infrastructure administration |
+| 📋 Operational Auditability | Structured `.log` output · `.csv` reporting · validation · traceable execution |
 
-> The suite prioritizes **runtime safety, explicit change intent, structured logging, operational traceability, repeatable execution, least-privilege administration, and Windows PowerShell 5.1 compatibility** across enterprise administrative workflows.
+> Tooling is engineered around **runtime safety, explicit administrative intent, deterministic logging, operational traceability, PowerShell 5.1 compatibility, and controlled change management**.
 
 ---
 
 ## 🎯 Who This Is For
 
-This is **not** a collection of demos or isolated administrative scripts. It is a cohesive automation suite designed for repeatable production use across:
+This repository is not intended as a collection of isolated demonstrations or disposable scripts. It is a cohesive automation and administration suite designed for production-oriented use across:
 
 | Environment | Primary Use Case |
 |---|---|
-| 🏛️ Public sector & judicial institutions | Compliance-driven administration · Controlled provisioning · Audit trails · Operational governance |
-| 🏢 Enterprise & hybrid infrastructures | Active Directory · AD CS/PKI · WSUS/SUSDB · GPO · DNS · DHCP · RDS · Windows administration at scale |
-| 🔐 IAM & identity engineering teams | AD lifecycle · LDAP/SSO integration · Access governance · Credential hygiene · Identity automation |
-| 🔏 PKI & certificate services teams | AD CS administration · CA maintenance · Certificate lifecycle · Repository management |
-| 🔄 Endpoint & patch management teams | WSUS administration · Update infrastructure · SUSDB maintenance · Patch compliance · Windows lifecycle management |
-| 🛡️ Blue Team / DFIR operations | Threat hunting · Windows Event Log analysis · EVTX correlation · Forensic collection · Incident response |
-| 📋 Governance, risk & compliance teams | Security baselines · GPO enforcement · ITSM-aligned change management · Auditable execution |
-| 🎓 Academic & research environments | Citeable automation tooling · Reproducible technical workflows · Research-aligned security and forensic methodology |
+| 🏛️ Public sector & judicial institutions | Compliance-driven administration · standardized provisioning · operational audit trails |
+| 🏢 Enterprise & hybrid infrastructures | Active Directory · PKI · WSUS · DNS · DHCP · GPO · Windows Server administration |
+| 🔐 IAM & identity engineering | AD lifecycle · LDAP/SSO integration · access governance · credential hygiene |
+| 🔏 PKI & certificate services | AD CS · Certificate Authority administration · certificate lifecycle and repository management |
+| 🛡️ Blue Team / DFIR operations | Threat hunting · EVTX analysis · incident response · forensic collection |
+| 📋 Governance, risk & compliance teams | GPO enforcement · configuration control · ITSM-aligned change management |
+| 🎓 Academic & research environments | Citeable automation and security tooling supported by documented research |
 
 ---
 
 ## 📦 Suite Modules
 
-Ten specialized modules — each independently usable, collectively cohesive.
+Ten specialized functional modules — independently usable and collectively integrated through a common engineering, documentation, and release model.
+
+> The repository release architecture manages **12 distribution packages**: the 10 functional modules below plus the aggregate `All-Repository-Files` and `READMEs-Files-Package` distributions.
 
 | Module | Purpose | Key Capabilities |
 |--------|---------|------------------|
-| [![ADCS-Management-Tools](https://img.shields.io/badge/ADCS--Management--Tools-PKI-005A9C?style=flat-square&logo=letsencrypt&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ADCS-Management-Tools) | PowerShell toolset for **AD CS, enterprise PKI & certificate lifecycle** administration. | CA maintenance · Certificate lifecycle · Expired certificate cleanup · Repository organization |
-| [![AD-SSO-Integrations](https://img.shields.io/badge/AD--SSO--Integrations-LDAP%2FSSO-8A2BE2?style=flat-square&logo=auth0&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations) | **AD LDAP / SSO integration patterns** for cross-platform apps. | PHP · .NET · Flask · Node.js · Spring Boot · Secure env-var binding |
-| [![BlueTeam-Tools](https://img.shields.io/badge/BlueTeam--Tools-DFIR-E05C00?style=flat-square&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | Defensive security & **digital forensics** utilities for investigation and IR. | DFIR collection · EVTX parsers · Credential audits · Threat hunting |
-| [![Core-ScriptLibrary](https://img.shields.io/badge/Core--ScriptLibrary-Framework-C0392B?style=flat-square&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | **Modular PowerShell framework** shared by all modules. | Reusable helpers · Centralized logging · NuGet & SHA256 automation |
-| [![GPO-Templates](https://img.shields.io/badge/GPO--Templates-Policies-F39C12?style=flat-square&logo=matrix&logoColor=black)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/GroupPolicyObjects-Templates) | Ready-to-import **Group Policy Objects** for domain and forest environments. | Security & UX GPOs · Forest-wide templates · Export/import automation |
-| [![ITSM-Templates-SVR](https://img.shields.io/badge/ITSM--Templates-SVR-8E44AD?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | **Windows Server provisioning, hardening & ITSM compliance**. | Server baselines · Role configuration · GPO drift remediation |
-| [![ITSM-Templates-WKS](https://img.shields.io/badge/ITSM--Templates-WKS-27AE60?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | **Windows 10/11 workstation lifecycle** automation aligned with ITSM. | Pre/post-join · Profile & printer standardization · Compliance hardening |
-| [![ProSuite-Hub](https://img.shields.io/badge/ProSuite--Hub-Launcher-1ABC9C?style=flat-square&logo=powershell&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ProSuite-Hub) | Unified **GUI launcher and module orchestrator** for the entire suite. | Centralized tool discovery · Menu-driven interface · Single entry point |
-| [![SysAdmin-Tools](https://img.shields.io/badge/SysAdmin--Tools-Automation-0078D6?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | PowerShell toolset for **Windows Server, Active Directory & network infrastructure** administration. | AD & OU lifecycle · GPO enforcement · DNS · DHCP · RDS · System administration |
-| [![WSUS-Management-Tools](https://img.shields.io/badge/WSUS--Management--Tools-Updates-0078D4?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/WSUS-Management-Tools) | PowerShell toolset for **WSUS administration, maintenance & SUSDB optimization**. | WSUS inventory · Configuration auditing · Cleanup operations · WID/SQL maintenance · SUSDB reindexing · API validation |
+| [![ADCS-Management-Tools](https://img.shields.io/badge/ADCS--Management--Tools-PKI-005A9C?style=flat-square&logo=letsencrypt&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ADCS-Management-Tools) | Enterprise **Active Directory Certificate Services and PKI administration**. | AD CS · CA maintenance · certificate lifecycle · repository management · certificate hygiene |
+| [![AD-SSO-Integrations](https://img.shields.io/badge/AD--SSO--Integrations-LDAP%2FSSO-8A2BE2?style=flat-square&logo=auth0&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations) | Cross-platform **Active Directory LDAP / SSO integration patterns** for applications and services. | PHP · .NET · Flask · Node.js · Spring Boot · secure bind · environment-based configuration |
+| [![BlueTeam-Tools](https://img.shields.io/badge/BlueTeam--Tools-DFIR-E05C00?style=flat-square&logo=protonmail&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/BlueTeam-Tools) | Defensive security and **digital forensics / incident response** tooling. | DFIR collection · EVTX analysis · event correlation · credential auditing · threat hunting |
+| [![Core-ScriptLibrary](https://img.shields.io/badge/Core--ScriptLibrary-Framework-C0392B?style=flat-square&logo=visualstudiocode&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/Core-ScriptLibrary) | Shared **modular PowerShell framework and release foundation**. | Reusable helpers · structured logging · common execution patterns · NuGet · SHA256 automation |
+| [![GPO-Templates](https://img.shields.io/badge/GPO--Templates-Policies-F39C12?style=flat-square&logo=matrix&logoColor=black)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/GroupPolicyObjects-Templates) | Reusable **Group Policy Object templates** for Active Directory governance. | Security baselines · configuration policies · forest/domain templates · GPO export/import · lifecycle management |
+| [![ITSM-Templates-SVR](https://img.shields.io/badge/ITSM--Templates--SVR-Server-8E44AD?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-SVR) | **Windows Server provisioning, standardization, hardening, and ITSM lifecycle automation**. | Server baselines · provisioning · role configuration · validation · maintenance · compliance |
+| [![ITSM-Templates-WKS](https://img.shields.io/badge/ITSM--Templates--WKS-Workstations-27AE60?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ITSM-Templates-WKS) | **Windows 10/11 workstation lifecycle automation** aligned with ITSM practices. | Pre/post-join automation · workstation baselines · profile and printer standardization · compliance hardening |
+| [![ProSuite-Hub](https://img.shields.io/badge/ProSuite--Hub-Launcher-1ABC9C?style=flat-square&logo=powershell&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/ProSuite-Hub) | Unified **GUI launcher and module orchestration layer** for the suite. | Centralized tool discovery · menu-driven operation · module orchestration · single administrative entry point |
+| [![SysAdmin-Tools](https://img.shields.io/badge/SysAdmin--Tools-Automation-0078D6?style=flat-square&logo=microsoft&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools) | Comprehensive PowerShell toolset for **Windows systems and infrastructure administration**. | AD & OU lifecycle · DNS · DHCP · network services · system configuration · deployment · administrative automation |
+| [![WSUS-Management-Tools](https://img.shields.io/badge/WSUS--Management--Tools-Update%20Services-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/tree/main/SysAdmin-Tools/WSUS-Management-Tools) | Dedicated **Windows Server Update Services and SUSDB administration** toolkit. | WSUS inventory · configuration auditing · cleanup · Admin API validation · WID/SQL · SUSDB reindexing |
+
+---
+
+## 📦 Distribution Architecture
+
+The GitHub Actions release pipeline manages **12 canonical distribution packages** using synchronized CHANGELOG headings, managed tag prefixes, release matrices, ZIP archives, SHA256 manifests, and GitHub Releases.
+
+| Distribution Package | Classification |
+|----------------------|----------------|
+| `ADCS-Management-Tools` | Functional module |
+| `AD-SSO-Integrations` | Functional module |
+| `All-Repository-Files` | Aggregate repository distribution |
+| `BlueTeam-Tools` | Functional module |
+| `Core-ScriptLibrary` | Functional module |
+| `GPO-Templates` | Functional module |
+| `ITSM-Templates-SVR` | Functional module |
+| `ITSM-Templates-WKS` | Functional module |
+| `ProSuite-Hub` | Functional module |
+| `READMEs-Files-Package` | Aggregate documentation distribution |
+| `SysAdmin-Tools` | Functional module |
+| `WSUS-Management-Tools` | Functional module |
+
+Nested components under `SysAdmin-Tools` retain dedicated release identities while participating in parent and repository-wide distributions. Changes to applicable nested components therefore propagate to their standalone package, `SysAdmin-Tools`, and `All-Repository-Files`.
 
 ---
 
 ## 🏗️ Engineering Principles
 
-Every script and automation component in this suite is engineered against a consistent enterprise safety and operational contract:
+The suite follows a common engineering and operational-safety contract:
 
-- **PowerShell 5.1 first** — Windows PowerShell 5.1 remains the primary compatibility baseline, with PowerShell 7.x support where applicable
-- **Explicit change intent** — potentially destructive or state-changing operations use confirmation controls, dry-run capabilities, `ShouldProcess`, or equivalent safeguards where technically applicable
-- **Operator-safe execution** — GUI-driven workflows are provided where interactive administration benefits from controlled selection, validation, and confirmation
-- **Preflight validation** — dependencies, privileges, target systems, modules, services, paths, and operational prerequisites are validated before significant changes
-- **Structured logging and reporting** — significant operations produce traceable `.log`, `.csv`, SARIF, or other structured evidence where applicable
-- **Transparent error handling** — failures are surfaced with actionable context and recorded rather than silently suppressed
-- **Credential hygiene by design** — credentials and secrets are externalized or securely supplied at runtime and are never intentionally hardcoded
-- **Least-privilege administration** — elevated privileges are required only when demanded by the underlying administrative operation
-- **Idempotent and repeatable automation** — workflows are designed to tolerate repeated execution and minimize unintended configuration drift
-- **Environment-aware execution** — tooling validates infrastructure context before applying Active Directory, AD CS, GPO, WSUS, SUSDB, Windows Server, or endpoint changes
-- **Controlled infrastructure maintenance** — high-impact operations incorporate sequencing, validation, recovery considerations, and post-change verification
-- **Auditability and operational traceability** — administrative actions are designed to support troubleshooting, governance, compliance, and change-review requirements
-- **Modular architecture** — reusable functions, standardized patterns, and component separation reduce duplication and improve maintainability
-- **ITSM-aligned change management** — provisioning, maintenance, remediation, and lifecycle workflows follow controlled and repeatable operational practices
-- **Secure DevOps integration** — repository automation incorporates static analysis, secret scanning, formatting validation, SARIF reporting, integrity verification, and controlled release workflows
+- ✅ **PowerShell 5.1 first** — PowerShell 7.x compatibility maintained where applicable
+- ✅ **Explicit administrative intent** — potentially disruptive operations require controlled execution and appropriate confirmation semantics
+- ✅ **Validation-first execution** — prerequisites, dependencies, targets, and operational state are validated before applicable changes
+- ✅ **Idempotent behavior where practical** — repeated execution should converge toward the intended state without unnecessary changes
+- ✅ **Structured logging and reporting** — significant operations produce traceable `.log`, `.csv`, or equivalent structured output where applicable
+- ✅ **No silent failures** — actionable errors, warnings, and validation results are surfaced to the operator
+- ✅ **Credential hygiene by design** — production secrets and credentials are externalized rather than embedded in source code
+- ✅ **Least-privilege administration** — privileged operations are constrained to the access required for the requested task
+- ✅ **Post-change verification** — applicable administrative operations validate resulting state after execution
+- ✅ **ITSM-aligned change management** — provisioning, maintenance, remediation, and lifecycle workflows emphasize repeatability and auditability
+- ✅ **Deterministic release engineering** — managed packages use canonical names, automated ZIP creation, SHA256 integrity manifests, and component-specific release metadata
 
-> Quality and security are continuously evaluated through **PSScriptAnalyzer**, **SARIF**, **CodeQL**, **Gitleaks**, **EditorConfig**, **Prettier**, **SHA256 integrity validation**, and **GitHub Actions CI/CD**, with enforcement or report-only behavior applied according to each workflow's operational purpose.
+> Repository quality and security controls are continuously evaluated through **PSScriptAnalyzer, SARIF reporting, CodeQL, Gitleaks, formatting controls, and GitHub Actions CI**, with findings feeding controlled remediation and engineering cycles.
 
 ---
 
@@ -99,51 +110,111 @@ Every script and automation component in this suite is engineered against a cons
 
 | Tool | Role |
 |------|------|
-| [![PSScriptAnalyzer](https://img.shields.io/badge/PSScriptAnalyzer-ON-blueviolet?style=flat-square&logo=powershell)](https://github.com/PowerShell/PSScriptAnalyzer) | PowerShell static analysis · Runtime safety · Best-practice validation |
-| [![Gitleaks](https://img.shields.io/badge/Gitleaks-ON-red?style=flat-square&logo=github)](https://github.com/gitleaks/gitleaks) | Secret scanning · Credential and sensitive-data exposure detection |
-| [![Prettier](https://img.shields.io/badge/Prettier-ON-ff69b4?style=flat-square&logo=prettier)](https://prettier.io) | Markdown and web-asset formatting consistency |
-| [![EditorConfig](https://img.shields.io/badge/EditorConfig-ON-blue?style=flat-square&logo=editorconfig)](https://editorconfig.org) | Cross-editor formatting and repository consistency |
-| [![NuGet](https://img.shields.io/badge/NuGet-SHA256-blue?style=flat-square&logo=nuget)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) | Controlled package publication · SHA256 integrity verification |
-| [![CodeQL](https://img.shields.io/badge/CodeQL-Static%20Analysis-purple?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Static application security analysis and GitHub code-scanning integration |
-| [![SARIF](https://img.shields.io/badge/SARIF-Reporting-brightgreen?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Standardized static-analysis findings and security reporting |
+| [![PSScriptAnalyzer](https://img.shields.io/badge/PSScriptAnalyzer-ON-blueviolet?style=flat-square&logo=powershell)](https://github.com/PowerShell/PSScriptAnalyzer) | PowerShell static analysis, compatibility checks, and engineering-quality validation |
+| [![Gitleaks](https://img.shields.io/badge/Gitleaks-ON-red?style=flat-square&logo=github)](https://github.com/gitleaks/gitleaks) | Secret scanning and credential-exposure detection |
+| [![Prettier](https://img.shields.io/badge/Prettier-ON-ff69b4?style=flat-square&logo=prettier)](https://prettier.io) | Markdown and supported web-asset formatting consistency |
+| [![EditorConfig](https://img.shields.io/badge/EditorConfig-ON-blue?style=flat-square&logo=editorconfig)](https://editorconfig.org) | Cross-editor formatting and whitespace standardization |
+| [![NuGet](https://img.shields.io/badge/NuGet-Packaging-blue?style=flat-square&logo=nuget)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) | Package creation and publication support |
+| [![SHA256](https://img.shields.io/badge/SHA256-Integrity-2E8B57?style=flat-square&logo=securityscorecard&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/releases) | Release artifact integrity verification |
+| [![CodeQL](https://img.shields.io/badge/CodeQL-Static%20Analysis-purple?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Static security analysis and code-scanning integration |
+| [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) | Automated validation, CHANGELOG maintenance, packaging, and release orchestration |
 
-> CI findings feed controlled remediation cycles. Enforcement and report-only behavior are selected according to the operational purpose of each workflow.
+> CI findings provide operational visibility and support controlled remediation while release automation maintains deterministic package naming, integrity validation, and traceability.
 
 ---
 
 ## 🌐 Language Composition
 
-> Repository language percentages evolve as modules, documentation, integration examples, and automation assets are added. GitHub's repository language statistics should be treated as the authoritative current distribution.
+The repository is predominantly PowerShell, with supporting technologies used where required by integration, legacy administration, reporting, and database-maintenance scenarios.
 
-| Language | Primary Use |
-|----------|-------------|
-| PowerShell | Enterprise automation · IAM · Active Directory · AD CS/PKI · WSUS · DFIR · ITSM provisioning |
+| Language / Technology | Primary Use |
+|-----------------------|-------------|
+| PowerShell | Windows administration · IAM · AD CS · WSUS · DFIR · ITSM · automation |
 | VBScript | Legacy Windows and workstation automation |
-| HTML | GUI components · Reports · Supporting web assets |
-| T-SQL | WSUS/SUSDB maintenance · Database optimization |
-| Java | Active Directory LDAP/SSO integration examples |
-| PHP | Active Directory LDAP/SSO integration examples |
-| Other | Supporting configuration, documentation, and integration assets |
+| T-SQL / SQL | WSUS SUSDB maintenance and database operations |
+| HTML / Web assets | GUI components, documentation, and report presentation |
+| PHP | LDAP / SSO integration examples |
+| .NET | Active Directory and SSO integration examples |
+| Python / Flask | Cross-platform LDAP / SSO integration examples |
+| Node.js | Cross-platform LDAP / SSO integration examples |
+| Java / Spring Boot | Enterprise LDAP / SSO integration examples |
+
+> Exact language percentages may change as the repository evolves; GitHub's repository language statistics remain the authoritative current measurement.
 
 ---
 
 ## 📚 Research Foundation & Citation
 
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
-[![CITATION.cff](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/CITATION.cff)
-[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![CITATION.cff](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/CITATION.cff) [![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
 
-Suitable for **academic, technical, institutional, and policy-oriented citation** across cybersecurity engineering, Windows systems administration, DFIR, IAM, enterprise PKI, patch management, IT governance, and ITSM-aligned infrastructure management.
+**Windows-SysAdmin-ProSuite** combines production-oriented Windows systems engineering with research-informed practices in **cybersecurity, Identity and Access Management (IAM), Active Directory, enterprise PKI, Group Policy, WSUS, Digital Forensics & Incident Response (DFIR), and IT governance**.
 
-**Citation (APA):**
+The project is structured to support **academic, technical, institutional, professional, and policy-oriented citation**, providing persistent research identifiers through **Zenodo DOI**, structured citation metadata through **`CITATION.cff`**, and author attribution through **ORCID**.
+
+### Software Citation
+
+**APA:**
 
 > Roberto da Silva, L. H. (2026). *Windows-SysAdmin-ProSuite* (Version 1.8.8) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.18487320
 
-**Selected publications:**
+**Repository DOI:** `10.5281/zenodo.18487320`  
+**Version:** `1.8.8`  
+**License:** MIT  
+**Citation metadata:** [`CITATION.cff`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/CITATION.cff)
 
-- Roberto da Silva, L. H. (2025). *SQL Syntax Models for Building Parsers to Query Event Logs in EVTX Format*. Revista FT — Computer Science, Vol. 29, Issue 142. [DOI: 10.69849/revistaft/th102502121360](https://doi.org/10.69849/revistaft/th102502121360)
-- Roberto da Silva, L. H. (2024). *Event Logs: Applying a Log Analysis Model for Auditing Event Record Registration*. Sorian Editora. ISBN: 978-65-5453-366-9
-- Roberto da Silva, L. H. (2009). *Computer Networking Technology: Using GPOs to Secure Corporate Domains*. Ciência Moderna.
+### 🔬 Peer-Reviewed Research
+
+**2025**
+
+[![DOI](https://img.shields.io/badge/DOI-10.69849%2Frevistaft%2Fth102502121360-blue?style=for-the-badge&logo=crossref)](https://doi.org/10.69849/revistaft/th102502121360) [![ISSN](https://img.shields.io/badge/ISSN-1678--0817-555555?style=for-the-badge&logo=readthedocs)](https://doi.org/10.69849/revistaft/th102502121360) [![Qualis](https://img.shields.io/badge/Qualis-B2-4CAF50?style=for-the-badge&logo=academia&logoColor=white)](https://doi.org/10.69849/revistaft/th102502121360)
+
+**Roberto da Silva, Luiz Hamilton**  
+**_"SQL Syntax Models for Building Parsers to Query Event Logs in EVTX Format"_**  
+*Revista FT — Computer Science*, Vol. 29, Issue 142, January 2025  
+ISSN: **1678-0817** · Qualis: **B2**  
+DOI: **10.69849/revistaft/th102502121360**
+
+> Presents a structured SQL-oriented methodology for querying and parsing **Windows Event Log (EVTX)** data, supporting security auditing, incident investigation, event correlation, authentication analysis, and Active Directory traceability.
+
+### 🎓 Master's Research
+
+**2017 — Federal University of Pernambuco (UFPE)**
+
+[![UFPE Repository](https://img.shields.io/badge/UFPE-Academic%20Repository-003366?style=for-the-badge&logo=academia)](https://repositorio.ufpe.br/handle/123456789/27515) [![Institution](https://img.shields.io/badge/Institution-UFPE-555555?style=for-the-badge&logo=academia)](https://repositorio.ufpe.br/handle/123456789/27515) [![Field](https://img.shields.io/badge/Field-Computer%20Science-4CAF50?style=for-the-badge&logo=academia&logoColor=white)](https://repositorio.ufpe.br/handle/123456789/27515)
+
+**Roberto da Silva, Luiz Hamilton**  
+**_"Event Logs: Applying a Log Analysis Model for Auditing Event Record Registration"_**  
+Federal University of Pernambuco (UFPE), 2017  
+Master's Thesis · **Computer Science**  
+Keywords: **Log Auditing · Digital Forensics · Event Logs · Security Monitoring**
+
+> Defines a structured methodology for event-log auditing and digital forensic analysis, applying Syslog principles and PowerShell-driven workflows to security-event examination, forensic readiness, operational monitoring, and governance.
+
+### 📘 Selected Books
+
+**2024**
+
+[![DOI](https://img.shields.io/badge/DOI-10.54466%2Fsorianed.978--65--5453--366--9-blue?style=for-the-badge&logo=crossref)](https://doi.org/10.54466/sorianed.978-65-5453-366-9) [![Print ISBN](https://img.shields.io/badge/Print%20ISBN-978--65--5453--346--1-555555?style=for-the-badge&logo=bookstack)](https://www.magazineluiza.com.br/log-de-eventos-aplicacao-de-um-modelo-de-analise-de-logs-para-auditoria-de-registro-de-eventos-editora-sorian/p/ek6e33k93h/li/adml/?seller_id=sorianeditorial) [![eBook ISBN](https://img.shields.io/badge/eBook%20ISBN-978--65--5453--366--9-555555?style=for-the-badge&logo=bookstack)](https://www.magazineluiza.com.br/log-de-eventos-aplicacao-de-um-modelo-de-analise-de-logs-para-auditoria-de-registro-de-eventos-editora-sorian/p/ek6e33k93h/li/adml/?seller_id=sorianeditorial)
+
+**Roberto da Silva, Luiz Hamilton**  
+**_Event Logs: Applying a Log Analysis Model for Auditing Event Record Registration_**  
+Sorian, 1st ed., 2024  
+Print ISBN: **978-65-5453-346-1** · eBook ISBN: **978-65-5453-366-9**  
+DOI: **10.54466/sorianed.978-65-5453-366-9**
+
+> A practitioner-focused scholarly work on **Windows Event Log auditing, forensic readiness, security-event analysis, and vulnerability identification**, connecting research methodology with PowerShell-enabled operational workflows.
+
+**2009**
+
+[![DOI](https://img.shields.io/badge/DOI-10.54236%2Fedcimo.001-blue?style=for-the-badge&logo=crossref)](https://doi.org/10.54236/edcimo.001) [![ISBN](https://img.shields.io/badge/ISBN-978--85--7393--835--7-555555?style=for-the-badge&logo=bookstack)](https://www.worldcat.org/isbn/9788573938357)
+
+**Roberto da Silva, Luiz Hamilton**  
+**_Computer Networking Technology: Using GPOs to Secure Corporate Domains_**  
+Ciência Moderna, 1st ed., 2009  
+ISBN: **978-85-7393-835-7**  
+DOI: **10.54236/edcimo.001**
+
+> Focused on the application of **Group Policy Objects (GPOs)** to secure and standardize Windows domain environments through centralized policy enforcement, Active Directory administration, security baselines, configuration governance, and domain-level hardening.
 
 ---
 
@@ -151,40 +222,45 @@ Suitable for **academic, technical, institutional, and policy-oriented citation*
 
 **Luiz Hamilton Silva** — `@brazilianscriptguy`
 
-Principal Identity Architect · Identity & Access Management · Active Directory · AD CS / Enterprise PKI · Windows Security · Windows Server · PowerShell Automation · Digital Forensics & Incident Response
+**Identity & Access Management · Active Directory · Windows Server Architecture · Enterprise PKI · PowerShell Automation · Windows Security · Digital Forensics & Incident Response**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/)
-[![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@brazilianscriptguy)
-[![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=for-the-badge&logo=x)](https://x.com/brazscriptguy)
-[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
+[![GitHub](https://img.shields.io/badge/GitHub-brazilianscriptguy-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy) [![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/) [![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468) [![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@brazilianscriptguy) [![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=for-the-badge&logo=x)](https://x.com/brazscriptguy)
 
-> This project reflects years of operational use, continuous refinement in production environments, and a commitment to secure, maintainable, auditable, and reproducible systems engineering.
+The project is maintained at the intersection of **enterprise Windows engineering, identity architecture, cybersecurity, infrastructure automation, PKI, DFIR, and applied research**.
+
+Its engineering model emphasizes:
+
+- **Production-oriented automation** for Windows Server and Windows 10/11 environments
+- **Identity engineering** across Active Directory, LDAP, SSO, and IAM workflows
+- **Enterprise PKI administration** through Active Directory Certificate Services and certificate lifecycle management
+- **Infrastructure management** spanning Group Policy, DNS, DHCP, WSUS, SUSDB, and Windows services
+- **Security engineering and DFIR** through event-log analysis, forensic readiness, security auditing, and incident-response tooling
+- **Reproducibility and auditability** through structured logging, deterministic packaging, SHA256 integrity validation, and controlled release automation
+- **Research-informed engineering** connecting academic methodology with operational systems administration and cybersecurity practice
+
+> **Windows-SysAdmin-ProSuite** represents the convergence of operational Windows engineering, identity and security architecture, automation, and research — developed as a maintainable, auditable, reproducible, and citeable open-source platform.
 
 ---
 
 ## 🤝 Contributing & Reuse
 
-Contributions are welcome. Please review [`CONTRIBUTING.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md) before submitting a pull request.
+Contributions are welcome. Review [`CONTRIBUTING.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md) before submitting a pull request.
 
-- **Pull requests** — bug fixes, security improvements, documentation updates, and new tooling aligned with the suite's engineering principles
-- **Attribution** — preserve copyright and license notices as required by the MIT License
-- **Academic / institutional reuse** — cite the repository DOI or use the metadata provided by `CITATION.cff`
-- **Security disclosures** — follow the [`SECURITY.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/SECURITY.md) responsible disclosure process
+- **Pull requests** — bug fixes, documentation improvements, security improvements, automation enhancements, and new tools aligned with repository engineering principles
+- **Attribution** — reuse and derivative works must comply with the repository's MIT License terms
+- **Academic / institutional reuse** — cite the repository DOI or use the metadata provided in `CITATION.cff`
+- **Security disclosures** — follow the [`SECURITY.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/SECURITY.md) responsible-disclosure process
+- **Release governance** — component naming and CHANGELOG structures should remain compatible with the automated 12-package release architecture
 
 ---
 
 ## 📬 Contact & Support
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
-[![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-29ABE0?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
-[![GoFundMe](https://img.shields.io/badge/GoFundMe-Support-00B964?style=for-the-badge&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
-[![WhatsApp](https://img.shields.io/badge/WhatsApp-PowerShellBR-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-29ABE0?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-Support-00B964?style=for-the-badge&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy) [![WhatsApp](https://img.shields.io/badge/WhatsApp-PowerShellBR-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
 
 ---
 
-> *"Engineering secure, auditable, and scalable Windows automation for enterprise and public-sector environments — grounded in operational practice and peer-reviewed research."*
+> *"Engineering secure, auditable, and scalable Windows automation for enterprise and public-sector environments — grounded in operational practice and research."*
 
 © 2026 Luiz Hamilton Silva · MIT License · [CHANGELOG](CHANGELOG.md) · [CITATION](CITATION.cff)
 
@@ -192,4 +268,4 @@ Contributions are welcome. Please review [`CONTRIBUTING.md`](https://github.com/
 
 <!-- ATS-optimized keyword layer -->
 
-**Core Expertise:** PowerShell automation · Windows systems administration · Windows Server · Windows 10/11 · Active Directory · Active Directory Domain Services (AD DS) · Active Directory Certificate Services (AD CS) · enterprise Public Key Infrastructure (PKI) · Certificate Authority administration · certificate lifecycle management · certificate repository management · Identity and Access Management (IAM) · LDAP · Single Sign-On (SSO) · Group Policy (GPO) · DNS · DHCP · Windows Server Update Services (WSUS) · WSUS administration · WSUS maintenance · WSUS inventory · WSUS configuration auditing · Windows Update infrastructure · patch management · patch compliance · SUSDB · Windows Internal Database (WID) · Microsoft SQL Server · SUSDB maintenance · database reindexing · WSUS cleanup · network infrastructure administration · system configuration · software deployment · ITSM · workstation lifecycle management · server lifecycle management · security hardening · least privilege · credential hygiene · Blue Team · Digital Forensics and Incident Response (DFIR) · incident response · Windows Event Log monitoring · EVTX analysis · event correlation · security auditing · compliance · governance · structured logging · operational traceability · modular PowerShell architecture · GitHub Actions · CI/CD · release automation · NuGet packaging · SHA256 integrity validation · PSScriptAnalyzer · SARIF · CodeQL · EditorConfig · Prettier · Gitleaks · secure DevOps · enterprise automation
+**Core Expertise:** PowerShell automation · Windows PowerShell 5.1 · PowerShell 7 · Windows systems administration · Windows Server · Windows 10 · Windows 11 · Active Directory · Active Directory Domain Services · AD DS · Active Directory Certificate Services · AD CS · enterprise PKI · Public Key Infrastructure · Certificate Authority administration · CA maintenance · certificate lifecycle management · certificate repository management · certificate hygiene · Identity and Access Management · IAM · LDAP · LDAPS · Single Sign-On · SSO · authentication integration · Group Policy · Group Policy Objects · GPO · GPO lifecycle management · DNS · DHCP · Windows Server Update Services · WSUS · SUSDB · Windows Internal Database · WID · SQL Server · patch management · update infrastructure · WSUS maintenance · WSUS cleanup · SUSDB reindexing · network infrastructure administration · system configuration · software deployment · ITSM · workstation lifecycle management · server lifecycle management · security hardening · configuration baselines · configuration drift remediation · least privilege · credential hygiene · Blue Team · Digital Forensics and Incident Response · DFIR · incident response · Windows Event Log monitoring · EVTX analysis · event correlation · threat hunting · security auditing · compliance · governance · structured logging · operational traceability · validation-first automation · idempotent automation · PowerShell modular architecture · GUI administration · GitHub Actions · CI/CD · release automation · automated CHANGELOG management · Semantic Versioning · deterministic packaging · NuGet packaging · ZIP distribution · SHA256 integrity validation · PSScriptAnalyzer · SARIF · CodeQL · EditorConfig · Prettier · Gitleaks · secure DevOps · enterprise automation · Windows infrastructure automation · public-sector IT
