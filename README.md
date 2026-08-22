@@ -99,39 +99,48 @@ Every script and automation component in this suite is engineered against a cons
 
 | Tool | Role |
 |------|------|
-| [![PSScriptAnalyzer](https://img.shields.io/badge/PSScriptAnalyzer-ON-blueviolet?style=flat-square&logo=powershell)](https://github.com/PowerShell/PSScriptAnalyzer) | PowerShell linting — runtime safety and best-practice enforcement |
-| [![Gitleaks](https://img.shields.io/badge/Gitleaks-ON-red?style=flat-square&logo=github)](https://github.com/gitleaks/gitleaks) | Secret scanning — prevents credential leaks at commit time |
+| [![PSScriptAnalyzer](https://img.shields.io/badge/PSScriptAnalyzer-ON-blueviolet?style=flat-square&logo=powershell)](https://github.com/PowerShell/PSScriptAnalyzer) | PowerShell static analysis · Runtime safety · Best-practice validation |
+| [![Gitleaks](https://img.shields.io/badge/Gitleaks-ON-red?style=flat-square&logo=github)](https://github.com/gitleaks/gitleaks) | Secret scanning · Credential and sensitive-data exposure detection |
 | [![Prettier](https://img.shields.io/badge/Prettier-ON-ff69b4?style=flat-square&logo=prettier)](https://prettier.io) | Markdown and web-asset formatting consistency |
-| [![EditorConfig](https://img.shields.io/badge/EditorConfig-ON-blue?style=flat-square&logo=editorconfig)](https://editorconfig.org) | Cross-editor formatting standardization |
-| [![NuGet](https://img.shields.io/badge/NuGet-SHA256-blue?style=flat-square&logo=nuget)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) | Integrity-verified package releases |
-| [![CodeQL](https://img.shields.io/badge/CodeQL-Static%20Analysis-purple?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Deep static security analysis |
+| [![EditorConfig](https://img.shields.io/badge/EditorConfig-ON-blue?style=flat-square&logo=editorconfig)](https://editorconfig.org) | Cross-editor formatting and repository consistency |
+| [![NuGet](https://img.shields.io/badge/NuGet-SHA256-blue?style=flat-square&logo=nuget)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions) | Controlled package publication · SHA256 integrity verification |
+| [![CodeQL](https://img.shields.io/badge/CodeQL-Static%20Analysis-purple?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Static application security analysis and GitHub code-scanning integration |
+| [![SARIF](https://img.shields.io/badge/SARIF-Reporting-brightgreen?style=flat-square&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) | Standardized static-analysis findings and security reporting |
 
-> CI findings inform controlled remediation cycles — **non-blocking by design, signal-rich by intent**.
+> CI findings feed controlled remediation cycles. Enforcement and report-only behavior are selected according to the operational purpose of each workflow.
 
 ---
 
 ## 🌐 Language Composition
 
-| Language | Share | Primary Use |
-|----------|-------|-------------|
-| PowerShell | 96.7% | Automation, IAM, DFIR, ITSM provisioning |
-| VBScript | 1.3% | Legacy workstation automation |
-| HTML | 0.6% | GUI components and report templates |
-| T-SQL | 0.4% | WSUS SUSDB maintenance queries |
-| Java / PHP / Other | 0.6% | AD LDAP / SSO integration examples |
+> Repository language percentages evolve as modules, documentation, integration examples, and automation assets are added. GitHub's repository language statistics should be treated as the authoritative current distribution.
+
+| Language | Primary Use |
+|----------|-------------|
+| PowerShell | Enterprise automation · IAM · Active Directory · AD CS/PKI · WSUS · DFIR · ITSM provisioning |
+| VBScript | Legacy Windows and workstation automation |
+| HTML | GUI components · Reports · Supporting web assets |
+| T-SQL | WSUS/SUSDB maintenance · Database optimization |
+| Java | Active Directory LDAP/SSO integration examples |
+| PHP | Active Directory LDAP/SSO integration examples |
+| Other | Supporting configuration, documentation, and integration assets |
 
 ---
 
 ## 📚 Research Foundation & Citation
 
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320) [![CITATION.cff](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/CITATION.cff) [![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
+[![CITATION.cff](https://img.shields.io/badge/CITATION.cff-Available-informational?style=for-the-badge)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/CITATION.cff)
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
 
-Suitable for **academic, technical, and policy-oriented citation** across cybersecurity engineering, DFIR, IAM, IT governance, and ITSM-aligned infrastructure management.
+Suitable for **academic, technical, institutional, and policy-oriented citation** across cybersecurity engineering, Windows systems administration, DFIR, IAM, enterprise PKI, patch management, IT governance, and ITSM-aligned infrastructure management.
 
 **Citation (APA):**
+
 > Roberto da Silva, L. H. (2026). *Windows-SysAdmin-ProSuite* (Version 1.8.8) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.18487320
 
 **Selected publications:**
+
 - Roberto da Silva, L. H. (2025). *SQL Syntax Models for Building Parsers to Query Event Logs in EVTX Format*. Revista FT — Computer Science, Vol. 29, Issue 142. [DOI: 10.69849/revistaft/th102502121360](https://doi.org/10.69849/revistaft/th102502121360)
 - Roberto da Silva, L. H. (2024). *Event Logs: Applying a Log Analysis Model for Auditing Event Record Registration*. Sorian Editora. ISBN: 978-65-5453-366-9
 - Roberto da Silva, L. H. (2009). *Computer Networking Technology: Using GPOs to Secure Corporate Domains*. Ciência Moderna.
@@ -142,11 +151,14 @@ Suitable for **academic, technical, and policy-oriented citation** across cybers
 
 **Luiz Hamilton Silva** — `@brazilianscriptguy`
 
-Senior IAM Analyst · Identity & Access Management · AD & Azure AD · Windows Server Architect · PowerShell Automation · Digital Forensics Researcher
+Principal Identity Architect · Identity & Access Management · Active Directory · AD CS / Enterprise PKI · Windows Security · Windows Server · PowerShell Automation · Digital Forensics & Incident Response
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/) [![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@brazilianscriptguy) [![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=for-the-badge&logo=x)](https://x.com/brazscriptguy) [![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-brazilianscriptguy-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/brazilianscriptguy/)
+[![YouTube](https://img.shields.io/badge/YouTube-@brazilianscriptguy-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@brazilianscriptguy)
+[![X](https://img.shields.io/badge/X-@brazscriptguy-000000?style=for-the-badge&logo=x)](https://x.com/brazscriptguy)
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--3705--7468-A6CE39?style=for-the-badge&logo=orcid)](https://orcid.org/0000-0003-3705-7468)
 
-> This project reflects years of operational use, continuous refinement in production environments, and a commitment to principled, auditable systems engineering.
+> This project reflects years of operational use, continuous refinement in production environments, and a commitment to secure, maintainable, auditable, and reproducible systems engineering.
 
 ---
 
@@ -154,16 +166,21 @@ Senior IAM Analyst · Identity & Access Management · AD & Azure AD · Windows S
 
 Contributions are welcome. Please review [`CONTRIBUTING.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md) before submitting a pull request.
 
-- **Pull requests** — bug fixes, documentation improvements, and new tools aligned with the suite's principles
-- **Attribution** — required under the MIT License for any reuse or derivative work
-- **Academic / institutional reuse** — please cite the repository DOI or the `CITATION.cff` file
+- **Pull requests** — bug fixes, security improvements, documentation updates, and new tooling aligned with the suite's engineering principles
+- **Attribution** — preserve copyright and license notices as required by the MIT License
+- **Academic / institutional reuse** — cite the repository DOI or use the metadata provided by `CITATION.cff`
 - **Security disclosures** — follow the [`SECURITY.md`](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/SECURITY.md) responsible disclosure process
 
 ---
 
 ## 📬 Contact & Support
 
-[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com) [![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy) [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-29ABE0?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy) [![GoFundMe](https://img.shields.io/badge/GoFundMe-Support-00B964?style=for-the-badge&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy) [![WhatsApp](https://img.shields.io/badge/WhatsApp-PowerShellBR-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
+[![Email](https://img.shields.io/badge/Email-luizhamilton.lhr%40gmail.com-D14836?style=for-the-badge&logo=gmail)](mailto:luizhamilton.lhr@gmail.com)
+[![Patreon](https://img.shields.io/badge/Patreon-Support-red?style=for-the-badge&logo=patreon)](https://www.patreon.com/brazilianscriptguy)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?style=for-the-badge&logo=buymeacoffee)](https://buymeacoffee.com/brazilianscriptguy)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-29ABE0?style=for-the-badge&logo=kofi)](https://ko-fi.com/brazilianscriptguy)
+[![GoFundMe](https://img.shields.io/badge/GoFundMe-Support-00B964?style=for-the-badge&logo=gofundme)](https://www.gofundme.com/f/brazilianscriptguy)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-PowerShellBR-25D366?style=for-the-badge&logo=whatsapp)](https://whatsapp.com/channel/0029VaEgqC50G0XZV1k4Mb1c)
 
 ---
 
@@ -173,5 +190,6 @@ Contributions are welcome. Please review [`CONTRIBUTING.md`](https://github.com/
 
 ---
 
-<!-- ATS Keywords -->
-PowerShell automation · Windows Server administration · Active Directory · Azure AD · DNS · DHCP · WSUS · Group Policy (GPO) · PKI · certificate management · Identity & Access Management (IAM) · ITSM provisioning · security hardening · credential hygiene · digital forensics · DFIR · EVTX log analysis · event correlation · incident response · CI/CD · GitHub Actions · PSScriptAnalyzer · NuGet · SHA256 · SARIF · CodeQL · secure DevOps · modular architecture · enterprise scripting · Windows infrastructure automation
+<!-- ATS-optimized keyword layer -->
+
+**Core Expertise:** PowerShell automation · Windows systems administration · Windows Server · Windows 10/11 · Active Directory · Active Directory Domain Services (AD DS) · Active Directory Certificate Services (AD CS) · enterprise Public Key Infrastructure (PKI) · Certificate Authority administration · certificate lifecycle management · certificate repository management · Identity and Access Management (IAM) · LDAP · Single Sign-On (SSO) · Group Policy (GPO) · DNS · DHCP · Windows Server Update Services (WSUS) · WSUS administration · WSUS maintenance · WSUS inventory · WSUS configuration auditing · Windows Update infrastructure · patch management · patch compliance · SUSDB · Windows Internal Database (WID) · Microsoft SQL Server · SUSDB maintenance · database reindexing · WSUS cleanup · network infrastructure administration · system configuration · software deployment · ITSM · workstation lifecycle management · server lifecycle management · security hardening · least privilege · credential hygiene · Blue Team · Digital Forensics and Incident Response (DFIR) · incident response · Windows Event Log monitoring · EVTX analysis · event correlation · security auditing · compliance · governance · structured logging · operational traceability · modular PowerShell architecture · GitHub Actions · CI/CD · release automation · NuGet packaging · SHA256 integrity validation · PSScriptAnalyzer · SARIF · CodeQL · EditorConfig · Prettier · Gitleaks · secure DevOps · enterprise automation
