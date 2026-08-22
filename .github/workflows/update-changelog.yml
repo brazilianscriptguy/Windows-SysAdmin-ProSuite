@@ -91,6 +91,12 @@ jobs:
                 selected["All-Repository-Files"]=1
                 ;;
 
+              SysAdmin-Tools/WSUS-Management-Tools/*)
+                selected["WSUS-Management-Tools"]=1
+                selected["SysAdmin-Tools"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
               SysAdmin-Tools/*)
                 selected["SysAdmin-Tools"]=1
                 selected["All-Repository-Files"]=1
@@ -144,6 +150,7 @@ jobs:
             "ITSM-Templates-WKS"
             "READMEs-Files-Package"
             "SysAdmin-Tools"
+            "WSUS-Management-Tools"
           )
 
           components=()
@@ -233,6 +240,7 @@ jobs:
               "ITSM-Templates-WKS",
               "READMEs-Files-Package",
               "SysAdmin-Tools",
+              "WSUS-Management-Tools",
           ]
 
           def run_git(*args: str) -> str:
@@ -273,6 +281,12 @@ jobs:
               elif path.startswith("SysAdmin-Tools/ADCS-Management-Tools/"):
                   result.update({
                       "ADCS-Management-Tools",
+                      "SysAdmin-Tools",
+                      "All-Repository-Files",
+                  })
+              elif path.startswith("SysAdmin-Tools/WSUS-Management-Tools/"):
+                  result.update({
+                      "WSUS-Management-Tools",
                       "SysAdmin-Tools",
                       "All-Repository-Files",
                   })
@@ -503,6 +517,7 @@ jobs:
             "ITSM-Templates-WKS"
             "READMEs-Files-Package"
             "SysAdmin-Tools"
+            "WSUS-Management-Tools"
           )
 
           failed=0

@@ -34,6 +34,7 @@ jobs:
         ITSM-Templates-WKS
         READMEs-Files-Package
         SysAdmin-Tools
+        WSUS-Management-Tools
 
     steps:
       - name: Install Dependencies (gh)
@@ -181,6 +182,7 @@ jobs:
           - ITSM-Templates-WKS
           - READMEs-Files-Package
           - SysAdmin-Tools
+          - WSUS-Management-Tools
 
     steps:
       - name: Checkout Repository
@@ -262,6 +264,12 @@ jobs:
             ADCS-Management-Tools)
               [[ -d "SysAdmin-Tools/ADCS-Management-Tools" ]] || { echo "::error::Missing dir: SysAdmin-Tools/ADCS-Management-Tools"; exit 1; }
               cp -r SysAdmin-Tools/ADCS-Management-Tools/* temp/
+              copy_root_meta
+              ;;
+
+            WSUS-Management-Tools)
+              [[ -d "SysAdmin-Tools/WSUS-Management-Tools" ]] || { echo "::error::Missing dir: SysAdmin-Tools/WSUS-Management-Tools"; exit 1; }
+              cp -r SysAdmin-Tools/WSUS-Management-Tools/* temp/
               copy_root_meta
               ;;
 
