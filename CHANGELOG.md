@@ -267,6 +267,7 @@ All notable repository changes are documented in this file.
 -   Added `main-README.md` as the centralized documentation entry point.
 -   Added a portable documentation archive for offline consultation and
     controlled distribution.
+- Revise README for clarity and updated features (`afd5ff8`)
 
 ### Changed
 
