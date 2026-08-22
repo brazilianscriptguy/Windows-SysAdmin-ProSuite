@@ -279,6 +279,7 @@ All notable repository changes are documented in this file.
     CS/PKI, Blue Team/DFIR, core PowerShell components, ITSM templates,
     system administration, packaging, and publishing utilities.
 - Update module count and descriptions in README (`72e3b01`)
+- Revise README for clarity and detail enhancements (`02a2816`)
 
 ### Security
 
