@@ -1,11 +1,26 @@
-# .gitleaks.toml (repo root)
+# Repository-specific Gitleaks configuration.
+# Extends built-in rules and keeps the allowlist intentionally narrow.
+
+title = "Windows-SysAdmin-ProSuite Gitleaks Configuration"
+
+[extend]
+useDefault = true
 
 [allowlist]
-description = "Ignore explicit REDACTED placeholders in docs/config examples"
+description = "Allow only explicit redaction placeholders and known non-secret documentation values."
+regexTarget = "match"
+
 regexes = [
-  '(?i)(<redacted>|\*\*\*redacted\*\*\*|\bredacted\b)'
+  '''(?i)<redacted>''',
+  '''(?i)\*{3}redacted\*{3}''',
+  '''(?i)\bredacted\b''',
+  '''(?i)<example-secret>''',
+  '''(?i)<example-password>'''
 ]
+
 paths = [
-  'README\.md$',
-  '^nuget\.config$'
+  '''(^|/)README\.md$''',
+  '''(^|/)docs/.*\.md$''',
+  '''(^|/)\.env\.example$''',
+  '''(^|/)\.env\.template$'''
 ]

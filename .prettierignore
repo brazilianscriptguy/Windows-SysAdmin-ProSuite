@@ -1,31 +1,60 @@
-# Dependencies and build outputs
+# Dependencies and generated outputs
 node_modules/
 dist/
 build/
 coverage/
 artifacts/
+NuGet/
+.nuget/
+NuGetPackageContent/
 
-# Archives and packages
+# Archives and package outputs
 *.zip
 *.nupkg
 *.snupkg
 
-# Logs and temp
+# Logs, temporary files, and generated tests
 *.log
 *.tmp
+*.temp
 *.bak
+*.test.json
 
-# Platform junk
+# Platform metadata
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
+Icon?
 
-# Generated test outputs
-*.test.json
-
-# Windows automation / legacy formats (Prettier doesn't handle these)
+# Windows-native automation is formatted by dedicated tooling.
 *.ps1
 *.psm1
 *.psd1
+*.ps1xml
 *.vbs
+*.vbe
+*.wsf
+*.wsc
 *.hta
+*.bat
+*.cmd
+*.reg
+
+# Binary and opaque assets
+*.exe
+*.dll
+*.msi
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.pfx
+*.p12
+*.cer
+*.crt
+*.der
+*.key

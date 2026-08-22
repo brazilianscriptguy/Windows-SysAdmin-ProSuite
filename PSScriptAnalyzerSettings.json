@@ -1,0 +1,32 @@
+{
+  "IncludeDefaultRules": false,
+  "Severity": [
+    "Error",
+    "Warning"
+  ],
+  "IncludeRules": [
+    "PSAvoidUsingInvokeExpression",
+    "PSAvoidUsingPlainTextForPassword",
+    "PSAvoidUsingConvertToSecureStringWithPlainText",
+    "PSAvoidUsingUsernameAndPasswordParams",
+    "PSAvoidUsingEmptyCatchBlock",
+    "PSAvoidUsingWriteHost",
+    "PSAvoidUsingCmdletAliases",
+    "PSUseShouldProcessForStateChangingFunctions",
+    "PSAvoidUsingWMICmdlet"
+  ],
+  "Rules": {
+    "PSAvoidUsingInvokeExpression": { "Enable": true },
+    "PSAvoidUsingPlainTextForPassword": { "Enable": true },
+    "PSAvoidUsingConvertToSecureStringWithPlainText": { "Enable": true },
+    "PSAvoidUsingUsernameAndPasswordParams": { "Enable": true },
+    "PSAvoidUsingEmptyCatchBlock": { "Enable": true },
+    "PSAvoidUsingWriteHost": { "Enable": true },
+    "PSAvoidUsingCmdletAliases": { "Enable": true },
+    "PSUseShouldProcessForStateChangingFunctions": { "Enable": true },
+    "PSAvoidUsingWMICmdlet": { "Enable": true },
+    "PSUseConsistentWhitespace": { "Enable": false },
+    "PSUseConsistentIndentation": { "Enable": false },
+    "PSAvoidGlobalVars": { "Enable": false }
+  }
+}

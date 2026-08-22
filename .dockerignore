@@ -1,16 +1,22 @@
-# =====================================
-# 🧱 Version Control & CI
-# =====================================
+# Docker build-context exclusions
+
 .git
 .gitignore
 .github
 .gitattributes
 
-# =====================================
-# 🔍 Logs and Temporary Files
-# =====================================
+.vscode/
+.idea/
+.vs/
+*.code-workspace
+*.user
+*.suo
+*.sdf
+*.vsconfig
+
 *.log
 *.tmp
+*.temp
 *.bak
 *.old
 .cache/
@@ -19,84 +25,63 @@ Logs-TEMP/
 temp/
 tmp/
 
-# =====================================
-# 🛠️ Build Outputs
-# =====================================
 bin/
 obj/
-artifacts/
 out/
+dist/
+build/
+coverage/
+artifacts/
 
-# =====================================
-# 📦 NuGet & Package Artifacts (NEVER in image)
-# =====================================
 .nuget/
 NuGet/
 *.nupkg
 *.snupkg
-*.nuspec
 NuGetPackageContent/
 
-# =====================================
-# 📚 Docs, Tests, Drafts
-# =====================================
 docs/
 tests/
+drafts/
 *.md.bak
 *.bak.md
 
-# =====================================
-# 🧱 IDE / Editor / Local Tooling
-# =====================================
-.vscode/
-.idea/
-.vs/
-*.user
-*.suo
-*.sdf
-*.vsconfig
-
-# =====================================
-# 🔐 Secrets & Environment
-# =====================================
-*.env
-*.env.*
-*.pfx
-*.cert
-*.key
+.env
+.env.*
+!.env.example
+!.env.template
 secrets.*
+credentials.*
+*.pfx
+*.p12
+*.key
+*.kdbx
 
-# =====================================
-# 🟢 Node.js
-# =====================================
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# =====================================
-# 🐍 Python
-# =====================================
 __pycache__/
 *.py[cod]
 .venv/
+venv/
 env/
+.mypy_cache/
+.pytest_cache/
 
-# =====================================
-# 🐘 PHP
-# =====================================
 vendor/
 
-# =====================================
-# 💻 OS Metadata
-# =====================================
+**/target/
+**/bin/
+**/obj/
+
 Thumbs.db
 .DS_Store
 desktop.ini
 ehthumbs.db
 Icon?
 
-# =====================================
-# 🧪 Dev & Analysis Tools
-# =====================================
 *.coverage
 *.dotCover
 *.ncrunch*

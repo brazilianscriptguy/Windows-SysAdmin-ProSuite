@@ -1,41 +1,39 @@
-# ⬆️ Top-most EditorConfig file
+# Repository-wide EditorConfig
+# Windows-SysAdmin-ProSuite
+# PowerShell 5.1-first, multi-language enterprise baseline.
+
 root = true
 
-#######################
-# 🌍 Global Defaults
-#######################
 [*]
+charset = utf-8
 end_of_line = lf
 insert_final_newline = true
-charset = utf-8
 trim_trailing_whitespace = true
 
-#########################
-# ⚙️ Scripting Languages
-#########################
-[*.{ps1,psm1,vbs}]
+[*.{ps1,psm1}]
+charset = utf-8-bom
 indent_style = space
 indent_size = 4
-charset = utf-8-bom
 
-#########################
-# 🌐 HTA: HTML Applications
-#########################
+[*.psd1]
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+[*.{vbs,vbe,wsf,wsc}]
+charset = utf-8-bom
+indent_style = space
+indent_size = 4
+
 [*.hta]
+charset = utf-8
 indent_style = space
 indent_size = 2
-charset = utf-8
 
-#########################
-# 🧱 Structured Data
-#########################
 [*.{yaml,yml,json,jsonc,toml}]
 indent_style = space
 indent_size = 2
 
-#########################
-# 🥪 Config / Linter / RC Files
-#########################
 [.*rc]
 indent_style = space
 indent_size = 2
@@ -44,17 +42,11 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-#########################
-# 📝 Markdown / ReStructuredText
-#########################
 [*.{md,rst}]
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = false
 
-#########################
-# 📄 Plain Text & Env
-#########################
 [*.txt]
 indent_style = space
 indent_size = 2
@@ -64,59 +56,44 @@ indent_style = space
 indent_size = 2
 insert_final_newline = true
 
-#########################
-# 📁 Logs & Data Exports
-#########################
 [*.csv]
-end_of_line = lf
 charset = utf-8
+end_of_line = lf
 insert_final_newline = true
 
 [*.log]
-end_of_line = lf
 charset = utf-8
+end_of_line = lf
 trim_trailing_whitespace = false
 
-#########################
-# 🧰 Registry Scripts
-#########################
 [*.reg]
-indent_style = space
-indent_size = 4
 charset = utf-16le
 end_of_line = crlf
+indent_style = space
+indent_size = 4
 
-#########################
-# 🌐 Web & XML Files
-#########################
-[*.{html,xml,config,nuspec,csproj}]
+[*.{html,htm,css,xml,config,nuspec,csproj,props,targets}]
 indent_style = space
 indent_size = 2
 
-#########################
-# 💻 Source Code Files
-#########################
 [*.py]
 indent_style = space
 indent_size = 4
 
-[*.{js,ts,jsx,tsx}]
+[*.{js,jsx,ts,tsx}]
 indent_style = space
 indent_size = 2
 
-[*.{c,cpp,h,hpp,cs}]
+[*.{c,cpp,h,hpp,cs,java,php}]
 indent_style = space
 indent_size = 4
 
-[*.psd1]
+[*.{sh,bash,zsh}]
 indent_style = space
-indent_size = 4
-charset = utf-8
+indent_size = 2
 
-#########################
-# 👤 Shell & INI Configs
-#########################
-[*.{sh,bash,bat,cmd}]
+[*.{bat,cmd}]
+end_of_line = crlf
 indent_style = space
 indent_size = 4
 
@@ -124,15 +101,27 @@ indent_size = 4
 indent_style = space
 indent_size = 4
 
-#########################
-# 🧾 Git Metadata
-#########################
 [.gitignore]
+charset = utf-8
 end_of_line = lf
 insert_final_newline = true
-charset = utf-8
 
 [.gitattributes]
+charset = utf-8
 end_of_line = lf
 insert_final_newline = true
+
+[.dockerignore]
 charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[.npmignore]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[.prettierignore]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true

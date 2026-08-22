@@ -1,6 +1,6 @@
-# =====================================
-# 🔍 Logs and Temporary Files
-# =====================================
+# Repository-wide Git ignore policy
+# Windows-SysAdmin-ProSuite
+
 *.log
 *.log.txt
 *.tmp
@@ -17,21 +17,17 @@
 
 Logs/
 Logs-TEMP/
-
-# =====================================
-# ⚡ Cache and Temporary Directories
-# =====================================
 .cache/
 temp/
 tmp/
 
-# =====================================
-# 🛠️ Build Artifacts and Compiled Binaries
-# =====================================
 bin/
 obj/
-artifacts/
 out/
+dist/
+build/
+coverage/
+artifacts/
 
 *.dll
 *.exe
@@ -40,32 +36,28 @@ out/
 *.a
 *.lib
 
-# =====================================
-# 📦 NuGet Packages and Outputs
-# =====================================
 .nuget/
 NuGet/
 *.nupkg
 *.snupkg
 NuGetPackageContent/
 
-# NOTE:
-# *.nuspec is NOT ignored here
-# Nuspec files are source-of-truth and versioned
+# Keep *.nuspec under version control as package source-of-truth.
 
-# =====================================
-# 🔐 Secrets and Environment Files
-# =====================================
-*.pfx
-*.cert
-*.key
-*.env
-*.env.*
+.env
+.env.*
+!.env.example
+!.env.template
 secrets.*
+credentials.*
+*.pfx
+*.p12
+*.key
+*.kdbx
 
-# =====================================
-# 🧱 IDE and Editor Settings
-# =====================================
+# Public certificate formats are intentionally not ignored globally.
+# Non-secret public certificates may be valid repository content.
+
 .vscode/
 .idea/
 .vs/
@@ -76,74 +68,49 @@ secrets.*
 *.sln.docstates
 *.vsconfig
 
-# =====================================
-# ⚙️ PowerShell Generated Metadata
-# =====================================
 *.ps1.xml
 
-# =====================================
-# ☕ Java / Spring Boot
-# =====================================
-SpringBoot-API/target/
-SpringBoot-API/.classpath
-SpringBoot-API/.project
-SpringBoot-API/.settings/
+**/target/
+.classpath
+.project
+.settings/
 *.iml
+*.class
 
-# =====================================
-# 🧩 .NET Projects
-# =====================================
-DotNet-API/bin/
-DotNet-API/obj/
+**/bin/
+**/obj/
 
-# =====================================
-# 🟢 Node.js
-# =====================================
-NodeJS-API/node_modules/
-NodeJS-API/package-lock.json
-NodeJS-API/npm-debug.log*
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# =====================================
-# 🐍 Python
-# =====================================
-Flask-API/__pycache__/
-Flask-API/*.py[cod]
-Flask-API/env/
-Flask-API/.venv/
-Flask-API/.mypy_cache/
-Flask-API/.pytest_cache/
+# Lock files remain versioned for reproducible dependency resolution.
 
-# =====================================
-# 🐘 PHP
-# =====================================
-PHP-API/vendor/
-PHP-API/composer.lock
+**/__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
 
-# =====================================
-# 🧪 Placeholder / Test Projects
-# =====================================
+**/vendor/
+
 PlaceholderDll/
-PlaceholderDll/*.csproj
 
-# =====================================
-# 📝 Tooling Config Overrides
-# =====================================
-config/.editorconfig
-config/.gitattributes
-config/nuget.config
-
-# =====================================
-# 💻 OS-Specific Metadata
-# =====================================
 Thumbs.db
 .DS_Store
 desktop.ini
 ehthumbs.db
 Icon?
 
-# =====================================
-# 🧪 Dev Tools / Coverage / Analysis
-# =====================================
+*.test.json
 *.ncrunch*
 _ReSharper*/
 *.resharper

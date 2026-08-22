@@ -1,40 +1,41 @@
-# =========================================================
-# .npmignore
-# Exclude everything NOT needed in the npm package
-# =========================================================
+# npm package publication exclusions
 
-# Git metadata
 .git/
+.github/
 .gitignore
+.gitattributes
+.editorconfig
+.gitleaks.toml
+.prettierignore
+.prettierrc
+.dockerignore
 
-# Development workspace files
-*.code-workspace
-
-# Logs, temp, cache
-*.log
-*.tmp
-*.bak
-.cache/
-Logs/
-Logs-TEMP/
-
-# Tests, docs, drafts (not shipped)
-tests/
-docs/
-drafts/
-*.md.bak
-*.bak.md
-
-# IDE / Editor configs
 .vscode/
 .idea/
+.vs/
+*.code-workspace
 *.suo
 *.user
 *.sdf
 *.sln.docstates
-*.vs/
+*.vsconfig
 
-# Build artifacts (native / compiled)
+*.log
+*.tmp
+*.temp
+*.bak
+.cache/
+Logs/
+Logs-TEMP/
+temp/
+tmp/
+
+tests/
+coverage/
+drafts/
+*.md.bak
+*.bak.md
+
 bin/
 obj/
 out/
@@ -45,8 +46,11 @@ artifacts/
 *.so
 *.lib
 *.a
+*.coverage
+*.dotCover
+*.ncrunch*
+_ReSharper*/
 
-# NuGet packaging artifacts (not npm content)
 *.nupkg
 *.snupkg
 *.nuspec
@@ -54,17 +58,21 @@ NuGet/
 .nuget/
 NuGetPackageContent/
 
-# Environment and secrets
-*.env
-*.env.*
+.env
+.env.*
+!.env.example
+!.env.template
 secrets.*
+credentials.*
+*.pfx
+*.p12
+*.key
+*.kdbx
 
-# Platform-specific junk
 Thumbs.db
 .DS_Store
 desktop.ini
 ehthumbs.db
 Icon?
 
-# Editor backup files
 *.ps1~
