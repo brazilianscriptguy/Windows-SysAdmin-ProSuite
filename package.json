@@ -1,0 +1,66 @@
+{
+  "name": "windows-sysadmin-prosuite",
+  "version": "1.8.8",
+  "description": "Enterprise Windows administration, IAM, AD CS/PKI, WSUS, ITSM, security, DFIR, and PowerShell automation platform.",
+  "private": true,
+  "author": {
+    "name": "Luiz Hamilton Silva",
+    "url": "https://github.com/brazilianscriptguy"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/issues"
+  },
+  "keywords": [
+    "powershell",
+    "vbscript",
+    "windows",
+    "windows-server",
+    "windows-10",
+    "windows-11",
+    "sysadmin",
+    "active-directory",
+    "ad-ds",
+    "iam",
+    "ldap",
+    "sso",
+    "adcs",
+    "ad-cs",
+    "pki",
+    "certificate-management",
+    "certificate-lifecycle",
+    "group-policy",
+    "gpo",
+    "wsus",
+    "susdb",
+    "patch-management",
+    "itsm",
+    "blue-team",
+    "dfir",
+    "digital-forensics",
+    "incident-response",
+    "security-hardening",
+    "compliance",
+    "governance",
+    "automation",
+    "github-actions",
+    "secure-devops"
+  ],
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "prettier --check .",
+    "ci:format": "npm run format:check"
+  },
+  "devDependencies": {
+    "prettier": "3.2.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

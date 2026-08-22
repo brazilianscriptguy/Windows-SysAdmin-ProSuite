@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>sysadmin-prosuite</id>
+    <version>1.8.8</version>
+
+    <authors>Luiz Hamilton Silva (@brazilianscriptguy)</authors>
+    <owners>brazilianscriptguy</owners>
+
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="file">LICENSE.txt</license>
+
+    <title>Windows SysAdmin ProSuite</title>
+
+    <description>
+Windows-SysAdmin-ProSuite is an enterprise-grade, research-aligned automation platform
+for Windows Server and Windows 10/11 environments. The suite provides PowerShell and
+VBScript tooling for Active Directory, Identity and Access Management, LDAP/SSO
+integration, Active Directory Certificate Services and enterprise PKI, Group Policy,
+WSUS and SUSDB administration, Windows infrastructure management, ITSM-aligned
+workstation and server lifecycle automation, Blue Team operations, Digital Forensics
+and Incident Response, structured logging, compliance, and release automation.
+    </description>
+
+    <summary>
+Enterprise Windows administration, IAM, PKI, WSUS, ITSM, security, and DFIR automation toolkit.
+    </summary>
+
+    <tags>
+powershell vbscript windows windows-server windows-10 windows-11
+sysadmin automation active-directory ad-ds iam ldap sso
+adcs ad-cs pki certificate-management certificate-lifecycle
+gpo group-policy wsus susdb wid sql-server patch-management
+itsm blueteam dfir digital-forensics incident-response
+security-hardening compliance governance github-actions nuget
+    </tags>
+
+    <readme>README.md</readme>
+
+    <projectUrl>https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite</projectUrl>
+
+    <icon>icon.png</icon>
+
+    <repository
+      type="git"
+      url="https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite.git"
+    />
+  </metadata>
+
+  <files>
+    <!-- Root metadata -->
+    <file src="LICENSE.txt" target="" />
+    <file src="README.md" target="" />
+    <file src="CHANGELOG.md" target="" />
+    <file src="CITATION.cff" target="" />
+    <file src="icon.png" target="" />
+
+    <!-- Functional Suite Modules -->
+
+    <!-- BlueTeam-Tools -->
+    <file src="BlueTeam-Tools\**\*" target="tools\BlueTeam-Tools" />
+
+    <!-- Core-ScriptLibrary -->
+    <file src="Core-ScriptLibrary\**\*" target="tools\Core-ScriptLibrary" />
+
+    <!-- ITSM-Templates-SVR -->
+    <file src="ITSM-Templates-SVR\**\*" target="tools\ITSM-Templates-SVR" />
+
+    <!-- ITSM-Templates-WKS -->
+    <file src="ITSM-Templates-WKS\**\*" target="tools\ITSM-Templates-WKS" />
+
+    <!-- ProSuite-Hub -->
+    <file src="ProSuite-Hub\**\*" target="tools\ProSuite-Hub" />
+
+    <!-- SysAdmin-Tools
+         Recursively includes the canonical nested modules:
+         ADCS-Management-Tools, AD-SSO-Integrations, GPO-Templates,
+         and WSUS-Management-Tools. -->
+    <file src="SysAdmin-Tools\**\*" target="tools\SysAdmin-Tools" />
+
+    <!-- Module documentation -->
+    <file src="BlueTeam-Tools\README.md" target="docs\BlueTeam-Tools\README.md" />
+    <file src="Core-ScriptLibrary\README.md" target="docs\Core-ScriptLibrary\README.md" />
+    <file src="ITSM-Templates-SVR\README.md" target="docs\ITSM-Templates-SVR\README.md" />
+    <file src="ITSM-Templates-WKS\README.md" target="docs\ITSM-Templates-WKS\README.md" />
+    <file src="ProSuite-Hub\README.md" target="docs\ProSuite-Hub\README.md" />
+    <file src="SysAdmin-Tools\README.md" target="docs\SysAdmin-Tools\README.md" />
+    <file
+      src="SysAdmin-Tools\ADCS-Management-Tools\README.md"
+      target="docs\ADCS-Management-Tools\README.md"
+    />
+    <file
+      src="SysAdmin-Tools\ActiveDirectory-SSO-Integrations\README.md"
+      target="docs\AD-SSO-Integrations\README.md"
+    />
+    <file
+      src="SysAdmin-Tools\GroupPolicyObjects-Templates\README.md"
+      target="docs\GPO-Templates\README.md"
+    />
+    <file
+      src="SysAdmin-Tools\WSUS-Management-Tools\README.md"
+      target="docs\WSUS-Management-Tools\README.md"
+    />
+
+    <!-- Supplemental documentation -->
+    <file
+      src="ITSM-Templates-WKS\JUNE-19-2025-ITSM-Templates Application Guide for Windows 10 and 11.pdf"
+      target="docs\ITSM-Templates-WKS"
+    />
+  </files>
+</package>
