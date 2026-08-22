@@ -242,6 +242,7 @@ All notable repository changes are documented in this file.
 - Expanded documentation coverage across **AD/SSO integrations, AD CS/PKI, Blue Team/DFIR, GPOs, WSUS/SUSDB, core PowerShell components, ITSM templates, ProSuite-Hub, system administration, packaging, and publishing utilities**.
 - Updated module counts, module descriptions, badge-based module links, alphabetical module ordering, and ATS-optimized keyword layers.
 - Aligned documentation terminology with the canonical Suite Modules and 12-package release model.
+- Update README.md (`32ee955`)
 
 ### Security
 
