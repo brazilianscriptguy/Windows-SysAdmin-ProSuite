@@ -74,13 +74,13 @@ jobs:
 
             case "$file" in
               SysAdmin-Tools/ActiveDirectory-SSO-Integrations/*)
-                selected["AD-SSO-APIs-Integration"]=1
+                selected["AD-SSO-Integrations"]=1
                 selected["SysAdmin-Tools"]=1
                 selected["All-Repository-Files"]=1
                 ;;
 
               SysAdmin-Tools/GroupPolicyObjects-Templates/*)
-                selected["GPOs-Templates"]=1
+                selected["GPO-Templates"]=1
                 selected["SysAdmin-Tools"]=1
                 selected["All-Repository-Files"]=1
                 ;;
@@ -122,6 +122,11 @@ jobs:
                 selected["All-Repository-Files"]=1
                 ;;
 
+              ProSuite-Hub/*)
+                selected["ProSuite-Hub"]=1
+                selected["All-Repository-Files"]=1
+                ;;
+
               README.md|*/README.md)
                 selected["READMEs-Files-Package"]=1
                 ;;
@@ -140,14 +145,15 @@ jobs:
           done <<< "$changed_files"
 
           order=(
-            "AD-SSO-APIs-Integration"
             "ADCS-Management-Tools"
+            "AD-SSO-Integrations"
             "All-Repository-Files"
             "BlueTeam-Tools"
             "Core-ScriptLibrary"
-            "GPOs-Templates"
+            "GPO-Templates"
             "ITSM-Templates-SVR"
             "ITSM-Templates-WKS"
+            "ProSuite-Hub"
             "READMEs-Files-Package"
             "SysAdmin-Tools"
             "WSUS-Management-Tools"
@@ -230,14 +236,15 @@ jobs:
           after_sha = os.environ["AFTER_SHA"]
 
           component_order = [
-              "AD-SSO-APIs-Integration",
               "ADCS-Management-Tools",
+              "AD-SSO-Integrations",
               "All-Repository-Files",
               "BlueTeam-Tools",
               "Core-ScriptLibrary",
-              "GPOs-Templates",
+              "GPO-Templates",
               "ITSM-Templates-SVR",
               "ITSM-Templates-WKS",
+              "ProSuite-Hub",
               "READMEs-Files-Package",
               "SysAdmin-Tools",
               "WSUS-Management-Tools",
@@ -268,13 +275,13 @@ jobs:
 
               if path.startswith("SysAdmin-Tools/ActiveDirectory-SSO-Integrations/"):
                   result.update({
-                      "AD-SSO-APIs-Integration",
+                      "AD-SSO-Integrations",
                       "SysAdmin-Tools",
                       "All-Repository-Files",
                   })
               elif path.startswith("SysAdmin-Tools/GroupPolicyObjects-Templates/"):
                   result.update({
-                      "GPOs-Templates",
+                      "GPO-Templates",
                       "SysAdmin-Tools",
                       "All-Repository-Files",
                   })
@@ -300,6 +307,8 @@ jobs:
                   result.update({"ITSM-Templates-SVR", "All-Repository-Files"})
               elif path.startswith("ITSM-Templates-WKS/"):
                   result.update({"ITSM-Templates-WKS", "All-Repository-Files"})
+              elif path.startswith("ProSuite-Hub/"):
+                  result.update({"ProSuite-Hub", "All-Repository-Files"})
               elif path == "README.md" or path.endswith("/README.md"):
                   result.add("READMEs-Files-Package")
               elif path in {"LICENSE", "LICENSE.txt"}:
@@ -398,6 +407,18 @@ jobs:
               text = (
                   "# Changelog\n\n"
                   "All notable repository changes are documented in this file.\n\n"
+              )
+
+          # Normalize legacy CHANGELOG component headings to the canonical package taxonomy.
+          legacy_headings = {
+              "AD-SSO-APIs-Integration": "AD-SSO-Integrations",
+              "GPOs-Templates": "GPO-Templates",
+          }
+          for legacy, canonical in legacy_headings.items():
+              text = re.sub(
+                  rf"(?m)^## {re.escape(legacy)}\s*$",
+                  f"## {canonical}",
+                  text,
               )
 
           category_order = ["Added", "Changed", "Security"]
@@ -507,14 +528,15 @@ jobs:
           set -euo pipefail
 
           required_sections=(
-            "AD-SSO-APIs-Integration"
             "ADCS-Management-Tools"
+            "AD-SSO-Integrations"
             "All-Repository-Files"
             "BlueTeam-Tools"
             "Core-ScriptLibrary"
-            "GPOs-Templates"
+            "GPO-Templates"
             "ITSM-Templates-SVR"
             "ITSM-Templates-WKS"
+            "ProSuite-Hub"
             "READMEs-Files-Package"
             "SysAdmin-Tools"
             "WSUS-Management-Tools"
@@ -584,7 +606,7 @@ jobs:
           set -euo pipefail
 
           {
-            echo "##  Automatic CHANGELOG Update"
+            echo "## Automatic CHANGELOG Update"
             echo
             echo "- **Repository:** \`${GITHUB_REPOSITORY}\`"
             echo "- **Branch:** \`${GITHUB_REF_NAME}\`"

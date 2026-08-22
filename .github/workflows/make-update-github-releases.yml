@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   cleanup-github-releases:
-    name: Cleanup Old Managed Releases & Tags (managed prefixes)
+    name: Cleanup Old Managed Releases and Tags
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -24,20 +24,21 @@ jobs:
 
       # Workflow "ownership" prefixes (only these will be touched)
       MANAGED_TAG_PREFIXES: >-
-        AD-SSO-APIs-Integration
         ADCS-Management-Tools
+        AD-SSO-Integrations
         All-Repository-Files
         BlueTeam-Tools
         Core-ScriptLibrary
-        GPOs-Templates
+        GPO-Templates
         ITSM-Templates-SVR
         ITSM-Templates-WKS
+        ProSuite-Hub
         READMEs-Files-Package
         SysAdmin-Tools
         WSUS-Management-Tools
 
     steps:
-      - name: Install Dependencies (gh)
+      - name: Install GitHub CLI
         shell: bash
         run: |
           set -euo pipefail
@@ -50,7 +51,7 @@ jobs:
           set -euo pipefail
           gh auth status
 
-      - name: ️ Delete ALL matching Releases (tag_name starts with managed prefix)
+      - name: Delete Matching Managed Releases
         id: del_releases
         shell: bash
         run: |
@@ -95,7 +96,7 @@ jobs:
           echo "Deleted releases: ${deleted}"
           echo "deleted_releases=${deleted}" >> "$GITHUB_OUTPUT"
 
-      - name: ️ Delete ALL matching Tags (name starts with managed prefix)
+      - name: Delete Matching Managed Tags
         id: del_tags
         shell: bash
         run: |
@@ -129,7 +130,7 @@ jobs:
           echo "Deleted tags: ${deleted}"
           echo "deleted_tags=${deleted}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish Cleanup Summary (View Runs)
+      - name: Publish Cleanup Summary
         if: always()
         shell: bash
         run: |
@@ -172,14 +173,15 @@ jobs:
       fail-fast: false
       matrix:
         release_name:
-          - AD-SSO-APIs-Integration
           - ADCS-Management-Tools
+          - AD-SSO-Integrations
           - All-Repository-Files
           - BlueTeam-Tools
           - Core-ScriptLibrary
-          - GPOs-Templates
+          - GPO-Templates
           - ITSM-Templates-SVR
           - ITSM-Templates-WKS
+          - ProSuite-Hub
           - READMEs-Files-Package
           - SysAdmin-Tools
           - WSUS-Management-Tools
@@ -191,14 +193,14 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Install Dependencies (zip)
+      - name: Install ZIP Utility
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y zip
 
-      - name: ️ Compute Version Tag
+      - name: Compute Version Tag
         id: tag
         shell: bash
         run: |
@@ -225,13 +227,13 @@ jobs:
           }
 
           case "$RELEASE_NAME" in
-            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|SysAdmin-Tools)
+            BlueTeam-Tools|Core-ScriptLibrary|ITSM-Templates-SVR|ITSM-Templates-WKS|ProSuite-Hub|SysAdmin-Tools)
               [[ -d "$RELEASE_NAME" ]] || { echo "::error::Missing dir: $RELEASE_NAME"; exit 1; }
               cp -r "$RELEASE_NAME" temp/
               copy_root_meta
               ;;
 
-            GPOs-Templates)
+            GPO-Templates)
               [[ -d "SysAdmin-Tools/GroupPolicyObjects-Templates" ]] || { echo "::error::Missing dir: SysAdmin-Tools/GroupPolicyObjects-Templates"; exit 1; }
               cp -r SysAdmin-Tools/GroupPolicyObjects-Templates/* temp/
               [[ -f SysAdmin-Tools/ActiveDirectory-Management/Export-n-Import-GPOsTool.ps1 ]] && \
@@ -255,7 +257,7 @@ jobs:
               copy_root_meta
               ;;
 
-            AD-SSO-APIs-Integration)
+            AD-SSO-Integrations)
               [[ -d "SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ]] || { echo "::error::Missing dir: SysAdmin-Tools/ActiveDirectory-SSO-Integrations"; exit 1; }
               cp -r SysAdmin-Tools/ActiveDirectory-SSO-Integrations/* temp/
               copy_root_meta
@@ -305,11 +307,28 @@ jobs:
             body="No changelog available for ${RELEASE_NAME}."
           fi
 
+          case "${RELEASE_NAME}" in
+            ADCS-Management-Tools) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/SysAdmin-Tools/ADCS-Management-Tools" ;;
+            AD-SSO-Integrations) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/SysAdmin-Tools/ActiveDirectory-SSO-Integrations" ;;
+            BlueTeam-Tools) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/BlueTeam-Tools" ;;
+            Core-ScriptLibrary) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/Core-ScriptLibrary" ;;
+            GPO-Templates) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/SysAdmin-Tools/GroupPolicyObjects-Templates" ;;
+            ITSM-Templates-SVR) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/ITSM-Templates-SVR" ;;
+            ITSM-Templates-WKS) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/ITSM-Templates-WKS" ;;
+            ProSuite-Hub) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/ProSuite-Hub" ;;
+            SysAdmin-Tools) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/SysAdmin-Tools" ;;
+            WSUS-Management-Tools) source_url="https://github.com/${GITHUB_REPOSITORY}/tree/main/SysAdmin-Tools/WSUS-Management-Tools" ;;
+            *) source_url="https://github.com/${GITHUB_REPOSITORY}" ;;
+          esac
+
+          echo "source_url=${source_url}" >> "$GITHUB_OUTPUT"
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "**Source:** ${source_url}" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
           echo "$body" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Create/Update GitHub Release (upload assets)
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.version_tag }}
@@ -323,7 +342,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Build Artifacts (Actions)
+      - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -333,7 +352,7 @@ jobs:
             artifacts/${{ matrix.release_name }}.sha256.txt
           retention-days: 30
 
-      - name: Publish Release Summary (View Runs)
+      - name: Publish Release Summary
         if: always()
         shell: bash
         run: |
@@ -382,13 +401,13 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Publish Workflow Summary (View Runs)
+      - name: Publish Workflow Summary
         shell: bash
         run: |
           set -euo pipefail
 
           {
-            echo "##  Weekly Release Maintenance Summary"
+            echo "## Weekly Release Maintenance Summary"
             echo
             echo "- **Cleanup job:** **${{ needs.cleanup-github-releases.result }}**"
             echo "- **Rebuild job:** **${{ needs.update-github-releases.result }}**"
