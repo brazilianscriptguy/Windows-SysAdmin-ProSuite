@@ -2,40 +2,53 @@
 
 ### DOI: [10.5281/zenodo.18487320](https://doi.org/10.5281/zenodo.18487320)
 
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#) [ ![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#) [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE.txt) [![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions)
-[![SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning) [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Windows--SysAdmin--ProSuite-181717?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#)
+[![Windows](https://img.shields.io/badge/Windows-Server%20%7C%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
+[![Active Directory](https://img.shields.io/badge/Active%20Directory-AD%20DS-0078D6?style=for-the-badge&logo=microsoft&logoColor=white)](#)
+[![AD CS](https://img.shields.io/badge/AD%20CS-Enterprise%20PKI-005A9C?style=for-the-badge&logo=letsencrypt&logoColor=white)](#)
+[![WSUS](https://img.shields.io/badge/WSUS-Update%20Management-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)](#)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=open-source-initiative)](LICENSE.txt)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/actions)
+[![SARIF](https://img.shields.io/badge/SARIF-Code%20Scanning-brightgreen?style=for-the-badge&logo=github)](https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/code-scanning)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18487320-blue?style=for-the-badge&logo=zenodo)](https://doi.org/10.5281/zenodo.18487320)
 
 ---
 
 ## 🧭 Overview
 
-**Windows-SysAdmin-ProSuite** is an enterprise-grade, research-aligned automation platform for Windows Server and workstation environments — authored by **Luiz Hamilton Silva ([@brazilianscriptguy](https://github.com/brazilianscriptguy))**, Senior IAM Analyst, Windows Server Architect, and published researcher in digital forensics and cybersecurity.
+**Windows-SysAdmin-ProSuite** is an enterprise-grade, research-aligned automation platform for Windows Server and Windows 10/11 environments — authored by **Luiz Hamilton Silva ([@brazilianscriptguy](https://github.com/brazilianscriptguy))**, Principal Identity Architect specializing in Identity and Access Management, Active Directory, Windows Security, enterprise PKI, PowerShell automation, and Digital Forensics & Incident Response.
 
-Built around **production-tested PowerShell and VBScript toolchains**, the suite addresses five core operational pillars:
+Built around **production-oriented PowerShell and VBScript toolchains**, reusable frameworks, administrative templates, and integration patterns, the suite addresses seven core operational pillars:
 
 | Pillar | Scope |
 |--------|-------|
-| 🔐 Identity & Access Management | AD lifecycle, LDAP/SSO, credential hygiene |
-| 🖥️ ITSM-Aligned Provisioning | Standardized workstation and server onboarding |
-| 🛡️ Cybersecurity & Hardening | GPO enforcement, baseline templates, drift remediation |
-| 🔬 Digital Forensics & DFIR | EVTX parsing, event correlation, incident response |
-| 📋 Operational Auditability | Structured `.log` outputs, `.csv` exports, traceable execution |
+| 🔐 Identity & Access Management | Active Directory lifecycle · AD DS · LDAP/SSO · Least privilege · Credential hygiene |
+| 🔏 Enterprise PKI & Certificate Services | AD CS · Certificate Authority administration · Certificate lifecycle · PKI repository management |
+| 🖥️ ITSM-Aligned Provisioning | Windows workstation and server provisioning · Standardization · Lifecycle management |
+| 🔄 Update & Patch Management | WSUS administration · SUSDB · WID/SQL maintenance · Update infrastructure · Compliance assessment |
+| 🛡️ Cybersecurity & Hardening | GPO enforcement · Security baselines · Configuration hardening · Drift remediation |
+| 🔬 Digital Forensics & DFIR | EVTX analysis · Event correlation · Evidence collection · Threat hunting · Incident response |
+| 📋 Governance & Operational Auditability | Structured logging · CSV reporting · Change traceability · Compliance · Controlled execution |
 
-> All tooling enforces **runtime safety**, **deterministic logging**, and **PowerShell 5.1 compatibility** as non-negotiable requirements.
+> The suite prioritizes **runtime safety, explicit change intent, structured logging, operational traceability, repeatable execution, least-privilege administration, and Windows PowerShell 5.1 compatibility** across enterprise administrative workflows.
 
 ---
 
 ## 🎯 Who This Is For
 
-This is **not** a collection of demos or one-off scripts. It is a cohesive automation suite built for production use across:
+This is **not** a collection of demos or isolated administrative scripts. It is a cohesive automation suite designed for repeatable production use across:
 
 | Environment | Primary Use Case |
 |---|---|
-| 🏛️ Public sector & judicial institutions | Compliance-driven provisioning and audit trails |
-| 🏢 Enterprise & hybrid infrastructures | AD, WSUS, DNS, DHCP, PKI, RDS at scale |
-| 🛡️ Blue Team / DFIR operations | Threat hunting, event log analysis, forensic collection |
-| 📋 Governance, risk & compliance teams | GPO enforcement, ITSM-aligned change management |
-| 🎓 Academic & research environments | Citeable tooling grounded in peer-reviewed methodology |
+| 🏛️ Public sector & judicial institutions | Compliance-driven administration · Controlled provisioning · Audit trails · Operational governance |
+| 🏢 Enterprise & hybrid infrastructures | Active Directory · AD CS/PKI · WSUS/SUSDB · GPO · DNS · DHCP · RDS · Windows administration at scale |
+| 🔐 IAM & identity engineering teams | AD lifecycle · LDAP/SSO integration · Access governance · Credential hygiene · Identity automation |
+| 🔏 PKI & certificate services teams | AD CS administration · CA maintenance · Certificate lifecycle · Repository management |
+| 🔄 Endpoint & patch management teams | WSUS administration · Update infrastructure · SUSDB maintenance · Patch compliance · Windows lifecycle management |
+| 🛡️ Blue Team / DFIR operations | Threat hunting · Windows Event Log analysis · EVTX correlation · Forensic collection · Incident response |
+| 📋 Governance, risk & compliance teams | Security baselines · GPO enforcement · ITSM-aligned change management · Auditable execution |
+| 🎓 Academic & research environments | Citeable automation tooling · Reproducible technical workflows · Research-aligned security and forensic methodology |
 
 ---
 
