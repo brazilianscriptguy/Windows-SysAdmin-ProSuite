@@ -277,6 +277,7 @@ All notable repository changes are documented in this file.
 -   Expanded documentation coverage across API/SSO integrations, AD
     CS/PKI, Blue Team/DFIR, core PowerShell components, ITSM templates,
     system administration, packaging, and publishing utilities.
+- Update module count and descriptions in README (`72e3b01`)
 
 ### Security
 
