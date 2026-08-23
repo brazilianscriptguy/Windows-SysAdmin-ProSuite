@@ -82,6 +82,7 @@ All notable repository changes are documented in this file.
 - Improved repository portability, deterministic packaging, and repeatable distribution.
 - Updated consolidated distribution behavior to include `ProSuite-Hub` and the dedicated `WSUS-Management-Tools` component.
 - Updated certificate-related distribution content, including `All-Certificates-Install.vbs`, where applicable.
+- Update copyright name in LICENSE file (`de2d9fe`)
 
 ### Security
 
