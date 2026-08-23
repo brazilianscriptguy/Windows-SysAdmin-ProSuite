@@ -58,10 +58,24 @@ jobs:
       ALLOW_WARNINGS: "true"
 
     steps:
+      - name: Enable Git Long Path Support
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          git config --global core.longpaths true
+
+          $value = git config --global --get core.longpaths
+          if ($value -ne 'true') {
+              throw "Failed to enable Git core.longpaths."
+          }
+
+          Write-Host "Git core.longpaths=$value"
+
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          path: repo
+          path: r
           fetch-depth: 0
 
       - name: Validate Native Runtime
@@ -82,7 +96,7 @@ jobs:
           }
 
       - name: Prepare Report Directory
-        working-directory: repo
+        working-directory: r
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -96,7 +110,7 @@ jobs:
 
       - name: Validate VBScript and HTA Sources
         id: scan
-        working-directory: repo
+        working-directory: r
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -562,7 +576,7 @@ jobs:
 
       - name: Publish Workflow Summary
         if: always()
-        working-directory: repo
+        working-directory: r
         shell: pwsh
         run: |
           $OutDir = $env:OUT_DIR
@@ -615,16 +629,16 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: vbscript-syntax-reports
-          path: repo/${{ env.OUT_DIR }}/**
+          path: r/${{ env.OUT_DIR }}/**
           if-no-files-found: warn
           retention-days: 30
 
       - name: Upload SARIF to GitHub Code Scanning
-        if: always() && hashFiles(format('repo/{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
+        if: always() && hashFiles(format('r/{0}/{1}', env.OUT_DIR, env.OUT_SARIF)) != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: repo/${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
-          checkout_path: repo
+          sarif_file: r/${{ env.OUT_DIR }}/${{ env.OUT_SARIF }}
+          checkout_path: r
           category: vbscript-hta/syntax
           wait-for-processing: true
 
