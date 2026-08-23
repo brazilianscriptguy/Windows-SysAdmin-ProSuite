@@ -51,6 +51,7 @@ jobs:
       OUT_RAW: vbscript-raw.log
       OUT_JSON: vbscript-results.json
 
+      # Validator revision: v4
       VALIDATION_MODE: ${{ inputs.mode || 'report-only' }}
 
       # Backward-compatible override from the previous workflow.
@@ -134,27 +135,28 @@ jobs:
               Findings              = 0
           }
 
-          @"
-          # VBScript and HTA Syntax Validation
-
-          - **Workflow:** `$env:GITHUB_WORKFLOW`
-          - **Event:** `$env:GITHUB_EVENT_NAME`
-          - **Ref:** `$env:GITHUB_REF`
-          - **Commit:** `$env:GITHUB_SHA`
-          - **Mode:** `$env:VALIDATION_MODE`
-
-          ## Validation Model
-
-          - Standalone `.vbs` files are compiled through the native Windows Script Host.
-          - `.hta` files are parsed as HTML Applications; only VBScript `<script>` blocks are extracted.
-          - A guard statement is prepended so valid scripts terminate before the production body executes; `//B` is intentionally not used so compiler diagnostics remain visible.
-          - HTA temporary-script line numbers are mapped back to the original HTA source lines.
-
-          ## Findings
-
-          | File | Type | Line | Message |
-          |------|------|-----:|---------|
-          "@ | Set-Content -LiteralPath $MdPath -Encoding UTF8
+          @(
+              '# VBScript and HTA Syntax Validation'
+              ''
+              "- **Workflow:** ``$($env:GITHUB_WORKFLOW)``"
+              "- **Event:** ``$($env:GITHUB_EVENT_NAME)``"
+              "- **Ref:** ``$($env:GITHUB_REF)``"
+              "- **Commit:** ``$($env:GITHUB_SHA)``"
+              "- **Mode:** ``$($env:VALIDATION_MODE)``"
+              ''
+              '## Validation Model'
+              ''
+              '- Standalone `.vbs` files are compiled through the native Windows Script Host.'
+              '- `.hta` files are parsed as HTML Applications; only VBScript `<script>` blocks are extracted.'
+              '- `Option Explicit` is preserved ahead of the non-execution guard when it is the first VBScript statement.'
+              '- A guard statement terminates valid scripts before the production body executes; `//B` is intentionally not used so compiler diagnostics remain visible.'
+              '- Temporary-script compiler lines are mapped back to the original `.vbs` or `.hta` source lines.'
+              ''
+              '## Findings'
+              ''
+              '| File | Type | Line | Message |'
+              '|------|------|-----:|---------|'
+          ) | Set-Content -LiteralPath $MdPath -Encoding UTF8
 
           '' | Set-Content -LiteralPath $RawPath -Encoding UTF8
 
@@ -264,13 +266,68 @@ jobs:
               ).Substring(0,16).ToLowerInvariant()
 
               $tempScript = Join-Path $TempDir "$token.vbs"
+              $mapPath    = Join-Path $TempDir "$token.map.json"
 
-              $source = Get-Content -LiteralPath $SourcePath -Raw
+              $sourceLines = @(Get-Content -LiteralPath $SourcePath)
 
-              @"
-          WScript.Quit 0
-          $source
-          "@ | Set-Content -LiteralPath $tempScript -Encoding Unicode
+              $tempLines = New-Object System.Collections.Generic.List[string]
+              $lineMap   = [ordered]@{}
+
+              $firstStatementIndex = -1
+              for ($i = 0; $i -lt $sourceLines.Count; $i++) {
+                  $trimmed = $sourceLines[$i].Trim()
+
+                  if (
+                      $trimmed.Length -eq 0 -or
+                      $trimmed.StartsWith("'") -or
+                      $trimmed -match '^(?i:Rem)(?:\s|$)'
+                  ) {
+                      continue
+                  }
+
+                  $firstStatementIndex = $i
+                  break
+              }
+
+              $hasOptionExplicit = (
+                  $firstStatementIndex -ge 0 -and
+                  $sourceLines[$firstStatementIndex].Trim() -match '^(?i:Option\s+Explicit)\s*$'
+              )
+
+              if ($hasOptionExplicit) {
+                  # Preserve everything through Option Explicit before inserting the guard.
+                  for ($i = 0; $i -le $firstStatementIndex; $i++) {
+                      $tempLines.Add($sourceLines[$i])
+                      $lineMap[[string]$tempLines.Count] = $i + 1
+                  }
+
+                  $tempLines.Add('WScript.Quit 0')
+                  $lineMap[[string]$tempLines.Count] = $firstStatementIndex + 1
+
+                  for ($i = $firstStatementIndex + 1; $i -lt $sourceLines.Count; $i++) {
+                      $tempLines.Add($sourceLines[$i])
+                      $lineMap[[string]$tempLines.Count] = $i + 1
+                  }
+              }
+              else {
+                  $tempLines.Add('WScript.Quit 0')
+                  $lineMap[[string]$tempLines.Count] = 1
+
+                  for ($i = 0; $i -lt $sourceLines.Count; $i++) {
+                      $tempLines.Add($sourceLines[$i])
+                      $lineMap[[string]$tempLines.Count] = $i + 1
+                  }
+              }
+
+              [IO.File]::WriteAllLines(
+                  $tempScript,
+                  $tempLines,
+                  [Text.Encoding]::Unicode
+              )
+
+              $lineMap |
+                  ConvertTo-Json -Depth 6 |
+                  Set-Content -LiteralPath $mapPath -Encoding UTF8
 
               $output = @(& cscript.exe //NoLogo $tempScript 2>&1)
               $exitCode = $LASTEXITCODE
@@ -279,6 +336,7 @@ jobs:
                   ('=' * 80)
                   "FILE: $RelativePath"
                   'TYPE: VBS'
+                  "OPTION_EXPLICIT_FIRST: $hasOptionExplicit"
                   "EXIT: $exitCode"
                   $output
                   ''
@@ -303,9 +361,12 @@ jobs:
 
                   $parsed = Parse-CscriptError -Output $output
 
-                  $sourceLine = $parsed.Line - 1
-                  if ($sourceLine -lt 1) {
-                      $sourceLine = 1
+                  $mapping = Get-Content -LiteralPath $mapPath -Raw |
+                      ConvertFrom-Json -AsHashtable
+
+                  $sourceLine = 1
+                  if ($mapping.ContainsKey([string]$parsed.Line)) {
+                      $sourceLine = [int]$mapping[[string]$parsed.Line]
                   }
 
                   Add-Finding `
@@ -359,8 +420,7 @@ jobs:
               )
               return bool(language or script_type)
 
-          output_lines = ["WScript.Quit 0"]
-          line_map = {"1": 1}
+          extracted = []
           block_count = 0
 
           for match in tag_re.finditer(text):
@@ -376,24 +436,79 @@ jobs:
               block_count += 1
 
               for offset, source_line_text in enumerate(body_lines):
-                  output_lines.append(source_line_text)
-                  line_map[str(len(output_lines))] = source_start + offset
+                  extracted.append((source_line_text, source_start + offset))
 
-              output_lines.append("")
-              line_map[str(len(output_lines))] = max(
+              # Preserve a block boundary without losing source association.
+              boundary_line = max(
                   source_start,
                   source_start + len(body_lines) - 1
               )
+              extracted.append(("", boundary_line))
 
           if block_count == 0:
               raise SystemExit(20)
+
+          def is_comment_or_blank(line: str) -> bool:
+              stripped = line.strip()
+              if not stripped:
+                  return True
+              if stripped.startswith("'"):
+                  return True
+              return bool(re.match(r"(?i)^Rem(?:\s|$)", stripped))
+
+          first_statement_index = None
+          for index, (line, _) in enumerate(extracted):
+              if not is_comment_or_blank(line):
+                  first_statement_index = index
+                  break
+
+          has_option_explicit = (
+              first_statement_index is not None
+              and re.match(
+                  r"(?i)^Option\s+Explicit\s*$",
+                  extracted[first_statement_index][0].strip(),
+              )
+              is not None
+          )
+
+          output_lines = []
+          line_map = {}
+
+          def append_source(line: str, source_line: int) -> None:
+              output_lines.append(line)
+              line_map[str(len(output_lines))] = source_line
+
+          if has_option_explicit:
+              # Keep leading comments/blanks and Option Explicit ahead of the guard.
+              for index in range(first_statement_index + 1):
+                  append_source(*extracted[index])
+
+              output_lines.append("WScript.Quit 0")
+              line_map[str(len(output_lines))] = extracted[first_statement_index][1]
+
+              for index in range(first_statement_index + 1, len(extracted)):
+                  append_source(*extracted[index])
+          else:
+              output_lines.append("WScript.Quit 0")
+              line_map[str(len(output_lines))] = extracted[0][1] if extracted else 1
+
+              for line, source_line in extracted:
+                  append_source(line, source_line)
 
           with open(temp_path, "w", encoding="utf-16", newline="\r\n") as handle:
               handle.write("\n".join(output_lines))
               handle.write("\n")
 
           with open(map_path, "w", encoding="utf-8") as handle:
-              json.dump(line_map, handle, indent=2)
+              json.dump(
+                  {
+                      "lineMap": line_map,
+                      "vbscriptBlocks": block_count,
+                      "optionExplicitPreserved": has_option_explicit,
+                  },
+                  handle,
+                  indent=2,
+              )
           '@
 
               $pythonScript = Join-Path $TempDir "$token.extract.py"
@@ -465,12 +580,13 @@ jobs:
 
                   $parsed = Parse-CscriptError -Output $output
 
-                  $lineMap = Get-Content -LiteralPath $mapPath -Raw |
+                  $mapData = Get-Content -LiteralPath $mapPath -Raw |
                       ConvertFrom-Json -AsHashtable
 
+                  $lineMap = $mapData['lineMap']
                   $sourceLine = 1
 
-                  if ($lineMap.ContainsKey([string]$parsed.Line)) {
+                  if ($lineMap -and $lineMap.ContainsKey([string]$parsed.Line)) {
                       $sourceLine = [int]$lineMap[[string]$parsed.Line]
                   }
 
@@ -532,18 +648,18 @@ jobs:
                   Add-Content -LiteralPath $MdPath -Encoding UTF8
           }
 
-          @"
-
-          ## Statistics
-
-          - **Files discovered:** `$($Counters.TotalFiles)`
-          - **Standalone VBS files:** `$($Counters.VbsFiles)`
-          - **HTA files:** `$($Counters.HtaFiles)`
-          - **Files syntax-validated:** `$($Counters.ValidatedFiles)`
-          - **HTA files skipped (no VBScript):** `$($Counters.SkippedFiles)`
-          - **Validator limitations:** `$($Counters.ValidatorLimitations)`
-          - **Syntax findings:** `$($Counters.Findings)`
-          "@ | Add-Content -LiteralPath $MdPath -Encoding UTF8
+          @(
+              ''
+              '## Statistics'
+              ''
+              "- **Files discovered:** ``$($Counters['TotalFiles'])``"
+              "- **Standalone VBS files:** ``$($Counters['VbsFiles'])``"
+              "- **HTA files:** ``$($Counters['HtaFiles'])``"
+              "- **Files syntax-validated:** ``$($Counters['ValidatedFiles'])``"
+              "- **HTA files skipped (no VBScript):** ``$($Counters['SkippedFiles'])``"
+              "- **Validator limitations:** ``$($Counters['ValidatorLimitations'])``"
+              "- **Syntax findings:** ``$($Counters['Findings'])``"
+          ) | Add-Content -LiteralPath $MdPath -Encoding UTF8
 
           $Findings |
               ConvertTo-Json -Depth 8 |
@@ -609,13 +725,13 @@ jobs:
 
           Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue
 
-          "total_files=$($Counters.TotalFiles)" >> $env:GITHUB_OUTPUT
-          "vbs_files=$($Counters.VbsFiles)" >> $env:GITHUB_OUTPUT
-          "hta_files=$($Counters.HtaFiles)" >> $env:GITHUB_OUTPUT
-          "validated_files=$($Counters.ValidatedFiles)" >> $env:GITHUB_OUTPUT
-          "skipped_files=$($Counters.SkippedFiles)" >> $env:GITHUB_OUTPUT
-          "validator_limitations=$($Counters.ValidatorLimitations)" >> $env:GITHUB_OUTPUT
-          "findings=$($Counters.Findings)" >> $env:GITHUB_OUTPUT
+          "total_files=$($Counters['TotalFiles'])" >> $env:GITHUB_OUTPUT
+          "vbs_files=$($Counters['VbsFiles'])" >> $env:GITHUB_OUTPUT
+          "hta_files=$($Counters['HtaFiles'])" >> $env:GITHUB_OUTPUT
+          "validated_files=$($Counters['ValidatedFiles'])" >> $env:GITHUB_OUTPUT
+          "skipped_files=$($Counters['SkippedFiles'])" >> $env:GITHUB_OUTPUT
+          "validator_limitations=$($Counters['ValidatorLimitations'])" >> $env:GITHUB_OUTPUT
+          "findings=$($Counters['Findings'])" >> $env:GITHUB_OUTPUT
 
       - name: Publish Workflow Summary
         if: always()
@@ -625,28 +741,28 @@ jobs:
           $OutDir = $env:OUT_DIR
           $MdPath = Join-Path $OutDir $env:OUT_MD
 
-          @"
-          ## VBScript and HTA Syntax Validation
-
-          - **Mode:** `$env:VALIDATION_MODE`
-          - **Workflow:** `$env:GITHUB_WORKFLOW`
-          - **Event:** `$env:GITHUB_EVENT_NAME`
-          - **Ref:** `$env:GITHUB_REF`
-          - **Commit:** `$env:GITHUB_SHA`
-
-          ### Statistics
-
-          - **Files discovered:** `${{ steps.scan.outputs.total_files || '0' }}`
-          - **Standalone VBS:** `${{ steps.scan.outputs.vbs_files || '0' }}`
-          - **HTA files:** `${{ steps.scan.outputs.hta_files || '0' }}`
-          - **Files validated:** `${{ steps.scan.outputs.validated_files || '0' }}`
-          - **HTA skipped (no VBScript):** `${{ steps.scan.outputs.skipped_files || '0' }}`
-          - **Validator limitations:** `${{ steps.scan.outputs.validator_limitations || '0' }}`
-          - **Syntax findings:** `${{ steps.scan.outputs.findings || '0' }}`
-
-          ### Detailed Report
-
-          "@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          @(
+              '## VBScript and HTA Syntax Validation'
+              ''
+              "- **Mode:** ``$($env:VALIDATION_MODE)``"
+              "- **Workflow:** ``$($env:GITHUB_WORKFLOW)``"
+              "- **Event:** ``$($env:GITHUB_EVENT_NAME)``"
+              "- **Ref:** ``$($env:GITHUB_REF)``"
+              "- **Commit:** ``$($env:GITHUB_SHA)``"
+              ''
+              '### Statistics'
+              ''
+              "- **Files discovered:** ``${{ steps.scan.outputs.total_files || '0' }}``"
+              "- **Standalone VBS:** ``${{ steps.scan.outputs.vbs_files || '0' }}``"
+              "- **HTA files:** ``${{ steps.scan.outputs.hta_files || '0' }}``"
+              "- **Files validated:** ``${{ steps.scan.outputs.validated_files || '0' }}``"
+              "- **HTA skipped (no VBScript):** ``${{ steps.scan.outputs.skipped_files || '0' }}``"
+              "- **Validator limitations:** ``${{ steps.scan.outputs.validator_limitations || '0' }}``"
+              "- **Syntax findings:** ``${{ steps.scan.outputs.findings || '0' }}``"
+              ''
+              '### Detailed Report'
+              ''
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
 
           if (Test-Path -LiteralPath $MdPath) {
               Get-Content -LiteralPath $MdPath |
@@ -657,15 +773,15 @@ jobs:
                   Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
           }
 
-          @"
-
-          ### Artifacts
-
-          - ``$OutDir/$($env:OUT_MD)``
-          - ``$OutDir/$($env:OUT_SARIF)``
-          - ``$OutDir/$($env:OUT_JSON)``
-          - ``$OutDir/$($env:OUT_RAW)``
-          "@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          @(
+              ''
+              '### Artifacts'
+              ''
+              "- ``$OutDir/$($env:OUT_MD)``"
+              "- ``$OutDir/$($env:OUT_SARIF)``"
+              "- ``$OutDir/$($env:OUT_JSON)``"
+              "- ``$OutDir/$($env:OUT_RAW)``"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
 
       - name: Upload Report Artifacts
         if: always()
