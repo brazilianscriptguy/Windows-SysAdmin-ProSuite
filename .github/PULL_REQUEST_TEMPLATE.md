@@ -1,42 +1,107 @@
-# 🚀 Pull Request
+# Pull Request
 
-## 📝 Description
-Provide a **summary of the changes** and the **rationale** (what problem this PR solves).
+## Summary
 
-## 🔗 Related Issue
-Link the issue this PR addresses (example: `Fixes #123`)
+Describe the change and the problem it solves.
 
-- Fixes #
+## Related Issue
 
-## 🛠️ Type of Change
-Select the type of change:
+Use an applicable closing keyword when appropriate:
 
-- [ ] 🐞 Bug fix (non-breaking change that fixes an issue)
-- [ ] ✨ New feature (non-breaking change that adds functionality)
-- [ ] 🔥 Breaking change (fix or feature that changes existing behavior)
-- [ ] 📚 Documentation update
+```text
+Fixes #123
+```
 
-## 🧪 How Has This Been Tested?
-Describe the tests you ran and how to reproduce them.
+## Affected Component
 
-**Tests executed:**
-- ✅ Test A:
-- ✅ Test B:
+- [ ] ADCS-Management-Tools
+- [ ] AD-SSO-Integrations
+- [ ] BlueTeam-Tools
+- [ ] Core-ScriptLibrary
+- [ ] GPO-Templates
+- [ ] ITSM-Templates-SVR
+- [ ] ITSM-Templates-WKS
+- [ ] ProSuite-Hub
+- [ ] SysAdmin-Tools
+- [ ] WSUS-Management-Tools
+- [ ] All-Repository-Files
+- [ ] READMEs-Files-Package
+- [ ] Repository governance / CI / metadata
+- [ ] Other
 
-**Test environment:**
-- OS:
-- PowerShell:
-- Other relevant details:
+## Type of Change
 
-## ☑️ Checklist
-- [ ] 🧼 Code follows the style guidelines of this project
-- [ ] 🔍 Self-reviewed my own code
-- [ ] 💬 Added comments in hard-to-understand areas (when needed)
-- [ ] 📄 Updated documentation (if applicable)
-- [ ] 🚫 No new warnings introduced
-- [ ] ✅ Added tests that prove the fix/feature works (if applicable)
-- [ ] 🧪 New and existing tests pass locally (if applicable)
-- [ ] 🔗 Any dependent changes have been merged/published (if applicable)
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Security hardening or vulnerability remediation
+- [ ] Refactor or reliability improvement
+- [ ] Documentation update
+- [ ] CI/CD or release-engineering change
+- [ ] Breaking change
 
-## 🗒️ Additional Notes
-Add any extra context for reviewers (screenshots, logs, follow-ups, etc.).
+## Technical and Operational Impact
+
+Describe:
+
+- Behavior before the change
+- Behavior after the change
+- Administrative privileges required
+- Infrastructure prerequisites
+- Compatibility impact
+- Migration or rollback considerations
+- Potential production impact
+
+## Testing
+
+**Environment:**
+
+- Operating system:
+- Windows/Server version:
+- PowerShell version:
+- Affected role/service:
+- Test environment type:
+
+**Validation performed:**
+
+- [ ] Script parsing/execution
+- [ ] Windows PowerShell 5.1 compatibility
+- [ ] Dry-run / WhatIf / confirmation path where applicable
+- [ ] State-changing execution where applicable
+- [ ] Repeated execution / idempotency
+- [ ] Error handling
+- [ ] Logging / report output
+- [ ] GUI behavior where applicable
+- [ ] PSScriptAnalyzer
+- [ ] Prettier / EditorConfig
+- [ ] Gitleaks / secret review
+- [ ] Other:
+
+## Security Review
+
+- [ ] No credentials, secrets, private keys, tokens, or sensitive production data are included.
+- [ ] Least-privilege requirements were reviewed.
+- [ ] High-impact operations include appropriate confirmation or safety controls.
+- [ ] Security-sensitive behavior is documented.
+- [ ] Any new external dependency or GitHub Action was reviewed.
+
+## Documentation and Release Governance
+
+- [ ] Relevant README documentation was updated.
+- [ ] `CHANGELOG.md` was updated when release-relevant.
+- [ ] Managed CHANGELOG sections retain `Added / Changed / Security`.
+- [ ] Canonical module names and repository paths remain aligned.
+- [ ] Release workflow changes were included if package/distribution behavior changed.
+- [ ] License and citation metadata remain accurate.
+
+## Final Checklist
+
+- [ ] The PR is focused and contains no unrelated changes.
+- [ ] Code follows repository engineering standards.
+- [ ] I reviewed my own changes.
+- [ ] New warnings or errors were not introduced without explanation.
+- [ ] Applicable local tests pass.
+- [ ] Applicable CI checks pass or remaining findings are explained below.
+
+## Additional Notes
+
+Add screenshots, sanitized logs, limitations, follow-up work, or reviewer guidance here.
