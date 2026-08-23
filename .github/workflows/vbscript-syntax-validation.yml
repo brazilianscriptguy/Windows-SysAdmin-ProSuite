@@ -191,8 +191,14 @@ jobs:
 
           function Parse-CscriptError {
               param(
-                  [Parameter(Mandatory)][string[]]$Output
+                  [AllowNull()]
+                  [AllowEmptyCollection()]
+                  [string[]]$Output
               )
+
+              if ($null -eq $Output) {
+                  $Output = @()
+              }
 
               $text = ($Output -join "`n")
 
@@ -236,7 +242,12 @@ jobs:
 
               return [pscustomobject]@{
                   Line    = 1
-                  Message = if ($first) { $first.Trim() } else { 'VBScript compilation failed.' }
+                  Message = if ($first) {
+                      $first.Trim()
+                  }
+                  else {
+                      'VBScript compilation failed with no diagnostic text returned by cscript.exe.'
+                  }
               }
           }
 
@@ -261,7 +272,7 @@ jobs:
           $source
           "@ | Set-Content -LiteralPath $tempScript -Encoding Unicode
 
-              $output = & cscript.exe //NoLogo //B $tempScript 2>&1
+              $output = @(& cscript.exe //NoLogo //B $tempScript 2>&1)
               $exitCode = $LASTEXITCODE
 
               @(
@@ -407,7 +418,7 @@ jobs:
                   return
               }
 
-              $output = & cscript.exe //NoLogo //B $tempScript 2>&1
+              $output = @(& cscript.exe //NoLogo //B $tempScript 2>&1)
               $exitCode = $LASTEXITCODE
 
               @(
