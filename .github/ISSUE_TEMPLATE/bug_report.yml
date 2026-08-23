@@ -1,125 +1,155 @@
-name: "🕾️ Bug Report"
-description: "Help us improve by reporting issues clearly and completely."
-title: "[Bug] "
+name: Bug Report
+description: Report a reproducible defect, regression, or unexpected behavior.
+title: '[Bug] '
 labels:
-  - "bug"
-  - "needs-investigation"
-
+- bug
+- triage
 body:
-  - type: markdown
-    attributes:
-      value: |
-        🛠️ **Help us improve** by reporting issues clearly and completely.
-        Please provide reproducible steps and include environment details.
+- type: markdown
+  attributes:
+    value: 'Use this form for reproducible defects or regressions.
 
-  - type: textarea
-    id: bug_description
-    attributes:
-      label: "🐛 Describe the bug"
-      description: "Clearly describe the problem, including observed behavior and impact."
-      placeholder: "What happened? What is the impact?"
-    validations:
+
+      Do **not** report security vulnerabilities publicly. Use the repository''s private Security Advisory channel instead.
+      Remove credentials, tokens, private keys, personal data, host secrets, and other sensitive information from logs and
+      screenshots.'
+- type: dropdown
+  id: component
+  attributes:
+    label: Affected component
+    description: Select the primary module or distribution affected by the issue.
+    options:
+    - ADCS-Management-Tools
+    - AD-SSO-Integrations
+    - BlueTeam-Tools
+    - Core-ScriptLibrary
+    - GPO-Templates
+    - ITSM-Templates-SVR
+    - ITSM-Templates-WKS
+    - ProSuite-Hub
+    - SysAdmin-Tools
+    - WSUS-Management-Tools
+    - All-Repository-Files
+    - READMEs-Files-Package
+    - Repository governance / CI / metadata
+    - Not sure / Other
+  validations:
+    required: true
+- type: input
+  id: affected_path
+  attributes:
+    label: Affected script, workflow, or repository path
+    description: Provide the repository-relative path when known.
+    placeholder: SysAdmin-Tools/WSUS-Management-Tools/Example.ps1
+  validations:
+    required: false
+- type: textarea
+  id: description
+  attributes:
+    label: Problem description
+    description: Describe the defect, its impact, and when it occurs.
+    placeholder: Describe the observed behavior and operational impact.
+  validations:
+    required: true
+- type: textarea
+  id: reproduction
+  attributes:
+    label: Steps to reproduce
+    description: Provide the smallest reliable sequence that reproduces the issue.
+    placeholder: '1. Run ...
+
+      2. Select ...
+
+      3. Observe ...'
+  validations:
+    required: true
+- type: textarea
+  id: expected
+  attributes:
+    label: Expected behavior
+    description: Describe the expected result.
+    placeholder: The operation should ...
+  validations:
+    required: true
+- type: textarea
+  id: actual
+  attributes:
+    label: Actual behavior and error output
+    description: Provide sanitized error output, event IDs, exit codes, or logs.
+    placeholder: 'Error / event / output (sanitized):
+
+      ...'
+  validations:
+    required: false
+- type: input
+  id: os
+  attributes:
+    label: Operating system
+    placeholder: Windows 11 24H2 / Windows Server 2019 / GitHub-hosted Ubuntu runner
+  validations:
+    required: true
+- type: input
+  id: powershell
+  attributes:
+    label: PowerShell version
+    description: Windows PowerShell 5.1 is the repository's primary compatibility baseline.
+    placeholder: 5.1.17763.x / 7.x / Not applicable
+  validations:
+    required: true
+- type: input
+  id: release
+  attributes:
+    label: Release, tag, or commit
+    description: Identify the tested release artifact, tag, or commit SHA when possible.
+    placeholder: WSUS-Management-Tools-YYYYMMDD-abcdef0 / commit SHA
+  validations:
+    required: false
+- type: textarea
+  id: environment
+  attributes:
+    label: Environment and prerequisites
+    description: Include relevant roles, modules, domain/forest context, WSUS/PKI/database topology, execution method, privileges,
+      or dependencies.
+    placeholder: '- Server/client role:
+
+      - Required modules:
+
+      - Domain/forest:
+
+      - Execution method:
+
+      - Privilege context:
+
+      - Other prerequisites:'
+  validations:
+    required: false
+- type: dropdown
+  id: regression
+  attributes:
+    label: Regression status
+    description: Did this work in an earlier repository version?
+    options:
+    - Unknown
+    - No - new issue
+    - Yes - regression
+  validations:
+    required: true
+- type: textarea
+  id: additional
+  attributes:
+    label: Additional context
+    description: Add sanitized screenshots, logs, related issues, or diagnostic context.
+    placeholder: Additional context...
+  validations:
+    required: false
+- type: checkboxes
+  id: confirmations
+  attributes:
+    label: Submission checks
+    options:
+    - label: I removed or redacted credentials, tokens, private keys, personal data, and other sensitive information.
       required: true
-
-  - type: textarea
-    id: steps_to_reproduce
-    attributes:
-      label: "🚪 Steps to reproduce"
-      description: "Provide clear steps so we can reproduce the issue."
-      placeholder: |
-        1) Go to '...'
-        2) Click on '...'
-        3) Scroll down to '...'
-        4) See the error
-    validations:
+    - label: I confirmed this is not a security vulnerability requiring private disclosure.
       required: true
-
-  - type: textarea
-    id: expected_behavior
-    attributes:
-      label: "📊 Expected behavior"
-      description: "What did you expect to happen instead?"
-      placeholder: "Describe the expected behavior."
-    validations:
+    - label: I searched existing issues for the same problem.
       required: true
-
-  - type: textarea
-    id: actual_behavior
-    attributes:
-      label: "📉 Actual behavior / error output"
-      description: "Paste the exact error message/output. Attach logs/screenshots if needed."
-      placeholder: |
-        Error output:
-        - ...
-
-        Logs (redacted):
-        - ...
-    validations:
-      required: false
-
-  - type: input
-    id: operating_system
-    attributes:
-      label: "🌐 Operating System"
-      placeholder: "Windows 11 / Windows Server 2022 / Ubuntu runner / etc."
-    validations:
-      required: true
-
-  - type: input
-    id: powershell_version
-    attributes:
-      label: "🧾 PowerShell Version"
-      placeholder: "5.1.x / 7.3.x / 7.4.x"
-    validations:
-      required: false
-
-  - type: input
-    id: affected_tool
-    attributes:
-      label: "🧰 Affected script or tool path"
-      description: "Provide the repository-relative path to the script/tool."
-      placeholder: "SysAdmin-Tools/.../ToolName.ps1"
-    validations:
-      required: false
-
-  - type: textarea
-    id: environment_details
-    attributes:
-      label: "🔧 Environment details (optional)"
-      description: "Module versions, domain context, network setup, dependencies, runner/host info."
-      placeholder: |
-        - Module versions:
-        - Domain/forest context:
-        - Network/VPN:
-        - Execution method (GUI/GPO/manual):
-        - Anything else relevant:
-    validations:
-      required: false
-
-  - type: textarea
-    id: additional_context
-    attributes:
-      label: "📃 Additional context"
-      description: "Anything else that helps reproduce or understand the issue."
-      placeholder: "Add any relevant context here."
-    validations:
-      required: false
-
-  - type: textarea
-    id: possible_fix
-    attributes:
-      label: "💡 Possible fix (optional)"
-      description: "If you already know what might fix it, describe it."
-      placeholder: "Suggested fix or approach..."
-    validations:
-      required: false
-
-  - type: checkboxes
-    id: confirmations
-    attributes:
-      label: "✅ Confirmations"
-      options:
-        - label: "I confirm I removed or redacted secrets (passwords, tokens, private keys) from logs/screenshots."
-          required: true
-        - label: "I confirm this is not a security vulnerability (use the Security Advisory link for private reports)."
-          required: true

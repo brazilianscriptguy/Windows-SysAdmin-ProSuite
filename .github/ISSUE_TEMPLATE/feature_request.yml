@@ -1,70 +1,113 @@
-name: ✨ Feature Request
-description: Suggest an idea for this project.
-title: "[Feature]: "
+name: Feature Request
+description: Propose a new capability or an improvement to an existing component.
+title: '[Feature] '
 labels:
-  - enhancement
-  - feature
-  - triage
-
+- enhancement
+- triage
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to suggest an improvement.
-        Please be specific and include context (why, where, who benefits).
-
-  - type: textarea
-    id: problem
-    attributes:
-      label: 🧩 Is your request related to a problem?
-      description: Describe the problem you want to solve.
-      placeholder: "Example: I'm frustrated when the script doesn't handle large user bases efficiently."
-    validations:
+- type: markdown
+  attributes:
+    value: Describe the operational problem first, then the proposed implementation. Requests should align with the repository's
+      existing architecture, PowerShell 5.1-first baseline, security model, and canonical module boundaries.
+- type: dropdown
+  id: component
+  attributes:
+    label: Target component
+    description: Select the module or repository area that should own the capability.
+    options:
+    - ADCS-Management-Tools
+    - AD-SSO-Integrations
+    - BlueTeam-Tools
+    - Core-ScriptLibrary
+    - GPO-Templates
+    - ITSM-Templates-SVR
+    - ITSM-Templates-WKS
+    - ProSuite-Hub
+    - SysAdmin-Tools
+    - WSUS-Management-Tools
+    - All-Repository-Files
+    - READMEs-Files-Package
+    - Repository governance / CI / metadata
+    - Not sure / Other
+  validations:
+    required: true
+- type: textarea
+  id: problem
+  attributes:
+    label: Problem or operational gap
+    description: Describe the problem, limitation, or administrative burden.
+    placeholder: The current workflow cannot ...
+  validations:
+    required: true
+- type: textarea
+  id: solution
+  attributes:
+    label: Proposed solution
+    description: Describe the desired behavior, interface, or automation.
+    placeholder: Add support for ...
+  validations:
+    required: true
+- type: textarea
+  id: use_case
+  attributes:
+    label: Enterprise use case
+    description: Explain who benefits, the expected scale, and operational context.
+    placeholder: Environment, scale, operator workflow, expected outcome...
+  validations:
+    required: true
+- type: textarea
+  id: alternatives
+  attributes:
+    label: Alternatives considered
+    description: Describe workarounds or alternatives and why they are insufficient.
+    placeholder: Alternative approaches...
+  validations:
+    required: false
+- type: dropdown
+  id: impact
+  attributes:
+    label: Expected impact
+    options:
+    - Low
+    - Medium
+    - High
+    - Critical
+  validations:
+    required: true
+- type: dropdown
+  id: change_type
+  attributes:
+    label: Compatibility expectation
+    options:
+    - Backward compatible
+    - Potentially behavior-changing
+    - Potentially breaking
+    - Unknown
+  validations:
+    required: true
+- type: textarea
+  id: security
+  attributes:
+    label: Security and privilege considerations
+    description: Describe required privileges, credential handling, destructive operations, remote execution, PKI/AD/WSUS
+      implications, or other security considerations.
+    placeholder: Security / privilege considerations...
+  validations:
+    required: false
+- type: textarea
+  id: context
+  attributes:
+    label: Additional context
+    description: Add references, mockups, sanitized logs, examples, or related issues.
+    placeholder: Additional context...
+  validations:
+    required: false
+- type: checkboxes
+  id: confirmation
+  attributes:
+    label: Submission checks
+    options:
+    - label: I searched existing issues and feature requests for a duplicate.
       required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: 💡 Describe the solution you'd like
-      description: What should be built/changed?
-      placeholder: "Example: Implement pagination in the user management module..."
-    validations:
+    - label: This request does not disclose a security vulnerability or sensitive production information.
       required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: 🔄 Alternatives you've considered
-      description: Other approaches you considered and why they are less ideal.
-      placeholder: "Example: Optimize existing script, but pagination is more scalable..."
-    validations:
-      required: false
-
-  - type: dropdown
-    id: impact
-    attributes:
-      label: 📈 Impact / Priority
-      options:
-        - Low
-        - Medium
-        - High
-        - Critical
-    validations:
-      required: true
-
-  - type: textarea
-    id: context
-    attributes:
-      label: 📚 Additional context
-      description: Add screenshots, logs, links to code paths, or references.
-      placeholder: "Any extra details that help implement the feature."
-    validations:
-      required: false
-
-  - type: checkboxes
-    id: confirmation
-    attributes:
-      label: ✅ Confirmation
-      options:
-        - label: I confirm this is not a security vulnerability (those must be reported via Security Advisories).
-          required: true

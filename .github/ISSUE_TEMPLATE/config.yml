@@ -1,9 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discussions (Q&A / Usage Help)
-    url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/discussions
-    about: Ask questions, get help using scripts, and discuss best practices.
-
-  - name: 🔐 Report a Security Vulnerability (Private)
-    url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/advisories/new
-    about: Report security issues privately and responsibly.
+- name: GitHub Discussions - Usage Help and Q&A
+  url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/discussions
+  about: Ask usage questions, discuss implementation approaches, and request operational guidance.
+- name: Report a Security Vulnerability - Private
+  url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/security/advisories/new
+  about: Privately report suspected vulnerabilities or security-sensitive findings.
+- name: Security Policy
+  url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/SECURITY.md
+  about: Review supported scope, disclosure expectations, and security reporting guidance.
+- name: Contribution Guidelines
+  url: https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite/blob/main/.github/CONTRIBUTING.md
+  about: Review engineering, testing, documentation, licensing, and pull request requirements.

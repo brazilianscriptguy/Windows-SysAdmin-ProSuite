@@ -1,115 +1,70 @@
-name: "📝 Custom Issue"
-description: "Create a custom issue for anything not covered by other templates."
-title: "[Custom] "
+name: General Issue
+description: Submit a repository question or issue that does not fit the dedicated forms.
+title: '[General] '
 labels:
-  - "triage"
-  - "needs-info"
-
+- triage
+- needs-info
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Use this form for anything that doesn't fit a dedicated template.
-        Provide details and attach logs/screenshots when possible.
-
-  - type: textarea
-    id: description
-    attributes:
-      label: "🐛 Describe your issue"
-      description: "Clear and concise description of the issue or request."
-      placeholder: "Describe what’s happening (or what you want to propose)."
-    validations:
+- type: markdown
+  attributes:
+    value: Use this form only when Bug Report or Feature Request does not apply. Usage questions are usually better suited
+      to GitHub Discussions. Security vulnerabilities must be reported privately.
+- type: dropdown
+  id: category
+  attributes:
+    label: Category
+    options:
+    - Documentation
+    - Repository governance / CI / metadata
+    - Packaging or release
+    - Usage / configuration
+    - Question
+    - Other
+  validations:
+    required: true
+- type: dropdown
+  id: component
+  attributes:
+    label: Related component
+    options:
+    - ADCS-Management-Tools
+    - AD-SSO-Integrations
+    - BlueTeam-Tools
+    - Core-ScriptLibrary
+    - GPO-Templates
+    - ITSM-Templates-SVR
+    - ITSM-Templates-WKS
+    - ProSuite-Hub
+    - SysAdmin-Tools
+    - WSUS-Management-Tools
+    - All-Repository-Files
+    - READMEs-Files-Package
+    - Repository governance / CI / metadata
+    - Not sure / Other
+  validations:
+    required: true
+- type: textarea
+  id: description
+  attributes:
+    label: Description
+    description: Describe the issue, question, or requested clarification.
+    placeholder: Provide concise technical context...
+  validations:
+    required: true
+- type: textarea
+  id: evidence
+  attributes:
+    label: Supporting information
+    description: Provide sanitized logs, screenshots, paths, links, or examples if useful.
+    placeholder: Supporting information...
+  validations:
+    required: false
+- type: checkboxes
+  id: confirmation
+  attributes:
+    label: Submission checks
+    options:
+    - label: I removed or redacted secrets, credentials, private keys, personal data, and other sensitive information.
       required: true
-
-  - type: textarea
-    id: steps
-    attributes:
-      label: "🔄 Steps to reproduce or proposal"
-      description: |
-        If it's a bug: steps to reproduce.
-        If it's an idea: the proposed steps/changes.
-      placeholder: |
-        Bug reproduction steps:
-        1) Go to ...
-        2) Click ...
-        3) Observe the error
-
-        Proposal steps:
-        1) Step 1
-        2) Step 2
-        3) Step 3
-    validations:
-      required: false
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: "🎯 Expected outcome"
-      description: "What did you expect to happen? What is the ideal outcome?"
-      placeholder: "Explain the expected behavior/result."
-    validations:
-      required: false
-
-  - type: dropdown
-    id: category
-    attributes:
-      label: "🧩 Category"
-      description: "Helps with triage routing."
-      options:
-        - "Bug / Defect"
-        - "Documentation"
-        - "Enhancement"
-        - "Question"
-        - "Other"
-    validations:
+    - label: I confirmed this is not a security vulnerability requiring private disclosure.
       required: true
-
-  - type: input
-    id: tool
-    attributes:
-      label: "🧰 Script/Tool path (optional)"
-      description: "Example: SysAdmin-Tools/WSUS-Management-Tools/WSUS-Maintenance-Tool.ps1"
-      placeholder: "path/to/tool.ps1"
-    validations:
-      required: false
-
-  - type: input
-    id: os
-    attributes:
-      label: "🖥️ OS (optional)"
-      placeholder: "Windows 10 / Windows 11 / Windows Server 2019 / 2022 / 2025"
-    validations:
-      required: false
-
-  - type: input
-    id: psver
-    attributes:
-      label: "🧾 PowerShell version (optional)"
-      placeholder: "5.1.x or 7.x"
-    validations:
-      required: false
-
-  - type: textarea
-    id: evidence
-    attributes:
-      label: "🖼️ Additional info (logs / screenshots / files)"
-      description: "Paste logs (redact secrets) or attach files/screenshots."
-      placeholder: |
-        Logs (redacted):
-        - ...
-
-        Screenshots:
-        - ...
-
-        Additional context:
-        - ...
-    validations:
-      required: false
-
-  - type: checkboxes
-    id: confirmation
-    attributes:
-      label: "✅ Confirmation"
-      options:
-        - label: "I confirm I removed or redacted secrets (passwords, tokens, private keys)."
-          required: true
