@@ -9,6 +9,7 @@ on:
       - "**/*.vbs"
       - "**/*.hta"
       - ".github/workflows/vbscript-syntax-validation.yml"
+
   pull_request:
     branches:
       - main
@@ -17,6 +18,7 @@ on:
       - "**/*.vbs"
       - "**/*.hta"
       - ".github/workflows/vbscript-syntax-validation.yml"
+
   workflow_dispatch:
     inputs:
       mode:
@@ -39,8 +41,8 @@ permissions:
 jobs:
   vbscript-syntax-check:
     name: VBScript and HTA Syntax Validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: windows-latest
+    timeout-minutes: 20
 
     env:
       OUT_DIR: vbscript-reports
@@ -49,15 +51,11 @@ jobs:
       OUT_RAW: vbscript-raw.log
       OUT_JSON: vbscript-results.json
 
-      # workflow_dispatch can explicitly enforce findings.
-      # push/pull_request remain report-only unless this default is changed.
       VALIDATION_MODE: ${{ inputs.mode || 'report-only' }}
 
-      # Backward-compatible policy flag from the previous workflow.
-      # false forces enforcement even when VALIDATION_MODE is report-only.
+      # Backward-compatible override from the previous workflow.
+      # Set to "false" to force enforcement for non-manual triggers.
       ALLOW_WARNINGS: "true"
-
-      WINEDEBUG: "-all"
 
     steps:
       - name: Checkout Repository
@@ -66,226 +64,233 @@ jobs:
           path: repo
           fetch-depth: 0
 
-      - name: Install Validation Runtime
-        shell: bash
+      - name: Validate Native Runtime
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          sudo dpkg --add-architecture i386 || true
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends wine64 python3
+          $cscript = Get-Command cscript.exe -ErrorAction Stop
+          $python  = Get-Command python.exe -ErrorAction Stop
 
-          WINEDEBUG="${WINEDEBUG}" wineboot --init >/dev/null 2>&1 || true
+          Write-Host "cscript.exe: $($cscript.Source)"
+          Write-Host "python.exe : $($python.Source)"
 
-          WINEDEBUG="${WINEDEBUG}" wine cscript.exe //? >/dev/null 2>&1 || {
-            echo "::error::Windows Script Host cscript.exe is unavailable under Wine."
-            exit 1
+          & cscript.exe //NoLogo //? *> $null
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Windows Script Host cscript.exe is unavailable or returned exit code $LASTEXITCODE."
           }
 
       - name: Prepare Report Directory
         working-directory: repo
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          rm -rf "${OUT_DIR}"
-          mkdir -p "${OUT_DIR}/temp"
+          $ErrorActionPreference = 'Stop'
 
-      - name: Initialize Baseline Reports
-        working-directory: repo
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          out="${OUT_DIR}"
-
-          cat > "${out}/${OUT_SARIF}" <<'SARIF'
-          {
-            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-            "version": "2.1.0",
-            "runs": [
-              {
-                "tool": {
-                  "driver": {
-                    "name": "Windows-SysAdmin-ProSuite VBScript/HTA Syntax Validator",
-                    "informationUri": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite",
-                    "rules": []
-                  }
-                },
-                "results": []
-              }
-            ]
+          if (Test-Path -LiteralPath $env:OUT_DIR) {
+              Remove-Item -LiteralPath $env:OUT_DIR -Recurse -Force
           }
-          SARIF
 
-          : > "${out}/${OUT_MD}"
-          : > "${out}/${OUT_RAW}"
-          echo "[]" > "${out}/${OUT_JSON}"
+          New-Item -ItemType Directory -Path $env:OUT_DIR -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $env:OUT_DIR 'temp') -Force | Out-Null
 
       - name: Validate VBScript and HTA Sources
         id: scan
         working-directory: repo
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
 
-          outdir="${OUT_DIR}"
-          raw="${outdir}/${OUT_RAW}"
-          md="${outdir}/${OUT_MD}"
-          findings_tsv="${outdir}/findings.tsv"
-          map_dir="${outdir}/temp/maps"
-          temp_dir="${outdir}/temp/scripts"
+          $OutDir     = $env:OUT_DIR
+          $SarifPath  = Join-Path $OutDir $env:OUT_SARIF
+          $MdPath     = Join-Path $OutDir $env:OUT_MD
+          $RawPath    = Join-Path $OutDir $env:OUT_RAW
+          $JsonPath   = Join-Path $OutDir $env:OUT_JSON
+          $TempDir    = Join-Path $OutDir 'temp'
+          $Findings   = New-Object System.Collections.Generic.List[object]
 
-          mkdir -p "${map_dir}" "${temp_dir}"
-          : > "${findings_tsv}"
-
-          {
-            echo "# VBScript and HTA Syntax Validation"
-            echo
-            echo "- **Workflow:** \`${GITHUB_WORKFLOW}\`"
-            echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
-            echo "- **Ref:** \`${GITHUB_REF}\`"
-            echo "- **Commit:** \`${GITHUB_SHA}\`"
-            echo "- **Mode:** \`${VALIDATION_MODE}\`"
-            echo
-            echo "## Validation Model"
-            echo
-            echo "- Standalone \`.vbs\` files are compiled through Windows Script Host under Wine."
-            echo "- \`.hta\` files are parsed as HTML Applications; only VBScript \`<script>\` blocks are extracted."
-            echo "- A guard statement is prepended so compilation completes without executing the production script body."
-            echo "- HTA temporary-script line numbers are mapped back to the original HTA source lines."
-            echo
-            echo "## Findings"
-            echo
-            echo "| File | Type | Line | Message |"
-            echo "|------|------|-----:|---------|"
-          } > "${md}"
-
-          total_files=0
-          vbs_files=0
-          hta_files=0
-          validated_files=0
-          skipped_files=0
-          validator_limitations=0
-          findings=0
-
-          record_finding() {
-            local rel="$1"
-            local kind="$2"
-            local line_number="$3"
-            local message="$4"
-
-            local annotation_message
-            local markdown_message
-
-            annotation_message="$(printf '%s' "${message}" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            markdown_message="$(printf '%s' "${message}" | tr '\r\n' '  ' | sed 's/|/\\|/g')"
-
-            echo "::error file=${rel},line=${line_number}::${annotation_message}"
-            echo "| \`${rel}\` | ${kind} | ${line_number} | ${markdown_message} |" >> "${md}"
-            printf '%s\t%s\t%s\t%s\n' "${rel}" "${kind}" "${line_number}" "${message}" >> "${findings_tsv}"
-
-            findings=$((findings + 1))
+          $Counters = [ordered]@{
+              TotalFiles            = 0
+              VbsFiles              = 0
+              HtaFiles              = 0
+              ValidatedFiles        = 0
+              SkippedFiles          = 0
+              ValidatorLimitations  = 0
+              Findings              = 0
           }
 
-          extract_error() {
-            local output_file="$1"
+          @"
+          # VBScript and HTA Syntax Validation
 
-            python3 - "${output_file}" <<'PY'
-          import re
-          import sys
+          - **Workflow:** `$env:GITHUB_WORKFLOW`
+          - **Event:** `$env:GITHUB_EVENT_NAME`
+          - **Ref:** `$env:GITHUB_REF`
+          - **Commit:** `$env:GITHUB_SHA`
+          - **Mode:** `$env:VALIDATION_MODE`
 
-          path = sys.argv[1]
-          raw = open(path, "r", encoding="utf-8", errors="replace").read().replace("\r", "")
+          ## Validation Model
 
-          patterns = [
-              r"\((\d+),\s*(\d+)\)\s*(?:Microsoft\s+VBScript\s+)?(?:compilation|runtime)?\s*error[^:]*:\s*(.+)",
-              r"line\s+(\d+)[,:]?\s*(?:char(?:acter)?\s+\d+[,:]?\s*)?(.+)",
-          ]
+          - Standalone `.vbs` files are compiled through the native Windows Script Host.
+          - `.hta` files are parsed as HTML Applications; only VBScript `<script>` blocks are extracted.
+          - A guard statement is prepended so compilation completes without executing the production script body.
+          - HTA temporary-script line numbers are mapped back to the original HTA source lines.
 
-          for pattern in patterns:
-              match = re.search(pattern, raw, flags=re.IGNORECASE)
-              if match:
-                  groups = match.groups()
-                  if len(groups) == 3:
-                      print(groups[0])
-                      print(groups[2].strip())
-                  else:
-                      print(groups[0])
-                      print(groups[1].strip())
-                  raise SystemExit(0)
+          ## Findings
 
-          for line in raw.splitlines():
-              stripped = line.strip()
-              if stripped and re.search(r"syntax|expected|invalid|unterminated|compilation\s+error", stripped, re.I):
-                  print("1")
-                  print(stripped)
-                  raise SystemExit(0)
+          | File | Type | Line | Message |
+          |------|------|-----:|---------|
+          "@ | Set-Content -LiteralPath $MdPath -Encoding UTF8
 
-          first = next((line.strip() for line in raw.splitlines() if line.strip()), "")
-          print("1")
-          print(first or "VBScript compilation failed")
-          PY
+          '' | Set-Content -LiteralPath $RawPath -Encoding UTF8
+
+          function Add-Finding {
+              param(
+                  [Parameter(Mandatory)][string]$File,
+                  [Parameter(Mandatory)][string]$Type,
+                  [Parameter(Mandatory)][int]$Line,
+                  [Parameter(Mandatory)][string]$Message
+              )
+
+              if ($Line -lt 1) {
+                  $Line = 1
+              }
+
+              $safeAnnotation = $Message.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              $safeMarkdown   = $Message.Replace('|','\|').Replace("`r",' ').Replace("`n",' ')
+
+              Write-Output "::error file=$File,line=$Line::$safeAnnotation"
+
+              "| ``$File`` | $Type | $Line | $safeMarkdown |" |
+                  Add-Content -LiteralPath $MdPath -Encoding UTF8
+
+              $Findings.Add([pscustomobject]@{
+                  file     = $File
+                  type     = $Type
+                  line     = $Line
+                  message  = $Message
+                  severity = 'error'
+              })
+
+              $Counters.Findings++
           }
 
-          compile_vbs() {
-            local source_file="$1"
-            local rel="$2"
+          function Parse-CscriptError {
+              param(
+                  [Parameter(Mandatory)][string[]]$Output
+              )
 
-            local token
-            token="$(printf '%s' "${rel}" | sha256sum | cut -c1-16)"
+              $text = ($Output -join "`n")
 
-            local temp_script="${temp_dir}/${token}.vbs"
-            local output_file="${temp_dir}/${token}.out"
+              $patterns = @(
+                  '\((\d+),\s*(\d+)\)\s*(?:Microsoft\s+VBScript\s+)?(?:compilation|runtime)?\s*error[^:]*:\s*(.+)',
+                  'line\s+(\d+)[,:]?\s*(?:char(?:acter)?\s+\d+[,:]?\s*)?(.+)'
+              )
 
-            {
-              printf 'WScript.Quit 0\n'
-              cat "${source_file}"
-            } > "${temp_script}"
+              foreach ($pattern in $patterns) {
+                  $m = [regex]::Match(
+                      $text,
+                      $pattern,
+                      [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+                  )
 
-            local win_script
-            win_script="$(winepath -w "${PWD}/${temp_script}")"
+                  if ($m.Success) {
+                      if ($m.Groups.Count -ge 4) {
+                          return [pscustomobject]@{
+                              Line    = [int]$m.Groups[1].Value
+                              Message = $m.Groups[3].Value.Trim()
+                          }
+                      }
 
-            set +e
-            WINEDEBUG="${WINEDEBUG}" wine cscript.exe //nologo //B "${win_script}" > "${output_file}" 2>&1
-            local ec="$?"
-            set -e
+                      return [pscustomobject]@{
+                          Line    = [int]$m.Groups[1].Value
+                          Message = $m.Groups[2].Value.Trim()
+                      }
+                  }
+              }
 
-            {
-              echo "================================================================================"
-              echo "FILE: ${rel}"
-              echo "TYPE: VBS"
-              echo "EXIT: ${ec}"
-              cat "${output_file}" || true
-              echo
-            } >> "${raw}"
+              foreach ($line in $Output) {
+                  if ($line -match '(?i)syntax|expected|invalid|unterminated|compilation error') {
+                      return [pscustomobject]@{
+                          Line    = 1
+                          Message = $line.Trim()
+                      }
+                  }
+              }
 
-            if [[ "${ec}" -ne 0 ]]; then
-              mapfile -t parsed < <(extract_error "${output_file}")
-              local temp_line="${parsed[0]:-1}"
-              local message="${parsed[1]:-VBScript compilation failed (cscript exit ${ec})}"
+              $first = $Output | Where-Object { $_ -and $_.Trim() } | Select-Object -First 1
 
-              local source_line=$((temp_line - 1))
-              if [[ "${source_line}" -lt 1 ]]; then
-                source_line=1
-              fi
-
-              record_finding "${rel}" "VBS" "${source_line}" "${message}"
-            fi
+              return [pscustomobject]@{
+                  Line    = 1
+                  Message = if ($first) { $first.Trim() } else { 'VBScript compilation failed.' }
+              }
           }
 
-          compile_hta() {
-            local source_file="$1"
-            local rel="$2"
+          function Invoke-VbsCompilation {
+              param(
+                  [Parameter(Mandatory)][string]$SourcePath,
+                  [Parameter(Mandatory)][string]$RelativePath
+              )
 
-            local token
-            token="$(printf '%s' "${rel}" | sha256sum | cut -c1-16)"
+              $token = [Convert]::ToHexString(
+                  [Security.Cryptography.SHA256]::HashData(
+                      [Text.Encoding]::UTF8.GetBytes($RelativePath)
+                  )
+              ).Substring(0,16).ToLowerInvariant()
 
-            local temp_script="${temp_dir}/${token}.vbs"
-            local map_file="${map_dir}/${token}.json"
-            local output_file="${temp_dir}/${token}.out"
+              $tempScript = Join-Path $TempDir "$token.vbs"
 
-            set +e
-            python3 - "${source_file}" "${temp_script}" "${map_file}" <<'PY'
+              $source = Get-Content -LiteralPath $SourcePath -Raw
+
+              @"
+          WScript.Quit 0
+          $source
+          "@ | Set-Content -LiteralPath $tempScript -Encoding Unicode
+
+              $output = & cscript.exe //NoLogo //B $tempScript 2>&1
+              $exitCode = $LASTEXITCODE
+
+              @(
+                  ('=' * 80)
+                  "FILE: $RelativePath"
+                  'TYPE: VBS'
+                  "EXIT: $exitCode"
+                  $output
+                  ''
+              ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
+
+              if ($exitCode -ne 0) {
+                  $parsed = Parse-CscriptError -Output $output
+
+                  $sourceLine = $parsed.Line - 1
+                  if ($sourceLine -lt 1) {
+                      $sourceLine = 1
+                  }
+
+                  Add-Finding `
+                      -File $RelativePath `
+                      -Type 'VBS' `
+                      -Line $sourceLine `
+                      -Message $parsed.Message
+              }
+          }
+
+          function Invoke-HtaCompilation {
+              param(
+                  [Parameter(Mandatory)][string]$SourcePath,
+                  [Parameter(Mandatory)][string]$RelativePath
+              )
+
+              $token = [Convert]::ToHexString(
+                  [Security.Cryptography.SHA256]::HashData(
+                      [Text.Encoding]::UTF8.GetBytes($RelativePath)
+                  )
+              ).Substring(0,16).ToLowerInvariant()
+
+              $tempScript = Join-Path $TempDir "$token.vbs"
+              $mapPath    = Join-Path $TempDir "$token.map.json"
+
+              $pythonCode = @'
           import json
           import re
           import sys
@@ -319,6 +324,7 @@ jobs:
 
           for match in tag_re.finditer(text):
               attrs = match.group("attrs") or ""
+
               if not is_vbscript(attrs):
                   continue
 
@@ -333,289 +339,276 @@ jobs:
                   line_map[str(len(output_lines))] = source_start + offset
 
               output_lines.append("")
-              line_map[str(len(output_lines))] = max(source_start, source_start + len(body_lines) - 1)
+              line_map[str(len(output_lines))] = max(
+                  source_start,
+                  source_start + len(body_lines) - 1
+              )
 
           if block_count == 0:
               raise SystemExit(20)
 
-          with open(temp_path, "w", encoding="utf-8-sig", newline="\r\n") as handle:
+          with open(temp_path, "w", encoding="utf-16", newline="\r\n") as handle:
               handle.write("\n".join(output_lines))
               handle.write("\n")
 
           with open(map_path, "w", encoding="utf-8") as handle:
               json.dump(line_map, handle, indent=2)
-          PY
-            local extract_ec="$?"
-            set -e
+          '@
 
-            if [[ "${extract_ec}" -eq 20 ]]; then
-              echo "::notice file=${rel}::Skipped HTA because no VBScript script blocks were found."
-              {
-                echo "================================================================================"
-                echo "FILE: ${rel}"
-                echo "TYPE: HTA"
-                echo "STATUS: SKIPPED"
-                echo "REASON: No VBScript <script> blocks found."
-                echo
-              } >> "${raw}"
-              skipped_files=$((skipped_files + 1))
-              return 0
-            fi
+              $pythonScript = Join-Path $TempDir "$token.extract.py"
+              $pythonCode | Set-Content -LiteralPath $pythonScript -Encoding UTF8
 
-            if [[ "${extract_ec}" -ne 0 ]]; then
-              echo "::warning file=${rel}::HTA extraction failed; recorded as validator limitation."
-              {
-                echo "================================================================================"
-                echo "FILE: ${rel}"
-                echo "TYPE: HTA"
-                echo "STATUS: VALIDATOR LIMITATION"
-                echo "REASON: HTA VBScript extraction failed with exit ${extract_ec}."
-                echo
-              } >> "${raw}"
-              validator_limitations=$((validator_limitations + 1))
-              return 0
-            fi
+              & python.exe $pythonScript $SourcePath $tempScript $mapPath
+              $extractExit = $LASTEXITCODE
 
-            local win_script
-            win_script="$(winepath -w "${PWD}/${temp_script}")"
+              if ($extractExit -eq 20) {
+                  Write-Output "::notice file=$RelativePath::Skipped HTA because no VBScript script blocks were found."
 
-            set +e
-            WINEDEBUG="${WINEDEBUG}" wine cscript.exe //nologo //B "${win_script}" > "${output_file}" 2>&1
-            local ec="$?"
-            set -e
+                  @(
+                      ('=' * 80)
+                      "FILE: $RelativePath"
+                      'TYPE: HTA'
+                      'STATUS: SKIPPED'
+                      'REASON: No VBScript <script> blocks found.'
+                      ''
+                  ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
 
-            {
-              echo "================================================================================"
-              echo "FILE: ${rel}"
-              echo "TYPE: HTA"
-              echo "EXIT: ${ec}"
-              cat "${output_file}" || true
-              echo
-            } >> "${raw}"
+                  $Counters.SkippedFiles++
+                  return
+              }
 
-            if [[ "${ec}" -ne 0 ]]; then
-              mapfile -t parsed < <(extract_error "${output_file}")
-              local temp_line="${parsed[0]:-1}"
-              local message="${parsed[1]:-VBScript compilation failed (cscript exit ${ec})}"
+              if ($extractExit -ne 0) {
+                  Write-Output "::warning file=$RelativePath::HTA VBScript extraction failed; recorded as validator limitation."
 
-              local source_line
-              source_line="$(
-                python3 - "${map_file}" "${temp_line}" <<'PY'
-          import json
-          import sys
+                  @(
+                      ('=' * 80)
+                      "FILE: $RelativePath"
+                      'TYPE: HTA'
+                      'STATUS: VALIDATOR LIMITATION'
+                      "REASON: HTA extraction failed with exit $extractExit."
+                      ''
+                  ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
 
-          mapping = json.load(open(sys.argv[1], "r", encoding="utf-8"))
-          print(mapping.get(str(int(sys.argv[2])), 1))
-          PY
-              )"
+                  $Counters.ValidatorLimitations++
+                  return
+              }
 
-              if [[ -z "${source_line:-}" || ! "${source_line}" =~ ^[0-9]+$ ]]; then
-                source_line=1
-              fi
+              $output = & cscript.exe //NoLogo //B $tempScript 2>&1
+              $exitCode = $LASTEXITCODE
 
-              record_finding "${rel}" "HTA/VBScript" "${source_line}" "${message}"
-            fi
-          }
+              @(
+                  ('=' * 80)
+                  "FILE: $RelativePath"
+                  'TYPE: HTA'
+                  "EXIT: $exitCode"
+                  $output
+                  ''
+              ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
 
-          while IFS= read -r -d '' file; do
-            [[ -z "${file:-}" ]] && continue
+              if ($exitCode -ne 0) {
+                  $parsed = Parse-CscriptError -Output $output
 
-            total_files=$((total_files + 1))
-            rel="${file#./}"
+                  $lineMap = Get-Content -LiteralPath $mapPath -Raw |
+                      ConvertFrom-Json -AsHashtable
 
-            case "${file,,}" in
-              *.vbs)
-                vbs_files=$((vbs_files + 1))
-                validated_files=$((validated_files + 1))
-                compile_vbs "${file}" "${rel}"
-                ;;
-              *.hta)
-                hta_files=$((hta_files + 1))
-                before_skipped="${skipped_files}"
-                before_limits="${validator_limitations}"
-                compile_hta "${file}" "${rel}"
+                  $sourceLine = 1
 
-                if [[ "${skipped_files}" -eq "${before_skipped}" && "${validator_limitations}" -eq "${before_limits}" ]]; then
-                  validated_files=$((validated_files + 1))
-                fi
-                ;;
-            esac
-          done < <(
-            find . \
-              -path "./${OUT_DIR}" -prune -o \
-              -type f \( -iname "*.vbs" -o -iname "*.hta" \) -print0
-          )
-
-          if [[ "${findings}" -eq 0 ]]; then
-            echo "| No syntax findings. | - | - | - |" >> "${md}"
-          fi
-
-          {
-            echo
-            echo "## Statistics"
-            echo
-            echo "- **Files discovered:** \`${total_files}\`"
-            echo "- **Standalone VBS files:** \`${vbs_files}\`"
-            echo "- **HTA files:** \`${hta_files}\`"
-            echo "- **Files syntax-validated:** \`${validated_files}\`"
-            echo "- **HTA files skipped (no VBScript):** \`${skipped_files}\`"
-            echo "- **Validator limitations:** \`${validator_limitations}\`"
-            echo "- **Syntax findings:** \`${findings}\`"
-          } >> "${md}"
-
-          python3 - <<'PY'
-          import json
-          import os
-
-          outdir = os.environ["OUT_DIR"]
-          tsv = os.path.join(outdir, "findings.tsv")
-          json_path = os.path.join(outdir, os.environ["OUT_JSON"])
-          sarif_path = os.path.join(outdir, os.environ["OUT_SARIF"])
-
-          findings = []
-
-          if os.path.exists(tsv):
-              with open(tsv, "r", encoding="utf-8", errors="replace") as handle:
-                  for row in handle:
-                      row = row.rstrip("\n")
-                      if not row:
-                          continue
-
-                      parts = row.split("\t", 3)
-                      if len(parts) != 4:
-                          continue
-
-                      path, kind, line_no, message = parts
-
-                      try:
-                          line_number = max(1, int(line_no))
-                      except ValueError:
-                          line_number = 1
-
-                      findings.append(
-                          {
-                              "file": path,
-                              "type": kind,
-                              "line": line_number,
-                              "message": message,
-                              "severity": "error",
-                          }
-                      )
-
-          with open(json_path, "w", encoding="utf-8") as handle:
-              json.dump(findings, handle, ensure_ascii=False, indent=2)
-
-          sarif = {
-              "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-              "version": "2.1.0",
-              "runs": [
-                  {
-                      "tool": {
-                          "driver": {
-                              "name": "Windows-SysAdmin-ProSuite VBScript/HTA Syntax Validator",
-                              "informationUri": "https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite",
-                              "rules": [
-                                  {
-                                      "id": "VBS1001",
-                                      "name": "VBScriptCompilationError",
-                                      "shortDescription": {
-                                          "text": "VBScript compilation error"
-                                      },
-                                      "defaultConfiguration": {
-                                          "level": "error"
-                                      },
-                                  }
-                              ],
-                          }
-                      },
-                      "results": [],
+                  if ($lineMap.ContainsKey([string]$parsed.Line)) {
+                      $sourceLine = [int]$lineMap[[string]$parsed.Line]
                   }
-              ],
+
+                  Add-Finding `
+                      -File $RelativePath `
+                      -Type 'HTA/VBScript' `
+                      -Line $sourceLine `
+                      -Message $parsed.Message
+              }
           }
 
-          for finding in findings:
-              sarif["runs"][0]["results"].append(
-                  {
-                      "ruleId": "VBS1001",
-                      "level": "error",
-                      "message": {
-                          "text": f"{finding['type']}: {finding['message']}"
-                      },
-                      "locations": [
-                          {
-                              "physicalLocation": {
-                                  "artifactLocation": {
-                                      "uri": finding["file"]
-                                  },
-                                  "region": {
-                                      "startLine": finding["line"]
-                                  },
+          $files = Get-ChildItem -Path . -Recurse -File |
+              Where-Object {
+                  $_.Extension -in '.vbs', '.hta' -and
+                  $_.FullName -notlike "*\$OutDir\*"
+              } |
+              Sort-Object FullName
+
+          foreach ($file in $files) {
+              $Counters.TotalFiles++
+
+              $relative = [IO.Path]::GetRelativePath(
+                  (Get-Location).Path,
+                  $file.FullName
+              ).Replace('\','/')
+
+              switch ($file.Extension.ToLowerInvariant()) {
+                  '.vbs' {
+                      $Counters.VbsFiles++
+                      $Counters.ValidatedFiles++
+
+                      Invoke-VbsCompilation `
+                          -SourcePath $file.FullName `
+                          -RelativePath $relative
+                  }
+
+                  '.hta' {
+                      $Counters.HtaFiles++
+
+                      $beforeSkipped = $Counters.SkippedFiles
+                      $beforeLimits  = $Counters.ValidatorLimitations
+
+                      Invoke-HtaCompilation `
+                          -SourcePath $file.FullName `
+                          -RelativePath $relative
+
+                      if (
+                          $Counters.SkippedFiles -eq $beforeSkipped -and
+                          $Counters.ValidatorLimitations -eq $beforeLimits
+                      ) {
+                          $Counters.ValidatedFiles++
+                      }
+                  }
+              }
+          }
+
+          if ($Counters.Findings -eq 0) {
+              '| No syntax findings. | - | - | - |' |
+                  Add-Content -LiteralPath $MdPath -Encoding UTF8
+          }
+
+          @"
+
+          ## Statistics
+
+          - **Files discovered:** `$($Counters.TotalFiles)`
+          - **Standalone VBS files:** `$($Counters.VbsFiles)`
+          - **HTA files:** `$($Counters.HtaFiles)`
+          - **Files syntax-validated:** `$($Counters.ValidatedFiles)`
+          - **HTA files skipped (no VBScript):** `$($Counters.SkippedFiles)`
+          - **Validator limitations:** `$($Counters.ValidatorLimitations)`
+          - **Syntax findings:** `$($Counters.Findings)`
+          "@ | Add-Content -LiteralPath $MdPath -Encoding UTF8
+
+          $Findings |
+              ConvertTo-Json -Depth 8 |
+              Set-Content -LiteralPath $JsonPath -Encoding UTF8
+
+          if ($Findings.Count -eq 0) {
+              '[]' | Set-Content -LiteralPath $JsonPath -Encoding UTF8
+          }
+
+          $sarifResults = foreach ($finding in $Findings) {
+              @{
+                  ruleId  = 'VBS1001'
+                  level   = 'error'
+                  message = @{
+                      text = "$($finding.type): $($finding.message)"
+                  }
+                  locations = @(
+                      @{
+                          physicalLocation = @{
+                              artifactLocation = @{
+                                  uri = $finding.file
+                              }
+                              region = @{
+                                  startLine = [int]$finding.line
                               }
                           }
-                      ],
+                      }
+                  )
+              }
+          }
+
+          $sarif = @{
+              '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
+              version   = '2.1.0'
+              runs      = @(
+                  @{
+                      tool = @{
+                          driver = @{
+                              name           = 'Windows-SysAdmin-ProSuite VBScript/HTA Syntax Validator'
+                              informationUri = 'https://github.com/brazilianscriptguy/Windows-SysAdmin-ProSuite'
+                              rules          = @(
+                                  @{
+                                      id   = 'VBS1001'
+                                      name = 'VBScriptCompilationError'
+                                      shortDescription = @{
+                                          text = 'VBScript compilation error'
+                                      }
+                                      defaultConfiguration = @{
+                                          level = 'error'
+                                      }
+                                  }
+                              )
+                          }
+                      }
+                      results = @($sarifResults)
                   }
               )
+          }
 
-          with open(sarif_path, "w", encoding="utf-8") as handle:
-              json.dump(sarif, handle, ensure_ascii=False, indent=2)
-          PY
+          $sarif |
+              ConvertTo-Json -Depth 20 |
+              Set-Content -LiteralPath $SarifPath -Encoding UTF8
 
-          rm -rf "${outdir}/temp"
-          rm -f "${findings_tsv}"
+          Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue
 
-          echo "total_files=${total_files}" >> "${GITHUB_OUTPUT}"
-          echo "vbs_files=${vbs_files}" >> "${GITHUB_OUTPUT}"
-          echo "hta_files=${hta_files}" >> "${GITHUB_OUTPUT}"
-          echo "validated_files=${validated_files}" >> "${GITHUB_OUTPUT}"
-          echo "skipped_files=${skipped_files}" >> "${GITHUB_OUTPUT}"
-          echo "validator_limitations=${validator_limitations}" >> "${GITHUB_OUTPUT}"
-          echo "findings=${findings}" >> "${GITHUB_OUTPUT}"
-
-          exit 0
+          "total_files=$($Counters.TotalFiles)" >> $env:GITHUB_OUTPUT
+          "vbs_files=$($Counters.VbsFiles)" >> $env:GITHUB_OUTPUT
+          "hta_files=$($Counters.HtaFiles)" >> $env:GITHUB_OUTPUT
+          "validated_files=$($Counters.ValidatedFiles)" >> $env:GITHUB_OUTPUT
+          "skipped_files=$($Counters.SkippedFiles)" >> $env:GITHUB_OUTPUT
+          "validator_limitations=$($Counters.ValidatorLimitations)" >> $env:GITHUB_OUTPUT
+          "findings=$($Counters.Findings)" >> $env:GITHUB_OUTPUT
 
       - name: Publish Workflow Summary
         if: always()
         working-directory: repo
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $OutDir = $env:OUT_DIR
+          $MdPath = Join-Path $OutDir $env:OUT_MD
 
-          outdir="${OUT_DIR}"
+          @"
+          ## VBScript and HTA Syntax Validation
 
-          {
-            echo "## VBScript and HTA Syntax Validation"
-            echo
-            echo "- **Mode:** \`${VALIDATION_MODE}\`"
-            echo "- **Workflow:** \`${GITHUB_WORKFLOW}\`"
-            echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
-            echo "- **Ref:** \`${GITHUB_REF}\`"
-            echo "- **Commit:** \`${GITHUB_SHA}\`"
-            echo
-            echo "### Statistics"
-            echo
-            echo "- **Files discovered:** \`${{ steps.scan.outputs.total_files || '0' }}\`"
-            echo "- **Standalone VBS:** \`${{ steps.scan.outputs.vbs_files || '0' }}\`"
-            echo "- **HTA files:** \`${{ steps.scan.outputs.hta_files || '0' }}\`"
-            echo "- **Files validated:** \`${{ steps.scan.outputs.validated_files || '0' }}\`"
-            echo "- **HTA skipped (no VBScript):** \`${{ steps.scan.outputs.skipped_files || '0' }}\`"
-            echo "- **Validator limitations:** \`${{ steps.scan.outputs.validator_limitations || '0' }}\`"
-            echo "- **Syntax findings:** \`${{ steps.scan.outputs.findings || '0' }}\`"
-            echo
-            echo "### Detailed Report"
-            echo
-            if [[ -f "${outdir}/${OUT_MD}" ]]; then
-              cat "${outdir}/${OUT_MD}"
-            else
-              echo "_No Markdown report was generated._"
-            fi
-            echo
-            echo "### Artifacts"
-            echo
-            echo "- \`${outdir}/${OUT_MD}\`"
-            echo "- \`${outdir}/${OUT_SARIF}\`"
-            echo "- \`${outdir}/${OUT_JSON}\`"
-            echo "- \`${outdir}/${OUT_RAW}\`"
-          } >> "${GITHUB_STEP_SUMMARY}"
+          - **Mode:** `$env:VALIDATION_MODE`
+          - **Workflow:** `$env:GITHUB_WORKFLOW`
+          - **Event:** `$env:GITHUB_EVENT_NAME`
+          - **Ref:** `$env:GITHUB_REF`
+          - **Commit:** `$env:GITHUB_SHA`
+
+          ### Statistics
+
+          - **Files discovered:** `${{ steps.scan.outputs.total_files || '0' }}`
+          - **Standalone VBS:** `${{ steps.scan.outputs.vbs_files || '0' }}`
+          - **HTA files:** `${{ steps.scan.outputs.hta_files || '0' }}`
+          - **Files validated:** `${{ steps.scan.outputs.validated_files || '0' }}`
+          - **HTA skipped (no VBScript):** `${{ steps.scan.outputs.skipped_files || '0' }}`
+          - **Validator limitations:** `${{ steps.scan.outputs.validator_limitations || '0' }}`
+          - **Syntax findings:** `${{ steps.scan.outputs.findings || '0' }}`
+
+          ### Detailed Report
+
+          "@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+
+          if (Test-Path -LiteralPath $MdPath) {
+              Get-Content -LiteralPath $MdPath |
+                  Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          }
+          else {
+              '_No Markdown report was generated._' |
+                  Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          }
+
+          @"
+
+          ### Artifacts
+
+          - `$OutDir/$env:OUT_MD`
+          - `$OutDir/$env:OUT_SARIF`
+          - `$OutDir/$env:OUT_JSON`
+          - `$OutDir/$env:OUT_RAW`
+          "@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
 
       - name: Upload Report Artifacts
         if: always()
@@ -637,36 +630,34 @@ jobs:
 
       - name: Apply Enforcement Policy
         if: always()
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
 
-          findings="${{ steps.scan.outputs.findings || '0' }}"
-          limitations="${{ steps.scan.outputs.validator_limitations || '0' }}"
+          $findings = [int]'${{ steps.scan.outputs.findings || '0' }}'
+          $limitations = [int]'${{ steps.scan.outputs.validator_limitations || '0' }}'
 
-          enforce="false"
+          $enforce = $false
 
-          if [[ "${VALIDATION_MODE}" == "enforce" ]]; then
-            enforce="true"
-          fi
+          if ($env:VALIDATION_MODE -eq 'enforce') {
+              $enforce = $true
+          }
 
-          if [[ "${ALLOW_WARNINGS}" == "false" ]]; then
-            enforce="true"
-          fi
+          if ($env:ALLOW_WARNINGS -eq 'false') {
+              $enforce = $true
+          }
 
-          if [[ "${enforce}" != "true" ]]; then
-            echo "Report-only mode: findings=${findings}, validator_limitations=${limitations}."
-            exit 0
-          fi
+          if (-not $enforce) {
+              Write-Host "Report-only mode: findings=$findings, validator_limitations=$limitations."
+              exit 0
+          }
 
-          if [[ "${limitations}" != "0" ]]; then
-            echo "::error::Validator limitations were detected (${limitations}); enforcement cannot certify the complete source set."
-            exit 1
-          fi
+          if ($limitations -gt 0) {
+              throw "Validator limitations were detected ($limitations); enforcement cannot certify the complete source set."
+          }
 
-          if [[ "${findings}" != "0" ]]; then
-            echo "::error::VBScript/HTA syntax findings detected (${findings})."
-            exit 1
-          fi
+          if ($findings -gt 0) {
+              throw "VBScript/HTA syntax findings detected ($findings)."
+          }
 
-          echo "Enforcement passed: no syntax findings or validator limitations."
+          Write-Host 'Enforcement passed: no syntax findings or validator limitations.'
