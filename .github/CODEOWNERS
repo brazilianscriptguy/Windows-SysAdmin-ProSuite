@@ -1,0 +1,47 @@
+# Windows-SysAdmin-ProSuite CODEOWNERS
+#
+# Security and governance ownership policy.
+# CODEOWNERS only becomes an enforcement gate when the repository ruleset or
+# branch protection requires review from Code Owners.
+#
+# Owner: Luiz Hamilton / brazilianscriptguy
+
+# -----------------------------------------------------------------------------
+# GitHub governance and automation control plane
+# -----------------------------------------------------------------------------
+# Protect CODEOWNERS itself, custom agents, Copilot instructions, workflows,
+# issue/PR governance, Dependabot configuration, and repository helper scripts.
+/.github/ @brazilianscriptguy
+
+# -----------------------------------------------------------------------------
+# Repository-wide security and quality policy
+# -----------------------------------------------------------------------------
+/.gitleaks.toml @brazilianscriptguy
+/.psscriptanalyzer.json @brazilianscriptguy
+/.psscriptanalyzer.psd1 @brazilianscriptguy
+/.editorconfig @brazilianscriptguy
+/.gitattributes @brazilianscriptguy
+/.prettierrc @brazilianscriptguy
+/.prettierignore @brazilianscriptguy
+
+# -----------------------------------------------------------------------------
+# Packaging, dependency, release, and repository identity metadata
+# -----------------------------------------------------------------------------
+/package.json @brazilianscriptguy
+/package-lock.json @brazilianscriptguy
+/sysadmin-prosuite.nuspec @brazilianscriptguy
+/CITATION.cff @brazilianscriptguy
+/CHANGELOG.md @brazilianscriptguy
+/LICENSE.txt @brazilianscriptguy
+
+# -----------------------------------------------------------------------------
+# High-impact operational security domains
+# -----------------------------------------------------------------------------
+# Changes in these areas can affect identity, PKI, policy, patching, DFIR,
+# privileged administration, or execution orchestration.
+/BlueTeam-Tools/ @brazilianscriptguy
+/Core-ScriptLibrary/ @brazilianscriptguy
+/ITSM-Templates-SVR/ @brazilianscriptguy
+/ITSM-Templates-WKS/ @brazilianscriptguy
+/ProSuite-Hub/ @brazilianscriptguy
+/SysAdmin-Tools/ @brazilianscriptguy
