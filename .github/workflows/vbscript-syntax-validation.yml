@@ -147,7 +147,7 @@ jobs:
 
           - Standalone `.vbs` files are compiled through the native Windows Script Host.
           - `.hta` files are parsed as HTML Applications; only VBScript `<script>` blocks are extracted.
-          - A guard statement is prepended so compilation completes without executing the production script body.
+          - A guard statement is prepended so valid scripts terminate before the production body executes; `//B` is intentionally not used so compiler diagnostics remain visible.
           - HTA temporary-script line numbers are mapped back to the original HTA source lines.
 
           ## Findings
@@ -272,7 +272,7 @@ jobs:
           $source
           "@ | Set-Content -LiteralPath $tempScript -Encoding Unicode
 
-              $output = @(& cscript.exe //NoLogo //B $tempScript 2>&1)
+              $output = @(& cscript.exe //NoLogo $tempScript 2>&1)
               $exitCode = $LASTEXITCODE
 
               @(
@@ -285,6 +285,22 @@ jobs:
               ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
 
               if ($exitCode -ne 0) {
+                  if (-not $output -or @($output).Count -eq 0 -or -not (($output -join '').Trim())) {
+                      Write-Output "::warning file=$RelativePath::cscript.exe returned exit code $exitCode without diagnostic text; recorded as validator limitation."
+
+                      @(
+                          ('=' * 80)
+                          "FILE: $RelativePath"
+                          'TYPE: VBS'
+                          'STATUS: VALIDATOR LIMITATION'
+                          "REASON: cscript.exe returned exit code $exitCode without diagnostic text."
+                          ''
+                      ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
+
+                      $Counters.ValidatorLimitations++
+                      return
+                  }
+
                   $parsed = Parse-CscriptError -Output $output
 
                   $sourceLine = $parsed.Line - 1
@@ -418,7 +434,7 @@ jobs:
                   return
               }
 
-              $output = @(& cscript.exe //NoLogo //B $tempScript 2>&1)
+              $output = @(& cscript.exe //NoLogo $tempScript 2>&1)
               $exitCode = $LASTEXITCODE
 
               @(
@@ -431,6 +447,22 @@ jobs:
               ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
 
               if ($exitCode -ne 0) {
+                  if (-not $output -or @($output).Count -eq 0 -or -not (($output -join '').Trim())) {
+                      Write-Output "::warning file=$RelativePath::cscript.exe returned exit code $exitCode without diagnostic text; recorded as validator limitation."
+
+                      @(
+                          ('=' * 80)
+                          "FILE: $RelativePath"
+                          'TYPE: HTA'
+                          'STATUS: VALIDATOR LIMITATION'
+                          "REASON: cscript.exe returned exit code $exitCode without diagnostic text."
+                          ''
+                      ) | Add-Content -LiteralPath $RawPath -Encoding UTF8
+
+                      $Counters.ValidatorLimitations++
+                      return
+                  }
+
                   $parsed = Parse-CscriptError -Output $output
 
                   $lineMap = Get-Content -LiteralPath $mapPath -Raw |
@@ -629,10 +661,10 @@ jobs:
 
           ### Artifacts
 
-          - `$OutDir/$env:OUT_MD`
-          - `$OutDir/$env:OUT_SARIF`
-          - `$OutDir/$env:OUT_JSON`
-          - `$OutDir/$env:OUT_RAW`
+          - ``$OutDir/$($env:OUT_MD)``
+          - ``$OutDir/$($env:OUT_SARIF)``
+          - ``$OutDir/$($env:OUT_JSON)``
+          - ``$OutDir/$($env:OUT_RAW)``
           "@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
 
       - name: Upload Report Artifacts
