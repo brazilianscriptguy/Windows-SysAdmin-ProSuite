@@ -10,14 +10,12 @@ on:
       - "**/*.hta"
       - ".github/workflows/vbscript-syntax-validation.yml"
 
+  # Required status check: must run for every PR targeting main.
+  # Do not add a paths filter here; otherwise GitHub can leave this
+  # required check in an "Expected" state forever on unrelated PRs.
   pull_request:
     branches:
       - main
-      - develop
-    paths:
-      - "**/*.vbs"
-      - "**/*.hta"
-      - ".github/workflows/vbscript-syntax-validation.yml"
 
   workflow_dispatch:
     inputs:
