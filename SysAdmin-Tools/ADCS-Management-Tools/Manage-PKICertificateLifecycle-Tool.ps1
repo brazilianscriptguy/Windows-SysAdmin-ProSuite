@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-  PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition - Enterprise AD CS lifecycle governance console.
+  PKI Certificate Lifecycle Manager v5.6.6 Enterprise Edition - Enterprise AD CS lifecycle governance console.
 
 .DESCRIPTION
   Enterprise Windows Forms GUI and console tool for Microsoft AD CS lifecycle maintenance.
 
   Implements:
-  - Responsive WinForms GUI using MenuStrip, StatusStrip and TableLayoutPanel
+  - Responsive WinForms GUI using StatusStrip and TableLayoutPanel with a single authoritative action surface
   - CA database discovery through AD CS COM ICertView instead of localized certutil CSV parsing
   - Expired issued certificate discovery
   - Replacement certificate validation before Superseded revocation
@@ -17,6 +17,7 @@
   - CRL and Delta CRL publication
   - CA database cleanup after retention period
   - Failed Requests cleanup after retention period using the same safety model as revoked cleanup
+  - Explicit Failed Requests cleanup window (From/To) without weakening the legacy 30-day retention guardrail
   - CA database backup and registry export helpers
   - Runtime log panel, statistics dashboard and double-click row details dialog
   - CSV, JSON and HTML reports in C:\Logs-TEMP
@@ -26,7 +27,7 @@
   Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-  2026-07-31-v5.6.2-ENTERPRISE-EDITION
+  2026-09-04-v5.6.6-ENTERPRISE-EDITION
 
 .REQUIREMENTS
   - Windows PowerShell 5.1
@@ -101,6 +102,9 @@ $script:DefaultConfig = [ordered]@{
     LifecycleRetentionDays = 30
     RevokedRetentionDays = 365
     FailedRetentionDays = 365
+    FailedCleanupUseExplicitWindow = $false
+    FailedCleanupStart = ''
+    FailedCleanupEnd = ''
     FailedRequestDispositions = @(30,31)
     PublishDeltaCRL     = $true
     PublishFullCRL      = $false
@@ -257,21 +261,102 @@ function Show-PKIExecutionConfirmation {
         [bool]$DryRun,
         [int]$Targets
     )
+
     $modeText = if ($DryRun) { 'DRY RUN' } else { 'COMMIT' }
-    if ($Targets -le 0) { return $true }
-    if ($DryRun) {
-        $msg = "$Mode Operation`r`n`r`nExecution Mode: DRY RUN`r`nTargets: $Targets`r`n`r`nNo CA records will be modified. The tool will generate reports showing what would happen."
-        $buttons = [System.Windows.Forms.MessageBoxButtons]::OKCancel
-        $icon = [System.Windows.Forms.MessageBoxIcon]::Information
-        $result = [System.Windows.Forms.MessageBox]::Show($script:form, $msg, "$Mode Confirmation - $modeText", $buttons, $icon)
-        return ($result -eq [System.Windows.Forms.DialogResult]::OK)
-    }
-    if ($script:Config -and ($script:Config.PSObject.Properties.Name -contains 'RequireCommitConfirmation') -and -not [bool]$script:Config.RequireCommitConfirmation) {
+
+    if ($Targets -le 0) {
         return $true
     }
-    $verb = if ($Mode -eq 'Revoke') { 'revoke selected issued certificates with reason Superseded' } else { 'delete old revoked CA database rows' }
-    $msg = "$Mode Operation`r`n`r`nExecution Mode: COMMIT`r`nTargets: $Targets`r`n`r`nThis will $verb.`r`n`r`nA snapshot/report will be generated before execution. Continue?"
-    $result = [System.Windows.Forms.MessageBox]::Show($script:form, $msg, "$Mode Confirmation - COMMIT", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+
+    $failedCleanupTargets = 0
+    $revokedCleanupTargets = 0
+
+    if ($Mode -eq 'Cleanup' -and $script:PreviewItems) {
+        $failedCleanupTargets = @(
+            $script:PreviewItems |
+                Where-Object {
+                    $_.Selected -eq $true -and
+                    $_.Status -eq 'FAILED_CLEANUP_READY' -and
+                    $_.Decision -eq 'ReadyToDeleteFailedRequest'
+                }
+        ).Count
+
+        $revokedCleanupTargets = @(
+            $script:PreviewItems |
+                Where-Object {
+                    $_.Selected -eq $true -and
+                    $_.Status -eq 'CLEANUP_READY' -and
+                    $_.Decision -eq 'ReadyToDeleteRevokedRow'
+                }
+        ).Count
+    }
+
+    $targetDetail = "Targets: $Targets"
+
+    if ($Mode -eq 'Cleanup') {
+        $targetDetail = (
+            "Targets: $Targets`r`n" +
+            "Failed request rows: $failedCleanupTargets`r`n" +
+            "Revoked certificate rows: $revokedCleanupTargets"
+        )
+    }
+
+    if ($DryRun) {
+        $msg = (
+            "$Mode Operation`r`n`r`n" +
+            "Execution Mode: DRY RUN`r`n" +
+            "$targetDetail`r`n`r`n" +
+            "No CA records will be modified. The tool will generate reports showing what would happen."
+        )
+
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            $script:form,
+            $msg,
+            "$Mode Confirmation - $modeText",
+            [System.Windows.Forms.MessageBoxButtons]::OKCancel,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+
+        return ($result -eq [System.Windows.Forms.DialogResult]::OK)
+    }
+
+    if (
+        $script:Config -and
+        ($script:Config.PSObject.Properties.Name -contains 'RequireCommitConfirmation') -and
+        -not [bool]$script:Config.RequireCommitConfirmation
+    ) {
+        return $true
+    }
+
+    if ($Mode -eq 'Revoke') {
+        $verb = 'revoke selected issued certificates with reason Superseded'
+    }
+    elseif ($failedCleanupTargets -gt 0 -and $revokedCleanupTargets -gt 0) {
+        $verb = 'delete the selected failed request rows and revoked certificate database rows'
+    }
+    elseif ($failedCleanupTargets -gt 0) {
+        $verb = 'delete the selected failed request rows'
+    }
+    else {
+        $verb = 'delete the selected revoked certificate database rows'
+    }
+
+    $msg = (
+        "$Mode Operation`r`n`r`n" +
+        "Execution Mode: COMMIT`r`n" +
+        "$targetDetail`r`n`r`n" +
+        "This will $verb.`r`n`r`n" +
+        "A snapshot/report will be generated before execution. Continue?"
+    )
+
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        $script:form,
+        $msg,
+        "$Mode Confirmation - COMMIT",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+    )
+
     return ($result -eq [System.Windows.Forms.DialogResult]::Yes)
 }
 
@@ -305,7 +390,7 @@ function Invoke-UIAction {
 
 function Set-Busy {
     param([bool]$IsBusy, [string]$Message = 'Working...')
-    foreach ($c in @($script:txtCAConfig,$script:txtTemplates,$script:txtLifecycleRetention,$script:txtRevokedRetention,$script:txtFailedRetention,$script:txtBackupRoot,$script:chkDryRun,$script:chkForce,$script:chkPublishCRL,$script:chkPublishDelta,$script:chkCleanup,$script:chkBackup)) {
+    foreach ($c in @($script:txtCAConfig,$script:txtTemplates,$script:txtLifecycleRetention,$script:txtRevokedRetention,$script:txtFailedRetention,$script:chkFailedExplicitWindow,$script:txtFailedStart,$script:txtFailedEnd,$script:txtBackupRoot,$script:chkDryRun,$script:chkForce,$script:chkPublishCRL,$script:chkPublishDelta,$script:chkCleanup,$script:chkBackup)) {
         if ($c -and -not $c.IsDisposed) { $c.Enabled = -not $IsBusy }
     }
     foreach ($c in @($script:ActionControls)) {
@@ -1304,66 +1389,320 @@ function Get-RevokedCleanupCandidates {
 
 
 function Get-FailedCleanupCandidates {
-    [CmdletBinding()]
-    param([int]$RetentionDays = 365)
-    if ($RetentionDays -lt 30) { throw 'Failed request retention days must be 30 or greater for safety.' }
-    $cutoff = (Get-Date).AddDays(-1 * $RetentionDays)
-    Add-ExecutionTimeline -Stage 'Failed Preview' -Detail "Started. RetentionDays=$RetentionDays Cutoff=$cutoff" -Level 'INFO'
-    Write-AppLog "Loading failed requests for cleanup preview. RetentionDays=$RetentionDays, Cutoff=$cutoff" 'INFO'
+    [CmdletBinding(DefaultParameterSetName='Retention')]
+    param(
+        [Parameter(ParameterSetName='Retention')]
+        [int]$RetentionDays = 365,
+
+        [Parameter(Mandatory=$true, ParameterSetName='ExplicitWindow')]
+        [datetime]$StartDate,
+
+        [Parameter(Mandatory=$true, ParameterSetName='ExplicitWindow')]
+        [datetime]$EndDate
+    )
+
+    $useExplicitWindow = ($PSCmdlet.ParameterSetName -eq 'ExplicitWindow')
+
+    if ($useExplicitWindow) {
+        if ($StartDate -ge $EndDate) {
+            throw 'Failed request explicit window is invalid: StartDate must be earlier than EndDate.'
+        }
+
+        if ($EndDate -gt (Get-Date).AddMinutes(1)) {
+            throw 'Failed request explicit window EndDate cannot be in the future.'
+        }
+
+        Add-ExecutionTimeline `
+            -Stage 'Failed Preview' `
+            -Detail "Started. Mode=ExplicitWindow Start=$StartDate End=$EndDate" `
+            -Level 'INFO'
+
+        Write-AppLog `
+            "Loading failed requests for cleanup preview. Mode=ExplicitWindow, Start=$StartDate, End=$EndDate" `
+            'INFO'
+    }
+    else {
+        if ($RetentionDays -lt 30) {
+            throw 'Failed request retention days must be 30 or greater for safety.'
+        }
+
+        $cutoff = (Get-Date).AddDays(-1 * $RetentionDays)
+
+        Add-ExecutionTimeline `
+            -Stage 'Failed Preview' `
+            -Detail "Started. Mode=Retention RetentionDays=$RetentionDays Cutoff=$cutoff" `
+            -Level 'INFO'
+
+        Write-AppLog `
+            "Loading failed requests for cleanup preview. Mode=Retention, RetentionDays=$RetentionDays, Cutoff=$cutoff" `
+            'INFO'
+    }
+
     $failedDispositions = @()
-    try { $failedDispositions = @($script:Config.FailedRequestDispositions | ForEach-Object { [int]$_ }) } catch { $failedDispositions = @() }
-    if (-not $failedDispositions -or $failedDispositions.Count -eq 0) { $failedDispositions = @(30,31) }
+
+    try {
+        $failedDispositions = @(
+            $script:Config.FailedRequestDispositions |
+                ForEach-Object { [int]$_ }
+        )
+    }
+    catch {
+        $failedDispositions = @()
+    }
+
+    if (@($failedDispositions).Count -eq 0) {
+        $failedDispositions = @(30,31)
+    }
+
+    # Fail closed: this cleanup workflow is only for failed/denied request
+    # dispositions. It must never expand to issued/pending rows by config drift.
+    $unsupportedDispositions = @(
+        $failedDispositions |
+            Where-Object { $_ -notin @(30,31) }
+    )
+
+    if (@($unsupportedDispositions).Count -gt 0) {
+        throw (
+            "Unsupported FailedRequestDispositions detected: {0}. " +
+            "Only dispositions 30 and 31 are permitted for failed-request cleanup."
+        ) -f ($unsupportedDispositions -join ',')
+    }
+
     $rowMap = @{}
+
     foreach ($disp in $failedDispositions) {
         try {
-            $dispRows = @(Invoke-CertViewRepositoryQuery -CAConfigValue $script:CAConfig -Disposition $disp)
-            Write-AppLog "Failed request repository disposition=$disp returned rows=$($dispRows.Count)." 'INFO'
+            $dispRows = @(
+                Invoke-CertViewRepositoryQuery `
+                    -CAConfigValue $script:CAConfig `
+                    -Disposition $disp
+            )
+
+            Write-AppLog `
+                "Failed request repository disposition=$disp returned rows=$($dispRows.Count)." `
+                'INFO'
+
             foreach ($r in $dispRows) {
-                $rid = Get-PropValue $r @('RequestID','Request.RequestID','Request ID','ID da Solicitação')
-                if ([string]::IsNullOrWhiteSpace([string]$rid)) { $rid = [guid]::NewGuid().ToString() }
-                if (-not $rowMap.ContainsKey([string]$rid)) { $rowMap[[string]$rid] = $r }
+                $rid = Get-PropValue `
+                    $r `
+                    @(
+                        'RequestID',
+                        'Request.RequestID',
+                        'Request ID',
+                        'ID da Solicitação'
+                    )
+
+                if ([string]::IsNullOrWhiteSpace([string]$rid)) {
+                    # A destructive candidate must have a real RequestID.
+                    # Keep the row out of the deletion set instead of inventing one.
+                    continue
+                }
+
+                if (-not $rowMap.ContainsKey([string]$rid)) {
+                    $rowMap[[string]$rid] = $r
+                }
             }
-        } catch {
-            Write-AppLog "Failed request repository disposition=$disp query failed. $($_.Exception.Message)" 'WARN'
+        }
+        catch {
+            Write-AppLog `
+                "Failed request repository disposition=$disp query failed. $($_.Exception.Message)" `
+                'WARN'
         }
     }
+
     $rows = @($rowMap.Values)
-    Write-AppLog "Failed request repository returned rows=$($rows.Count) from dispositions=$($failedDispositions -join ','). Applying retention cutoff." 'INFO'
+
+    if ($useExplicitWindow) {
+        Write-AppLog `
+            "Failed request repository returned rows=$($rows.Count) from dispositions=$($failedDispositions -join ','). Applying explicit window." `
+            'INFO'
+    }
+    else {
+        Write-AppLog `
+            "Failed request repository returned rows=$($rows.Count) from dispositions=$($failedDispositions -join ','). Applying retention cutoff." `
+            'INFO'
+    }
+
     $list = New-Object System.Collections.ArrayList
     $idx = 0
     $seen = 0
     $missingRequestDate = 0
+    $outsideWindow = 0
     $notOldEnough = 0
+
     foreach ($row in $rows) {
         $seen++
-        if (($seen % 100) -eq 0 -or $seen -eq $rows.Count) { Update-Progress -Current $seen -Total $rows.Count -Message "Failed Preview: evaluated $seen of $($rows.Count) failed rows..." }
+
+        if (($seen % 100) -eq 0 -or $seen -eq $rows.Count) {
+            Update-Progress `
+                -Current $seen `
+                -Total $rows.Count `
+                -Message "Failed Preview: evaluated $seen of $($rows.Count) failed rows..."
+        }
+
         $cert = New-PKICertObject -Row $row
         $requestDate = $cert.SubmittedWhen
-        if (-not $requestDate) { $requestDate = $cert.ResolvedWhen }
+
         if (-not $requestDate) {
-            $rawDate = Get-PropValue $row @('Request.SubmittedWhen','SubmittedWhen','Request Submission Date','Submission Date','Data da Solicitação','Data de Envio da Solicitação','Request.ResolvedWhen','ResolvedWhen')
+            $requestDate = $cert.ResolvedWhen
+        }
+
+        if (-not $requestDate) {
+            $rawDate = Get-PropValue `
+                $row `
+                @(
+                    'Request.SubmittedWhen',
+                    'SubmittedWhen',
+                    'Request Submission Date',
+                    'Submission Date',
+                    'Data da Solicitação',
+                    'Data de Envio da Solicitação',
+                    'Request.ResolvedWhen',
+                    'ResolvedWhen'
+                )
+
             $requestDate = Convert-CADate $rawDate
         }
-        if (-not $requestDate) { $missingRequestDate++; continue }
-        if ($requestDate -ge $cutoff) { $notOldEnough++; continue }
-        $idx++
-        $failureMessage = if ($cert.DispositionMessage) { $cert.DispositionMessage } else { [string]$cert.Disposition }
-        $failureRisk = [pscustomobject]@{ Level='LOW'; Reason='Failed request row is older than retention and cleanup does not affect issued certificates' }
-        if ($cert.Template -match 'Domain Controller|Kerberos|CA Exchange|Certification Authority|SubCA') {
-            $failureRisk = [pscustomobject]@{ Level='MEDIUM'; Reason='Old failed request for infrastructure-related template; cleanup only, but verify audit requirements' }
+
+        if (-not $requestDate) {
+            $missingRequestDate++
+            continue
         }
-        [void]$list.Add([pscustomobject]@{
-            Index=$idx; Selected=$true; Status='FAILED_CLEANUP_READY'; Decision='ReadyToDeleteFailedRequest'; RiskLevel=$failureRisk.Level; RiskReason=$failureRisk.Reason; Result='Failed request record is older than retention and eligible for cleanup'
-            CleanupRepository='Failed'; OldRequestID=$cert.RequestID; OldSerialNumber=$cert.SerialNumber; OldRequesterName=$cert.RequesterName; OldCommonName=$cert.CommonName; OldTemplate=$cert.Template; OldTemplateRaw=$cert.TemplateRaw; OldTemplateOID=$cert.TemplateOID; OldTemplateName=$cert.TemplateName; OldTemplateResolved=$cert.TemplateResolved; RevocationReason=$null
-            DeviceClass=$cert.DeviceClass; ComputerName=$cert.ComputerName; OperatingSystem=$cert.OperatingSystem; DeviceClassSource=$cert.DeviceClassSource
-            OldNotBefore=$cert.NotBefore; OldNotAfter=$cert.NotAfter; RequestDate=$requestDate; SubmittedWhen=$cert.SubmittedWhen; ResolvedWhen=$cert.ResolvedWhen; DispositionMessage=$failureMessage; RetentionCutoff=$cutoff
-            ReplacementFound=$false; ReplacementCandidateCount=$null; ReplacementDecisionTrace=$null; ReplacementRequestID=$null; ReplacementSerialNumber=$null; ReplacementNotBefore=$null; ReplacementNotAfter=$null; RevocationDate=$null
-        })
+
+        if ($useExplicitWindow) {
+            if ($requestDate -lt $StartDate -or $requestDate -gt $EndDate) {
+                $outsideWindow++
+                continue
+            }
+        }
+        else {
+            if ($requestDate -ge $cutoff) {
+                $notOldEnough++
+                continue
+            }
+        }
+
+        $idx++
+
+        $failureMessage = if ($cert.DispositionMessage) {
+            $cert.DispositionMessage
+        }
+        else {
+            [string]$cert.Disposition
+        }
+
+        $failureRisk = [pscustomobject]@{
+            Level  = 'LOW'
+            Reason = if ($useExplicitWindow) {
+                'Failed request row is inside the explicit operator-approved cleanup window; cleanup does not affect issued certificates'
+            }
+            else {
+                'Failed request row is older than retention and cleanup does not affect issued certificates'
+            }
+        }
+
+        if ($cert.Template -match 'Domain Controller|Kerberos|CA Exchange|Certification Authority|SubCA') {
+            $failureRisk = [pscustomobject]@{
+                Level  = 'MEDIUM'
+                Reason = 'Failed request for infrastructure-related template; cleanup only, but verify audit requirements'
+            }
+        }
+
+        $resultText = if ($useExplicitWindow) {
+            'Failed request record is inside the explicit cleanup window and eligible for cleanup'
+        }
+        else {
+            'Failed request record is older than retention and eligible for cleanup'
+        }
+
+        $retentionCutoffValue = $null
+        $windowStartValue = $null
+        $windowEndValue = $null
+
+        if ($useExplicitWindow) {
+            $windowStartValue = $StartDate
+            $windowEndValue = $EndDate
+        }
+        else {
+            $retentionCutoffValue = $cutoff
+        }
+
+        [void]$list.Add(
+            [pscustomobject]@{
+                Index                    = $idx
+                Selected                 = $true
+                Status                   = 'FAILED_CLEANUP_READY'
+                Decision                 = 'ReadyToDeleteFailedRequest'
+                RiskLevel                = $failureRisk.Level
+                RiskReason               = $failureRisk.Reason
+                Result                   = $resultText
+                CleanupRepository        = 'Failed'
+                CleanupSelectionMode     = if ($useExplicitWindow) { 'ExplicitWindow' } else { 'Retention' }
+                OldRequestID             = $cert.RequestID
+                OldSerialNumber          = $cert.SerialNumber
+                OldRequesterName         = $cert.RequesterName
+                OldCommonName            = $cert.CommonName
+                OldTemplate              = $cert.Template
+                OldTemplateRaw           = $cert.TemplateRaw
+                OldTemplateOID           = $cert.TemplateOID
+                OldTemplateName          = $cert.TemplateName
+                OldTemplateResolved      = $cert.TemplateResolved
+                RevocationReason         = $null
+                DeviceClass              = $cert.DeviceClass
+                ComputerName             = $cert.ComputerName
+                OperatingSystem          = $cert.OperatingSystem
+                DeviceClassSource        = $cert.DeviceClassSource
+                OldNotBefore             = $cert.NotBefore
+                OldNotAfter              = $cert.NotAfter
+                RequestDate              = $requestDate
+                SubmittedWhen            = $cert.SubmittedWhen
+                ResolvedWhen             = $cert.ResolvedWhen
+                Disposition              = $cert.Disposition
+                DispositionMessage       = $failureMessage
+                RetentionCutoff          = $retentionCutoffValue
+                FailedWindowStart        = $windowStartValue
+                FailedWindowEnd          = $windowEndValue
+                ReplacementFound         = $false
+                ReplacementCandidateCount = $null
+                ReplacementDecisionTrace = $null
+                ReplacementRequestID     = $null
+                ReplacementSerialNumber  = $null
+                ReplacementNotBefore     = $null
+                ReplacementNotAfter      = $null
+                RevocationDate           = $null
+            }
+        )
     }
+
     $script:Stats.FailedCleanupCandidates = $list.Count
-    if ($missingRequestDate -gt 0) { Write-AppLog "Failed preview skipped rows with missing/unparseable request date=$missingRequestDate. Review ICertView-Columns and normalized CSV." 'WARN' }
-    Add-ExecutionTimeline -Stage 'Failed Preview' -Detail "Candidates=$($list.Count) Evaluated=$seen NotOldEnough=$notOldEnough MissingRequestDate=$missingRequestDate" -Level 'SUCCESS'
-    Write-AppLog "Failed cleanup preview candidates: $($list.Count). FailedRowsEvaluated=$seen, NotOldEnough=$notOldEnough, MissingRequestDate=$missingRequestDate, RetentionDays=$RetentionDays, Cutoff=$cutoff" 'SUCCESS'
+
+    if ($missingRequestDate -gt 0) {
+        Write-AppLog `
+            "Failed preview skipped rows with missing/unparseable request date=$missingRequestDate. Review ICertView-Columns and normalized CSV." `
+            'WARN'
+    }
+
+    if ($useExplicitWindow) {
+        Add-ExecutionTimeline `
+            -Stage 'Failed Preview' `
+            -Detail "Candidates=$($list.Count) Evaluated=$seen OutsideWindow=$outsideWindow MissingRequestDate=$missingRequestDate Start=$StartDate End=$EndDate" `
+            -Level 'SUCCESS'
+
+        Write-AppLog `
+            "Failed cleanup preview candidates: $($list.Count). FailedRowsEvaluated=$seen, OutsideWindow=$outsideWindow, MissingRequestDate=$missingRequestDate, Start=$StartDate, End=$EndDate" `
+            'SUCCESS'
+    }
+    else {
+        Add-ExecutionTimeline `
+            -Stage 'Failed Preview' `
+            -Detail "Candidates=$($list.Count) Evaluated=$seen NotOldEnough=$notOldEnough MissingRequestDate=$missingRequestDate" `
+            -Level 'SUCCESS'
+
+        Write-AppLog `
+            "Failed cleanup preview candidates: $($list.Count). FailedRowsEvaluated=$seen, NotOldEnough=$notOldEnough, MissingRequestDate=$missingRequestDate, RetentionDays=$RetentionDays, Cutoff=$cutoff" `
+            'SUCCESS'
+    }
+
     return @($list)
 }
 
@@ -1379,8 +1718,51 @@ function Invoke-RemoveOldRevokedCertificates {
     Assert-PKIPreFlight -Mode 'Cleanup' -DryRun $DryRun
     [void](New-LifecycleSnapshot -NamePrefix "Cleanup-Snapshot-$executionId")
     Write-AppLog "Cleanup Selected started. ExecutionID=$executionId Targets=$($targets.Count) DryRun=$DryRun" 'INFO'
-    if ([bool]$script:Config.BackupBeforeCleanup -and -not $DryRun) { Invoke-CABackup -Root ([string]$script:Config.BackupRoot) -IncludePrivateKey ([bool]$script:Config.BackupPrivateKey) }
-    elseif (-not $DryRun) { Write-AppLog 'BackupBeforeCleanup=false. Proceeding without pre-cleanup CA backup by configuration.' 'WARN' }
+
+    $failedTargets = @(
+        $targets |
+            Where-Object {
+                $_.Decision -eq 'ReadyToDeleteFailedRequest' -or
+                (Get-PropValue $_ @('CleanupRepository')) -eq 'Failed'
+            }
+    )
+
+    $revokedTargets = @(
+        $targets |
+            Where-Object {
+                $_.Decision -eq 'ReadyToDeleteRevokedRow' -or
+                (Get-PropValue $_ @('CleanupRepository')) -eq 'Revoked'
+            }
+    )
+
+    if (-not $DryRun) {
+        $backupRequired = $false
+
+        if (
+            @($failedTargets).Count -gt 0 -and
+            [bool]$script:Config.BackupBeforeFailedCleanup
+        ) {
+            $backupRequired = $true
+        }
+
+        if (
+            @($revokedTargets).Count -gt 0 -and
+            [bool]$script:Config.BackupBeforeCleanup
+        ) {
+            $backupRequired = $true
+        }
+
+        if ($backupRequired) {
+            Invoke-CABackup `
+                -Root ([string]$script:Config.BackupRoot) `
+                -IncludePrivateKey ([bool]$script:Config.BackupPrivateKey)
+        }
+        else {
+            Write-AppLog `
+                'Configured cleanup backup gates are disabled for the selected repositories. Proceeding without pre-cleanup CA backup by configuration.' `
+                'WARN'
+        }
+    }
     $processed = 0
     $dryRunCount = 0
     foreach ($item in $targets) {
@@ -1389,7 +1771,7 @@ function Invoke-RemoveOldRevokedCertificates {
         if ($DryRun) { $item.Status='DRYRUN'; if ($item.Decision -eq 'ReadyToDeleteFailedRequest') { $item.Decision='FailedCleanupDryRun'; $item.Result='Dry Run: would delete old failed request row' } else { $item.Decision='CleanupDryRun'; $item.Result='Dry Run: would delete old revoked database row' }; $dryRunCount++; continue }
         try {
             $rid = [string]$item.OldRequestID
-            if ([string]::IsNullOrWhiteSpace($rid)) { throw 'Missing RequestID for revoked cleanup row.' }
+            if ([string]::IsNullOrWhiteSpace($rid)) { throw 'Missing RequestID for cleanup row.' }
             $cleanupRepository = Get-PropValue $item @('CleanupRepository')
             $isFailedCleanup = ($item.Decision -eq 'ReadyToDeleteFailedRequest' -or $cleanupRepository -eq 'Failed')
             $tableName = if ($isFailedCleanup) { 'Request' } else { 'Cert' }
@@ -1532,7 +1914,7 @@ function Export-Reports {
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition</h1>
+<h1>PKI Certificate Lifecycle Manager v5.6.6 Enterprise Edition</h1>
 <p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
 <table>$header
 $($rows -join [Environment]::NewLine)
@@ -2280,7 +2662,7 @@ function Export-Reports {
     }
     @"
 <html><head><meta charset="utf-8"><title>PKI Lifecycle Report</title>$style</head><body>
-<h1>PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition</h1>
+<h1>PKI Certificate Lifecycle Manager v5.6.6 Enterprise Edition</h1>
 <p><b>Run:</b> $($script:RunStamp) &nbsp; <b>CA:</b> $($script:CAConfig) &nbsp; <b>Model:</b> $model</p>
 <table>$header
 $($rows -join [Environment]::NewLine)
@@ -2399,7 +2781,7 @@ function Show-RowDetails {
 
 function Build-GUI {
     $script:form = New-Object System.Windows.Forms.Form
-    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition - AD CS Governance Console'
+    $script:form.Text = 'PKI Certificate Lifecycle Manager v5.6.6 Enterprise Edition - AD CS Governance Console'
     $script:form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:form.Size = New-Object System.Drawing.Size(1380,780)
     $script:form.MinimumSize = New-Object System.Drawing.Size(1200,720)
@@ -2408,43 +2790,12 @@ function Build-GUI {
     $main = New-Object System.Windows.Forms.TableLayoutPanel
     $main.Dock = [System.Windows.Forms.DockStyle]::Fill
     $main.ColumnCount = 1
-    $main.RowCount = 5
-    [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,24)))
-    [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,175)))
+    $main.RowCount = 4
+    [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,250)))
     [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent,100)))
     [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,120)))
     [void]$main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,24)))
     $script:form.Controls.Add($main)
-
-    $menu = New-Object System.Windows.Forms.MenuStrip
-    $fileMenu = New-Object System.Windows.Forms.ToolStripMenuItem('File')
-    $miExport = New-Object System.Windows.Forms.ToolStripMenuItem('Export Reports')
-    $miOpenLogs = New-Object System.Windows.Forms.ToolStripMenuItem('Open Logs Folder')
-    $miExit = New-Object System.Windows.Forms.ToolStripMenuItem('Exit')
-    [void]$fileMenu.DropDownItems.AddRange(@($miExport,$miOpenLogs,(New-Object System.Windows.Forms.ToolStripSeparator),$miExit))
-    $lifecycleMenu = New-Object System.Windows.Forms.ToolStripMenuItem('Lifecycle')
-    $miPreview = New-Object System.Windows.Forms.ToolStripMenuItem('Lifecycle Preview')
-    $miSelectReady = New-Object System.Windows.Forms.ToolStripMenuItem('Select Ready')
-    $miApply = New-Object System.Windows.Forms.ToolStripMenuItem('Revoke Selected')
-    $miCrl = New-Object System.Windows.Forms.ToolStripMenuItem('Publish CRL')
-    [void]$lifecycleMenu.DropDownItems.AddRange(@($miPreview,$miSelectReady,$miApply,(New-Object System.Windows.Forms.ToolStripSeparator),$miCrl))
-
-    $maintenanceMenu = New-Object System.Windows.Forms.ToolStripMenuItem('Database Maintenance')
-    $miCleanup = New-Object System.Windows.Forms.ToolStripMenuItem('Revoked Preview')
-    $miFailed = New-Object System.Windows.Forms.ToolStripMenuItem('Failed Preview')
-    $miCleanupSelected = New-Object System.Windows.Forms.ToolStripMenuItem('Cleanup Selected')
-    [void]$maintenanceMenu.DropDownItems.AddRange(@($miCleanup,$miFailed,(New-Object System.Windows.Forms.ToolStripSeparator),$miCleanupSelected))
-
-    $reportsMenu = New-Object System.Windows.Forms.ToolStripMenuItem('Reports')
-    $miReportsExport = New-Object System.Windows.Forms.ToolStripMenuItem('Export Reports')
-    $miReportsOpenLogs = New-Object System.Windows.Forms.ToolStripMenuItem('Open Logs')
-    [void]$reportsMenu.DropDownItems.AddRange(@($miReportsExport,$miReportsOpenLogs))
-
-    $helpMenu = New-Object System.Windows.Forms.ToolStripMenuItem('Help')
-    $miAbout = New-Object System.Windows.Forms.ToolStripMenuItem('About')
-    [void]$helpMenu.DropDownItems.Add($miAbout)
-    [void]$menu.Items.AddRange(@($fileMenu,$lifecycleMenu,$maintenanceMenu,$reportsMenu,$helpMenu))
-    $main.Controls.Add($menu,0,0)
 
     $config = New-Object System.Windows.Forms.TableLayoutPanel
     $config.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -2454,7 +2805,7 @@ function Build-GUI {
     [void]$config.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,26)))
     [void]$config.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,20)))
     [void]$config.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,20)))
-    $main.Controls.Add($config,0,1)
+    $main.Controls.Add($config,0,0)
 
     $grpScope = New-Object System.Windows.Forms.GroupBox
     $grpScope.Text = 'CA Scope'
@@ -2463,10 +2814,10 @@ function Build-GUI {
     $scope = New-Object System.Windows.Forms.TableLayoutPanel
     $scope.Dock = [System.Windows.Forms.DockStyle]::Fill
     $scope.ColumnCount = 2
-    $scope.RowCount = 7
-    [void]$scope.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute,135)))
+    $scope.RowCount = 10
+    [void]$scope.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute,150)))
     [void]$scope.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,100)))
-    for ($r=0; $r -lt 7; $r++) { [void]$scope.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,24))) }
+    for ($r=0; $r -lt 10; $r++) { [void]$scope.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,24))) }
     $grpScope.Controls.Add($scope)
     $script:txtCAConfig = New-Object System.Windows.Forms.TextBox
     $script:txtCAConfig.Text = if ($script:CAConfig) { $script:CAConfig } else { Resolve-CAConfigSafe '' }
@@ -2483,13 +2834,53 @@ function Build-GUI {
     $script:txtFailedRetention = New-Object System.Windows.Forms.TextBox
     $script:txtFailedRetention.Text = [string]$script:Config.FailedRetentionDays
     Add-TextRow $scope 4 'Failed days:' $script:txtFailedRetention
+
+    $script:chkFailedExplicitWindow = New-Object System.Windows.Forms.CheckBox
+    $script:chkFailedExplicitWindow.Text = 'Use explicit failed-request window'
+    $script:chkFailedExplicitWindow.Checked = [bool]$script:Config.FailedCleanupUseExplicitWindow
+    $script:chkFailedExplicitWindow.Dock = 'Fill'
+    $scope.Controls.Add($script:chkFailedExplicitWindow,1,5)
+
+    $script:txtFailedStart = New-Object System.Windows.Forms.TextBox
+    $script:txtFailedStart.Text = if (
+        $script:Config.FailedCleanupStart
+    ) {
+        [string]$script:Config.FailedCleanupStart
+    }
+    else {
+        (Get-Date).Date.AddDays(-2).ToString('yyyy-MM-dd HH:mm:ss')
+    }
+    Add-TextRow $scope 6 'Failed from:' $script:txtFailedStart
+
+    $script:txtFailedEnd = New-Object System.Windows.Forms.TextBox
+    $script:txtFailedEnd.Text = if (
+        $script:Config.FailedCleanupEnd
+    ) {
+        [string]$script:Config.FailedCleanupEnd
+    }
+    else {
+        (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    }
+    Add-TextRow $scope 7 'Failed to:' $script:txtFailedEnd
+
+    $script:failedWindowToolTip = New-Object System.Windows.Forms.ToolTip
+    $script:failedWindowToolTip.SetToolTip(
+        $script:txtFailedStart,
+        'Format: yyyy-MM-dd HH:mm:ss'
+    )
+    $script:failedWindowToolTip.SetToolTip(
+        $script:txtFailedEnd,
+        'Format: yyyy-MM-dd HH:mm:ss'
+    )
+
     $script:txtRetention = $script:txtRevokedRetention
     $script:txtBackupRoot = New-Object System.Windows.Forms.TextBox
     $script:txtBackupRoot.Text = [string]$script:Config.BackupRoot
-    Add-TextRow $scope 5 'Backup root:' $script:txtBackupRoot
+    Add-TextRow $scope 8 'Backup root:' $script:txtBackupRoot
+
     $lblReservedProgress = New-Object System.Windows.Forms.Label
     $lblReservedProgress.Text = ''
-    $scope.Controls.Add($lblReservedProgress,1,6)
+    $scope.Controls.Add($lblReservedProgress,1,9)
 
     $grpOptions = New-Object System.Windows.Forms.GroupBox
     $grpOptions.Text = 'Execution Options'
@@ -2534,8 +2925,15 @@ function Build-GUI {
     $exec = New-Object System.Windows.Forms.TableLayoutPanel
     $exec.Dock = [System.Windows.Forms.DockStyle]::Fill
     $exec.ColumnCount = 2
-    $exec.RowCount = 5
-    for ($r=0; $r -lt 5; $r++) { [void]$exec.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute,35))) }
+    $exec.RowCount = 4
+    for ($r=0; $r -lt 4; $r++) {
+        [void]$exec.RowStyles.Add(
+            (New-Object System.Windows.Forms.RowStyle(
+                [System.Windows.Forms.SizeType]::Absolute,
+                35
+            ))
+        )
+    }
     [void]$exec.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,50)))
     [void]$exec.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,50)))
     $grpExec.Controls.Add($exec)
@@ -2552,8 +2950,17 @@ function Build-GUI {
     $exec.Controls.Add($btnApply,0,1); $exec.Controls.Add($btnCrl,1,1)
     $exec.Controls.Add($btnCleanup,0,2); $exec.Controls.Add($btnFailed,1,2)
     $exec.Controls.Add($btnBackup,0,3); $exec.Controls.Add($btnReports,1,3)
-    $exec.Controls.Add($btnLogs,0,4)
-    $script:ActionControls = @($btnPreview,$btnSelect,$btnApply,$btnCrl,$btnCleanup,$btnFailed,$btnBackup,$btnReports,$btnLogs,$miPreview,$miSelectReady,$miApply,$miCrl,$miCleanup,$miFailed,$miCleanupSelected,$miExport,$miOpenLogs,$miReportsExport,$miReportsOpenLogs)
+    $script:ActionControls = @(
+        $btnPreview,
+        $btnSelect,
+        $btnApply,
+        $btnCrl,
+        $btnCleanup,
+        $btnFailed,
+        $btnBackup,
+        $btnReports,
+        $btnLogs
+    )
 
     $grpStats = New-Object System.Windows.Forms.GroupBox
     $grpStats.Text = 'Statistics'
@@ -2578,12 +2985,51 @@ function Build-GUI {
     $script:grid.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect
     $script:grid.AutoSizeColumnsMode = [System.Windows.Forms.DataGridViewAutoSizeColumnsMode]::None
     $script:grid.EditMode = [System.Windows.Forms.DataGridViewEditMode]::EditOnEnter
-    $main.Controls.Add($script:grid,0,2)
+    $main.Controls.Add($script:grid,0,1)
 
     $grpLog = New-Object System.Windows.Forms.GroupBox
     $grpLog.Text = 'Runtime Log'
     $grpLog.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $main.Controls.Add($grpLog,0,3)
+    $main.Controls.Add($grpLog,0,2)
+
+    $logLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $logLayout.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $logLayout.ColumnCount = 2
+    $logLayout.RowCount = 2
+
+    [void]$logLayout.ColumnStyles.Add(
+        (New-Object System.Windows.Forms.ColumnStyle(
+            [System.Windows.Forms.SizeType]::Percent,
+            100
+        ))
+    )
+
+    [void]$logLayout.ColumnStyles.Add(
+        (New-Object System.Windows.Forms.ColumnStyle(
+            [System.Windows.Forms.SizeType]::Absolute,
+            120
+        ))
+    )
+
+    [void]$logLayout.RowStyles.Add(
+        (New-Object System.Windows.Forms.RowStyle(
+            [System.Windows.Forms.SizeType]::Absolute,
+            28
+        ))
+    )
+
+    [void]$logLayout.RowStyles.Add(
+        (New-Object System.Windows.Forms.RowStyle(
+            [System.Windows.Forms.SizeType]::Percent,
+            100
+        ))
+    )
+
+    $grpLog.Controls.Add($logLayout)
+
+    $btnLogs.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $logLayout.Controls.Add($btnLogs,1,0)
+
     $script:txtLog = New-Object System.Windows.Forms.TextBox
     $script:txtLog.Dock = [System.Windows.Forms.DockStyle]::Fill
     $script:txtLog.Multiline = $true
@@ -2591,7 +3037,8 @@ function Build-GUI {
     $script:txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Both
     $script:txtLog.WordWrap = $false
     $script:txtLog.Font = New-Object System.Drawing.Font('Consolas',8)
-    $grpLog.Controls.Add($script:txtLog)
+    $logLayout.Controls.Add($script:txtLog,0,1)
+    $logLayout.SetColumnSpan($script:txtLog,2)
 
     $status = New-Object System.Windows.Forms.StatusStrip
     $status.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -2604,13 +3051,44 @@ function Build-GUI {
     $script:statusMode = New-Object System.Windows.Forms.ToolStripStatusLabel
     $script:statusMode.Font = New-Object System.Drawing.Font('Segoe UI',8.25,[System.Drawing.FontStyle]::Bold)
     [void]$status.Items.AddRange(@($script:statusMain,$script:statusCA,$script:statusPreview,$script:statusMode))
-    $main.Controls.Add($status,0,4)
+    $main.Controls.Add($status,0,3)
 
     $getTemplates = { @(([string]$script:txtTemplates.Text).Split([char[]]@(';',','), [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
     $parseDays = { param([object]$TextBox,[string]$Name,[int]$Min) $v=$Min; if (-not [int]::TryParse([string]$TextBox.Text,[ref]$v)) { throw "Invalid $Name." }; if ($v -lt $Min) { throw "$Name must be $Min or greater." }; return $v }
     $getLifecycleRetention = { & $parseDays $script:txtLifecycleRetention 'lifecycle retention days' 0 }
     $getRevokedRetention   = { & $parseDays $script:txtRevokedRetention 'revoked retention days' 30 }
     $getFailedRetention    = { & $parseDays $script:txtFailedRetention 'failed retention days' 30 }
+
+    $parseDateTime = {
+        param(
+            [object]$TextBox,
+            [string]$Name
+        )
+
+        $value = [datetime]::MinValue
+
+        if (
+            -not [datetime]::TryParse(
+                [string]$TextBox.Text,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [System.Globalization.DateTimeStyles]::AllowWhiteSpaces,
+                [ref]$value
+            )
+        ) {
+            throw "Invalid $Name. Use yyyy-MM-dd HH:mm:ss."
+        }
+
+        return $value
+    }
+
+    $getFailedStart = {
+        & $parseDateTime $script:txtFailedStart 'failed cleanup start'
+    }
+
+    $getFailedEnd = {
+        & $parseDateTime $script:txtFailedEnd 'failed cleanup end'
+    }
+
     $getRetention = $getRevokedRetention
     if ($script:chkDryRun) { $script:chkDryRun.Add_CheckedChanged({ Update-ExecutionModeVisualState }) }
     Update-ExecutionModeVisualState
@@ -2664,15 +3142,34 @@ function Build-GUI {
             $script:CAConfig = Resolve-CAConfigSafe ([string]$script:txtCAConfig.Text).Trim()
             $script:CurrentPreviewModel = 'Failed'
             [void]$script:PreviewItems.Clear()
-            $days = (& $getFailedRetention)
-            $failedCandidates = @(Get-FailedCleanupCandidates -RetentionDays $days)
-            foreach ($c in $failedCandidates) { [void]$script:PreviewItems.Add($c) }
+            if ([bool]$script:chkFailedExplicitWindow.Checked) {
+                $startDate = (& $getFailedStart)
+                $endDate = (& $getFailedEnd)
+
+                $failedCandidates = @(
+                    Get-FailedCleanupCandidates `
+                        -StartDate $startDate `
+                        -EndDate $endDate
+                )
+            }
+            else {
+                $days = (& $getFailedRetention)
+
+                $failedCandidates = @(
+                    Get-FailedCleanupCandidates `
+                        -RetentionDays $days
+                )
+            }
+
+            foreach ($c in $failedCandidates) {
+                [void]$script:PreviewItems.Add($c)
+            }
             Refresh-PreviewGrid
             Refresh-StatisticsView
             Export-Reports -NamePrefix 'PKI-Failed-Preview' | Out-Null
             if ($failedCandidates.Count -eq 0) {
-                Write-AppLog 'Failed Preview completed. No failed requests are older than the configured retention window.' 'WARN'
-                Show-AppMessage 'Failed Preview completed, but no failed request rows matched the retention filter.' 'Failed Preview' ([System.Windows.Forms.MessageBoxIcon]::Information)
+                Write-AppLog 'Failed Preview completed. No failed requests matched the configured retention or explicit-window filter.' 'WARN'
+                Show-AppMessage 'Failed Preview completed, but no failed request rows matched the configured retention or explicit-window filter.' 'Failed Preview' ([System.Windows.Forms.MessageBoxIcon]::Information)
             } else {
                 Write-AppLog "Failed Preview completed. Candidates=$($failedCandidates.Count)" 'SUCCESS'
                 Update-StatusBar "Failed Preview completed. Rows: $($failedCandidates.Count)"
@@ -2683,17 +3180,41 @@ function Build-GUI {
     $reportsAction = { Export-Reports | Out-Null; Start-Process explorer.exe $script:ReportRoot }
     $logsAction = { Start-Process explorer.exe $script:ReportRoot }
 
-    $btnPreview.Add_Click({ Invoke-UIAction $previewAction 'Lifecycle Preview Error' }); $miPreview.Add_Click({ Invoke-UIAction $previewAction 'Lifecycle Preview Error' })
-    $btnSelect.Add_Click({ Invoke-UIAction $selectAction 'Selection Error' }); $miSelectReady.Add_Click({ Invoke-UIAction $selectAction 'Selection Error' })
-    $btnApply.Add_Click({ Invoke-UIAction $applyAction 'Revoke Error' }); $miApply.Add_Click({ Invoke-UIAction $applyAction 'Revoke Error' })
-    $btnCrl.Add_Click({ Invoke-UIAction $crlAction 'CRL Error' }); $miCrl.Add_Click({ Invoke-UIAction $crlAction 'CRL Error' })
-    $btnCleanup.Add_Click({ Invoke-UIAction $cleanupAction 'Revoked Preview Error' }); $miCleanup.Add_Click({ Invoke-UIAction $cleanupAction 'Revoked Preview Error' })
-    $btnFailed.Add_Click({ Invoke-UIAction $failedAction 'Failed Preview Error' }); $miFailed.Add_Click({ Invoke-UIAction $failedAction 'Failed Preview Error' })
-    $btnBackup.Add_Click({ Invoke-UIAction $backupAction 'Cleanup Error' }); $miCleanupSelected.Add_Click({ Invoke-UIAction $backupAction 'Cleanup Error' })
-    $btnReports.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' }); $miReportsExport.Add_Click({ Invoke-UIAction $reportsAction 'Export Error' })
-    $btnLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' }); $miReportsOpenLogs.Add_Click({ Invoke-UIAction $logsAction 'Logs Error' })
-    $miExit.Add_Click({ $script:form.Close() })
-    $miAbout.Add_Click({ Show-AppMessage "PKI Certificate Lifecycle Manager v5.6.2 Enterprise Edition`r`nEnterprise AD CS lifecycle governance, lifecycle preview, revoked cleanup, and failed request maintenance console.`r`n`r`nAuthor: Luiz Hamilton Roberto da Silva - @brazilianscriptguy" 'About' })
+    $btnPreview.Add_Click({
+        Invoke-UIAction $previewAction 'Lifecycle Preview Error'
+    })
+
+    $btnSelect.Add_Click({
+        Invoke-UIAction $selectAction 'Selection Error'
+    })
+
+    $btnApply.Add_Click({
+        Invoke-UIAction $applyAction 'Revoke Error'
+    })
+
+    $btnCrl.Add_Click({
+        Invoke-UIAction $crlAction 'CRL Error'
+    })
+
+    $btnCleanup.Add_Click({
+        Invoke-UIAction $cleanupAction 'Revoked Preview Error'
+    })
+
+    $btnFailed.Add_Click({
+        Invoke-UIAction $failedAction 'Failed Preview Error'
+    })
+
+    $btnBackup.Add_Click({
+        Invoke-UIAction $backupAction 'Cleanup Selected Error'
+    })
+
+    $btnReports.Add_Click({
+        Invoke-UIAction $reportsAction 'Export Reports Error'
+    })
+
+    $btnLogs.Add_Click({
+        Invoke-UIAction $logsAction 'Open Logs Error'
+    })
     $script:grid.Add_CurrentCellDirtyStateChanged({ if ($script:grid.IsCurrentCellDirty) { $script:grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit) } })
     $script:grid.Add_CellValueChanged({ if ($_.ColumnIndex -ge 0 -and $script:grid.Columns.Count -gt $_.ColumnIndex -and $script:grid.Columns[$_.ColumnIndex].Name -eq 'Select') { Sync-GridSelection } })
     $script:grid.Add_CellDoubleClick({ if ($_.RowIndex -ge 0) { $idx=0; if ([int]::TryParse([string]$script:grid.Rows[$_.RowIndex].Cells['Index'].Value,[ref]$idx)) { Show-RowDetails -Index $idx } } })
