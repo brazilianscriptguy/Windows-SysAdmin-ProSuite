@@ -24,6 +24,7 @@ All notable repository changes are documented in this file.
 - Moved certificate-management functionality previously distributed under other `SysAdmin-Tools` areas into the dedicated AD CS component.
 - Standardized the component around certificate discovery, validation, cleanup, lifecycle management, repository maintenance, and operational traceability.
 - Aligned the component name with the canonical Suite Modules, CHANGELOG, release-tag, ZIP, SHA256, and GitHub Release taxonomy.
+- Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
 
 ### Security
 
@@ -83,6 +84,7 @@ All notable repository changes are documented in this file.
 - Updated consolidated distribution behavior to include `ProSuite-Hub` and the dedicated `WSUS-Management-Tools` component.
 - Updated certificate-related distribution content, including `All-Certificates-Install.vbs`, where applicable.
 - Update copyright name in LICENSE file (`de2d9fe`)
+- Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
 
 ### Security
 
@@ -271,6 +273,7 @@ All notable repository changes are documented in this file.
 - Moved AD CS and PKI-specific release responsibilities into the independent `ADCS-Management-Tools` component.
 - Moved WSUS-specific release responsibilities into the independent `WSUS-Management-Tools` component while preserving the physical subdirectory under `SysAdmin-Tools`.
 - Preserved parent-package propagation so nested ADCS, AD/SSO, GPO, and WSUS changes also update the `SysAdmin-Tools` and `All-Repository-Files` distributions.
+- Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
 
 ### Security
 
