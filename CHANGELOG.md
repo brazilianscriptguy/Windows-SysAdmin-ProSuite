@@ -85,6 +85,7 @@ All notable repository changes are documented in this file.
 - Updated certificate-related distribution content, including `All-Certificates-Install.vbs`, where applicable.
 - Update copyright name in LICENSE file (`de2d9fe`)
 - Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
+- Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 
 ### Security
 
@@ -109,6 +110,7 @@ All notable repository changes are documented in this file.
 - Improved modular separation between monitoring, triage, collection, and investigation functions.
 - Improved repeatability and operational traceability of Windows security-analysis workflows.
 - Aligned package naming and release handling with the canonical Suite Modules taxonomy.
+- Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 
 ### Security
 
