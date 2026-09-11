@@ -20,7 +20,7 @@
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-09-10-v6.3.3-DEFAULT-REPORT-PATH
+  2026-09-10-v6.6.0-REDUCED-REPORTS-COMPLETION-DIALOG
 #>
 
 [CmdletBinding()]
@@ -118,7 +118,7 @@ catch {}
     catch {}
 })
 
-$script:Version = '2026-09-10-v6.3.3-DEFAULT-REPORT-PATH'
+$script:Version = '2026-09-10-v6.6.0-REDUCED-REPORTS-COMPLETION-DIALOG'
 $script:ScriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $script:MachineName = [Environment]::MachineName
 $script:LogDir = 'C:\Logs-TEMP'
@@ -202,6 +202,7 @@ function Invoke-GuiSafe {
     catch {
         $message = "{0} failed. {1}" -f $Context, $_.Exception.Message
         Write-Log -Message ("{0} Position='{1}' Stack='{2}'" -f $message,$_.InvocationInfo.PositionMessage,$_.ScriptStackTrace) -Level 'ERROR'
+        Update-ProgressSafe -Value 0
         Set-Status -Text ($Context + ' failed.')
         Show-MessageBox -Message $message -Title $Context -Icon Error
     }
@@ -534,6 +535,71 @@ function Merge-TempCsvIntoFinal {
     return $true
 }
 
+function Get-Event307PropertyValue {
+    param(
+        [Parameter(Mandatory)]$Event,
+        [Parameter(Mandatory)][string[]]$Names,
+        [Parameter(Mandatory)][int]$FallbackIndex
+    )
+
+    try {
+        [xml]$eventXml = $Event.ToXml()
+        foreach ($dataNode in @($eventXml.Event.EventData.Data)) {
+            $nodeName = [string]$dataNode.GetAttribute('Name')
+            if ($Names -contains $nodeName) {
+                return [string]$dataNode.InnerText
+            }
+        }
+    }
+    catch {}
+
+    $properties = @($Event.Properties)
+    if ($FallbackIndex -ge 0 -and $FallbackIndex -lt $properties.Count) {
+        return [string]$properties[$FallbackIndex].Value
+    }
+
+    return '-'
+}
+
+function Get-NativeEvtxPrint307Rows {
+    param(
+        [Parameter(Mandatory)][string]$EvtxPath,
+        [Parameter(Mandatory)][bool]$DateRangeEnabled,
+        [Parameter(Mandatory)][datetime]$FromTime,
+        [Parameter(Mandatory)][datetime]$ToTime
+    )
+
+    $filter = @{ Path = $EvtxPath; Id = 307 }
+    if ($DateRangeEnabled) {
+        $filter.StartTime = $FromTime
+        $filter.EndTime = $ToTime
+    }
+
+    try {
+        $events = @(Get-WinEvent -FilterHashtable $filter -ErrorAction Stop)
+    }
+    catch {
+        if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*' -or
+            $_.Exception.Message -match 'No events were found|Nenhum evento foi encontrado') {
+            return @()
+        }
+        throw "Native EVTX extraction failed for '$EvtxPath'. $($_.Exception.Message)"
+    }
+
+    return @(
+        foreach ($event in $events) {
+            [pscustomobject][ordered]@{
+                EventTime    = $event.TimeCreated
+                UserId       = Get-Event307PropertyValue -Event $event -Names @('Param2','User','UserName') -FallbackIndex 1
+                Workstation  = Get-Event307PropertyValue -Event $event -Names @('Param3','ClientMachine','Workstation') -FallbackIndex 2
+                PrinterUsed  = Get-Event307PropertyValue -Event $event -Names @('Param4','PrinterName','Printer') -FallbackIndex 3
+                ByteSize     = Get-Event307PropertyValue -Event $event -Names @('Param6','Size','ByteSize') -FallbackIndex 5
+                PagesPrinted = Get-Event307PropertyValue -Event $event -Names @('Param7','Pages','PagesPrinted') -FallbackIndex 6
+            }
+        }
+    )
+}
+
 function Invoke-EvtxPrint307Extraction {
     param(
         [Parameter(Mandatory)]$EvtxFiles,
@@ -547,7 +613,8 @@ function Invoke-EvtxPrint307Extraction {
         [Parameter(Mandatory)][datetime]$ToTime,
         [string]$StatusPrefix = 'Processing EVTX',
         [hashtable]$SourceServerByPath = @{},
-        [hashtable]$SourceCountMap = @{}
+        [hashtable]$SourceCountMap = @{},
+        [hashtable]$SourceRowsMap = @{}
     )
 
     $safeEvtxFiles = @($EvtxFiles)
@@ -600,7 +667,19 @@ ORDER BY EventTime DESC
 
             $sourceRows = @()
             if (Test-Path -LiteralPath $TempCsvPath -PathType Leaf) { $sourceRows = @(Import-Csv -LiteralPath $TempCsvPath -ErrorAction SilentlyContinue) }
-            $SourceCountMap[$sourceServer] = [int]@($sourceRows).Count
+            if (@($sourceRows).Count -eq 0) {
+                Write-Log -Message ("Log Parser returned no Event ID 307 rows. Trying native Get-WinEvent fallback: {0}" -f $evtxPath) -Level 'WARN'
+                $sourceRows = @(Get-NativeEvtxPrint307Rows -EvtxPath $evtxPath -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime)
+                if (@($sourceRows).Count -gt 0) {
+                    $sourceRows | Export-Csv -LiteralPath $TempCsvPath -NoTypeInformation -Encoding UTF8
+                    Write-Log -Message ("Native EVTX fallback exported {0} Event ID 307 row(s) from {1}" -f @($sourceRows).Count,$evtxPath)
+                }
+            }
+
+            $existingSourceCount = if ($SourceCountMap.ContainsKey($sourceServer)) { [int]$SourceCountMap[$sourceServer] } else { 0 }
+            $SourceCountMap[$sourceServer] = $existingSourceCount + [int]@($sourceRows).Count
+            $existingSourceRows = if ($SourceRowsMap.ContainsKey($sourceServer)) { @($SourceRowsMap[$sourceServer]) } else { @() }
+            $SourceRowsMap[$sourceServer] = @($existingSourceRows) + @($sourceRows)
             $merged = Merge-TempCsvIntoFinal -TempCsvPath $TempCsvPath -FinalCsvPath $FinalCsvPath -IsFirstFile:$first
 
             if ($merged) {
@@ -822,6 +901,62 @@ function Export-PrintAuditHtml {
     ConvertTo-Html -Title 'Event ID 307 Print Audit' -Head $css -Body $body | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
+function Export-PerServerReportPackages {
+    param(
+        [Parameter(Mandatory)][object[]]$StatusRows,
+        [Parameter(Mandatory)][hashtable]$SourceRowsMap,
+        [Parameter(Mandatory)][string]$DestinationFolder,
+        [Parameter(Mandatory)][string[]]$SelectedReports,
+        [Parameter(Mandatory)][string]$Timestamp
+    )
+
+    $packages = New-Object System.Collections.ArrayList
+    $statusCount = @($StatusRows).Count
+    $packageIndex = 0
+    foreach ($serverStatus in @($StatusRows)) {
+        $packageIndex++
+        $computerName = [string]$serverStatus.ComputerName
+        if ([string]::IsNullOrWhiteSpace($computerName)) { continue }
+
+        Set-Status -Text ("Generating server report {0} of {1}: {2}" -f $packageIndex,$statusCount,$computerName)
+        Update-ProgressSafe -Value (82 + [int](($packageIndex / [double][Math]::Max(1,$statusCount)) * 14))
+
+        $shortName = ($computerName -split '\.')[0]
+        $matchingShortNames = @($StatusRows | Where-Object { (([string]$_.ComputerName -split '\.')[0]) -ieq $shortName })
+        $nameForToken = if ($matchingShortNames.Count -gt 1) { $computerName } else { $shortName }
+        $serverToken = Get-SafeFileToken -Value ($nameForToken.ToUpperInvariant())
+        $baseName = '{0}-EventID307-PrintAudit-{1}' -f $serverToken,$Timestamp
+        $eventPath = Join-Path $DestinationFolder ($baseName + '-Events.csv')
+        $htmlPath = Join-Path $DestinationFolder ($baseName + '.html')
+        $serverRows = @(if ($SourceRowsMap.ContainsKey($computerName)) { @($SourceRowsMap[$computerName]) })
+
+        if ($serverRows.Count -gt 0) {
+            $serverRows | Export-Csv -LiteralPath $eventPath -NoTypeInformation -Encoding UTF8
+            $null = Normalize-PrintAuditCsv -Path $eventPath
+        }
+        else {
+            New-EmptyPrintAuditCsv -Path $eventPath
+        }
+
+        if ($SelectedReports -contains 'HTML') {
+            Export-PrintAuditHtml -CsvPath $eventPath -StatusRows @($serverStatus) -Path $htmlPath -ScopeName $computerName
+        }
+        if ($SelectedReports -notcontains 'CSV') {
+            Remove-Item -LiteralPath $eventPath -Force -ErrorAction SilentlyContinue
+        }
+        Write-Log -Message ("SERVER-REPORT ComputerName='{0}'; Events={1}; BaseName='{2}'" -f $computerName,$serverRows.Count,$baseName)
+
+        [void]$packages.Add([pscustomobject][ordered]@{
+            ComputerName = $computerName
+            Events       = $serverRows.Count
+            EventCsv     = if ($SelectedReports -contains 'CSV') { $eventPath } else { $null }
+            Html         = if ($SelectedReports -contains 'HTML') { $htmlPath } else { $null }
+        })
+    }
+
+    return @($packages | ForEach-Object { $_ })
+}
+
 function Start-PrintAudit307 {
     param(
         [string]$LogFolderPath,
@@ -922,8 +1057,6 @@ function Start-PrintAudit307 {
         Show-MessageBox -Message $message -Title 'Print Audit Error' -Icon Error
     }
     finally {
-        Update-ProgressSafe -Value 0
-
         if ($tempCsvPath -and (Test-Path -LiteralPath $tempCsvPath)) {
             Remove-Item -LiteralPath $tempCsvPath -Force -ErrorAction SilentlyContinue
         }
@@ -960,13 +1093,13 @@ function Start-ForestPrintAudit307 {
     if (@($domains).Count -eq 1 -and $domains[0] -ne 'Manual') { $scopeToken = (($domains[0] -split '\.')[0]).ToUpperInvariant() }
     elseif (@($inventory).Count -eq 1) { $scopeToken = (($inventory[0].ComputerName -split '\.')[0]).ToUpperInvariant() }
     else { $scopeToken = (Get-SafeFileToken -Value $resolvedForest).ToUpperInvariant() }
-    $base = '{0}-EventID307-PrintAudit-{1}' -f $scopeToken,$stamp
+    $base = '{0}-EventID307-PrintAudit-{1}-Consolidated' -f $scopeToken,$stamp
     $discoveryPath = Join-Path $DestinationFolder ($base + '-Discovery.csv')
-    $statusPath = Join-Path $DestinationFolder ($base + '-ServerCoverage.csv')
-    $csvPath = Join-Path $DestinationFolder ($base + '-Events.csv')
-    $htmlPath = Join-Path $DestinationFolder ($base + '.html')
+    $statusPath = Join-Path $DestinationFolder ($base + '-ServerSummary.csv')
+    $htmlPath = Join-Path $DestinationFolder ($base + '-Summary.html')
     $runLogPath = Join-Path $DestinationFolder ($base + '-Execution.log')
     $staging = Join-Path $env:TEMP ('EventID307-Forest-' + [guid]::NewGuid().ToString('N'))
+    $csvPath = Join-Path $staging 'Consolidated-Events-Internal.csv'
 
     try {
         Set-Status -Text ("Forest discovery completed: {0} candidate servers." -f $inventory.Count)
@@ -979,37 +1112,48 @@ function Start-ForestPrintAudit307 {
             $objects = New-LogParserComObjects
             $tempCsv = Join-Path $env:TEMP ('PrintAudit307_' + [guid]::NewGuid().ToString('N') + '.csv')
             $sourceCounts = @{}
-            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsv -DateRangeEnabled:$true -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Parsing forest snapshot' -SourceServerByPath $collection.SourceMap -SourceCountMap $sourceCounts
+            $sourceRows = @{}
+            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsv -DateRangeEnabled:$true -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Parsing forest snapshot' -SourceServerByPath $collection.SourceMap -SourceCountMap $sourceCounts -SourceRowsMap $sourceRows
             $eventCount = Normalize-PrintAuditCsv -Path $csvPath
             foreach ($serverStatus in $statusRows) {
                 $serverStatus.EventCount = if ($sourceCounts.ContainsKey([string]$serverStatus.ComputerName)) { [int]$sourceCounts[[string]$serverStatus.ComputerName] } else { 0 }
                 if ($serverStatus.Status -eq 'SnapshotCopied') { $serverStatus.Status = if ($serverStatus.EventCount -gt 0) { 'Success' } else { 'SuccessNoEvents' } }
             }
         }
-        else { New-EmptyPrintAuditCsv -Path $csvPath; $eventCount=0 }
-        if ($SelectedReports -contains 'HTML' -and -not $DiscoveryMode) { Export-PrintAuditHtml -CsvPath $csvPath -StatusRows $statusRows -Path $htmlPath -ScopeName $scopeToken; $script:LastHtmlPath=$htmlPath }
-        if ($SelectedReports -contains 'CSV') {
-            $statusRows | Export-Csv -LiteralPath $statusPath -NoTypeInformation -Encoding UTF8
-            if ($DiscoveryMode -and (Test-Path -LiteralPath $csvPath)) { Remove-Item -LiteralPath $csvPath -Force -ErrorAction SilentlyContinue }
-        }
-        elseif (Test-Path -LiteralPath $csvPath) { Remove-Item -LiteralPath $csvPath -Force -ErrorAction SilentlyContinue }
-        Write-Log -Message ("Forest audit completed. Forest={0}; Servers={1}; Events={2}; Output={3}" -f $resolvedForest,$statusRows.Count,$eventCount,$DestinationFolder)
+        else { New-EmptyPrintAuditCsv -Path $csvPath; $eventCount=0; $sourceRows=@{} }
+
+        Write-Log -Message ("Forest audit collection completed. Forest={0}; Servers={1}; Events={2}; Output={3}" -f $resolvedForest,$statusRows.Count,$eventCount,$DestinationFolder)
         foreach ($serverStatus in $statusRows) {
             Write-Log -Message ("SERVER-COVERAGE ComputerName='{0}'; Domain='{1}'; DC={2}; File={3}; Print={4}; InScope={5}; ChannelEnabled={6}; Status='{7}'; Events={8}; Error='{9}'" -f $serverStatus.ComputerName,$serverStatus.Domain,$serverStatus.IsDomainController,$serverStatus.IsFileServer,$serverStatus.IsPrintServer,$serverStatus.InScope,$serverStatus.ChannelEnabled,$serverStatus.Status,$serverStatus.EventCount,(([string]$serverStatus.Error) -replace "[\r\n]+",' '))
         }
+
+        $serverPackages = @()
+        if (-not $DiscoveryMode) {
+            $serverPackages = @(Export-PerServerReportPackages -StatusRows $statusRows -SourceRowsMap $sourceRows -DestinationFolder $DestinationFolder -SelectedReports $SelectedReports -Timestamp $stamp)
+        }
+
+        if ($SelectedReports -contains 'HTML' -and -not $DiscoveryMode) {
+            $summaryEventsPath = Join-Path $staging 'Summary-No-Event-Detail.csv'
+            New-EmptyPrintAuditCsv -Path $summaryEventsPath
+            Export-PrintAuditHtml -CsvPath $summaryEventsPath -StatusRows $statusRows -Path $htmlPath -ScopeName ($scopeToken + ' - Consolidated Summary')
+        }
+        if ($SelectedReports -contains 'CSV') {
+            $statusRows | Export-Csv -LiteralPath $statusPath -NoTypeInformation -Encoding UTF8
+        }
+        Write-Log -Message ("Forest per-server report generation completed. Packages={0}." -f $serverPackages.Count)
         if ($SelectedReports -contains 'LOG') { Copy-Item -LiteralPath $script:LogPath -Destination $runLogPath -Force -ErrorAction SilentlyContinue }
-        $script:LastCsvPath = if ($SelectedReports -contains 'CSV') { $csvPath } else { $null }
+        $script:LastCsvPath = if (($SelectedReports -contains 'CSV') -and $serverPackages.Count -gt 0) { $serverPackages[0].EventCsv } elseif ($SelectedReports -contains 'CSV') { $statusPath } else { $null }
+        $script:LastHtmlPath = if (($SelectedReports -contains 'HTML') -and $serverPackages.Count -gt 0) { $serverPackages[0].Html } elseif ($SelectedReports -contains 'HTML') { $htmlPath } else { $null }
         $script:LastOutputFolder = $DestinationFolder
         Update-ProgressSafe -Value 100
         Set-Status -Text ("Forest audit completed. Servers={0}; Events={1}." -f $statusRows.Count,$eventCount)
         if ($AutoOpen) {
-            if (($SelectedReports -contains 'HTML') -and (Test-Path -LiteralPath $htmlPath)) { Start-Process -FilePath $htmlPath }
-            elseif ($SelectedReports -contains 'CSV' -and (Test-Path -LiteralPath $csvPath)) { Start-Process -FilePath $csvPath }
+            if ($script:LastHtmlPath -and (Test-Path -LiteralPath $script:LastHtmlPath)) { Start-Process -FilePath $script:LastHtmlPath }
+            elseif ($script:LastCsvPath -and (Test-Path -LiteralPath $script:LastCsvPath)) { Start-Process -FilePath $script:LastCsvPath }
         }
-        return [pscustomobject]@{ Forest=$resolvedForest; CandidateServers=$inventory.Count; CoveredServers=$statusRows.Count; Events=$eventCount; OutputFolder=$DestinationFolder; EventCsv=$script:LastCsvPath; Html=$script:LastHtmlPath; ExecutionLog=$(if($SelectedReports -contains 'LOG'){$runLogPath}else{$null}) }
+        return [pscustomobject]@{ Forest=$resolvedForest; CandidateServers=$inventory.Count; CoveredServers=$statusRows.Count; Events=$eventCount; OutputFolder=$DestinationFolder; PerServerReports=$serverPackages; ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null}); Html=$script:LastHtmlPath; ExecutionLog=$(if($SelectedReports -contains 'LOG'){$runLogPath}else{$null}) }
     }
     finally {
-        Update-ProgressSafe -Value 0
         if (Test-Path -LiteralPath $staging -PathType Container) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
@@ -1098,33 +1242,70 @@ function Invoke-RemoteArchivedEvtxCollection {
 }
 
 function Start-RemoteArchivedPrintAudit307 {
-    param([object[]]$Inventory,[string]$RemoteFolder,[bool]$Recurse,[string]$DestinationFolder,[string[]]$SelectedRoles,[string[]]$SelectedReports,[datetime]$FromTime,[datetime]$ToTime,[int]$Throttle,[int]$TimeoutSeconds)
+    param(
+        [object[]]$Inventory,
+        [string]$RemoteFolder,
+        [bool]$Recurse,
+        [string]$DestinationFolder,
+        [string[]]$SelectedRoles,
+        [string[]]$SelectedReports,
+        [bool]$DateRangeEnabled,
+        [datetime]$FromTime,
+        [datetime]$ToTime,
+        [int]$Throttle,
+        [int]$TimeoutSeconds
+    )
     Ensure-Directory -Path $DestinationFolder
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $domains = @($Inventory | Select-Object -ExpandProperty Domain -Unique)
     if (@($domains).Count -eq 1 -and $domains[0] -ne 'Manual') { $scopeToken = (($domains[0] -split '\.')[0]).ToUpperInvariant() }
     elseif (@($Inventory).Count -eq 1) { $scopeToken = (($Inventory[0].ComputerName -split '\.')[0]).ToUpperInvariant() }
     else { $scopeToken = 'MULTISERVER' }
-    $base = '{0}-EventID307-PrintAudit-{1}' -f $scopeToken,$stamp
-    $csvPath = Join-Path $DestinationFolder ($base + '-Events.csv'); $statusPath = Join-Path $DestinationFolder ($base + '-ServerCoverage.csv'); $htmlPath = Join-Path $DestinationFolder ($base + '.html')
+    $base = '{0}-EventID307-PrintAudit-{1}-Consolidated' -f $scopeToken,$stamp
+    $statusPath = Join-Path $DestinationFolder ($base + '-ServerSummary.csv')
+    $htmlPath = Join-Path $DestinationFolder ($base + '-Summary.html')
     $staging = Join-Path $env:TEMP ('EventID307-RemoteArchive-' + [guid]::NewGuid().ToString('N'))
+    $csvPath = Join-Path $staging 'Consolidated-Events-Internal.csv'
     try {
+        Update-ProgressSafe -Value 5
+        Set-Status -Text 'Discovering and copying archived EVTX evidence from the selected server(s)...'
+        Write-Log -Message ("Starting remote archived EVTX audit. Servers={0}; Folder='{1}'; Recurse={2}; DateRangeEnabled={3}; From='{4}'; To='{5}'" -f @($Inventory).Count,$RemoteFolder,$Recurse,$DateRangeEnabled,$FromTime,$ToTime)
         $collection = Invoke-RemoteArchivedEvtxCollection -Inventory @($Inventory) -RemoteFolder $RemoteFolder -Recurse:$Recurse -StagingFolder $staging -SelectedRoles $SelectedRoles -Throttle $Throttle -TimeoutSeconds $TimeoutSeconds
-        $status = @($collection.StatusRows); $counts = @{}
+        Update-ProgressSafe -Value 10
+        Write-Log -Message ("Remote archived EVTX collection completed. StatusRows={0}; CopiedFiles={1}" -f @($collection.StatusRows).Count,@($collection.EvtxFiles).Count)
+        $status = @($collection.StatusRows); $counts = @{}; $sourceRows = @{}
         if (@($collection.EvtxFiles).Count -gt 0) {
             $o = New-LogParserComObjects; $temp = Join-Path $env:TEMP ('PrintAudit307_' + [guid]::NewGuid().ToString('N') + '.csv')
-            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $o.LogQuery -InputFormat $o.InputFormat -OutputFormat $o.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $temp -DateRangeEnabled:$true -FromTime $FromTime -ToTime $ToTime -SourceServerByPath $collection.SourceMap -SourceCountMap $counts
+            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $o.LogQuery -InputFormat $o.InputFormat -OutputFormat $o.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $temp -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -SourceServerByPath $collection.SourceMap -SourceCountMap $counts -SourceRowsMap $sourceRows
             $eventCount = Normalize-PrintAuditCsv -Path $csvPath
         }
         else { New-EmptyPrintAuditCsv -Path $csvPath; $eventCount = 0 }
-        foreach ($row in $status) { $row.EventCount = if ($counts.ContainsKey([string]$row.ComputerName)) {[int]$counts[[string]$row.ComputerName]} else {0} }
-        if ($SelectedReports -contains 'HTML') { Export-PrintAuditHtml -CsvPath $csvPath -StatusRows $status -Path $htmlPath -ScopeName $scopeToken; $script:LastHtmlPath=$htmlPath }
-        if ($SelectedReports -contains 'CSV') { $status | Export-Csv -LiteralPath $statusPath -NoTypeInformation -Encoding UTF8; $script:LastCsvPath=$csvPath } else { Remove-Item -LiteralPath $csvPath -Force -ErrorAction SilentlyContinue; $script:LastCsvPath=$null }
+        foreach ($row in $status) {
+            $row.EventCount = if ($counts.ContainsKey([string]$row.ComputerName)) { [int]$counts[[string]$row.ComputerName] } else { 0 }
+            if ($row.Status -eq 'ArchiveCopied') {
+                $row.Status = if ($row.EventCount -gt 0) { 'Success' } else { 'SuccessNoEventsInRange' }
+            }
+        }
+        Write-Log -Message ("Remote archived EVTX extraction completed. Servers={0}; Events={1}" -f @($status).Count,$eventCount)
+        foreach ($serverStatus in $status) {
+            Write-Log -Message ("SERVER-COVERAGE ComputerName='{0}'; Domain='{1}'; DC={2}; File={3}; Print={4}; InScope={5}; ChannelEnabled={6}; Status='{7}'; Events={8}; Error='{9}'" -f $serverStatus.ComputerName,$serverStatus.Domain,$serverStatus.IsDomainController,$serverStatus.IsFileServer,$serverStatus.IsPrintServer,$serverStatus.InScope,$serverStatus.ChannelEnabled,$serverStatus.Status,$serverStatus.EventCount,(([string]$serverStatus.Error) -replace "[\r\n]+",' '))
+        }
+        $serverPackages = @(Export-PerServerReportPackages -StatusRows $status -SourceRowsMap $sourceRows -DestinationFolder $DestinationFolder -SelectedReports $SelectedReports -Timestamp $stamp)
+        if ($SelectedReports -contains 'HTML') {
+            $summaryEventsPath = Join-Path $staging 'Summary-No-Event-Detail.csv'
+            New-EmptyPrintAuditCsv -Path $summaryEventsPath
+            Export-PrintAuditHtml -CsvPath $summaryEventsPath -StatusRows $status -Path $htmlPath -ScopeName ($scopeToken + ' - Consolidated Summary')
+        }
+        if ($SelectedReports -contains 'CSV') { $status | Export-Csv -LiteralPath $statusPath -NoTypeInformation -Encoding UTF8 }
         if ($SelectedReports -contains 'LOG') { Copy-Item -LiteralPath $script:LogPath -Destination (Join-Path $DestinationFolder ($base + '-Execution.log')) -Force -ErrorAction SilentlyContinue }
+        $script:LastCsvPath = if (($SelectedReports -contains 'CSV') -and $serverPackages.Count -gt 0) { $serverPackages[0].EventCsv } elseif ($SelectedReports -contains 'CSV') { $statusPath } else { $null }
+        $script:LastHtmlPath = if (($SelectedReports -contains 'HTML') -and $serverPackages.Count -gt 0) { $serverPackages[0].Html } elseif ($SelectedReports -contains 'HTML') { $htmlPath } else { $null }
         $script:LastOutputFolder=$DestinationFolder
-        return [pscustomobject]@{CoveredServers=@($status).Count;Events=$eventCount;OutputFolder=$DestinationFolder}
+        Update-ProgressSafe -Value 100
+        Set-Status -Text ("Completed. Server reports={0}; Events={1}." -f $serverPackages.Count,$eventCount)
+        return [pscustomobject]@{CoveredServers=@($status).Count;Events=$eventCount;OutputFolder=$DestinationFolder;PerServerReports=$serverPackages;ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null})}
     }
-    finally { Update-ProgressSafe -Value 0; if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue } }
+    finally { if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue } }
 }
 
 Ensure-Directory -Path $script:LogDir
@@ -1230,7 +1411,7 @@ function Show-Event307EnterpriseGui {
     $labelReports=New-Object System.Windows.Forms.Label; $labelReports.Text='Reports:'; $labelReports.AutoSize=$true; $labelReports.Margin=New-Object System.Windows.Forms.Padding(3,7,3,3)
     $chkCsv=New-Object System.Windows.Forms.CheckBox; $chkCsv.Text='CSV'; $chkCsv.Checked=$true; $chkCsv.AutoSize=$true
     $chkHtml=New-Object System.Windows.Forms.CheckBox; $chkHtml.Text='Printable HTML'; $chkHtml.Checked=$true; $chkHtml.AutoSize=$true
-    $chkLog=New-Object System.Windows.Forms.CheckBox; $chkLog.Text='Execution log'; $chkLog.Checked=$true; $chkLog.AutoSize=$true
+    $chkLog=New-Object System.Windows.Forms.CheckBox; $chkLog.Text='Consolidated execution log'; $chkLog.Checked=$true; $chkLog.AutoSize=$true
     $chkDates=New-Object System.Windows.Forms.CheckBox; $chkDates.Text='Use date range'; $chkDates.Checked=$true; $chkDates.AutoSize=$true; $chkDates.Margin=New-Object System.Windows.Forms.Padding(25,6,3,3)
     $labelFrom=New-Object System.Windows.Forms.Label; $labelFrom.Text='From:'; $labelFrom.AutoSize=$true; $labelFrom.Margin=New-Object System.Windows.Forms.Padding(12,7,3,3)
     $dateFrom=New-Object System.Windows.Forms.DateTimePicker; $dateFrom.Width=190; $dateFrom.Format='Custom'; $dateFrom.CustomFormat='yyyy-MM-dd HH:mm:ss'; $dateFrom.Value=$StartTime
@@ -1239,10 +1420,8 @@ function Show-Event307EnterpriseGui {
     foreach($control in @($labelReports,$chkCsv,$chkHtml,$chkLog,$chkDates,$labelFrom,$dateFrom,$labelTo,$dateTo)){[void]$reportPanel.Controls.Add($control)}
     $main.Controls.Add($reportPanel,0,4)
 
-    $progressPanel=New-Object System.Windows.Forms.TableLayoutPanel; $progressPanel.Dock='Fill'; $progressPanel.AutoSize=$true; $progressPanel.ColumnCount=1; $progressPanel.RowCount=2
     $summary=New-Object System.Windows.Forms.Label; $summary.AutoSize=$true; $summary.Text='Ready. Select an audit scope.'
-    $progress=New-Object System.Windows.Forms.ProgressBar; $progress.Dock='Fill'; $progress.Height=24
-    $progressPanel.Controls.Add($summary,0,0); $progressPanel.Controls.Add($progress,0,1); $main.Controls.Add($progressPanel,0,5)
+    $summary.Dock='Fill'; $summary.TextAlign='MiddleLeft'; $main.Controls.Add($summary,0,5)
 
     $runtime=New-Object System.Windows.Forms.TextBox; $runtime.Dock='Fill'; $runtime.Multiline=$true; $runtime.ReadOnly=$true; $runtime.ScrollBars='Vertical'; $runtime.Font=New-Object System.Drawing.Font('Consolas',8.5)
     $main.Controls.Add($runtime,0,6)
@@ -1253,7 +1432,9 @@ function Show-Event307EnterpriseGui {
     $btnStart=New-Object System.Windows.Forms.Button; $btnStart.Text='Start Analysis'; $btnStart.Width=130
     [void]$actionPanel.Controls.Add($btnClose); [void]$actionPanel.Controls.Add($btnOpen); [void]$actionPanel.Controls.Add($btnStart); $main.Controls.Add($actionPanel,0,7)
 
-    $statusStrip=New-Object System.Windows.Forms.StatusStrip; $statusMain=New-Object System.Windows.Forms.ToolStripStatusLabel; $statusMain.Spring=$true; $statusMain.TextAlign='MiddleLeft'; $statusMain.Text='Ready'; [void]$statusStrip.Items.Add($statusMain)
+    $statusStrip=New-Object System.Windows.Forms.StatusStrip
+    $progress=New-Object System.Windows.Forms.ToolStripProgressBar; $progress.Name='AuditProgress'; $progress.Minimum=0; $progress.Maximum=100; $progress.Value=0; $progress.Width=240; $progress.Alignment='Left'; [void]$statusStrip.Items.Add($progress)
+    $statusMain=New-Object System.Windows.Forms.ToolStripStatusLabel; $statusMain.Spring=$true; $statusMain.TextAlign='MiddleLeft'; $statusMain.Text='Ready'; [void]$statusStrip.Items.Add($statusMain)
     $statusLog=New-Object System.Windows.Forms.ToolStripStatusLabel; $statusLog.Text="Log: $($script:LogPath)"; [void]$statusStrip.Items.Add($statusLog); $main.Controls.Add($statusStrip,0,8)
 
     $script:Form=$form; $script:StatusLabel=$statusMain; $script:ProgressBar=$progress; $script:RuntimeLog=$runtime
@@ -1282,6 +1463,8 @@ function Show-Event307EnterpriseGui {
     $btnOpen.Add_Click({if($script:LastHtmlPath -and (Test-Path $script:LastHtmlPath)){Start-Process $script:LastHtmlPath}elseif($script:LastCsvPath -and (Test-Path $script:LastCsvPath)){Start-Process $script:LastCsvPath}elseif($script:LastOutputFolder){Start-Process $script:LastOutputFolder}})
     $btnStart.Add_Click({
         Invoke-GuiSafe -Context 'Start Analysis' -ScriptBlock {
+            Update-ProgressSafe -Value 0
+            Set-Status -Text 'Starting analysis...'
             $script:LogDir = $txtLog.Text
             $script:LogPath = Join-Path $script:LogDir ($script:ScriptName + '.log')
             Ensure-Directory $script:LogDir
@@ -1346,9 +1529,12 @@ function Show-Event307EnterpriseGui {
                     $result = Start-ForestPrintAudit307 -RequestedForest $txtForest.Text -DestinationFolder $txtOutput.Text -SelectedRoles $roles -SelectedReports $reports -FromTime $dateFrom.Value -ToTime $dateTo.Value -Throttle $ThrottleLimit -TimeoutSeconds $OperationTimeoutSeconds
                 }
                 else {
-                    $result = Start-RemoteArchivedPrintAudit307 -Inventory $inventory -RemoteFolder $txtArchive.Text -Recurse:$chkRecurse.Checked -DestinationFolder $txtOutput.Text -SelectedRoles $roles -SelectedReports $reports -FromTime $dateFrom.Value -ToTime $dateTo.Value -Throttle $ThrottleLimit -TimeoutSeconds $OperationTimeoutSeconds
+                    $result = Start-RemoteArchivedPrintAudit307 -Inventory $inventory -RemoteFolder $txtArchive.Text -Recurse:$chkRecurse.Checked -DestinationFolder $txtOutput.Text -SelectedRoles $roles -SelectedReports $reports -DateRangeEnabled:$chkDates.Checked -FromTime $dateFrom.Value -ToTime $dateTo.Value -Throttle $ThrottleLimit -TimeoutSeconds $OperationTimeoutSeconds
                 }
                 $summary.Text = "Completed: $($result.CoveredServers) remote server(s), $($result.Events) event(s)."
+                Update-ProgressSafe -Value 100
+                Set-Status -Text ("Completed. Server reports={0}; Events={1}." -f @($result.PerServerReports).Count,$result.Events)
+                Show-MessageBox -Message ("Event ID 307 print audit completed successfully.`r`n`r`nServers processed: {0}`r`nServer report packages: {1}`r`nEvents found: {2}`r`n`r`nReports folder:`r`n{3}" -f $result.CoveredServers,@($result.PerServerReports).Count,$result.Events,$result.OutputFolder) -Title 'Print Audit Completed' -Icon Information
             }
         }
     })
