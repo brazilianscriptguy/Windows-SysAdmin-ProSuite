@@ -20,7 +20,7 @@
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-09-10-v6.6.0-REDUCED-REPORTS-COMPLETION-DIALOG
+  2026-10-05-v7.0.1-PORT-PROPERTY-SAFE
 #>
 
 [CmdletBinding()]
@@ -118,7 +118,7 @@ catch {}
     catch {}
 })
 
-$script:Version = '2026-09-10-v6.6.0-REDUCED-REPORTS-COMPLETION-DIALOG'
+$script:Version = '2026-10-05-v7.0.1-PORT-PROPERTY-SAFE'
 $script:ScriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $script:MachineName = [Environment]::MachineName
 $script:LogDir = 'C:\Logs-TEMP'
@@ -131,7 +131,7 @@ $script:LiveChannelName = 'Microsoft-Windows-PrintService/Operational'
 $script:LastCsvPath = $null
 $script:LastHtmlPath = $null
 $script:LastOutputFolder = $null
-$script:EventSchema = @('EventTime','UserId','Workstation','PrinterUsed','ByteSize','PagesPrinted')
+$script:EventSchema = @('EventTime','UserId','Workstation','PrinterUsed','PrinterUsedIPAddress','ByteSize','PagesPrinted')
 $script:GuiServerInventory = @()
 $script:GuiServerByDisplay = @{}
 $script:RuntimeLog = $null
@@ -416,6 +416,116 @@ function Normalize-PrinterName {
     return ($text -replace '^\\\\[^\\]+\\', '').Trim()
 }
 
+function Get-PrinterUsedIPAddress {
+    param([object]$PrinterPort)
+
+    $portText = Normalize-PrintAuditValue -Value $PrinterPort
+    if ($portText -ne '-' -and $portText -match '(?<!\d)(?<IPv4>(?:\d{1,3}\.){3}\d{1,3})(?!\d)') {
+        [System.Net.IPAddress]$parsedAddress = $null
+        if ([System.Net.IPAddress]::TryParse([string]$Matches.IPv4,[ref]$parsedAddress) -and
+            $parsedAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
+            return [string]$parsedAddress.IPAddressToString
+        }
+    }
+
+    return '-'
+}
+
+function Get-PrinterAddressMapKey {
+    param(
+        [Parameter(Mandatory)][string]$ServerName,
+        [Parameter(Mandatory)][string]$PrinterName
+    )
+
+    return ('{0}|{1}' -f $ServerName.Trim().ToLowerInvariant(),$PrinterName.Trim().ToLowerInvariant())
+}
+
+function Get-PrinterServerPortAddressMap {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ComputerNames,
+        [int]$Throttle = 12,
+        [int]$TimeoutSeconds = 900
+    )
+
+    $targets = @($ComputerNames | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+    $addressMap = @{}
+    if ($targets.Count -eq 0) { return $addressMap }
+
+    $collector = {
+        $ErrorActionPreference = 'Stop'
+        Import-Module PrintManagement -ErrorAction Stop
+        $ports = @(Get-PrinterPort -ErrorAction Stop)
+        $portsByName = @{}
+        foreach ($port in $ports) { $portsByName[[string]$port.Name] = $port }
+        foreach ($printer in @(Get-Printer -ErrorAction Stop)) {
+            $port = if ($portsByName.ContainsKey([string]$printer.PortName)) { $portsByName[[string]$printer.PortName] } else { $null }
+            $hostAddress = if ($port -and $port.PSObject.Properties['PrinterHostAddress'] -and $port.PrinterHostAddress) {
+                [string]$port.PrinterHostAddress
+            }
+            else {
+                ''
+            }
+            [pscustomobject][ordered]@{
+                ServerName         = [string]$env:COMPUTERNAME
+                PrinterName        = [string]$printer.Name
+                ShareName          = [string]$printer.ShareName
+                PortName           = [string]$printer.PortName
+                PrinterHostAddress = $hostAddress
+            }
+        }
+    }
+
+    $localAliases = @($env:COMPUTERNAME,'localhost','.')
+    $localTargets = @($targets | Where-Object { $localAliases -contains (($_ -split '\.')[0]) })
+    $remoteTargets = @($targets | Where-Object { $localTargets -notcontains $_ })
+    $records = New-Object System.Collections.ArrayList
+
+    if ($localTargets.Count -gt 0) {
+        try { foreach ($record in @(& $collector)) { [void]$records.Add($record) } }
+        catch { Write-Log -Message ("Local printer-port inventory failed. {0}" -f $_.Exception.Message) -Level 'WARN' }
+    }
+
+    if ($remoteTargets.Count -gt 0) {
+        $job = $null
+        try {
+            $job = Invoke-Command -ComputerName $remoteTargets -AsJob -ThrottleLimit $Throttle -ScriptBlock $collector -ErrorAction SilentlyContinue
+            if (-not (Wait-Job -Job $job -Timeout $TimeoutSeconds)) {
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                Write-Log -Message 'Printer-port inventory reached its operation timeout.' -Level 'WARN'
+            }
+            foreach ($record in @(Receive-Job -Job $job -ErrorAction SilentlyContinue)) { [void]$records.Add($record) }
+        }
+        catch { Write-Log -Message ("Remote printer-port inventory failed. {0}" -f $_.Exception.Message) -Level 'WARN' }
+        finally { if ($job) { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue } }
+    }
+
+    foreach ($record in @($records)) {
+        $psComputerName = if ($record.PSObject.Properties['PSComputerName']) { [string]$record.PSComputerName } else { '' }
+        $serverNames = @($psComputerName,[string]$record.ServerName) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_; ($_ -split '\.')[0] } |
+            Sort-Object -Unique
+        $printerNames = @([string]$record.PrinterName,[string]$record.ShareName) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+        $address = [string]$record.PrinterHostAddress
+        if ([string]::IsNullOrWhiteSpace($address) -and ([string]$record.PortName) -match '(?<!\d)(?<IPv4>(?:\d{1,3}\.){3}\d{1,3})(?!\d)') {
+            $address = [string]$Matches.IPv4
+        }
+        if ([string]::IsNullOrWhiteSpace($address)) { continue }
+
+        foreach ($serverName in $serverNames) {
+            foreach ($printerName in $printerNames) {
+                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName $printerName)] = $address
+                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName (Normalize-PrinterName -Value $printerName))] = $address
+            }
+        }
+    }
+
+    Write-Log -Message ("Printer-server port inventory produced {0} queue-to-address mapping(s)." -f $addressMap.Count)
+    return $addressMap
+}
+
 function Normalize-PrintAuditCsv {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -432,12 +542,13 @@ function Normalize-PrintAuditCsv {
 
     $normalized = foreach ($row in $rows) {
         [pscustomobject][ordered]@{
-            EventTime    = Normalize-PrintAuditValue -Value $row.EventTime
-            UserId       = Normalize-PrintAuditValue -Value $row.UserId
-            Workstation  = Normalize-WorkstationName -Value $row.Workstation
-            PrinterUsed  = Normalize-PrinterName -Value $row.PrinterUsed
-            ByteSize     = Normalize-PrintAuditValue -Value $row.ByteSize
-            PagesPrinted = Normalize-PrintAuditValue -Value $row.PagesPrinted
+            EventTime            = Normalize-PrintAuditValue -Value $row.EventTime
+            UserId               = Normalize-PrintAuditValue -Value $row.UserId
+            Workstation          = Normalize-WorkstationName -Value $row.Workstation
+            PrinterUsed          = Normalize-PrinterName -Value $row.PrinterUsed
+            PrinterUsedIPAddress = Normalize-PrintAuditValue -Value $row.PrinterUsedIPAddress
+            ByteSize             = Normalize-PrintAuditValue -Value $row.ByteSize
+            PagesPrinted         = Normalize-PrintAuditValue -Value $row.PagesPrinted
         }
     }
 
@@ -589,12 +700,14 @@ function Get-NativeEvtxPrint307Rows {
     return @(
         foreach ($event in $events) {
             [pscustomobject][ordered]@{
-                EventTime    = $event.TimeCreated
-                UserId       = Get-Event307PropertyValue -Event $event -Names @('Param2','User','UserName') -FallbackIndex 1
-                Workstation  = Get-Event307PropertyValue -Event $event -Names @('Param3','ClientMachine','Workstation') -FallbackIndex 2
-                PrinterUsed  = Get-Event307PropertyValue -Event $event -Names @('Param4','PrinterName','Printer') -FallbackIndex 3
-                ByteSize     = Get-Event307PropertyValue -Event $event -Names @('Param6','Size','ByteSize') -FallbackIndex 5
-                PagesPrinted = Get-Event307PropertyValue -Event $event -Names @('Param7','Pages','PagesPrinted') -FallbackIndex 6
+                EventTime            = $event.TimeCreated
+                UserId               = Get-Event307PropertyValue -Event $event -Names @('Param2','User','UserName') -FallbackIndex 1
+                Workstation          = Get-Event307PropertyValue -Event $event -Names @('Param3','ClientMachine','Workstation') -FallbackIndex 2
+                PrinterUsed          = Get-Event307PropertyValue -Event $event -Names @('Param4','PrinterName','Printer') -FallbackIndex 3
+                PrinterPort          = Get-Event307PropertyValue -Event $event -Names @('Param5','PortName','Port') -FallbackIndex 4
+                PrinterUsedIPAddress = '-'
+                ByteSize             = Get-Event307PropertyValue -Event $event -Names @('Param6','Size','ByteSize') -FallbackIndex 5
+                PagesPrinted         = Get-Event307PropertyValue -Event $event -Names @('Param7','Pages','PagesPrinted') -FallbackIndex 6
             }
         }
     )
@@ -613,6 +726,7 @@ function Invoke-EvtxPrint307Extraction {
         [Parameter(Mandatory)][datetime]$ToTime,
         [string]$StatusPrefix = 'Processing EVTX',
         [hashtable]$SourceServerByPath = @{},
+        [hashtable]$PrinterAddressByServerAndQueue = @{},
         [hashtable]$SourceCountMap = @{},
         [hashtable]$SourceRowsMap = @{}
     )
@@ -654,6 +768,7 @@ SELECT
   EXTRACT_TOKEN(Strings, 2, '|') AS UserId,
   EXTRACT_TOKEN(Strings, 3, '|') AS Workstation,
   EXTRACT_TOKEN(Strings, 4, '|') AS PrinterUsed,
+  EXTRACT_TOKEN(Strings, 5, '|') AS PrinterPort,
   EXTRACT_TOKEN(Strings, 6, '|') AS ByteSize,
   EXTRACT_TOKEN(Strings, 7, '|') AS PagesPrinted
 INTO '$([string](Escape-LogParserPath -Path $TempCsvPath))'
@@ -674,6 +789,41 @@ ORDER BY EventTime DESC
                     $sourceRows | Export-Csv -LiteralPath $TempCsvPath -NoTypeInformation -Encoding UTF8
                     Write-Log -Message ("Native EVTX fallback exported {0} Event ID 307 row(s) from {1}" -f @($sourceRows).Count,$evtxPath)
                 }
+            }
+
+            $sourceRows = @(
+                foreach ($sourceRow in @($sourceRows)) {
+                    $rawPrinterUsed = Normalize-PrintAuditValue -Value $sourceRow.PrinterUsed
+                    $printerUsed = Normalize-PrinterName -Value $rawPrinterUsed
+                    $printerUsedIp = '-'
+                    $serverAliases = @($sourceServer,($sourceServer -split '\.')[0]) | Sort-Object -Unique
+                    $printerAliases = @($rawPrinterUsed,$printerUsed) | Sort-Object -Unique
+                    foreach ($serverAlias in $serverAliases) {
+                        foreach ($printerAlias in $printerAliases) {
+                            $mapKey = Get-PrinterAddressMapKey -ServerName $serverAlias -PrinterName $printerAlias
+                            if ($PrinterAddressByServerAndQueue.ContainsKey($mapKey)) {
+                                $printerUsedIp = [string]$PrinterAddressByServerAndQueue[$mapKey]
+                                break
+                            }
+                        }
+                        if ($printerUsedIp -ne '-') { break }
+                    }
+                    if ($printerUsedIp -eq '-') {
+                        $printerUsedIp = Get-PrinterUsedIPAddress -PrinterPort $sourceRow.PrinterPort
+                    }
+                    [pscustomobject][ordered]@{
+                        EventTime            = Normalize-PrintAuditValue -Value $sourceRow.EventTime
+                        UserId               = Normalize-PrintAuditValue -Value $sourceRow.UserId
+                        Workstation          = Normalize-WorkstationName -Value $sourceRow.Workstation
+                        PrinterUsed          = $printerUsed
+                        PrinterUsedIPAddress = $printerUsedIp
+                        ByteSize             = Normalize-PrintAuditValue -Value $sourceRow.ByteSize
+                        PagesPrinted         = Normalize-PrintAuditValue -Value $sourceRow.PagesPrinted
+                    }
+                }
+            )
+            if (@($sourceRows).Count -gt 0) {
+                $sourceRows | Export-Csv -LiteralPath $TempCsvPath -NoTypeInformation -Encoding UTF8
             }
 
             $existingSourceCount = if ($SourceCountMap.ContainsKey($sourceServer)) { [int]$SourceCountMap[$sourceServer] } else { 0 }
@@ -957,6 +1107,70 @@ function Export-PerServerReportPackages {
     return @($packages | ForEach-Object { $_ })
 }
 
+function Export-VerifiedUnifiedEventCsv {
+    param(
+        [Parameter(Mandatory)][object[]]$StatusRows,
+        [Parameter(Mandatory)][hashtable]$SourceRowsMap,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $unifiedRows = New-Object System.Collections.ArrayList
+    $expectedTotal = 0
+
+    foreach ($serverStatus in @($StatusRows)) {
+        $computerName = [string]$serverStatus.ComputerName
+        if ([string]::IsNullOrWhiteSpace($computerName)) { continue }
+
+        $serverRows = @(if ($SourceRowsMap.ContainsKey($computerName)) { @($SourceRowsMap[$computerName]) })
+        $reportedCount = [int]$serverStatus.EventCount
+        $actualCount = $serverRows.Count
+
+        if ($reportedCount -ne $actualCount) {
+            throw ("Unified CSV integrity failure for server '{0}'. Coverage EventCount={1}; attributed rows={2}." -f $computerName,$reportedCount,$actualCount)
+        }
+
+        foreach ($row in $serverRows) {
+            [void]$unifiedRows.Add([pscustomobject][ordered]@{
+                EventTime            = Normalize-PrintAuditValue -Value $row.EventTime
+                UserId               = Normalize-PrintAuditValue -Value $row.UserId
+                Workstation          = Normalize-WorkstationName -Value $row.Workstation
+                PrinterUsed          = Normalize-PrinterName -Value $row.PrinterUsed
+                PrinterUsedIPAddress = Normalize-PrintAuditValue -Value $row.PrinterUsedIPAddress
+                ByteSize             = Normalize-PrintAuditValue -Value $row.ByteSize
+                PagesPrinted         = Normalize-PrintAuditValue -Value $row.PagesPrinted
+            })
+        }
+        $expectedTotal += $actualCount
+        Write-Log -Message ("UNIFIED-CSV-SOURCE ComputerName='{0}'; Rows={1}" -f $computerName,$actualCount)
+    }
+
+    if ($expectedTotal -gt 0) {
+        @($unifiedRows | ForEach-Object { $_ }) |
+            Sort-Object EventTime -Descending |
+            Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding UTF8
+    }
+    else {
+        New-EmptyPrintAuditCsv -Path $Path
+    }
+
+    $importedRows = @(Import-Csv -LiteralPath $Path -ErrorAction Stop)
+    if ($importedRows.Count -ne $expectedTotal) {
+        throw ("Unified CSV integrity failure. Expected rows={0}; exported rows={1}; Path='{2}'." -f $expectedTotal,$importedRows.Count,$Path)
+    }
+
+    $actualColumns = @($importedRows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+    if ($expectedTotal -eq 0) {
+        $headerLine = [string](Get-Content -LiteralPath $Path -TotalCount 1 -ErrorAction Stop)
+        $actualColumns = @($headerLine -split ',' | ForEach-Object { $_.Trim('"') })
+    }
+    if (($actualColumns -join '|') -ne ($script:EventSchema -join '|')) {
+        throw ("Unified CSV schema validation failed. Expected='{0}'; Actual='{1}'." -f ($script:EventSchema -join ','),($actualColumns -join ','))
+    }
+
+    Write-Log -Message ("Unified Event ID 307 CSV verified successfully. Rows={0}; Path='{1}'" -f $expectedTotal,$Path)
+    return $expectedTotal
+}
+
 function Start-PrintAudit307 {
     param(
         [string]$LogFolderPath,
@@ -992,6 +1206,7 @@ function Start-PrintAudit307 {
         }
 
         $objects = New-LogParserComObjects
+        $printerAddressMap = Get-PrinterServerPortAddressMap -ComputerNames @($script:MachineName) -Throttle 1 -TimeoutSeconds 120
         Write-Log -Message ("Starting Event ID 307 print audit. UseLiveLog={0}; Folder='{1}'; IncludeSubfolders={2}; OutputFolder='{3}'; DateRange={4}" -f $UseLiveLog, $LogFolderPath, $IncludeSubfolders, $OutputFolder, $DateRangeEnabled)
 
         $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -1007,7 +1222,7 @@ function Start-PrintAudit307 {
             Set-Status -Text 'Exporting live PrintService Operational snapshot...'
             Export-LiveChannelSnapshot -ChannelName $script:LiveChannelName -DestinationPath $snapshotEvtxPath | Out-Null
 
-            $rows = Invoke-EvtxPrint307Extraction -EvtxFiles @([System.IO.FileInfo](Get-Item -LiteralPath $snapshotEvtxPath -ErrorAction Stop)) -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsvPath -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Processing live snapshot'
+            $rows = Invoke-EvtxPrint307Extraction -EvtxFiles @([System.IO.FileInfo](Get-Item -LiteralPath $snapshotEvtxPath -ErrorAction Stop)) -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsvPath -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Processing live snapshot' -PrinterAddressByServerAndQueue $printerAddressMap
         }
         else {
             if ([string]::IsNullOrWhiteSpace($LogFolderPath) -or -not (Test-Path -LiteralPath $LogFolderPath -PathType Container)) {
@@ -1026,7 +1241,7 @@ function Start-PrintAudit307 {
             }
 
             Write-Log -Message ("Archived EVTX discovery completed. Files discovered={0}." -f @($evtxFiles).Count)
-            $rows = Invoke-EvtxPrint307Extraction -EvtxFiles @($evtxFiles) -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsvPath -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime
+            $rows = Invoke-EvtxPrint307Extraction -EvtxFiles @($evtxFiles) -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsvPath -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -PrinterAddressByServerAndQueue $printerAddressMap
         }
 
         Update-ProgressSafe -Value 90
@@ -1098,6 +1313,7 @@ function Start-ForestPrintAudit307 {
     $statusPath = Join-Path $DestinationFolder ($base + '-ServerSummary.csv')
     $htmlPath = Join-Path $DestinationFolder ($base + '-Summary.html')
     $runLogPath = Join-Path $DestinationFolder ($base + '-Execution.log')
+    $unifiedCsvPath = Join-Path $DestinationFolder ('{0}-EventID307-PrintAudit-{1}-Events.csv' -f $scopeToken,$stamp)
     $staging = Join-Path $env:TEMP ('EventID307-Forest-' + [guid]::NewGuid().ToString('N'))
     $csvPath = Join-Path $staging 'Consolidated-Events-Internal.csv'
 
@@ -1107,13 +1323,15 @@ function Start-ForestPrintAudit307 {
         if ($SelectedReports -contains 'CSV') { $inventory | Export-Csv -LiteralPath $discoveryPath -NoTypeInformation -Encoding UTF8 }
         $collection = Invoke-ForestSnapshotCollection -Inventory $inventory -StagingFolder $staging -RangeStart $FromTime -RangeEnd $ToTime -SelectedRoles $SelectedRoles -Throttle $Throttle -TimeoutSeconds $TimeoutSeconds -DiscoveryMode:$DiscoveryMode
         $statusRows = @($collection.StatusRows)
+        $printServerTargets = @($statusRows | Where-Object { $_.IsPrintServer -eq $true -and $_.InScope -eq $true } | Select-Object -ExpandProperty ComputerName -Unique)
+        $printerAddressMap = if (-not $DiscoveryMode) { Get-PrinterServerPortAddressMap -ComputerNames $printServerTargets -Throttle $Throttle -TimeoutSeconds $TimeoutSeconds } else { @{} }
         Update-ProgressSafe -Value 55
         if (-not $DiscoveryMode -and @($collection.EvtxFiles).Count -gt 0) {
             $objects = New-LogParserComObjects
             $tempCsv = Join-Path $env:TEMP ('PrintAudit307_' + [guid]::NewGuid().ToString('N') + '.csv')
             $sourceCounts = @{}
             $sourceRows = @{}
-            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsv -DateRangeEnabled:$true -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Parsing forest snapshot' -SourceServerByPath $collection.SourceMap -SourceCountMap $sourceCounts -SourceRowsMap $sourceRows
+            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $objects.LogQuery -InputFormat $objects.InputFormat -OutputFormat $objects.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $tempCsv -DateRangeEnabled:$true -FromTime $FromTime -ToTime $ToTime -StatusPrefix 'Parsing forest snapshot' -SourceServerByPath $collection.SourceMap -PrinterAddressByServerAndQueue $printerAddressMap -SourceCountMap $sourceCounts -SourceRowsMap $sourceRows
             $eventCount = Normalize-PrintAuditCsv -Path $csvPath
             foreach ($serverStatus in $statusRows) {
                 $serverStatus.EventCount = if ($sourceCounts.ContainsKey([string]$serverStatus.ComputerName)) { [int]$sourceCounts[[string]$serverStatus.ComputerName] } else { 0 }
@@ -1132,6 +1350,13 @@ function Start-ForestPrintAudit307 {
             $serverPackages = @(Export-PerServerReportPackages -StatusRows $statusRows -SourceRowsMap $sourceRows -DestinationFolder $DestinationFolder -SelectedReports $SelectedReports -Timestamp $stamp)
         }
 
+        if (($SelectedReports -contains 'CSV') -and -not $DiscoveryMode) {
+            $verifiedUnifiedCount = Export-VerifiedUnifiedEventCsv -StatusRows $statusRows -SourceRowsMap $sourceRows -Path $unifiedCsvPath
+            if ($verifiedUnifiedCount -ne $eventCount) {
+                throw ("Unified CSV total does not match the extraction total. Extraction={0}; Unified={1}." -f $eventCount,$verifiedUnifiedCount)
+            }
+        }
+
         if ($SelectedReports -contains 'HTML' -and -not $DiscoveryMode) {
             $summaryEventsPath = Join-Path $staging 'Summary-No-Event-Detail.csv'
             New-EmptyPrintAuditCsv -Path $summaryEventsPath
@@ -1142,7 +1367,7 @@ function Start-ForestPrintAudit307 {
         }
         Write-Log -Message ("Forest per-server report generation completed. Packages={0}." -f $serverPackages.Count)
         if ($SelectedReports -contains 'LOG') { Copy-Item -LiteralPath $script:LogPath -Destination $runLogPath -Force -ErrorAction SilentlyContinue }
-        $script:LastCsvPath = if (($SelectedReports -contains 'CSV') -and $serverPackages.Count -gt 0) { $serverPackages[0].EventCsv } elseif ($SelectedReports -contains 'CSV') { $statusPath } else { $null }
+        $script:LastCsvPath = if (($SelectedReports -contains 'CSV') -and -not $DiscoveryMode) { $unifiedCsvPath } elseif ($SelectedReports -contains 'CSV') { $statusPath } else { $null }
         $script:LastHtmlPath = if (($SelectedReports -contains 'HTML') -and $serverPackages.Count -gt 0) { $serverPackages[0].Html } elseif ($SelectedReports -contains 'HTML') { $htmlPath } else { $null }
         $script:LastOutputFolder = $DestinationFolder
         Update-ProgressSafe -Value 100
@@ -1151,7 +1376,7 @@ function Start-ForestPrintAudit307 {
             if ($script:LastHtmlPath -and (Test-Path -LiteralPath $script:LastHtmlPath)) { Start-Process -FilePath $script:LastHtmlPath }
             elseif ($script:LastCsvPath -and (Test-Path -LiteralPath $script:LastCsvPath)) { Start-Process -FilePath $script:LastCsvPath }
         }
-        return [pscustomobject]@{ Forest=$resolvedForest; CandidateServers=$inventory.Count; CoveredServers=$statusRows.Count; Events=$eventCount; OutputFolder=$DestinationFolder; PerServerReports=$serverPackages; ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null}); Html=$script:LastHtmlPath; ExecutionLog=$(if($SelectedReports -contains 'LOG'){$runLogPath}else{$null}) }
+        return [pscustomobject]@{ Forest=$resolvedForest; CandidateServers=$inventory.Count; CoveredServers=$statusRows.Count; Events=$eventCount; OutputFolder=$DestinationFolder; PerServerReports=$serverPackages; UnifiedEventCsv=$(if(($SelectedReports -contains 'CSV') -and -not $DiscoveryMode){$unifiedCsvPath}else{$null}); ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null}); Html=$script:LastHtmlPath; ExecutionLog=$(if($SelectedReports -contains 'LOG'){$runLogPath}else{$null}) }
     }
     finally {
         if (Test-Path -LiteralPath $staging -PathType Container) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue }
@@ -1260,10 +1485,19 @@ function Start-RemoteArchivedPrintAudit307 {
     $domains = @($Inventory | Select-Object -ExpandProperty Domain -Unique)
     if (@($domains).Count -eq 1 -and $domains[0] -ne 'Manual') { $scopeToken = (($domains[0] -split '\.')[0]).ToUpperInvariant() }
     elseif (@($Inventory).Count -eq 1) { $scopeToken = (($Inventory[0].ComputerName -split '\.')[0]).ToUpperInvariant() }
-    else { $scopeToken = 'MULTISERVER' }
+    else {
+        try {
+            $forestScopeName = [string](Get-ADForest -ErrorAction Stop).Name
+            $scopeToken = Get-SafeFileToken -Value ($forestScopeName.ToUpperInvariant())
+        }
+        catch {
+            $scopeToken = 'MULTISERVER'
+        }
+    }
     $base = '{0}-EventID307-PrintAudit-{1}-Consolidated' -f $scopeToken,$stamp
     $statusPath = Join-Path $DestinationFolder ($base + '-ServerSummary.csv')
     $htmlPath = Join-Path $DestinationFolder ($base + '-Summary.html')
+    $unifiedCsvPath = Join-Path $DestinationFolder ('{0}-EventID307-PrintAudit-{1}-Events.csv' -f $scopeToken,$stamp)
     $staging = Join-Path $env:TEMP ('EventID307-RemoteArchive-' + [guid]::NewGuid().ToString('N'))
     $csvPath = Join-Path $staging 'Consolidated-Events-Internal.csv'
     try {
@@ -1274,9 +1508,11 @@ function Start-RemoteArchivedPrintAudit307 {
         Update-ProgressSafe -Value 10
         Write-Log -Message ("Remote archived EVTX collection completed. StatusRows={0}; CopiedFiles={1}" -f @($collection.StatusRows).Count,@($collection.EvtxFiles).Count)
         $status = @($collection.StatusRows); $counts = @{}; $sourceRows = @{}
+        $printServerTargets = @($status | Where-Object { $_.IsPrintServer -eq $true -and $_.InScope -eq $true } | Select-Object -ExpandProperty ComputerName -Unique)
+        $printerAddressMap = Get-PrinterServerPortAddressMap -ComputerNames $printServerTargets -Throttle $Throttle -TimeoutSeconds $TimeoutSeconds
         if (@($collection.EvtxFiles).Count -gt 0) {
             $o = New-LogParserComObjects; $temp = Join-Path $env:TEMP ('PrintAudit307_' + [guid]::NewGuid().ToString('N') + '.csv')
-            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $o.LogQuery -InputFormat $o.InputFormat -OutputFormat $o.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $temp -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -SourceServerByPath $collection.SourceMap -SourceCountMap $counts -SourceRowsMap $sourceRows
+            $null = Invoke-EvtxPrint307Extraction -EvtxFiles $collection.EvtxFiles -LogQuery $o.LogQuery -InputFormat $o.InputFormat -OutputFormat $o.OutputFormat -FinalCsvPath $csvPath -TempCsvPath $temp -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime -SourceServerByPath $collection.SourceMap -PrinterAddressByServerAndQueue $printerAddressMap -SourceCountMap $counts -SourceRowsMap $sourceRows
             $eventCount = Normalize-PrintAuditCsv -Path $csvPath
         }
         else { New-EmptyPrintAuditCsv -Path $csvPath; $eventCount = 0 }
@@ -1291,6 +1527,12 @@ function Start-RemoteArchivedPrintAudit307 {
             Write-Log -Message ("SERVER-COVERAGE ComputerName='{0}'; Domain='{1}'; DC={2}; File={3}; Print={4}; InScope={5}; ChannelEnabled={6}; Status='{7}'; Events={8}; Error='{9}'" -f $serverStatus.ComputerName,$serverStatus.Domain,$serverStatus.IsDomainController,$serverStatus.IsFileServer,$serverStatus.IsPrintServer,$serverStatus.InScope,$serverStatus.ChannelEnabled,$serverStatus.Status,$serverStatus.EventCount,(([string]$serverStatus.Error) -replace "[\r\n]+",' '))
         }
         $serverPackages = @(Export-PerServerReportPackages -StatusRows $status -SourceRowsMap $sourceRows -DestinationFolder $DestinationFolder -SelectedReports $SelectedReports -Timestamp $stamp)
+        if ($SelectedReports -contains 'CSV') {
+            $verifiedUnifiedCount = Export-VerifiedUnifiedEventCsv -StatusRows $status -SourceRowsMap $sourceRows -Path $unifiedCsvPath
+            if ($verifiedUnifiedCount -ne $eventCount) {
+                throw ("Unified CSV total does not match the extraction total. Extraction={0}; Unified={1}." -f $eventCount,$verifiedUnifiedCount)
+            }
+        }
         if ($SelectedReports -contains 'HTML') {
             $summaryEventsPath = Join-Path $staging 'Summary-No-Event-Detail.csv'
             New-EmptyPrintAuditCsv -Path $summaryEventsPath
@@ -1298,12 +1540,12 @@ function Start-RemoteArchivedPrintAudit307 {
         }
         if ($SelectedReports -contains 'CSV') { $status | Export-Csv -LiteralPath $statusPath -NoTypeInformation -Encoding UTF8 }
         if ($SelectedReports -contains 'LOG') { Copy-Item -LiteralPath $script:LogPath -Destination (Join-Path $DestinationFolder ($base + '-Execution.log')) -Force -ErrorAction SilentlyContinue }
-        $script:LastCsvPath = if (($SelectedReports -contains 'CSV') -and $serverPackages.Count -gt 0) { $serverPackages[0].EventCsv } elseif ($SelectedReports -contains 'CSV') { $statusPath } else { $null }
+        $script:LastCsvPath = if ($SelectedReports -contains 'CSV') { $unifiedCsvPath } else { $null }
         $script:LastHtmlPath = if (($SelectedReports -contains 'HTML') -and $serverPackages.Count -gt 0) { $serverPackages[0].Html } elseif ($SelectedReports -contains 'HTML') { $htmlPath } else { $null }
         $script:LastOutputFolder=$DestinationFolder
         Update-ProgressSafe -Value 100
         Set-Status -Text ("Completed. Server reports={0}; Events={1}." -f $serverPackages.Count,$eventCount)
-        return [pscustomobject]@{CoveredServers=@($status).Count;Events=$eventCount;OutputFolder=$DestinationFolder;PerServerReports=$serverPackages;ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null})}
+        return [pscustomobject]@{CoveredServers=@($status).Count;Events=$eventCount;OutputFolder=$DestinationFolder;PerServerReports=$serverPackages;UnifiedEventCsv=$(if($SelectedReports -contains 'CSV'){$unifiedCsvPath}else{$null});ConsolidatedSummary=$(if($SelectedReports -contains 'CSV'){$statusPath}else{$null})}
     }
     finally { if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue } }
 }
@@ -1534,7 +1776,13 @@ function Show-Event307EnterpriseGui {
                 $summary.Text = "Completed: $($result.CoveredServers) remote server(s), $($result.Events) event(s)."
                 Update-ProgressSafe -Value 100
                 Set-Status -Text ("Completed. Server reports={0}; Events={1}." -f @($result.PerServerReports).Count,$result.Events)
-                Show-MessageBox -Message ("Event ID 307 print audit completed successfully.`r`n`r`nServers processed: {0}`r`nServer report packages: {1}`r`nEvents found: {2}`r`n`r`nReports folder:`r`n{3}" -f $result.CoveredServers,@($result.PerServerReports).Count,$result.Events,$result.OutputFolder) -Title 'Print Audit Completed' -Icon Information
+                $unifiedCsvNotice = if ([string]::IsNullOrWhiteSpace([string]$result.UnifiedEventCsv)) {
+                    'Unified CSV: not requested.'
+                }
+                else {
+                    "Unified CSV:`r`n$($result.UnifiedEventCsv)"
+                }
+                Show-MessageBox -Message ("Event ID 307 print audit completed successfully.`r`n`r`nServers processed: {0}`r`nServer report packages: {1}`r`nEvents found: {2}`r`n`r`n{3}`r`n`r`nReports folder:`r`n{4}" -f $result.CoveredServers,@($result.PerServerReports).Count,$result.Events,$unifiedCsvNotice,$result.OutputFolder) -Title 'Print Audit Completed' -Icon Information
             }
         }
     })
