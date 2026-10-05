@@ -87,6 +87,7 @@ All notable repository changes are documented in this file.
 - Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
 - Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 - Update version and improve report generation (`6d03650`)
+- Update EventID307-PrintingAudit.ps1 (`b818c06`)
 
 ### Security
 
@@ -113,6 +114,7 @@ All notable repository changes are documented in this file.
 - Aligned package naming and release handling with the canonical Suite Modules taxonomy.
 - Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 - Update version and improve report generation (`6d03650`)
+- Update EventID307-PrintingAudit.ps1 (`b818c06`)
 
 ### Security
 
