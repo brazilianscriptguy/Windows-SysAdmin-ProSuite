@@ -88,6 +88,7 @@ All notable repository changes are documented in this file.
 - Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 - Update version and improve report generation (`6d03650`)
 - Update EventID307-PrintingAudit.ps1 (`b818c06`)
+- Enhance printing audit script with share name and fixes (`8045470`)
 
 ### Security
 
@@ -115,6 +116,7 @@ All notable repository changes are documented in this file.
 - Update print statement from 'Hello' to 'Goodbye' (`7ae6d41`)
 - Update version and improve report generation (`6d03650`)
 - Update EventID307-PrintingAudit.ps1 (`b818c06`)
+- Enhance printing audit script with share name and fixes (`8045470`)
 
 ### Security
 
