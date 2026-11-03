@@ -16,11 +16,18 @@
   with wevtutil, copies them to the management station, and parses them through
   the same Log Parser SQL pipeline used by local and archived modes.
 
+  In the final event reports, PrinterUsed contains only the printer's short
+  hostname obtained from the configured Standard TCP/IP port or reverse DNS;
+  any DNS suffix is removed. PrinterShareName preserves the friendly printer
+  queue/share name recorded in Event ID 307. PrinterUsedIPAddress contains the
+  corresponding IPv4 port address. An unresolved hostname is represented by
+  '-' and is never replaced by the friendly print-queue name.
+
 .AUTHOR
   Luiz Hamilton Silva - @brazilianscriptguy
 
 .VERSION
-  2026-10-05-v7.0.1-PORT-PROPERTY-SAFE
+  2026-11-03-v7.2.0-PRINTER-SHARE-NAME
 #>
 
 [CmdletBinding()]
@@ -38,8 +45,8 @@ param(
     [string]$ArchivedEvtxFolder,
     [switch]$RecurseArchivedEvtx,
     [string]$OutputFolder = ([System.IO.Path]::Combine([Environment]::GetFolderPath('MyDocuments'), 'EventID307-PrintingAudit')),
-    [datetime]$StartTime = (Get-Date).Date.AddDays(-30),
-    [datetime]$EndTime = (Get-Date),
+    [datetime]$StartTime = (Get-Date -Day 1).Date.AddMonths(-1),
+    [datetime]$EndTime = (Get-Date -Day 1).Date.AddSeconds(-1),
     [ValidateRange(1,64)][int]$ThrottleLimit = 12,
     [ValidateRange(30,7200)][int]$OperationTimeoutSeconds = 900,
     [switch]$DiscoveryOnly,
@@ -118,7 +125,7 @@ catch {}
     catch {}
 })
 
-$script:Version = '2026-10-05-v7.0.1-PORT-PROPERTY-SAFE'
+$script:Version = '2026-11-03-v7.2.0-PRINTER-SHARE-NAME'
 $script:ScriptName = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
 $script:MachineName = [Environment]::MachineName
 $script:LogDir = 'C:\Logs-TEMP'
@@ -131,13 +138,14 @@ $script:LiveChannelName = 'Microsoft-Windows-PrintService/Operational'
 $script:LastCsvPath = $null
 $script:LastHtmlPath = $null
 $script:LastOutputFolder = $null
-$script:EventSchema = @('EventTime','UserId','Workstation','PrinterUsed','PrinterUsedIPAddress','ByteSize','PagesPrinted')
+$script:EventSchema = @('EventTime','UserId','Workstation','PrinterUsed','PrinterShareName','PrinterUsedIPAddress','ByteSize','PagesPrinted')
 $script:GuiServerInventory = @()
 $script:GuiServerByDisplay = @{}
 $script:RuntimeLog = $null
 $script:Form = $null
 $script:StatusLabel = $null
 $script:ProgressBar = $null
+$script:PrinterDnsCache = @{}
 $script:LogParserExeCandidates = @(
     'C:\Program Files (x86)\Log Parser 2.2\LogParser.exe',
     'C:\Program Files\Log Parser 2.2\LogParser.exe'
@@ -374,7 +382,7 @@ function Invoke-LogParserBatch {
 function New-EmptyPrintAuditCsv {
     param([Parameter(Mandatory)][string]$Path)
 
-    ($script:EventSchema -join ',') |
+    ('"' + ($script:EventSchema -join '","') + '"') |
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
@@ -416,19 +424,65 @@ function Normalize-PrinterName {
     return ($text -replace '^\\\\[^\\]+\\', '').Trim()
 }
 
-function Get-PrinterUsedIPAddress {
-    param([object]$PrinterPort)
+function Resolve-PrinterEndpoint {
+    param(
+        [object]$PrinterHostAddress,
+        [object]$PrinterPort
+    )
 
+    $configuredAddress = Normalize-PrintAuditValue -Value $PrinterHostAddress
     $portText = Normalize-PrintAuditValue -Value $PrinterPort
-    if ($portText -ne '-' -and $portText -match '(?<!\d)(?<IPv4>(?:\d{1,3}\.){3}\d{1,3})(?!\d)') {
+    $candidate = if ($configuredAddress -ne '-') { $configuredAddress } else { $portText }
+    $ipAddress = '-'
+    $hostName = '-'
+
+    if ($candidate -match '(?<!\d)(?<IPv4>(?:\d{1,3}\.){3}\d{1,3})(?!\d)') {
         [System.Net.IPAddress]$parsedAddress = $null
         if ([System.Net.IPAddress]::TryParse([string]$Matches.IPv4,[ref]$parsedAddress) -and
             $parsedAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
-            return [string]$parsedAddress.IPAddressToString
+            $ipAddress = [string]$parsedAddress.IPAddressToString
+            $cacheKey = 'IP|' + $ipAddress.ToLowerInvariant()
+            if ($script:PrinterDnsCache.ContainsKey($cacheKey)) {
+                $hostName = [string]$script:PrinterDnsCache[$cacheKey]
+            }
+            else {
+                try {
+                    $resolvedName = [string]([System.Net.Dns]::GetHostEntry($ipAddress).HostName)
+                    if (-not [string]::IsNullOrWhiteSpace($resolvedName) -and $resolvedName -ne $ipAddress) {
+                        $hostName = (($resolvedName.Trim().TrimEnd('.') -split '\.')[0]).ToUpperInvariant()
+                    }
+                }
+                catch {}
+                $script:PrinterDnsCache[$cacheKey] = $hostName
+            }
+        }
+    }
+    elseif ($candidate -ne '-' -and
+            $candidate -match '^(?=.{1,253}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$') {
+        $dnsName = $candidate.Trim().TrimEnd('.')
+        $hostName = (($dnsName -split '\.')[0]).ToUpperInvariant()
+        $cacheKey = 'HOST|' + $dnsName.ToLowerInvariant()
+        if ($script:PrinterDnsCache.ContainsKey($cacheKey)) {
+            $ipAddress = [string]$script:PrinterDnsCache[$cacheKey]
+        }
+        else {
+            try {
+                $resolvedAddress = @([System.Net.Dns]::GetHostAddresses($dnsName) |
+                    Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
+                    Select-Object -First 1)
+                if ($resolvedAddress.Count -gt 0) {
+                    $ipAddress = [string]$resolvedAddress[0].IPAddressToString
+                }
+            }
+            catch {}
+            $script:PrinterDnsCache[$cacheKey] = $ipAddress
         }
     }
 
-    return '-'
+    return [pscustomobject][ordered]@{
+        HostName  = $hostName
+        IPAddress = $ipAddress
+    }
 }
 
 function Get-PrinterAddressMapKey {
@@ -508,21 +562,20 @@ function Get-PrinterServerPortAddressMap {
         $printerNames = @([string]$record.PrinterName,[string]$record.ShareName) |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
             Sort-Object -Unique
-        $address = [string]$record.PrinterHostAddress
-        if ([string]::IsNullOrWhiteSpace($address) -and ([string]$record.PortName) -match '(?<!\d)(?<IPv4>(?:\d{1,3}\.){3}\d{1,3})(?!\d)') {
-            $address = [string]$Matches.IPv4
-        }
-        if ([string]::IsNullOrWhiteSpace($address)) { continue }
+        $endpoint = Resolve-PrinterEndpoint -PrinterHostAddress $record.PrinterHostAddress -PrinterPort $record.PortName
+        if ($endpoint.HostName -eq '-' -and $endpoint.IPAddress -eq '-') { continue }
 
         foreach ($serverName in $serverNames) {
             foreach ($printerName in $printerNames) {
-                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName $printerName)] = $address
-                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName (Normalize-PrinterName -Value $printerName))] = $address
+                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName $printerName)] = $endpoint
+                $addressMap[(Get-PrinterAddressMapKey -ServerName $serverName -PrinterName (Normalize-PrinterName -Value $printerName))] = $endpoint
             }
         }
     }
 
-    Write-Log -Message ("Printer-server port inventory produced {0} queue-to-address mapping(s)." -f $addressMap.Count)
+    $hostnameMappings = @($addressMap.Values | Where-Object { $_.HostName -ne '-' }).Count
+    $ipMappings = @($addressMap.Values | Where-Object { $_.IPAddress -ne '-' }).Count
+    Write-Log -Message ("Printer-server port inventory produced {0} queue endpoint mapping(s); hostname mappings={1}; IP mappings={2}." -f $addressMap.Count,$hostnameMappings,$ipMappings)
     return $addressMap
 }
 
@@ -546,6 +599,7 @@ function Normalize-PrintAuditCsv {
             UserId               = Normalize-PrintAuditValue -Value $row.UserId
             Workstation          = Normalize-WorkstationName -Value $row.Workstation
             PrinterUsed          = Normalize-PrinterName -Value $row.PrinterUsed
+            PrinterShareName     = Normalize-PrinterName -Value $row.PrinterShareName
             PrinterUsedIPAddress = Normalize-PrintAuditValue -Value $row.PrinterUsedIPAddress
             ByteSize             = Normalize-PrintAuditValue -Value $row.ByteSize
             PagesPrinted         = Normalize-PrintAuditValue -Value $row.PagesPrinted
@@ -741,6 +795,8 @@ function Invoke-EvtxPrint307Extraction {
 
     $dateSql = Get-DateRangeSqlFilter -DateRangeEnabled:$DateRangeEnabled -FromTime $FromTime -ToTime $ToTime
     $first = $true
+    $resolvedPrinterHostnameEvents = 0
+    $unresolvedPrinterHostnameEvents = 0
 
     for ($i = 0; $i -lt $fileCount; $i++) {
         $file = $safeEvtxFiles[$i]
@@ -794,28 +850,41 @@ ORDER BY EventTime DESC
             $sourceRows = @(
                 foreach ($sourceRow in @($sourceRows)) {
                     $rawPrinterUsed = Normalize-PrintAuditValue -Value $sourceRow.PrinterUsed
-                    $printerUsed = Normalize-PrinterName -Value $rawPrinterUsed
+                    $printerShareName = Normalize-PrinterName -Value $rawPrinterUsed
+                    $printerUsed = '-'
                     $printerUsedIp = '-'
+                    $matchedEndpoint = $null
                     $serverAliases = @($sourceServer,($sourceServer -split '\.')[0]) | Sort-Object -Unique
-                    $printerAliases = @($rawPrinterUsed,$printerUsed) | Sort-Object -Unique
+                    $printerAliases = @($rawPrinterUsed,(Normalize-PrinterName -Value $rawPrinterUsed)) | Sort-Object -Unique
                     foreach ($serverAlias in $serverAliases) {
                         foreach ($printerAlias in $printerAliases) {
                             $mapKey = Get-PrinterAddressMapKey -ServerName $serverAlias -PrinterName $printerAlias
                             if ($PrinterAddressByServerAndQueue.ContainsKey($mapKey)) {
-                                $printerUsedIp = [string]$PrinterAddressByServerAndQueue[$mapKey]
+                                $matchedEndpoint = $PrinterAddressByServerAndQueue[$mapKey]
+                                $printerUsed = Normalize-PrintAuditValue -Value $matchedEndpoint.HostName
+                                $printerUsedIp = Normalize-PrintAuditValue -Value $matchedEndpoint.IPAddress
                                 break
                             }
                         }
-                        if ($printerUsedIp -ne '-') { break }
+                        if ($matchedEndpoint) { break }
                     }
-                    if ($printerUsedIp -eq '-') {
-                        $printerUsedIp = Get-PrinterUsedIPAddress -PrinterPort $sourceRow.PrinterPort
+                    if (-not $matchedEndpoint) {
+                        $fallbackEndpoint = Resolve-PrinterEndpoint -PrinterHostAddress $null -PrinterPort $sourceRow.PrinterPort
+                        $printerUsed = Normalize-PrintAuditValue -Value $fallbackEndpoint.HostName
+                        $printerUsedIp = Normalize-PrintAuditValue -Value $fallbackEndpoint.IPAddress
+                    }
+                    if ($printerUsed -eq '-') {
+                        $unresolvedPrinterHostnameEvents++
+                    }
+                    else {
+                        $resolvedPrinterHostnameEvents++
                     }
                     [pscustomobject][ordered]@{
                         EventTime            = Normalize-PrintAuditValue -Value $sourceRow.EventTime
                         UserId               = Normalize-PrintAuditValue -Value $sourceRow.UserId
                         Workstation          = Normalize-WorkstationName -Value $sourceRow.Workstation
                         PrinterUsed          = $printerUsed
+                        PrinterShareName     = $printerShareName
                         PrinterUsedIPAddress = $printerUsedIp
                         ByteSize             = Normalize-PrintAuditValue -Value $sourceRow.ByteSize
                         PagesPrinted         = Normalize-PrintAuditValue -Value $sourceRow.PagesPrinted
@@ -848,6 +917,8 @@ ORDER BY EventTime DESC
     if (-not (Test-Path -LiteralPath $FinalCsvPath -PathType Leaf)) {
         New-EmptyPrintAuditCsv -Path $FinalCsvPath
     }
+
+    Write-Log -Message ("Printer hostname attribution completed. Resolved events={0}; Unresolved events={1}." -f $resolvedPrinterHostnameEvents,$unresolvedPrinterHostnameEvents)
 
     return @((Import-Csv -LiteralPath $FinalCsvPath -ErrorAction SilentlyContinue)).Count
 }
@@ -1135,6 +1206,7 @@ function Export-VerifiedUnifiedEventCsv {
                 UserId               = Normalize-PrintAuditValue -Value $row.UserId
                 Workstation          = Normalize-WorkstationName -Value $row.Workstation
                 PrinterUsed          = Normalize-PrinterName -Value $row.PrinterUsed
+                PrinterShareName     = Normalize-PrinterName -Value $row.PrinterShareName
                 PrinterUsedIPAddress = Normalize-PrintAuditValue -Value $row.PrinterUsedIPAddress
                 ByteSize             = Normalize-PrintAuditValue -Value $row.ByteSize
                 PagesPrinted         = Normalize-PrintAuditValue -Value $row.PagesPrinted
