@@ -1,46 +1,18 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  Active Directory Inactive Computer Cleanup v1.0.4 - Enterprise workstation cleanup console.
+  Active Directory Inactive Computer Cleanup v1.4.1 - Workstations deletion GUI.
 
 .DESCRIPTION
-  Enterprise Windows Forms GUI for discovering and removing inactive Active Directory
-  computer objects across one domain or all domains in the current forest.
-
-  Implements:
-  - Automatic forest-domain discovery during application startup
-  - Writable domain controller discovery and per-domain caching
-  - Inactive computer discovery based exclusively on LastLogonDate
-  - Configurable inactivity threshold with an enterprise default of 180 days
-  - Manual checkbox selection; objects are never preselected for deletion
-  - CSV scan export and mandatory pre-deletion evidence export
-  - Live inactivity revalidation immediately before each deletion
-  - Protected-from-accidental-deletion safe skip
-  - Remove-ADComputer deletion through the authoritative writable domain controller
-  - Runtime log panel, status bar, progress indicator and deletion journal
-  - Hidden-console bootstrap for GUI-first execution
-
-  Eligibility rule:
-
-      InactiveDays >= configured threshold
-
-  Objects without LastLogonDate are not classified as eligible because the required
-  inactivity evidence is unavailable.
-
-.AUTHOR
-  Luiz Hamilton Roberto da Silva - @brazilianscriptguy
-
-.VERSION
-  2026-07-28-v1.0.4-ENTERPRISE-EDITION
+  DRY-RUN is the default. COMMIT permanently deletes explicitly checked,
+  freshly revalidated workstation computer accounts. No servers or DCs.
+  Eligibility requires positive Windows client OS, full writable DC coverage,
+  lastLogon evidence older than threshold, no recent replicated logon, machine
+  password update, or creation. No-logon accounts are reported separately.
+  Review backup, dependencies and AD Recycle Bin before using COMMIT.
 
 .REQUIREMENTS
-  - Windows PowerShell 5.1
-  - RSAT ActiveDirectory PowerShell module
-  - Appropriate Active Directory read and delete permissions
-  - Network and DNS connectivity to the selected forest domains
-
-.NOTES
-  Validate the tool in a controlled organizational unit before production use.
+  Windows PowerShell 5.1, RSAT ActiveDirectory, appropriate delegated permissions.
 #>
 
 [CmdletBinding()]
@@ -111,9 +83,11 @@ Add-Type -AssemblyName System.Drawing
 # =====================================================================================
 
 $script:AppName = 'Active Directory Inactive Computer Cleanup'
-$script:AppVersion = '1.0.4'
+$script:AppVersion = '1.4.0'
 $script:SessionId = [guid]::NewGuid().ToString()
 $script:CurrentResults = New-Object System.Collections.ArrayList
+$script:NoLogonResults = New-Object System.Collections.ArrayList
+$script:ScanStarted = $null
 $script:DomainControllerCache = @{}
 $script:IsBusy = $false
 
@@ -209,10 +183,11 @@ function Set-BusyState {
         $script:btnClear,
         $script:btnRefreshDomains,
         $script:cmbDomain,
-        $script:numInactiveDays
+        $script:numInactiveDays,
+        $script:chkCommit
     )) {
         if ($control -and -not $control.IsDisposed) {
-            $control.Enabled = -not $Busy
+            $control.Enabled = (-not $Busy -and ($true))
         }
     }
 
@@ -318,186 +293,101 @@ function Resolve-WritableDomainController {
     return $dcHostName
 }
 
-function Convert-ToInactiveComputerRecord {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        $Computer,
+function Test-WorkstationAccount {
+    param($Computer)
+    $uac = [int64]$Computer.userAccountControl
+    $os = [string]$Computer.OperatingSystem
+    # Fail closed: only positively identified Windows client OS and normal workstation trust.
+    if (($uac -band 8192) -ne 0 -or ($uac -band 2048) -ne 0 -or ($uac -band 4096) -eq 0) { return $false }
+    if ($null -ne $Computer.primaryGroupID -and [int]$Computer.primaryGroupID -ne 515) { return $false }
+    if ($os -match '(?i)server|domain controller|storage|hyper-v|linux|unix') { return $false }
+    return ($os -match '(?i)^Windows (10|11)(\s|$)' -or $os -match '(?i)^Windows (7|8|8\.1|XP|Vista)(\s|$)')
+}
 
-        [Parameter(Mandatory)]
-        [string]$DomainName,
-
-        [Parameter(Mandatory)]
-        [string]$DomainController,
-
-        [Parameter(Mandatory)]
-        [datetime]$ReferenceTime,
-
-        [Parameter(Mandatory)]
-        [int]$ThresholdDays
-    )
-
-    if (-not $Computer.LastLogonDate) {
-        return $null
-    }
-
-    $lastLogon = [datetime]$Computer.LastLogonDate
-    $inactiveDays = [int][Math]::Floor(($ReferenceTime - $lastLogon).TotalDays)
-
-    if ($inactiveDays -lt $ThresholdDays) {
-        return $null
-    }
-
-    [pscustomobject]@{
-        Selected                       = $false
-        Domain                         = $DomainName
-        DomainController               = $DomainController
-        Name                           = [string]$Computer.Name
-        DNSHostName                    = [string]$Computer.DNSHostName
-        Enabled                        = [bool]$Computer.Enabled
-        OperatingSystem                = [string]$Computer.OperatingSystem
-        LastLogonDate                  = $lastLogon
-        InactiveDays                   = $inactiveDays
-        Status                         = 'ELIGIBLE_BY_INACTIVITY'
-        ProtectedFromAccidentalDeletion = [bool]$Computer.ProtectedFromAccidentalDeletion
-        DistinguishedName              = [string]$Computer.DistinguishedName
-        ObjectGuid                     = [guid]$Computer.ObjectGuid
-        WhenCreated                    = $Computer.WhenCreated
-    }
+function Get-DomainWritableDCs {
+    param([string]$DomainName)
+    $dcs = @(Get-ADDomainController -Filter * -Server $DomainName -ErrorAction Stop |
+        Where-Object { -not $_.IsReadOnly } | Select-Object -ExpandProperty HostName -Unique)
+    if ($dcs.Count -eq 0) { throw "No writable DCs discovered for $DomainName" }
+    return $dcs
 }
 
 function Get-InactiveComputersFromDomain {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$DomainName,
-
-        [Parameter(Mandatory)]
-        [int]$InactiveDays
-    )
-
-    $referenceTime = Get-Date
-    $cutoff = $referenceTime.AddDays(-$InactiveDays)
-    $cutoffFileTime = $cutoff.ToFileTimeUtc()
-    $dc = Resolve-WritableDomainController -DomainName $DomainName
-
-    Write-AppLog -Level INFO -Message (
-        "Inactive computer scan started. Domain={0} | DC={1} | ThresholdDays={2} | Cutoff={3:o}" -f
-        $DomainName,
-        $dc,
-        $InactiveDays,
-        $cutoff
-    )
-
-    # Excludes domain controllers through SERVER_TRUST_ACCOUNT (8192).
-    # lastLogonTimestamp drives LastLogonDate in the AD module.
-    $ldapFilter = "(&(objectCategory=computer)(lastLogonTimestamp<=$cutoffFileTime)(!(userAccountControl:1.2.840.113556.1.4.803:=8192)))"
-
-    $properties = @(
-        'DNSHostName',
-        'Enabled',
-        'OperatingSystem',
-        'LastLogonDate',
-        'LastLogonTimestamp',
-        'ObjectGuid',
-        'ProtectedFromAccidentalDeletion',
-        'WhenCreated'
-    )
-
-    $rawComputers = @(
-        Get-ADComputer `
-            -LDAPFilter $ldapFilter `
-            -Server $dc `
-            -Properties $properties `
-            -ResultPageSize 500 `
-            -ResultSetSize $null `
-            -ErrorAction Stop
-    )
-
-    $records = New-Object System.Collections.ArrayList
-
-    foreach ($computer in $rawComputers) {
-        $record = Convert-ToInactiveComputerRecord `
-            -Computer $computer `
-            -DomainName $DomainName `
-            -DomainController $dc `
-            -ReferenceTime $referenceTime `
-            -ThresholdDays $InactiveDays
-
-        if ($null -ne $record) {
-            [void]$records.Add($record)
+    param([Parameter(Mandatory)][string]$DomainName,
+          [Parameter(Mandatory)][int]$InactiveDays)
+    $now = Get-Date
+    $cutoff = $now.AddDays(-$InactiveDays)
+    $dcs = @(Get-DomainWritableDCs -DomainName $DomainName)
+    $dc = $dcs[0]
+    Write-AppLog -Level INFO -Message "Domain=$DomainName; WritableDCs=$($dcs -join ','); Workstations only; audit-only."
+    $props = @('DNSHostName','Enabled','OperatingSystem','LastLogonDate',
+        'lastLogonTimestamp','pwdLastSet','PasswordLastSet','whenCreated',
+        'ProtectedFromAccidentalDeletion','userAccountControl','servicePrincipalName','primaryGroupID')
+    $computers = @(Get-ADComputer -Filter * -Server $dc -Properties $props -ResultPageSize 500 -ErrorAction Stop)
+    $results = New-Object System.Collections.ArrayList
+    foreach ($computer in $computers) {
+        if (-not (Test-WorkstationAccount -Computer $computer)) { continue }
+        $latest = $null
+        $coverage = $true
+        $errors = New-Object System.Collections.ArrayList
+        foreach ($targetDC in $dcs) {
+            try {
+                $item = Get-ADComputer -Identity $computer.ObjectGuid -Server $targetDC -Properties lastLogon -ErrorAction Stop
+                $raw = [int64]$item.lastLogon
+                if ($raw -gt 0) {
+                    $dt = [datetime]::FromFileTimeUtc($raw).ToLocalTime()
+                    if ($null -eq $latest -or $dt -gt $latest) { $latest = $dt }
+                }
+            } catch {
+                $coverage = $false
+                [void]$errors.Add("${targetDC}: $($_.Exception.Message)")
+            }
         }
-    }
-
-    Write-AppLog -Level SUCCESS -Message (
-        "Inactive computer scan completed. Domain={0} | DC={1} | Eligible={2}" -f
-        $DomainName,
-        $dc,
-        $records.Count
-    )
-
-    return @($records)
-}
-
-function Get-LiveComputerValidation {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        $Record,
-
-        [Parameter(Mandatory)]
-        [int]$InactiveDays
-    )
-
-    $dc = [string]$Record.DomainController
-
-    if ([string]::IsNullOrWhiteSpace($dc)) {
-        $dc = Resolve-WritableDomainController -DomainName ([string]$Record.Domain)
-    }
-
-    $properties = @(
-        'LastLogonDate',
-        'LastLogonTimestamp',
-        'ProtectedFromAccidentalDeletion',
-        'ObjectGuid',
-        'DistinguishedName'
-    )
-
-    $computer = Get-ADComputer `
-        -Identity ([guid]$Record.ObjectGuid) `
-        -Server $dc `
-        -Properties $properties `
-        -ErrorAction Stop
-
-    if (-not $computer.LastLogonDate) {
-        return [pscustomobject]@{
-            IsEligible   = $false
-            Reason       = 'LastLogonDate is unavailable during live validation.'
-            Computer     = $computer
-            InactiveDays = $null
-            Server       = $dc
+        $pwd = $computer.PasswordLastSet
+        $created = $computer.whenCreated
+        $replicated = $computer.LastLogonDate
+        $dates = @($latest,$replicated,$pwd,$created) | Where-Object { $null -ne $_ }
+        $lastActivity = $null
+        foreach ($dt in $dates) { if ($null -eq $lastActivity -or $dt -gt $lastActivity) { $lastActivity = $dt } }
+        $age = if ($lastActivity) { [int][math]::Floor(($now - $lastActivity).TotalDays) } else { $null }
+        # Only positively identified Windows clients can enter the review inventory.
+        # A disabled account is NOT evidence of 180 days of inactivity.
+        $noLogon = ($null -eq $latest -and $null -eq $replicated)
+        $oldEnough = ($created -and $created -le $cutoff)
+        $recentActivity = (($latest -and $latest -gt $cutoff) -or
+            ($replicated -and $replicated -gt $cutoff) -or
+            ($pwd -and $pwd -gt $cutoff) -or
+            ($created -and $created -gt $cutoff))
+        $state = if ([bool]$computer.Enabled) { 'ENABLED' } else { 'DISABLED' }
+        $status = if (-not $coverage) { 'INCONCLUSIVE_DC_COVERAGE' }
+            elseif ($computer.ProtectedFromAccidentalDeletion) { 'PROTECTED_REVIEW' }
+            elseif (-not $created) { 'INCONCLUSIVE_CREATION_DATE' }
+            elseif ($recentActivity) { "${state}_RECENT_PRESERVE" }
+            elseif ($noLogon -and $oldEnough) { "${state}_NO_LOGON_REVIEW" }
+            elseif ($oldEnough) { "${state}_180D_REVIEW" }
+            else { 'INCONCLUSIVE_EVIDENCE' }
+        $record = [pscustomobject]@{
+            Selected = $false; Domain = $DomainName; DomainController = $dc
+            Name = [string]$computer.Name; DNSHostName = [string]$computer.DNSHostName
+            Enabled = [bool]$computer.Enabled; AccountState = $state
+            OperatingSystem = [string]$computer.OperatingSystem
+            LastLogonDate = $latest; InactiveDays = $age; Status = $status
+            NoLogonEvidence = [bool]$noLogon
+            CandidateForReview = [bool]($status -match '^(ENABLED|DISABLED)_180D_REVIEW$' -and $age -ge $InactiveDays -and -not $noLogon)
+            ProtectedFromAccidentalDeletion = [bool]$computer.ProtectedFromAccidentalDeletion
+            DistinguishedName = [string]$computer.DistinguishedName
+            ObjectGuid = [guid]$computer.ObjectGuid; WhenCreated = $created
+            PasswordLastSet = $pwd; ReplicatedLastLogonDate = $replicated
+            WritableDCCount = $dcs.Count; DCsChecked = $dcs -join ';'
+            DCErrors = $errors -join ' | '; AuditTime = $now
         }
+        # Full workstation inventory is retained, including active accounts,
+        # so separate no-logon exports can be reconciled against the scan.
+        [void]$results.Add($record)
     }
-
-    $currentInactiveDays = [int][Math]::Floor(((Get-Date) - [datetime]$computer.LastLogonDate).TotalDays)
-
-    if ($currentInactiveDays -lt $InactiveDays) {
-        return [pscustomobject]@{
-            IsEligible   = $false
-            Reason       = "Object is no longer inactive for the configured threshold. CurrentInactiveDays=$currentInactiveDays"
-            Computer     = $computer
-            InactiveDays = $currentInactiveDays
-            Server       = $dc
-        }
-    }
-
-    return [pscustomobject]@{
-        IsEligible   = $true
-        Reason       = 'Eligible by current inactivity value.'
-        Computer     = $computer
-        InactiveDays = $currentInactiveDays
-        Server       = $dc
-    }
+    Write-AppLog -Level SUCCESS -Message "Workstation scan completed. Domain=$DomainName; ReviewRecords=$($results.Count)"
+    return @($results)
 }
 
 # =====================================================================================
@@ -537,10 +427,19 @@ function Export-RecordsToCsv {
             Name,
             DNSHostName,
             Enabled,
+            AccountState,
             OperatingSystem,
             LastLogonDate,
             InactiveDays,
             Status,
+            CandidateForReview,
+            NoLogonEvidence,
+            PasswordLastSet,
+            ReplicatedLastLogonDate,
+            WritableDCCount,
+            DCsChecked,
+            DCErrors,
+            AuditTime,
             ProtectedFromAccidentalDeletion,
             DistinguishedName,
             ObjectGuid,
@@ -624,7 +523,7 @@ function Initialize-ResultsGrid {
 
     $selectColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
     $selectColumn.Name = 'Selected'
-    $selectColumn.HeaderText = 'Delete'
+    $selectColumn.HeaderText = 'Review'
     $selectColumn.DataPropertyName = 'Selected'
     $selectColumn.Width = 55
     $selectColumn.ReadOnly = $false
@@ -634,9 +533,15 @@ function Initialize-ResultsGrid {
         @{ Name = 'Domain'; Header = 'Domain'; Property = 'Domain'; Width = 170 },
         @{ Name = 'Name'; Header = 'Computer'; Property = 'Name'; Width = 145 },
         @{ Name = 'Enabled'; Header = 'Enabled'; Property = 'Enabled'; Width = 65 },
+        @{ Name = 'CandidateForReview'; Header = 'Candidate'; Property = 'CandidateForReview'; Width = 75 },
+        @{ Name = 'NoLogonEvidence'; Header = 'No Logon'; Property = 'NoLogonEvidence'; Width = 75 },
         @{ Name = 'OperatingSystem'; Header = 'Operating System'; Property = 'OperatingSystem'; Width = 210 },
         @{ Name = 'LastLogonDate'; Header = 'Last Logon'; Property = 'LastLogonDate'; Width = 135 },
         @{ Name = 'InactiveDays'; Header = 'Inactive Days'; Property = 'InactiveDays'; Width = 90 },
+        @{ Name = 'PasswordLastSet'; Header = 'Password Last Set'; Property = 'PasswordLastSet'; Width = 145 },
+        @{ Name = 'ReplicatedLastLogonDate'; Header = 'Replicated Logon'; Property = 'ReplicatedLastLogonDate'; Width = 145 },
+        @{ Name = 'WritableDCCount'; Header = 'DC Count'; Property = 'WritableDCCount'; Width = 65 },
+        @{ Name = 'DCErrors'; Header = 'DC Errors'; Property = 'DCErrors'; Width = 240 },
         @{ Name = 'Protected'; Header = 'Protected'; Property = 'ProtectedFromAccidentalDeletion'; Width = 75 },
         @{ Name = 'Status'; Header = 'Status'; Property = 'Status'; Width = 170 },
         @{ Name = 'DNSHostName'; Header = 'DNS Host Name'; Property = 'DNSHostName'; Width = 220 },
@@ -675,9 +580,9 @@ function Update-ResultsSummary {
         }
     }
 
-    $script:lblSummary.Text = 'Objects: {0} | Checked: {1}' -f `
-        $script:CurrentResults.Count,
-        $checkedCount
+    $candidateCount = @($script:CurrentResults | Where-Object { $_.CandidateForReview }).Count
+    $script:lblSummary.Text = 'Eligible: {0} | Candidates: {1} | Checked: {2}' -f `
+        $script:CurrentResults.Count, $candidateCount, $checkedCount
 }
 
 function Refresh-ResultsGrid {
@@ -701,9 +606,15 @@ function Refresh-ResultsGrid {
             $row.Cells['Domain'].Value = [string]$record.Domain
             $row.Cells['Name'].Value = [string]$record.Name
             $row.Cells['Enabled'].Value = [bool]$record.Enabled
+            $row.Cells['CandidateForReview'].Value = [bool]$record.CandidateForReview
+            $row.Cells['NoLogonEvidence'].Value = [bool]$record.NoLogonEvidence
             $row.Cells['OperatingSystem'].Value = [string]$record.OperatingSystem
             $row.Cells['LastLogonDate'].Value = $record.LastLogonDate
-            $row.Cells['InactiveDays'].Value = [int]$record.InactiveDays
+            $row.Cells['InactiveDays'].Value = if ($null -ne $record.InactiveDays) { [int]$record.InactiveDays } else { $null }
+            $row.Cells['PasswordLastSet'].Value = $record.PasswordLastSet
+            $row.Cells['ReplicatedLastLogonDate'].Value = $record.ReplicatedLastLogonDate
+            $row.Cells['WritableDCCount'].Value = $record.WritableDCCount
+            $row.Cells['DCErrors'].Value = $record.DCErrors
             $row.Cells['Protected'].Value = [bool]$record.ProtectedFromAccidentalDeletion
             $row.Cells['Status'].Value = [string]$record.Status
             $row.Cells['DNSHostName'].Value = [string]$record.DNSHostName
@@ -859,7 +770,13 @@ function Start-InactiveComputerScan {
 
     Set-BusyState -Busy $true
     $script:CurrentResults.Clear()
+    $script:NoLogonResults.Clear()
+    $allAudited = New-Object System.Collections.ArrayList
+    $script:ScanStarted = Get-Date
     Refresh-ResultsGrid
+    $script:ScanFailures = 0
+    $script:ScanThresholdDays = $inactiveDays
+    $script:ScanScope = $selectedScope
 
     try {
         Assert-ActiveDirectoryModule
@@ -901,10 +818,13 @@ function Start-InactiveComputerScan {
                 $records = @(Get-InactiveComputersFromDomain -DomainName $domain -InactiveDays $inactiveDays)
 
                 foreach ($record in $records) {
-                    [void]$script:CurrentResults.Add($record)
+                    [void]$allAudited.Add($record)
+                    if ($record.NoLogonEvidence) { [void]$script:NoLogonResults.Add($record) }
+                    if ($record.CandidateForReview) { [void]$script:CurrentResults.Add($record) }
                 }
             }
             catch {
+                $script:ScanFailures++
                 Write-AppLog -Level ERROR -Message (
                     "Domain scan failed. Domain={0} | Error={1}" -f
                     $domain,
@@ -927,16 +847,57 @@ function Start-InactiveComputerScan {
 
         Refresh-ResultsGrid
 
+        # Automatically export complete evidence and a separate no-logon report.
+        # A zero-row report still receives a header for deterministic auditing.
+        $fullPath = '(none)'
+        if ($allAudited.Count -gt 0) {
+            $fullPath = Export-RecordsToCsv -Records @($allAudited) -Purpose 'all-workstations'
+        }
+        $noLogonPath = Join-Path $script:EvidenceDirectory ('no-logon-workstations-{0}-{1}.csv' -f (Get-TimestampToken), $script:SessionId.Substring(0,8))
+        $headerFields = @('Domain','Name','Enabled','AccountState','OperatingSystem','LastLogonDate','ReplicatedLastLogonDate','PasswordLastSet','WhenCreated','InactiveDays','Status','CandidateForReview','NoLogonEvidence','WritableDCCount','DCsChecked','DCErrors','DistinguishedName','ObjectGuid','AuditTime')
+        if ($script:NoLogonResults.Count -gt 0) {
+            $script:NoLogonResults | Select-Object -Property $headerFields |
+                Export-Csv -LiteralPath $noLogonPath -NoTypeInformation -Encoding UTF8
+        } else {
+            ('"' + ($headerFields -join '","') + '"') | Set-Content -LiteralPath $noLogonPath -Encoding UTF8
+        }
+        Write-AppLog -Level SUCCESS -Message "No-logon workstation report: $noLogonPath; Count=$($script:NoLogonResults.Count)"
+        $candidates = @($script:CurrentResults | Where-Object { $_.CandidateForReview })
+        if ($candidates.Count -gt 0 -and $script:ScanFailures -eq 0) {
+            $candidatePath = Export-RecordsToCsv -Records $candidates -Purpose 'candidates-manual-review'
+            Write-AppLog -Level INFO -Message "Candidate review CSV: $candidatePath"
+        }
+        Write-AppLog -Level INFO -Message "Full workstation CSV: $fullPath; Audited=$($allAudited.Count); Candidates=$($candidates.Count); NoLogon=$($script:NoLogonResults.Count)"
+
+        if ($script:ScanFailures -gt 0) {
+            $script:CurrentResults.Clear()
+            Refresh-ResultsGrid
+            Write-AppLog -Level ERROR -Message "PARTIAL_SCAN: $($script:ScanFailures) domain(s) failed. Results are incomplete."
+        }
         Write-AppLog -Level SUCCESS -Message (
-            "Scan completed. Scope={0} | ThresholdDays={1} | EligibleObjects={2}" -f
+            "Scan completed. Scope={0} | ThresholdDays={1} | EligibleCandidates={2}" -f
             $selectedScope,
             $inactiveDays,
             $script:CurrentResults.Count
         )
 
         Set-UiStatus `
-            -Text ("Scan completed. Eligible inactive computers: {0}" -f $script:CurrentResults.Count) `
+            -Text ("Scan completed. Eligible workstation candidates: {0}" -f $script:CurrentResults.Count) `
             -Percent 100
+
+        # Operator notification: display only after scan and evidence export finish.
+        if ($script:ScanFailures -gt 0) {
+            $message = "INCOMPLETE AUDIT - NO DELETION ALLOWED.`r`n`r`nScope: $selectedScope`r`nThreshold: $inactiveDays days`r`nFailed domains: $($script:ScanFailures)`r`n`r`nThe candidate list was cleared because coverage is incomplete. Review the operational log and rerun the audit."
+            [System.Windows.Forms.MessageBox]::Show($script:form, $message, 'Audit incomplete - COMMIT blocked', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        }
+        elseif ($script:CurrentResults.Count -eq 0) {
+            $message = "NO ELIGIBLE WORKSTATIONS FOUND.`r`n`r`nScope: $selectedScope`r`nThreshold: $inactiveDays days`r`nWorkstations audited: $($allAudited.Count)`r`nWithout logon evidence: $($script:NoLogonResults.Count)`r`n`r`nNo workstation met all candidate criteria. No AD object was modified.`r`n`r`nFull report: $fullPath`r`nNo-logon report: $noLogonPath"
+            [System.Windows.Forms.MessageBox]::Show($script:form, $message, 'Audit complete - zero candidates', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        }
+        else {
+            $message = "ELIGIBLE WORKSTATIONS IDENTIFIED FOR REVIEW.`r`n`r`nScope: $selectedScope`r`nThreshold: $inactiveDays days`r`nWorkstations audited: $($allAudited.Count)`r`nCandidates: $($script:CurrentResults.Count)`r`nWithout logon evidence: $($script:NoLogonResults.Count)`r`n`r`nReview the listed objects and select them individually. DRY-RUN makes no AD changes. COMMIT permanently deletes selected objects after revalidation and confirmation.`r`n`r`nCandidate report: $candidatePath"
+            [System.Windows.Forms.MessageBox]::Show($script:form, $message, 'Audit complete - candidates found', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        }
     }
     catch {
         Write-AppLog -Level ERROR -Message ("Scan failed. Error={0}" -f $_.Exception.Message)
@@ -981,321 +942,93 @@ function Export-CurrentResults {
 }
 
 function Remove-CheckedInactiveComputers {
-    [CmdletBinding()]
-    param()
-
-    if ($script:IsBusy) {
+    # DRY-RUN never writes to AD; COMMIT requires a checked GUI opt-in.
+    if ($script:IsBusy) { return }
+    $items = @(Get-CheckedRecords)
+    if ($items.Count -eq 0) { Show-ErrorMessage -Message 'Select at least one eligible workstation.'; return }
+    $days = [int]$script:numInactiveDays.Value
+    if ($days -lt 180) { Show-ErrorMessage -Message 'Deletion COMMIT requires a threshold of at least 180 days.'; return }
+    if ($script:ScanFailures -gt 0 -or $script:ScanThresholdDays -ne $days -or $script:ScanScope -ne [string]$script:cmbDomain.SelectedItem) {
+        Show-ErrorMessage -Message 'Scan is partial or parameters changed. Run a fresh scan.'; return
+    }
+    if (@($items | Where-Object { -not $_.CandidateForReview -or $_.NoLogonEvidence -or $_.ProtectedFromAccidentalDeletion -or $_.DCErrors }).Count -gt 0) {
+        Show-ErrorMessage -Message 'Selection includes ineligible, protected or inconclusive objects.'; return
+    }
+    # Evidence must be durably written BEFORE any deletion.
+    try {
+        $evidencePath = Export-RecordsToCsv -Records $items -Purpose 'predelete-selected-workstations'
+        if (-not (Test-Path -LiteralPath $evidencePath)) { throw 'Pre-deletion evidence was not created.' }
+    } catch { Show-ErrorMessage -Message "Evidence export failed. No deletion: $($_.Exception.Message)"; return }
+    if (-not $script:chkCommit.Checked) {
+        Write-AppLog -Level INFO -Message "DRY-RUN: $($items.Count) selected; no AD writes. Evidence=$evidencePath"
+        [System.Windows.Forms.MessageBox]::Show($script:form,"DRY-RUN: $($items.Count) selected. No AD objects modified.`nEvidence: $evidencePath",'DRY-RUN') | Out-Null
         return
     }
-
-    [object[]]$selectedRecords = @(Get-CheckedRecords | Where-Object {
-        $null -ne $_ -and
-        $null -ne $_.PSObject.Properties['Name'] -and
-        $null -ne $_.PSObject.Properties['ObjectGuid'] -and
-        $null -ne $_.PSObject.Properties['Domain']
-    })
-
-    if ($selectedRecords.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show(
-            $script:form,
-            'Check at least one computer object before starting deletion.',
-            'No objects selected',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        ) | Out-Null
-        return
-    }
-
-    $inactiveDays = [int]$script:numInactiveDays.Value
-
-    $confirmationText = @"
-You are about to permanently remove $($selectedRecords.Count) Active Directory computer object(s).
-
-Each object will be revalidated immediately before deletion.
-
-Required live rule:
-InactiveDays >= $inactiveDays
-
-Objects protected from accidental deletion will fail safely and will not be unprotected automatically.
-
-Continue?
-"@
-
-    $answer = [System.Windows.Forms.MessageBox]::Show(
-        $script:form,
-        $confirmationText,
-        'Confirm Active Directory deletion',
+    $answer = [System.Windows.Forms.MessageBox]::Show($script:form,
+        ("PERMANENTLY DELETE {0} workstation AD object(s)? This is not a disable operation. Confirm backup, dependencies and recovery readiness. Evidence: {1}" -f $items.Count,$evidencePath),
+        'CONFIRM PERMANENT AD DELETION',
         [System.Windows.Forms.MessageBoxButtons]::YesNo,
         [System.Windows.Forms.MessageBoxIcon]::Warning,
-        [System.Windows.Forms.MessageBoxDefaultButton]::Button2
-    )
-
-    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {
-        Write-AppLog -Level WARNING -Message 'Deletion cancelled by operator before evidence export.'
-        return
-    }
-
+        [System.Windows.Forms.MessageBoxDefaultButton]::Button2)
+    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $typed = [Microsoft.VisualBasic.Interaction]::InputBox(
+        'Type DELETE to confirm permanent removal of the selected workstation accounts:',
+        'Second confirmation required','')
+    if ($typed -cne 'DELETE') { Write-AppLog -Level INFO -Message 'COMMIT canceled: confirmation phrase mismatch.'; return }
+    $results = New-Object System.Collections.ArrayList
     Set-BusyState -Busy $true
-
-    $deleted = 0
-    $skipped = 0
-    $failed = 0
-    $evidencePath = $null
-
     try {
-        Set-UiStatus -Text 'Exporting pre-deletion evidence...' -Percent 0
-        Write-AppLog -Level INFO -Message ("Pre-deletion pipeline started. Selected={0}" -f $selectedRecords.Count)
-
-        $evidencePath = Export-RecordsToCsv -Records $selectedRecords -Purpose 'predelete-evidence'
-
-        Write-AppLog -Level SUCCESS -Message (
-            "Pre-deletion evidence completed. Path={0} | Selected={1}" -f
-            $evidencePath,
-            $selectedRecords.Count
-        )
-
-        $index = 0
-
-        foreach ($record in $selectedRecords) {
-            $index++
-
-            if (
-                $null -eq $record -or
-                $null -eq $record.PSObject.Properties['Name'] -or
-                $null -eq $record.PSObject.Properties['ObjectGuid'] -or
-                $null -eq $record.PSObject.Properties['Domain']
-            ) {
-                $failed++
-                $recordType = if ($null -eq $record) { '<null>' } else { $record.GetType().FullName }
-
-                Write-AppLog -Level ERROR -Message (
-                    "Invalid deletion record rejected. Index={0}/{1} | RecordType={2}" -f
-                    $index,
-                    $selectedRecords.Count,
-                    $recordType
-                )
-
-                continue
-            }
-
-            $percent = [int](($index - 1) / [double]$selectedRecords.Count * 100)
-
-            Set-UiStatus `
-                -Text ("Validating and deleting {0} of {1}: {2}" -f $index, $selectedRecords.Count, $record.Name) `
-                -Percent $percent
-
-            Write-AppLog -Level INFO -Message (
-                "Deletion item started. Index={0}/{1} | Domain={2} | DC={3} | Name={4} | ObjectGuid={5} | DN={6}" -f
-                $index,
-                $selectedRecords.Count,
-                $record.Domain,
-                $record.DomainController,
-                $record.Name,
-                $record.ObjectGuid,
-                $record.DistinguishedName
-            )
-
+        foreach ($record in $items) {
+            $status = 'BLOCKED'; $detail = ''; $dcForJournal = [string]$record.DomainController
             try {
-                Write-AppLog -Level INFO -Message (
-                    "Live revalidation started. Domain={0} | DC={1} | Name={2} | ObjectGuid={3}" -f
-                    $record.Domain,
-                    $record.DomainController,
-                    $record.Name,
-                    $record.ObjectGuid
-                )
-
-                $validation = Get-LiveComputerValidation -Record $record -InactiveDays $inactiveDays
-
-                Write-AppLog -Level INFO -Message (
-                    "Live revalidation completed. Name={0} | Eligible={1} | CurrentInactiveDays={2} | Reason={3}" -f
-                    $record.Name,
-                    $validation.IsEligible,
-                    $validation.InactiveDays,
-                    $validation.Reason
-                )
-
-                if (-not $validation.IsEligible) {
-                    $skipped++
-
-                    Add-DeletionJournalEntry `
-                        -Domain $record.Domain `
-                        -DomainController $validation.Server `
-                        -Name $record.Name `
-                        -DistinguishedName $record.DistinguishedName `
-                        -ObjectGuid ([string]$record.ObjectGuid) `
-                        -InactiveDays $validation.InactiveDays `
-                        -Result 'SKIPPED' `
-                        -Details $validation.Reason
-
-                    Write-AppLog -Level WARNING -Message (
-                        "Deletion skipped after live validation. Name={0} | Reason={1}" -f
-                        $record.Name,
-                        $validation.Reason
-                    )
-
-                    continue
+                $dcs = @(Get-DomainWritableDCs -DomainName $record.Domain)
+                if ($dcs.Count -ne [int]$record.WritableDCCount -or (($dcs | Sort-Object) -join ';') -ne (([string]$record.DCsChecked -split ';' | Sort-Object) -join ';')) {
+                    throw 'Writable DC coverage changed since scan.'
                 }
-
-                if ($validation.Computer.ProtectedFromAccidentalDeletion) {
-                    $skipped++
-                    $reason = 'Object is protected from accidental deletion. Protection was not changed automatically.'
-
-                    Add-DeletionJournalEntry `
-                        -Domain $record.Domain `
-                        -DomainController $validation.Server `
-                        -Name $record.Name `
-                        -DistinguishedName $validation.Computer.DistinguishedName `
-                        -ObjectGuid ([string]$validation.Computer.ObjectGuid) `
-                        -InactiveDays $validation.InactiveDays `
-                        -Result 'SKIPPED_PROTECTED' `
-                        -Details $reason
-
-                    Write-AppLog -Level WARNING -Message (
-                        "Deletion skipped. Name={0} | Reason={1}" -f
-                        $record.Name,
-                        $reason
-                    )
-
-                    continue
+                $base = Get-ADComputer -Identity $record.ObjectGuid -Server $dcs[0] -Properties Enabled,OperatingSystem,userAccountControl,primaryGroupID,whenCreated,PasswordLastSet,LastLogonDate,ProtectedFromAccidentalDeletion -ErrorAction Stop
+                if (-not (Test-WorkstationAccount -Computer $base)) { throw 'Not a positively identified workstation.' }
+                if ([guid]$base.ObjectGuid -ne [guid]$record.ObjectGuid -or [string]$base.DistinguishedName -ne [string]$record.DistinguishedName) { throw 'Identity or DN changed.' }
+                if ([bool]$base.Enabled -ne [bool]$record.Enabled) { throw 'Enabled state changed since scan.' }
+                if ($base.ProtectedFromAccidentalDeletion) { throw 'Protected from accidental deletion.' }
+                $cutoff = (Get-Date).AddDays(-$days)
+                if (-not $base.whenCreated -or $base.whenCreated -gt $cutoff) { throw 'Creation date recent or unknown.' }
+                if ($base.PasswordLastSet -and $base.PasswordLastSet -gt $cutoff) { throw 'Recent machine password update.' }
+                if ($base.LastLogonDate -and $base.LastLogonDate -gt $cutoff) { throw 'Recent replicated logon.' }
+                $foundLogon = $false
+                foreach ($dc in $dcs) {
+                    $live = Get-ADComputer -Identity $record.ObjectGuid -Server $dc -Properties lastLogon,Enabled,userAccountControl,OperatingSystem,primaryGroupID -ErrorAction Stop
+                    if (-not (Test-WorkstationAccount -Computer $live)) { throw "Workstation check failed on $dc" }
+                    if ([bool]$live.Enabled -ne [bool]$base.Enabled) { throw "Account state differs on $dc" }
+                    $raw = [int64]$live.lastLogon
+                    if ($raw -gt 0) {
+                        $foundLogon = $true
+                        if ([datetime]::FromFileTimeUtc($raw) -gt $cutoff.ToUniversalTime()) { throw "Recent lastLogon on $dc" }
+                    }
                 }
-
-                Write-AppLog -Level WARNING -Message (
-                    "Remove-ADComputer invocation starting. Domain={0} | DC={1} | Name={2} | ObjectGuid={3} | DN={4}" -f
-                    $record.Domain,
-                    $validation.Server,
-                    $record.Name,
-                    $validation.Computer.ObjectGuid,
-                    $validation.Computer.DistinguishedName
-                )
-
-                Remove-ADComputer `
-                    -Identity $validation.Computer.ObjectGuid `
-                    -Server $validation.Server `
-                    -Confirm:$false `
-                    -ErrorAction Stop
-
-                $deleted++
-
-                Add-DeletionJournalEntry `
-                    -Domain $record.Domain `
-                    -DomainController $validation.Server `
-                    -Name $record.Name `
-                    -DistinguishedName $validation.Computer.DistinguishedName `
-                    -ObjectGuid ([string]$validation.Computer.ObjectGuid) `
-                    -InactiveDays $validation.InactiveDays `
-                    -Result 'DELETED' `
-                    -Details 'Computer object removed successfully by Remove-ADComputer.'
-
-                Write-AppLog -Level SUCCESS -Message (
-                    "Computer object deleted. Domain={0} | DC={1} | Name={2} | ObjectGuid={3} | DN={4}" -f
-                    $record.Domain,
-                    $validation.Server,
-                    $record.Name,
-                    $validation.Computer.ObjectGuid,
-                    $validation.Computer.DistinguishedName
-                )
-
-                [void]$script:CurrentResults.Remove($record)
+                if (-not $foundLogon) { throw 'No logon evidence; manual review only.' }
+                $dcForJournal = $dcs[0]
+                # Journal intent before destructive action; failure blocks deletion.
+                Add-DeletionJournalEntry -Domain $record.Domain -DomainController $dcForJournal -Name $record.Name -DistinguishedName $record.DistinguishedName -ObjectGuid $record.ObjectGuid -InactiveDays $record.InactiveDays -Result 'DELETE_ATTEMPT' -Details "Evidence=$evidencePath"
+                Remove-ADComputer -Identity $record.ObjectGuid -Server $dcForJournal -Confirm:$false -ErrorAction Stop
+                $status = 'DELETED'
+                $record.CandidateForReview = $false
+                $record.Status = 'DELETED'
+                Write-AppLog -Level SUCCESS -Message "COMMIT deleted workstation: $($record.Domain) / $($record.Name)"
+            } catch {
+                $detail = $_.Exception.Message
+                Write-AppLog -Level ERROR -Message "Deletion blocked/failed: $($record.Domain) / $($record.Name): $detail"
+            } finally {
+                [void]$results.Add([pscustomobject]@{ Timestamp=(Get-Date).ToString('o');Domain=$record.Domain;Name=$record.Name;ObjectGuid=$record.ObjectGuid;Result=$status;Detail=$detail })
+                try { Add-DeletionJournalEntry -Domain $record.Domain -DomainController $dcForJournal -Name $record.Name -DistinguishedName $record.DistinguishedName -ObjectGuid $record.ObjectGuid -InactiveDays $record.InactiveDays -Result $status -Details $detail } catch { Write-AppLog -Level ERROR -Message "Journal failure: $($_.Exception.Message)" }
             }
-            catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-                $skipped++
-                $reason = 'Object no longer exists in Active Directory.'
-
-                Add-DeletionJournalEntry `
-                    -Domain $record.Domain `
-                    -DomainController $record.DomainController `
-                    -Name $record.Name `
-                    -DistinguishedName $record.DistinguishedName `
-                    -ObjectGuid ([string]$record.ObjectGuid) `
-                    -InactiveDays $null `
-                    -Result 'SKIPPED_NOT_FOUND' `
-                    -Details $reason
-
-                Write-AppLog -Level WARNING -Message (
-                    "Deletion skipped. Name={0} | Reason={1}" -f
-                    $record.Name,
-                    $reason
-                )
-
-                [void]$script:CurrentResults.Remove($record)
-            }
-            catch {
-                $failed++
-                $details = $_.Exception.Message
-
-                Add-DeletionJournalEntry `
-                    -Domain $record.Domain `
-                    -DomainController $record.DomainController `
-                    -Name $record.Name `
-                    -DistinguishedName $record.DistinguishedName `
-                    -ObjectGuid ([string]$record.ObjectGuid) `
-                    -InactiveDays $record.InactiveDays `
-                    -Result 'FAILED' `
-                    -Details $details
-
-                Write-AppLog -Level ERROR -Message (
-                    "Deletion failed. Domain={0} | DC={1} | Name={2} | ObjectGuid={3} | Error={4}" -f
-                    $record.Domain,
-                    $record.DomainController,
-                    $record.Name,
-                    $record.ObjectGuid,
-                    $details
-                )
-            }
-
-            Refresh-ResultsGrid
         }
-
+        $path = Join-Path $script:EvidenceDirectory ('commit-delete-{0}.csv' -f (Get-TimestampToken))
+        $results | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
         Refresh-ResultsGrid
-
-        $summary = @"
-Deletion operation completed.
-
-Selected: $($selectedRecords.Count)
-Deleted:  $deleted
-Skipped:  $skipped
-Failed:   $failed
-
-Evidence:
-$evidencePath
-
-Journal:
-$($script:JournalPath)
-"@
-
-        Write-AppLog -Level SUCCESS -Message (
-            "Deletion batch completed. Selected={0} | Deleted={1} | Skipped={2} | Failed={3}" -f
-            $selectedRecords.Count,
-            $deleted,
-            $skipped,
-            $failed
-        )
-
-        Set-UiStatus `
-            -Text ("Deletion completed. Deleted={0} | Skipped={1} | Failed={2}" -f $deleted, $skipped, $failed) `
-            -Percent 100
-
-        [System.Windows.Forms.MessageBox]::Show(
-            $script:form,
-            $summary,
-            'Deletion completed',
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        ) | Out-Null
-    }
-    catch {
-        Write-AppLog -Level ERROR -Message ("Deletion pipeline failed before completion. Error={0}" -f $_.Exception.Message)
-        Set-UiStatus -Text 'Deletion pipeline failed.' -Percent 0
-        Show-ErrorMessage -Message $_.Exception.Message -Title 'Deletion pipeline failed'
-    }
-    finally {
-        Set-BusyState -Busy $false
-    }
+        [System.Windows.Forms.MessageBox]::Show($script:form,"COMMIT finished. Review deletion results: $path",'COMMIT results') | Out-Null
+    } finally { Set-BusyState -Busy $false }
 }
-
-# =====================================================================================
-# GUI construction
-# =====================================================================================
 
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "$($script:AppName) v$($script:AppVersion)"
@@ -1344,10 +1077,23 @@ $script:btnScan.Size = New-Object System.Drawing.Size(100, 30)
 $topPanel.Controls.Add($script:btnScan)
 
 $script:btnDelete = New-Object System.Windows.Forms.Button
-$script:btnDelete.Text = 'Delete Checked'
+$script:btnDelete.Text = 'Execute selected'
+$script:btnDelete.Enabled = $true
 $script:btnDelete.Location = New-Object System.Drawing.Point(515, 31)
 $script:btnDelete.Size = New-Object System.Drawing.Size(120, 30)
 $topPanel.Controls.Add($script:btnDelete)
+
+$script:chkCommit = New-Object System.Windows.Forms.CheckBox
+$script:chkCommit.Text = 'COMMIT (permanent delete)'
+$script:chkCommit.Checked = $false
+$script:chkCommit.AutoSize = $true
+$script:chkCommit.Location = New-Object System.Drawing.Point(515, 8)
+$topPanel.Controls.Add($script:chkCommit)
+$script:chkCommit.Add_CheckedChanged({
+    if (-not $script:IsBusy) { $script:btnDelete.Enabled = $true }
+    Write-AppLog -Level INFO -Message ("Operation mode: {0}" -f $(if ($script:chkCommit.Checked) { 'COMMIT-DELETE' } else { 'DRY-RUN' }))
+})
+
 
 $script:btnExport = New-Object System.Windows.Forms.Button
 $script:btnExport.Text = 'Export CSV'
@@ -1374,7 +1120,7 @@ $script:btnRefreshDomains.Size = New-Object System.Drawing.Size(120, 30)
 $topPanel.Controls.Add($script:btnRefreshDomains)
 
 $script:lblSummary = New-Object System.Windows.Forms.Label
-$script:lblSummary.Text = 'Objects: 0 | Checked: 0'
+$script:lblSummary.Text = 'Eligible: 0 | Candidates: 0 | Checked: 0'
 $script:lblSummary.AutoSize = $true
 $script:lblSummary.Location = New-Object System.Drawing.Point(1080, 39)
 $topPanel.Controls.Add($script:lblSummary)
