@@ -89,6 +89,7 @@ All notable repository changes are documented in this file.
 - Update version and improve report generation (`6d03650`)
 - Update EventID307-PrintingAudit.ps1 (`b818c06`)
 - Enhance printing audit script with share name and fixes (`8045470`)
+- Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 
 ### Security
 
@@ -282,6 +283,7 @@ All notable repository changes are documented in this file.
 - Moved WSUS-specific release responsibilities into the independent `WSUS-Management-Tools` component while preserving the physical subdirectory under `SysAdmin-Tools`.
 - Preserved parent-package propagation so nested ADCS, AD/SSO, GPO, and WSUS changes also update the `SysAdmin-Tools` and `All-Repository-Files` distributions.
 - Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
+- Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 
 ### Security
 
