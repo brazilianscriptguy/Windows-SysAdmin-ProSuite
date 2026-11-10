@@ -91,6 +91,7 @@ All notable repository changes are documented in this file.
 - Enhance printing audit script with share name and fixes (`8045470`)
 - Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
+- Revise script descriptions in README.md (`63d99c4`)
 
 ### Security
 
@@ -286,6 +287,7 @@ All notable repository changes are documented in this file.
 - Update Manage-PKICertificateLifecycle-Tool.ps1 (`efedef1`)
 - Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
+- Revise script descriptions in README.md (`63d99c4`)
 
 ### Security
 
