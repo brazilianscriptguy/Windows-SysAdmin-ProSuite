@@ -57,6 +57,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 ---
 
 
+
 ## 📄 Script Catalog (Alphabetical)
 
 | Script Name | Description |
@@ -72,14 +73,14 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Enforce-Expiration-ADUserPasswords.ps1** | Applies password expiration governance controls to Active Directory user accounts. |
 | **Export-n-Import-GPOsTool.ps1** | Provides GUI-based backup, export, and import operations for Group Policy Objects (GPOs). |
 | **Fix-ADForest-DNSDelegation.ps1** | Detects and repairs DNS delegation inconsistencies across Active Directory forest domains. |
-| **Inventory-ADComputers-by-Domain.ps1** | Discovers and inventories Active Directory computers across all forest domains, providing detailed computer account information, workstation/server classification, OU identification, DNS resolution, and optional ICMP connectivity testing. |
+| **Inventory-ADComputers-by-Domain.ps1** | Discovers and inventories Active Directory computers across all forest domains, providing detailed account, operating system, OU, DNS, and connectivity information. |
+| **Inventory-ADComputers-Collector.ps1** | Collects live hardware, operating system, logged-on user, BIOS, and network configuration details from remote Windows computers using CIM/WMI. |
 | **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory security and distribution groups and their associated memberships. |
 | **Inventory-ADMemberServers.ps1** | Collects inventory and operational information from Active Directory member servers. |
 | **Inventory-ADUserAttributes.ps1** | Exports comprehensive Active Directory user account attributes to CSV reports. |
 | **Inventory-ADUserLastLogon.ps1** | Retrieves and analyzes Active Directory user logon timestamps. |
 | **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies Active Directory user accounts configured with non-expiring passwords. |
 | **Inventory-InactiveADComputerAccounts.ps1** | Detects and reports stale or inactive Active Directory computer accounts. |
-| **Iventory-ADComputers-Collector.ps1** | Collects Active Directory computer inventory data for administrative analysis and reporting. |
 | **Manage-Disabled-Expired-ADUserAccounts.ps1** | Audits and manages disabled, expired, and inactive Active Directory user accounts. |
 | **Manage-FSMOs-Roles.ps1** | Displays, validates, and transfers Flexible Single Master Operations (FSMO) roles across domain controllers. |
 | **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share permissions and audits NTFS access control entries. |
