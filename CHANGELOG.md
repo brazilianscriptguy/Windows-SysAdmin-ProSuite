@@ -94,6 +94,7 @@ All notable repository changes are documented in this file.
 - Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
 - Revise script descriptions in README.md (`63d99c4`)
+- Update README.md (`36b6a9f`)
 
 ### Security
 
@@ -292,6 +293,7 @@ All notable repository changes are documented in this file.
 - Update Cleanup-InactiveADComputersAccounts.ps1 (`e83098b`)
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
 - Revise script descriptions in README.md (`63d99c4`)
+- Update README.md (`36b6a9f`)
 
 ### Security
 
