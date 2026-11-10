@@ -76,6 +76,7 @@ All notable repository changes are documented in this file.
   - `SysAdmin-Tools`
   - `WSUS-Management-Tools`
 - Add Inventory-ADComputers-by-Domain PowerShell script (`f170a50`)
+- Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADDomainComputers.ps1 (`25e25ce`)
 
 ### Changed
 
@@ -277,6 +278,7 @@ All notable repository changes are documented in this file.
 - Added `Security-and-Process-Optimization` tooling for security configuration, maintenance, and system optimization.
 - Added documentation covering script purpose, prerequisites, execution requirements, and administrative scope.
 - Add Inventory-ADComputers-by-Domain PowerShell script (`f170a50`)
+- Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADDomainComputers.ps1 (`25e25ce`)
 
 ### Changed
 
