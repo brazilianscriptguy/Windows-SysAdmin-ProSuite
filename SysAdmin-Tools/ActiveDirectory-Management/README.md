@@ -59,39 +59,39 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 ## 📄 Script Catalog (Alphabetical)
 
 | Script Name | Description |
-|------------|-------------|
-| **Add-ADComputers-Pre-Staging.ps1** | Adds and pre-stages Active Directory computer accounts in organizational units, including controlled re-ingress and required domain join permissions. |
-| **Add-ADInetOrgPerson.ps1** | Creates `InetOrgPerson` directory objects with extended enterprise attributes |
-| **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user provisioning for organizational units |
-| **Adjust-ExpirationDate-ADUserAccount.ps1** | Modifies expiration dates for Active Directory user accounts |
-| **Check-Shorter-ADComputerNames.ps1** | Identifies short, invalid or non-compliant computer naming standards |
-| **Cleanup-InactiveADComputersAccounts.ps1** | Collects and removes inactive Active Directory computer objects across all domains. |
-| **Cleanup-MetaData-ADForest-Tool.ps1** | Removes orphaned metadata objects and reconciles Active Directory forest consistency |
-| **Create-OUsDefaultADStructure.ps1** | Creates a standardized organizational unit hierarchy for Active Directory domains |
-| **Enforce-Expiration-ADUserPasswords.ps1** | Enforces password expiration governance policies for Active Directory users |
-| **Export-n-Import-GPOsTool.ps1** | Provides GUI-based backup, export and import management for Group Policy Objects |
-| **Fix-ADForest-DNSDelegation.ps1** | Detects and repairs DNS delegation inconsistencies across the Active Directory forest |
-| **Inventory-ADComputers-and-OUs.ps1** | Generates graphical inventory reports for computers and organizational units |
-| **Inventory-ADDomainComputers.ps1** | Exports inventory data for all domain-joined computer accounts |
-| **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory groups and their associated memberships |
-| **Inventory-ADMemberServers.ps1** | Collects inventory and operational information from Active Directory member servers |
-| **Inventory-ADUserAttributes.ps1** | Exports comprehensive Active Directory user attributes to CSV reports |
-| **Inventory-ADUserLastLogon.ps1** | Retrieves and analyzes Active Directory user last logon timestamps |
-| **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies user accounts configured with non-expiring passwords |
-| **Inventory-InactiveADComputerAccounts.ps1** | Detects stale and inactive Active Directory computer accounts |
-| **Manage-Disabled-Expired-ADUserAccounts.ps1** | Manages disabled, expired and inactive Active Directory user accounts |
-| **Manage-FSMOs-Roles.ps1** | Displays, validates and transfers FSMO role ownership across domain controllers |
-| **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share permissions and audits NTFS access rights for Active Directory groups |
-| **Move-ADComputer-betweenOUs.ps1** | Relocates Active Directory computer accounts between organizational units |
-| **Move-ADUser-betweenOUs.ps1** | Moves Active Directory user accounts between organizational units with filtering controls |
-| **Reset-ADUserPasswordsToDefault.ps1** | Performs bulk password reset operations using standardized secure defaults |
-| **Retrieve-ADComputer-SharedFolders.ps1** | Retrieves shared folder configuration data from Active Directory computers |
-| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Extracts and reports Active Directory domain audit policy configurations |
-| **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves privileged Active Directory forest topology and infrastructure information |
-| **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Forces domain controller replication and performs Active Directory forest health validation |
-| **Update-ADComputer-Descriptions.ps1** | Updates and standardizes Active Directory computer object descriptions |
-| **Update-ADUserDisplayName.ps1** | Applies standardized display name formatting to Active Directory user accounts |
-| **Update-ADUserLoginIdentity.ps1** | Migrates and aligns sAMAccountName and UserPrincipalName using an external identity mapping file. |
+|-------------|-------------|
+| **Add-ADComputers-Pre-Staging.ps1** | Pre-stages Active Directory computer accounts in designated OUs, supporting controlled domain joins and delegated permissions. |
+| **Add-ADInetOrgPerson.ps1** | Creates Active Directory `inetOrgPerson` objects with extended enterprise attributes. |
+| **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user account provisioning within designated OUs. |
+| **Adjust-ExpirationDate-ADUserAccount.ps1** | Configures and updates Active Directory user account expiration dates. |
+| **Check-Shorter-ADComputerNames.ps1** | Identifies computer names that violate configured naming conventions or length requirements. |
+| **Cleanup-InactiveADComputersAccounts.ps1** | Identifies and selectively removes inactive Active Directory workstation accounts using controlled audit and commit modes. |
+| **Cleanup-MetaData-ADForest-Tool.ps1** | Removes orphaned Active Directory metadata and supports forest consistency remediation. |
+| **Create-OUsDefaultADStructure.ps1** | Creates standardized Organizational Unit (OU) hierarchies across Active Directory domains. |
+| **Enforce-Expiration-ADUserPasswords.ps1** | Applies password expiration governance controls to Active Directory user accounts. |
+| **Export-n-Import-GPOsTool.ps1** | Provides GUI-based backup, export, and import operations for Group Policy Objects (GPOs). |
+| **Fix-ADForest-DNSDelegation.ps1** | Detects and repairs DNS delegation inconsistencies across Active Directory forest domains. |
+| **Inventory-ADComputers-by-Domain.ps1** | Performs forest-wide Active Directory computer discovery and inventory, including workstation/server classification, OU identification, DNS resolution, and optional ICMP connectivity testing. |
+| **Inventory-ADDomainComputers.ps1** | Exports detailed inventory records for Active Directory domain computer accounts. |
+| **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory security and distribution groups and their memberships. |
+| **Inventory-ADMemberServers.ps1** | Collects inventory and operational information about Active Directory member servers. |
+| **Inventory-ADUserAttributes.ps1** | Exports comprehensive Active Directory user account attributes to CSV reports. |
+| **Inventory-ADUserLastLogon.ps1** | Retrieves and analyzes Active Directory user logon timestamps. |
+| **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies Active Directory user accounts configured with non-expiring passwords. |
+| **Inventory-InactiveADComputerAccounts.ps1** | Detects and reports inactive or stale Active Directory computer accounts. |
+| **Manage-Disabled-Expired-ADUserAccounts.ps1** | Audits and manages disabled, expired, and inactive Active Directory user accounts. |
+| **Manage-FSMOs-Roles.ps1** | Displays, validates, and transfers Flexible Single Master Operations (FSMO) roles. |
+| **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share permissions and audits NTFS access control entries. |
+| **Move-ADComputer-betweenOUs.ps1** | Moves Active Directory computer accounts between Organizational Units (OUs). |
+| **Move-ADUser-betweenOUs.ps1** | Moves Active Directory user accounts between Organizational Units (OUs) with filtering controls. |
+| **Reset-ADUserPasswordsToDefault.ps1** | Performs controlled bulk password resets using standardized initial credentials. |
+| **Retrieve-ADComputer-SharedFolders.ps1** | Retrieves and reports shared folder configurations from Active Directory computers. |
+| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Collects and reports domain-level audit policy configurations. |
+| **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves detailed Active Directory forest topology, privileged configuration, and infrastructure information. |
+| **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Initiates domain controller replication and validates Active Directory forest health. |
+| **Update-ADComputer-Descriptions.ps1** | Updates and standardizes Active Directory computer object descriptions. |
+| **Update-ADUserDisplayName.ps1** | Standardizes Active Directory user account display names. |
+| **Update-ADUserLoginIdentity.ps1** | Updates and aligns `sAMAccountName` and `userPrincipalName` using an external identity mapping file. |
 
 ---
 
