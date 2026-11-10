@@ -56,6 +56,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 
 ---
 
+
 ## 📄 Script Catalog (Alphabetical)
 
 | Script Name | Description |
@@ -64,28 +65,29 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Add-ADInetOrgPerson.ps1** | Creates Active Directory `inetOrgPerson` objects with extended enterprise attributes. |
 | **Add-ADUserAccount.ps1** | Provides GUI-based Active Directory user account provisioning within designated OUs. |
 | **Adjust-ExpirationDate-ADUserAccount.ps1** | Configures and updates Active Directory user account expiration dates. |
-| **Check-Shorter-ADComputerNames.ps1** | Identifies computer names that violate configured naming conventions or length requirements. |
-| **Cleanup-InactiveADComputersAccounts.ps1** | Identifies and selectively removes inactive Active Directory workstation accounts using controlled audit and commit modes. |
+| **Check-Shorter-ADComputerNames.ps1** | Identifies computer names that violate established naming conventions or length requirements. |
+| **Cleanup-InactiveADComputersAccounts.ps1** | Identifies and removes eligible inactive Active Directory workstation accounts using controlled DRY-RUN and COMMIT modes. |
 | **Cleanup-MetaData-ADForest-Tool.ps1** | Removes orphaned Active Directory metadata and supports forest consistency remediation. |
 | **Create-OUsDefaultADStructure.ps1** | Creates standardized Organizational Unit (OU) hierarchies across Active Directory domains. |
 | **Enforce-Expiration-ADUserPasswords.ps1** | Applies password expiration governance controls to Active Directory user accounts. |
 | **Export-n-Import-GPOsTool.ps1** | Provides GUI-based backup, export, and import operations for Group Policy Objects (GPOs). |
 | **Fix-ADForest-DNSDelegation.ps1** | Detects and repairs DNS delegation inconsistencies across Active Directory forest domains. |
-| **Inventory-ADComputers-by-Domain.ps1** | Discovers and inventories Active Directory computers across all forest domains, providing detailed information. |
-| **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory security and distribution groups and their memberships. |
-| **Inventory-ADMemberServers.ps1** | Collects inventory and operational information about Active Directory member servers. |
+| **Inventory-ADComputers-by-Domain.ps1** | Discovers and inventories Active Directory computers across all forest domains, providing detailed computer account information, workstation/server classification, OU identification, DNS resolution, and optional ICMP connectivity testing. |
+| **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory security and distribution groups and their associated memberships. |
+| **Inventory-ADMemberServers.ps1** | Collects inventory and operational information from Active Directory member servers. |
 | **Inventory-ADUserAttributes.ps1** | Exports comprehensive Active Directory user account attributes to CSV reports. |
 | **Inventory-ADUserLastLogon.ps1** | Retrieves and analyzes Active Directory user logon timestamps. |
 | **Inventory-ADUserWithNonExpiringPasswords.ps1** | Identifies Active Directory user accounts configured with non-expiring passwords. |
-| **Inventory-InactiveADComputerAccounts.ps1** | Detects and reports inactive or stale Active Directory computer accounts. |
+| **Inventory-InactiveADComputerAccounts.ps1** | Detects and reports stale or inactive Active Directory computer accounts. |
+| **Iventory-ADComputers-Collector.ps1** | Collects Active Directory computer inventory data for administrative analysis and reporting. |
 | **Manage-Disabled-Expired-ADUserAccounts.ps1** | Audits and manages disabled, expired, and inactive Active Directory user accounts. |
-| **Manage-FSMOs-Roles.ps1** | Displays, validates, and transfers Flexible Single Master Operations (FSMO) roles. |
+| **Manage-FSMOs-Roles.ps1** | Displays, validates, and transfers Flexible Single Master Operations (FSMO) roles across domain controllers. |
 | **Manage-SMBShare-And-NTFSPermissions.ps1** | Manages SMB share permissions and audits NTFS access control entries. |
 | **Move-ADComputer-betweenOUs.ps1** | Moves Active Directory computer accounts between Organizational Units (OUs). |
 | **Move-ADUser-betweenOUs.ps1** | Moves Active Directory user accounts between Organizational Units (OUs) with filtering controls. |
 | **Reset-ADUserPasswordsToDefault.ps1** | Performs controlled bulk password resets using standardized initial credentials. |
 | **Retrieve-ADComputer-SharedFolders.ps1** | Retrieves and reports shared folder configurations from Active Directory computers. |
-| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Collects and reports domain-level audit policy configurations. |
+| **Retrieve-ADDomain-AuditPolicy-Configuration.ps1** | Collects and reports Active Directory domain audit policy configurations. |
 | **Retrieve-Elevated-ADForestInfo.ps1** | Retrieves detailed Active Directory forest topology, privileged configuration, and infrastructure information. |
 | **Synchronize-n-HealthCheck-ADForestDCs.ps1** | Initiates domain controller replication and validates Active Directory forest health. |
 | **Update-ADComputer-Descriptions.ps1** | Updates and standardizes Active Directory computer object descriptions. |
