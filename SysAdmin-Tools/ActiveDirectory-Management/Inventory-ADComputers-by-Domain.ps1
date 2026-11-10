@@ -15,10 +15,10 @@
     Runs inventory without the graphical interface.
 
 .EXAMPLE
-    .\Unified-ADComputer-Discovery-Inventory-v1.2.1.ps1
+    .\Inventory-ADComputers-by-Domain.ps1
 
 .EXAMPLE
-    .\Unified-ADComputer-Discovery-Inventory-v1.2.1.ps1 `
+    .\Inventory-ADComputers-by-Domain.ps1 `
         -NoGui -Scope Forest -ComputerType Workstations `
         -AccountState All -ResolveDNS
 
