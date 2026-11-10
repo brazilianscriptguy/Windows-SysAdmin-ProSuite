@@ -96,6 +96,7 @@ All notable repository changes are documented in this file.
 - Revise script descriptions in README.md (`63d99c4`)
 - Update README.md (`36b6a9f`)
 - Update example references in PowerShell script (`ecb548c`)
+- Refine script descriptions in README.md (`073c749`)
 
 ### Security
 
@@ -296,6 +297,7 @@ All notable repository changes are documented in this file.
 - Revise script descriptions in README.md (`63d99c4`)
 - Update README.md (`36b6a9f`)
 - Update example references in PowerShell script (`ecb548c`)
+- Refine script descriptions in README.md (`073c749`)
 
 ### Security
 
