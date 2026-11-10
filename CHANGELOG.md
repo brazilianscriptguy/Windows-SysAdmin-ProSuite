@@ -75,6 +75,7 @@ All notable repository changes are documented in this file.
   - `ProSuite-Hub`
   - `SysAdmin-Tools`
   - `WSUS-Management-Tools`
+- Add Inventory-ADComputers-by-Domain PowerShell script (`f170a50`)
 
 ### Changed
 
@@ -275,6 +276,7 @@ All notable repository changes are documented in this file.
 - Added `SystemConfiguration-and-Deployment` tooling for repeatable Windows configuration and deployment workflows.
 - Added `Security-and-Process-Optimization` tooling for security configuration, maintenance, and system optimization.
 - Added documentation covering script purpose, prerequisites, execution requirements, and administrative scope.
+- Add Inventory-ADComputers-by-Domain PowerShell script (`f170a50`)
 
 ### Changed
 
