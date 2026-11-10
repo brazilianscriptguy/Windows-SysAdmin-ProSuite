@@ -95,6 +95,7 @@ All notable repository changes are documented in this file.
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
 - Revise script descriptions in README.md (`63d99c4`)
 - Update README.md (`36b6a9f`)
+- Update example references in PowerShell script (`ecb548c`)
 
 ### Security
 
@@ -294,6 +295,7 @@ All notable repository changes are documented in this file.
 - Delete SysAdmin-Tools/ActiveDirectory-Management/Inventory-ADComputers-and-OUs.ps1 (`3449591`)
 - Revise script descriptions in README.md (`63d99c4`)
 - Update README.md (`36b6a9f`)
+- Update example references in PowerShell script (`ecb548c`)
 
 ### Security
 
