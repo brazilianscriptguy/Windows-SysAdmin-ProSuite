@@ -99,6 +99,7 @@ All notable repository changes are documented in this file.
 - Refine script descriptions in README.md (`073c749`)
 - Update README.md (`04bbf1e`)
 - Rename Inventory-ADComputers-Collector.ps1 file (`712f1e8`)
+- Upgrade Inventory-ADComputers script to v1.4.0 (`75a0ef0`)
 
 ### Security
 
@@ -302,6 +303,7 @@ All notable repository changes are documented in this file.
 - Refine script descriptions in README.md (`073c749`)
 - Update README.md (`04bbf1e`)
 - Rename Inventory-ADComputers-Collector.ps1 file (`712f1e8`)
+- Upgrade Inventory-ADComputers script to v1.4.0 (`75a0ef0`)
 
 ### Security
 
