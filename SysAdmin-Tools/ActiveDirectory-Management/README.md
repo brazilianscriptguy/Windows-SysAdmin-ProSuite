@@ -73,7 +73,7 @@ All scripts follow the same engineering standards used across **Windows-SysAdmin
 | **Enforce-Expiration-ADUserPasswords.ps1** | Applies password expiration governance controls to Active Directory user accounts. |
 | **Export-n-Import-GPOsTool.ps1** | Provides GUI-based backup, export, and import operations for Group Policy Objects (GPOs). |
 | **Fix-ADForest-DNSDelegation.ps1** | Detects and repairs DNS delegation inconsistencies across Active Directory forest domains. |
-| **Inventory-ADComputers-by-Domain.ps1** | Discovers and inventories Active Directory computers across all forest domains, providing detailed account, operating system, OU, DNS, and connectivity information. |
+| **Inventory-ADComputers-by-Domain.ps1** | Discovers, classifies, and inventories Active Directory workstations and servers across individual domains or an entire forest. |
 | **Inventory-ADComputers-Collector.ps1** | Collects live hardware, operating system, logged-on user, BIOS, and network configuration details from remote Windows computers using CIM/WMI. |
 | **Inventory-ADGroups-their-Members.ps1** | Enumerates Active Directory security and distribution groups and their associated memberships. |
 | **Inventory-ADMemberServers.ps1** | Collects inventory and operational information from Active Directory member servers. |
