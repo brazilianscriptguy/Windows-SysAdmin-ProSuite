@@ -1,40 +1,27 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Unified AD Computer Discovery & Inventory Tool v1.2.1 (READ-ONLY).
+    Unified Active Directory computer discovery and inventory tool.
 
 .DESCRIPTION
-    GUI and CLI tool for forest-wide Active Directory computer discovery,
-    workstation/server inventory, OU identification, DNS resolution, and
-    optional ICMP connectivity testing.
-
-    Features sortable GUI columns, search filters, hidden PowerShell
-    console, execution statistics, and automated CSV/TXT reporting.
-
-.PARAMETER NoGui
-    Runs inventory without the graphical interface.
+    Read-only, GUI/CLI-based inventory of workstations and servers
+    across individual domains or an entire Active Directory forest.
+    Supports account filtering, DNS resolution, ICMP testing,
+    computer classification, and CSV/hostname exports.
 
 .EXAMPLE
     .\Inventory-ADComputers-by-Domain.ps1
 
 .EXAMPLE
-    .\Inventory-ADComputers-by-Domain.ps1 `
-        -NoGui -Scope Forest -ComputerType Workstations `
-        -AccountState All -ResolveDNS
+    .\Inventory-ADComputers-by-Domain.ps1 -NoGui -Scope Forest -ComputerType Servers -AccountState Enabled -ResolveDNS
 
-.OUTPUTS
-    Consolidated and per-domain CSV/TXT inventory reports.
-    Domain-specific FQDN workstation lists and execution logs.
+.EXAMPLE
+    .\Inventory-ADComputers-by-Domain.ps1 -NoGui -Scope Forest -ComputerType WorkstationsAndServers -AccountState All
 
 .NOTES
-    Version      : 1.2.1
-    Requirements : Windows PowerShell 5.1, RSAT ActiveDirectory
-    Interface    : Windows Forms GUI / CLI
-    Operation    : READ-ONLY; no Active Directory modifications.
-    Reports      : C:\Scripts-LOGS\Unified-ADComputer-Inventory
-
-    OS classification relies on AD attributes. DNS/ICMP results
-    do not conclusively establish endpoint availability.
+    Version: 1.4.0 | PowerShell 5.1 | RSAT ActiveDirectory
+    Read-only: No Active Directory modifications.
+    Classification relies on the AD OperatingSystem attribute.
 #>
 
 [CmdletBinding()]
@@ -42,16 +29,19 @@ param(
  [ValidateSet('Forest','Current','Specific')][string]$Scope='Forest',
  [string]$Domain='',
  [string]$SearchBase='',
- [ValidateSet('All','Workstations','Servers','Unknown')][string]$ComputerType='Workstations',
+ [ValidateSet('All','Workstations','Servers','Unknown','WorkstationsAndServers')][string]$ComputerType='Workstations',
  [ValidateSet('All','Enabled','Disabled')][string]$AccountState='All',
  [switch]$ResolveDNS,
  [switch]$TestPing,
+ [switch]$RequireADHostname,
+ [ValidateRange(100,5000)][int]$ResultPageSize=1000,
  [ValidateRange(100,10000)][int]$PingTimeoutMs=1200,
  [string]$OutputDirectory='C:\Scripts-LOGS\Unified-ADComputer-Inventory',
  [switch]$NoGui,
  [switch]$HiddenChild
 )
 # GUI bootstrap: launch hidden child without hiding the calling console.
+# All collection operations remain read-only; no PsTools execution is performed.
 if (-not $NoGui -and -not $HiddenChild -and -not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
  try {
   $exe=Join-Path $PSHOME 'powershell.exe'
@@ -65,7 +55,7 @@ if (-not $NoGui -and -not $HiddenChild -and -not [string]::IsNullOrWhiteSpace($P
 Set-StrictMode -Version 2.0
 $ErrorActionPreference='Stop'
 Import-Module ActiveDirectory -ErrorAction Stop
-$script:RunPath=Join-Path $OutputDirectory (Get-Date -Format 'yyyyMMdd-HHmmss-fff')
+$script:RunPath=Join-Path $OutputDirectory ('{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'),[guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $script:RunPath -Force | Out-Null
 $script:LogFile=Join-Path $script:RunPath 'Execution.log'
 function Write-AuditLog { param([string]$Message,[string]$Level='INFO')
@@ -82,7 +72,7 @@ function Get-Domains { param([string]$RequestedScope,[string]$RequestedDomain)
 }
 function Get-ComputerClass { param([string]$OS)
  if([string]::IsNullOrWhiteSpace($OS)){return 'Unknown'}
- if($OS -match '(?i)windows\s+server|server\s+20\d\d|server\s+202\d'){return 'Servers'}
+ if($OS -match '(?i)\bserver\b'){return 'Servers'}
  if($OS -match '(?i)windows' -and $OS -notmatch '(?i)server'){return 'Workstations'}
  return 'Unknown'
 }
@@ -121,32 +111,39 @@ function Test-ComputerICMP {param([string]$Target,[int]$Timeout)
   return [string]$reply.Status
  }catch{return 'Error'}finally{if($p){$p.Dispose()}}
 }
-function Invoke-Inventory {param([string]$SelectedScope,[string]$SelectedDomain,[string]$Base,[string]$Type,[string]$State,[bool]$DNS,[bool]$Ping,[int]$Timeout,[scriptblock]$ProgressCallback)
+function Invoke-Inventory {param([string]$SelectedScope,[string]$SelectedDomain,[string]$Base,[string]$Type,[string]$State,[bool]$DNS,[bool]$Ping,[int]$Timeout,[bool]$ADHostnameOnly=$false,[scriptblock]$ProgressCallback)
  $domains=@(Get-Domains -RequestedScope $SelectedScope -RequestedDomain $SelectedDomain)
  $results=New-Object 'System.Collections.Generic.List[object]'
  $errors=New-Object 'System.Collections.Generic.List[object]'
  $index=0
+ $seen=New-Object 'System.Collections.Generic.HashSet[string]' -ArgumentList ([StringComparer]::OrdinalIgnoreCase)
  foreach($d in $domains){
   $index++
   if($ProgressCallback){& $ProgressCallback $index $domains.Count $d}
   Write-AuditLog "Query domain $d"
   try{
-   $query=@{Server=$d;Filter='*';Properties=@('DNSHostName','IPv4Address','Enabled','OperatingSystem','OperatingSystemVersion','LastLogonDate','PasswordLastSet','whenCreated','whenChanged','DistinguishedName');ErrorAction='Stop'}
+   $filter=if($State -eq 'Enabled'){'Enabled -eq $true'}elseif($State -eq 'Disabled'){'Enabled -eq $false'}else{'*'}
+   $query=@{Server=$d;Filter=$filter;ResultPageSize=$ResultPageSize;ResultSetSize=$null;Properties=@('DNSHostName','IPv4Address','Enabled','OperatingSystem','OperatingSystemVersion','LastLogonDate','PasswordLastSet','whenCreated','whenChanged','DistinguishedName');ErrorAction='Stop'}
    if($Base){
     $dn=(Get-ADDomain -Server $d -ErrorAction Stop).DistinguishedName
     if(-not ($Base -eq $dn -or $Base.EndsWith(','+$dn,[StringComparison]::OrdinalIgnoreCase))){throw "SearchBase is outside domain ${d}: $Base"}
     $query.SearchBase=$Base
    }
-   $computers=@(Get-ADComputer @query)
-   foreach($c in $computers){
+   $queried=0;$selected=0
+   foreach($c in (Get-ADComputer @query)){
+    $queried++
     $class=Get-ComputerClass ([string]$c.OperatingSystem)
-    if($Type -ne 'All' -and $Type -ne $class){continue}
+    if($Type -eq 'WorkstationsAndServers'){if($class -notin @('Workstations','Servers')){continue}}
+    elseif($Type -ne 'All' -and $Type -ne $class){continue}
     if($State -eq 'Enabled' -and -not $c.Enabled){continue}
     if($State -eq 'Disabled' -and $c.Enabled){continue}
+    if(-not $seen.Add([string]$c.DistinguishedName)){continue}
+    if($ADHostnameOnly -and [string]::IsNullOrWhiteSpace([string]$c.DNSHostName)){continue}
     $fqdn=[string]$c.DNSHostName
     if(-not $fqdn){$fqdn='{0}.{1}' -f $c.Name,$d;$fqdnSource='Constructed'}else{$fqdnSource='AD'}
     $network=Resolve-ComputerIPv4 -FQDN $fqdn -ADIPv4 ([string]$c.IPv4Address) -DoResolve $DNS
     $icmp=if($Ping){Test-ComputerICMP -Target $fqdn -Timeout $Timeout}else{'NotTested'}
+    $selected++
     $results.Add([pscustomobject]@{
      Domain=$d;ComputerName=[string]$c.Name;FQDN=$fqdn;FQDNSource=$fqdnSource
      ComputerType=$class;Enabled=[bool]$c.Enabled;OperatingSystem=[string]$c.OperatingSystem
@@ -156,7 +153,7 @@ function Invoke-Inventory {param([string]$SelectedScope,[string]$SelectedDomain,
      DistinguishedName=[string]$c.DistinguishedName
     })
    }
-   Write-AuditLog "Domain ${d}: queried=$($computers.Count) selected=$(@($results | Where-Object Domain -eq $d).Count)"
+   Write-AuditLog "Domain ${d}: queried=$queried selected=$selected"
   }catch{
    $msg=$_.Exception.Message
    Write-AuditLog "Domain $d failed: $msg" 'ERROR'
@@ -177,9 +174,11 @@ function Export-Inventory {param($Inventory,[string]$TargetDirectory)
  if($rows.Count){$rows | Select-Object $columns | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8}
  else{('"'+($columns -join '","')+'"') | Set-Content -LiteralPath $csv -Encoding UTF8}
  if(@($Inventory.Errors).Count){$Inventory.Errors | Export-Csv -LiteralPath (Join-Path $TargetDirectory 'Domain-Errors.csv') -NoTypeInformation -Encoding UTF8}else{'"Domain","Error"' | Set-Content -LiteralPath (Join-Path $TargetDirectory 'Domain-Errors.csv') -Encoding UTF8}
+ $Inventory.Errors | Out-Null
  Write-TextFile (Join-Path $TargetDirectory 'Forest-Hostnames.txt') @($rows | ForEach-Object {$_.ComputerName})
  Write-TextFile (Join-Path $TargetDirectory 'Forest-FQDNs.txt') @($rows | ForEach-Object {$_.FQDN})
  Write-TextFile (Join-Path $TargetDirectory 'FQDN-forest-workstations_list.txt') @($rows | Where-Object { $_.ComputerType -eq 'Workstations' } | ForEach-Object FQDN)
+ Write-TextFile (Join-Path $TargetDirectory 'FQDN-forest-servers_list.txt') @($rows | Where-Object { $_.ComputerType -eq 'Servers' } | ForEach-Object FQDN)
  Write-TextFile (Join-Path $TargetDirectory 'Forest-IPv4.txt') @($rows | ForEach-Object {$_.IPv4Address -split ';'})
  foreach($d in $Inventory.Domains){
   $safe=$d -replace '[^a-zA-Z0-9._-]','_'
@@ -190,13 +189,18 @@ function Export-Inventory {param($Inventory,[string]$TargetDirectory)
   Write-TextFile (Join-Path $TargetDirectory "$safe-Enabled-FQDNs.txt") @($subset | Where-Object Enabled | ForEach-Object FQDN)
   # Requested machine-readable FQDN list; one record per line, no header.
   Write-TextFile (Join-Path $TargetDirectory ("FQDN-{0}-workstations_list.txt" -f $safe.ToLowerInvariant())) @($subset | Where-Object { $_.ComputerType -eq 'Workstations' } | ForEach-Object FQDN)
+  Write-TextFile (Join-Path $TargetDirectory ("FQDN-{0}-servers_list.txt" -f $safe.ToLowerInvariant())) @($subset | Where-Object { $_.ComputerType -eq 'Servers' } | ForEach-Object FQDN)
  }
  $summary=@($rows | Group-Object Domain,ComputerType,Enabled | ForEach-Object {[pscustomobject]@{Group=$_.Name;Count=$_.Count}})
  if($summary.Count){$summary | Export-Csv -LiteralPath (Join-Path $TargetDirectory 'Summary.csv') -NoTypeInformation -Encoding UTF8}
+ else{'"Group","Count"' | Set-Content -LiteralPath (Join-Path $TargetDirectory 'Summary.csv') -Encoding UTF8}
+ $manifest=[ordered]@{Tool='Unified-ADComputer-Discovery-Inventory';Version='1.4.0';GeneratedAt=(Get-Date).ToString('o');ComputerCount=$rows.Count;DomainCount=@($Inventory.Domains).Count;ErrorCount=@($Inventory.Errors).Count;OutputDirectory=$TargetDirectory}
+ $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $TargetDirectory 'Run-Manifest.json') -Encoding UTF8
  Write-AuditLog "Export completed: $TargetDirectory; records=$($rows.Count); domainErrors=$(@($Inventory.Errors).Count)"
 }
 if($NoGui){
- $data=Invoke-Inventory -SelectedScope $Scope -SelectedDomain $Domain -Base $SearchBase -Type $ComputerType -State $AccountState -DNS ([bool]$ResolveDNS) -Ping ([bool]$TestPing) -Timeout $PingTimeoutMs
+ if($SearchBase -and $Scope -eq 'Forest'){throw 'SearchBase cannot be combined with Forest scope. Use Current or Specific.'}
+ $data=Invoke-Inventory -SelectedScope $Scope -SelectedDomain $Domain -Base $SearchBase -Type $ComputerType -State $AccountState -DNS ([bool]$ResolveDNS) -Ping ([bool]$TestPing) -Timeout $PingTimeoutMs -ADHostnameOnly ([bool]$RequireADHostname)
  Export-Inventory -Inventory $data -TargetDirectory $script:RunPath
  Write-Host "Records: $(@($data.Rows).Count) | Domain errors: $(@($data.Errors).Count) | Output: $script:RunPath"
  if(@($data.Errors).Count){exit 2};exit 0
@@ -209,7 +213,7 @@ $script:LastReportPath=$script:RunPath
 $script:AllRows=@()
 $script:Busy=$false
 $form=New-Object System.Windows.Forms.Form
-$form.Text='AD Computer Discovery & Inventory  |  v1.2.1  |  READ-ONLY'
+$form.Text='AD Computer Discovery & Inventory  |  v1.4.0  |  READ-ONLY'
 $form.Size=New-Object System.Drawing.Size(1390,870)
 $form.MinimumSize=New-Object System.Drawing.Size(1080,720)
 $form.StartPosition='CenterScreen'
@@ -241,30 +245,34 @@ $brand.ForeColor=$white;$brand.Font=New-Object System.Drawing.Font('Segoe UI',13
 $sub=UiLabel $top 'Forest-aware inventory  |  DNS / ICMP discovery  |  No directory modifications' 22 40 850 18
 $sub.ForeColor=[System.Drawing.Color]::FromArgb(190,209,230)
 $bottom=New-Object System.Windows.Forms.Panel;$bottom.Dock='Bottom';$bottom.Height=64;$bottom.BackColor=$white;$form.Controls.Add($bottom)
-$filters=New-Object System.Windows.Forms.Panel;$filters.Dock='Top';$filters.Height=210;$filters.BackColor=$white;$form.Controls.Add($filters)
+$filters=New-Object System.Windows.Forms.Panel;$filters.Dock='Top';$filters.Height=242;$filters.BackColor=$white;$form.Controls.Add($filters)
 $summary=New-Object System.Windows.Forms.Panel;$summary.Dock='Top';$summary.Height=93;$summary.BackColor=[System.Drawing.Color]::FromArgb(241,245,249);$form.Controls.Add($summary)
 $content=New-Object System.Windows.Forms.Panel;$content.Dock='Fill';$content.Padding=New-Object System.Windows.Forms.Padding(12,0,12,8);$form.Controls.Add($content)
 $content.BringToFront()
 [void](UiLabel $filters 'INVENTORY CONFIGURATION' 18 10 400 23 $true)
 [void](UiLabel $filters 'Scope' 18 40 120)
-$scopeBox=UiCombo $filters @('Forest','Current','Specific') 18 64 170 0
+$scopeBox=UiCombo $filters @('Forest','Current','Specific') 18 64 170 $(if($Scope -eq 'Current'){1}elseif($Scope -eq 'Specific'){2}else{0})
 [void](UiLabel $filters 'Domain (Specific)' 205 40 180)
 $domainBox=UiCombo $filters @('') 205 64 350 0
 try{foreach($d in @(Get-Domains Forest '')){[void]$domainBox.Items.Add($d)}}catch{Write-AuditLog $_.Exception.Message 'WARN'}
 [void](UiLabel $filters 'Computer type' 574 40 180)
-$typeBox=UiCombo $filters @('Workstations','Servers','All','Unknown') 574 64 165 0
+$typeBox=UiCombo $filters @('Workstations','Servers','All','Unknown') 574 64 165 $(if($ComputerType -eq 'Servers'){1}elseif($ComputerType -eq 'All'){2}elseif($ComputerType -eq 'Unknown'){3}else{0})
 [void](UiLabel $filters 'Account state' 757 40 160)
-$stateBox=UiCombo $filters @('All','Enabled','Disabled') 757 64 140 0
+$stateBox=UiCombo $filters @('All','Enabled','Disabled') 757 64 140 $(if($AccountState -eq 'Enabled'){1}elseif($AccountState -eq 'Disabled'){2}else{0})
 [void](UiLabel $filters 'Ping timeout (ms)' 915 40 160)
 $timeoutBox=New-Object System.Windows.Forms.NumericUpDown;$timeoutBox.Minimum=100;$timeoutBox.Maximum=10000;$timeoutBox.Value=$PingTimeoutMs;$timeoutBox.SetBounds(915,64,125,28);$filters.Controls.Add($timeoutBox)
 [void](UiLabel $filters 'Search base DN (optional; Current/Specific scope)' 18 106 470)
-$baseBox=New-Object System.Windows.Forms.TextBox;$baseBox.SetBounds(18,130,720,28);$baseBox.Anchor='Top,Left,Right';$filters.Controls.Add($baseBox)
+$baseBox=New-Object System.Windows.Forms.TextBox;$baseBox.Text=$SearchBase;$baseBox.SetBounds(18,130,720,28);$baseBox.Anchor='Top,Left,Right';$filters.Controls.Add($baseBox)
 $dnsBox=New-Object System.Windows.Forms.CheckBox;$dnsBox.Text='Resolve DNS (A records)';$dnsBox.SetBounds(18,174,220,25);$dnsBox.Checked=[bool]$ResolveDNS;$filters.Controls.Add($dnsBox)
 $pingBox=New-Object System.Windows.Forms.CheckBox;$pingBox.Text='Test ICMP (slower)';$pingBox.SetBounds(250,174,205,25);$pingBox.Checked=[bool]$TestPing;$filters.Controls.Add($pingBox)
+$serversBox=New-Object System.Windows.Forms.CheckBox;$serversBox.Text='Also include servers';$serversBox.SetBounds(475,174,215,25);$serversBox.Checked=($ComputerType -eq 'WorkstationsAndServers');$filters.Controls.Add($serversBox)
+$typeBox.Add_SelectedIndexChanged({$serversBox.Enabled=([string]$typeBox.SelectedItem -eq 'Workstations');if(-not $serversBox.Enabled){$serversBox.Checked=$false}})
+$hostnameBox=New-Object System.Windows.Forms.CheckBox;$hostnameBox.Text='Require DNSHostName from AD';$hostnameBox.SetBounds(18,205,280,25);$hostnameBox.Checked=[bool]$RequireADHostname;$filters.Controls.Add($hostnameBox)
 $readOnly=UiLabel $filters 'READ-ONLY  -  No AD changes' 800 177 350 22 $true;$readOnly.ForeColor=[System.Drawing.Color]::FromArgb(26,128,77)
-$domainBox.Enabled=$false
+$domainBox.Enabled=($Scope -eq 'Specific')
+if($Domain -and $domainBox.Items.Contains($Domain)){$domainBox.SelectedItem=$Domain}
 $scopeBox.Add_SelectedIndexChanged({$domainBox.Enabled=([string]$scopeBox.SelectedItem -eq 'Specific');$baseBox.Enabled=([string]$scopeBox.SelectedItem -ne 'Forest')})
-$baseBox.Enabled=$false
+$baseBox.Enabled=($Scope -ne 'Forest')
 $stats=@()
 foreach($spec in @(@('Records','0'),@('Enabled','0'),@('Disabled','0'),@('Domains / Errors','0 / 0'))){
  $p=New-Object System.Windows.Forms.Panel;$p.BackColor=$white;$p.BorderStyle='FixedSingle';$summary.Controls.Add($p)
@@ -346,7 +354,7 @@ $run.Add_Click({
   if($baseBox.Text.Trim() -and $chosen -eq 'Forest'){throw 'Search base DN requires Current or Specific scope.'}
   $chosenDomain=if($chosen -eq 'Specific'){[string]$domainBox.SelectedItem}else{''}
   if($chosen -eq 'Specific' -and -not $chosenDomain){throw 'Select a domain for Specific scope.'}
-  $script:RunPath=Join-Path $OutputDirectory (Get-Date -Format 'yyyyMMdd-HHmmss-fff')
+  $script:RunPath=Join-Path $OutputDirectory ('{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'),[guid]::NewGuid().ToString('N').Substring(0,8))
   New-Item -ItemType Directory -Path $script:RunPath -Force | Out-Null
   $script:LogFile=Join-Path $script:RunPath 'Execution.log'
   $progress.Value=0
@@ -354,7 +362,7 @@ $run.Add_Click({
    $progress.Maximum=[math]::Max(1,$total);$progress.Value=[math]::Min($n,$progress.Maximum)
    $status.Text="Scanning ${d} ($n/$total)...";$status.Refresh();$progress.Refresh();[System.Windows.Forms.Application]::DoEvents()
   }
-  $data=Invoke-Inventory -SelectedScope $chosen -SelectedDomain $chosenDomain -Base $baseBox.Text.Trim() -Type ([string]$typeBox.SelectedItem) -State ([string]$stateBox.SelectedItem) -DNS $dnsBox.Checked -Ping $pingBox.Checked -Timeout ([int]$timeoutBox.Value) -ProgressCallback $callback
+  $data=Invoke-Inventory -SelectedScope $chosen -SelectedDomain $chosenDomain -Base $baseBox.Text.Trim() -Type $(if($serversBox.Checked -and [string]$typeBox.SelectedItem -eq 'Workstations'){'WorkstationsAndServers'}else{[string]$typeBox.SelectedItem}) -State ([string]$stateBox.SelectedItem) -DNS $dnsBox.Checked -Ping $pingBox.Checked -Timeout ([int]$timeoutBox.Value) -ADHostnameOnly $hostnameBox.Checked -ProgressCallback $callback
   Export-Inventory -Inventory $data -TargetDirectory $script:RunPath
   $script:LastData=$data;$script:LastReportPath=$script:RunPath;$script:AllRows=@($data.Rows)
   $searchBox.Clear();Set-GridRows -Rows $script:AllRows
