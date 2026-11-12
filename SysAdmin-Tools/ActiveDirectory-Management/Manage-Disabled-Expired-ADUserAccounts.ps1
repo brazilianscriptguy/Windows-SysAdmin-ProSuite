@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Manage Disabled and Expired AD User Accounts v4.1.9 - Stable Enterprise Edition.
+  Manage Disabled and Expired AD User Accounts v4.2.4 - Stable Enterprise Edition.
 
 .DESCRIPTION
   Windows PowerShell 5.1 WinForms application for controlled management of
@@ -9,6 +9,7 @@
   Implements:
   - Automatic forest-domain discovery at startup
   - Selection of the authoritative target domain for each operation
+  - Manual domain scanning without automatic account discovery at startup
   - Discovery of enabled accounts whose AccountExpirationDate has expired
   - Manual selection and disabling of expired user accounts
   - Discovery of disabled accounts outside the default CN=Users container
@@ -17,8 +18,16 @@
   - Account disabling from direct input, comma-separated input, or TXT files
   - CSV export of disabled-account inventory
   - Move selected disabled accounts to an Inactive User Accounts OU while preserving the disabled date
-  - Delete disabled accounts whose recorded disabled age reaches a configured threshold
+  - Preservation of existing lifecycle timestamps during organizational-unit movement
+  - Lifecycle-marker-based disabled-account age calculation
+  - Configurable disabled-account age threshold (default: 365 days)
+  - Delete disabled accounts whose verified disabled age reaches the configured threshold
+  - Exclusion of accounts without authoritative lifecycle dates from deletion eligibility
   - Mandatory pre-deletion CSV evidence and live revalidation
+  - DRY-RUN simulation mode enabled by default, without Active Directory modifications
+  - Explicit COMMIT mode for authorized Active Directory modifications
+  - Individual confirmation before destructive operations
+  - CSV evidence generation for simulated and committed operations
   - Enterprise session logging with script-name-derived paths
   - GUI-safe exception handling and operation status reporting
   - Hidden-console bootstrap for GUI-first execution
@@ -26,12 +35,18 @@
   - Sortable DataGridView columns
   - Domain-aware organizational-unit search dialog
   - Dedicated deletion-eligible disabled-account list
+  - Centralized GUI button-state management and input validation
+  - DRY-RUN checkbox alongside the shortened Inactive OU field in the top configuration row
+  - Single-row action toolbar to preserve the original GUI layout
+  - Explicit Inactive OU membership classification for disabled accounts
+  - Exclusion of accounts already inside the destination OU from redundant movement
+  - Manual unchecked selection after scans and persistent DRY-RUN/COMMIT status
 
 .AUTHOR
   Luiz Hamilton Roberto da Silva - @brazilianscriptguy
 
 .VERSION
-  2026-07-28-v4.1.9-STABLE-ENTERPRISE-EDITION
+  2026-11-12-v4.2.4-STABLE-ENTERPRISE-EDITION
 
 .REQUIREMENTS
   - Windows PowerShell 5.1
@@ -40,8 +55,22 @@
   - Network and DNS connectivity to all selected forest domains
 
 .NOTES
-  Validate all destructive operations in a controlled organizational unit before
-  production use.
+  DRY-RUN is enabled by default and must not modify Active Directory objects,
+  account attributes, or group memberships.
+
+  COMMIT requires explicit operator authorization and confirmation before
+  executing destructive operations.
+
+  The whenChanged attribute is informational and must not independently
+  establish disabled-account age or deletion eligibility.
+
+  Existing lifecycle timestamps must be preserved during account movement
+  between organizational units.
+
+  Validate scanning, account disabling, group removal, OU movement, lifecycle-date
+  preservation, and deletion eligibility in DRY-RUN mode before production use.
+
+  Last updated: 2026-11-12.
 #>
 
 #Requires -Version 5.1
@@ -113,7 +142,8 @@ catch {
 # =====================================================================================
 
 $Script:AppName = 'Manage Disabled and Expired AD User Accounts'
-$Script:AppVersion = '4.1.9'
+$Script:AppVersion = '4.2.4'
+$Script:DryRun = $true
 $Script:SessionId = [guid]::NewGuid().ToString()
 $Script:ScriptPath = $PSCommandPath
 
@@ -994,7 +1024,7 @@ function Move-SelectedDisabledUsers {
                 continue
             }
 
-            if ([string]$live.DistinguishedName -like "*,$resolvedOuDn") {
+            if (Test-AccountWithinInactiveOu -AccountDn ([string]$live.DistinguishedName) -InactiveOuDn $resolvedOuDn) {
                 $skipped++
                 Write-Log -Message "Move skipped. Account '${sam}' is already in '${resolvedOuDn}'." -Level INFO
                 continue
@@ -1432,6 +1462,40 @@ function New-EnterpriseDataGridView {
     return $grid
 }
 
+function Test-AccountWithinInactiveOu {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][string]$AccountDn,
+        [AllowNull()][string]$InactiveOuDn
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccountDn) -or
+        [string]::IsNullOrWhiteSpace($InactiveOuDn)) { return $false }
+
+    # Compare DN suffixes at an RDN boundary, not arbitrary substrings.
+    # Escaped commas remain part of an RDN and do not alter this suffix test.
+    return $AccountDn.Trim().EndsWith(
+        (',' + $InactiveOuDn.Trim()),
+        [System.StringComparison]::OrdinalIgnoreCase
+    )
+}
+
+function Update-InactiveOuMembership {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][System.Windows.Forms.DataGridView]$Grid,
+        [AllowNull()][string]$InactiveOuDn
+    )
+    foreach ($row in $Grid.Rows) {
+        if ($row.IsNewRow -or $null -eq $row.Tag) { continue }
+        $inside = Test-AccountWithinInactiveOu -AccountDn ([string]$row.Tag.DistinguishedName) -InactiveOuDn $InactiveOuDn
+        $row.Cells['InactiveOuStatus'].Value = if ([string]::IsNullOrWhiteSpace($InactiveOuDn)) {
+            'OU not selected'
+        } elseif ($inside) { 'Already in inactive OU' } else { 'Outside inactive OU' }
+        $row.Cells['InactiveOuStatus'].ToolTipText = [string]$InactiveOuDn
+    }
+}
+
 function Add-RecordToGrid {
     [CmdletBinding()]
     param(
@@ -1475,6 +1539,7 @@ function Add-RecordToGrid {
         }
 
         $row.Cells['DisabledDateSource'].Value = [string]$Record.DisabledDateSource
+        $row.Cells['InactiveOuStatus'].Value = 'OU not selected'
         $row.Cells['Protected'].Value = [bool]$Record.ProtectedFromAccidentalDeletion
         $row.Cells['DistinguishedName'].Value = [string]$Record.DistinguishedName
     }
@@ -1708,7 +1773,8 @@ function Refresh-UnifiedUserGrids {
         [Parameter(Mandatory = $true)][System.Windows.Forms.DataGridView]$DisabledGrid,
         [Parameter(Mandatory = $true)][System.Windows.Forms.DataGridView]$EligibleGrid,
         [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStripStatusLabel]$StatusLabel,
-        [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStripProgressBar]$ProgressBar
+        [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStripProgressBar]$ProgressBar,
+        [AllowNull()][string]$InactiveOuDn
     )
 
     $ProgressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
@@ -1732,7 +1798,8 @@ function Refresh-UnifiedUserGrids {
 
             if (
                 $null -ne $user.DisabledAgeDays -and
-                [int]$user.DisabledAgeDays -ge $DisabledAgeDays
+                [int]$user.DisabledAgeDays -ge $DisabledAgeDays -and
+                $user.DisabledDateSource -eq 'LifecycleMarker'
             ) {
                 Add-RecordToGrid -Grid $EligibleGrid -Record $user -Mode Disabled
             }
@@ -1741,6 +1808,8 @@ function Refresh-UnifiedUserGrids {
         Set-AllGridChecks -Grid $ExpiredGrid -Checked $false
         Set-AllGridChecks -Grid $DisabledGrid -Checked $false
         Set-AllGridChecks -Grid $EligibleGrid -Checked $false
+        Update-InactiveOuMembership -Grid $DisabledGrid -InactiveOuDn $InactiveOuDn
+        Update-InactiveOuMembership -Grid $EligibleGrid -InactiveOuDn $InactiveOuDn
 
         $unavailableDisabledDates = @(
             $disabledUsers | Where-Object {
@@ -1770,12 +1839,97 @@ function Refresh-UnifiedUserGrids {
     }
 }
 
+function Invoke-LifecycleDryRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$Action,
+        [Parameter(Mandatory=$true)][string]$DomainFqdn,
+        [Parameter(Mandatory=$true)][System.Windows.Forms.DataGridView]$Grid,
+        [string]$TargetOuDn,
+        [int]$ThresholdDays = 365
+    )
+
+    $records = @(Get-CheckedGridRecords -Grid $Grid)
+    if ($records.Count -eq 0) {
+        Show-AppMessage -Message 'Select at least one account first.' -Type Warning
+        return
+    }
+
+    $destination = $null
+    if ($Action -eq 'MoveToInactiveOU') {
+        if ([string]::IsNullOrWhiteSpace($TargetOuDn)) {
+            Show-AppMessage -Message 'Select a destination OU before simulating movement.' -Type Warning
+            return
+        }
+        $destination = Resolve-InactiveUsersOuDn -DomainFqdn $DomainFqdn -RequestedOuDn $TargetOuDn
+    }
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($record in $records) {
+        $decision = 'WOULD_APPLY'
+        $reason = 'Read-only preflight completed'
+        $source = [string]$record.DisabledDateSource
+        $disabledDays = $record.DisabledAgeDays
+        try {
+            $live = Get-ADUser -Identity ([guid]$record.ObjectGuid) -Server $DomainFqdn -Properties Enabled,AccountExpirationDate,info,whenChanged,ProtectedFromAccidentalDeletion,DistinguishedName,MemberOf -ErrorAction Stop
+            switch ($Action) {
+                'DisableExpired' {
+                    if (-not $live.Enabled) { $decision='SKIP'; $reason='Already disabled' }
+                    elseif ($null -eq $live.AccountExpirationDate -or [datetime]$live.AccountExpirationDate -gt (Get-Date)) { $decision='SKIP'; $reason='Not currently expired' }
+                }
+                'RemoveGroups' {
+                    if ($live.Enabled) { $decision='SKIP'; $reason='Account enabled' }
+                    elseif (@($live.MemberOf).Count -eq 0) { $decision='SKIP'; $reason='No direct group memberships returned' }
+                    else { $reason='Would review and remove direct group memberships (cross-domain permissions not tested)' }
+                }
+                'MoveToInactiveOU' {
+                    if ($live.Enabled) { $decision='SKIP'; $reason='Account enabled' }
+                    elseif (Test-AccountWithinInactiveOu -AccountDn ([string]$live.DistinguishedName) -InactiveOuDn $destination) { $decision='SKIP'; $reason='Already under destination OU' }
+                    else { $reason='Would move object; existing lifecycle marker preserved' }
+                }
+                'DeleteEligible' {
+                    $age = Get-DisabledTimestampInfo -Info ([string]$live.info) -WhenChanged $live.whenChanged
+                    $source = [string]$age.DisabledDateSource
+                    $disabledDays = $age.DisabledAgeDays
+                    if ($live.Enabled) { $decision='SKIP'; $reason='Account enabled' }
+                    elseif ($age.DisabledDateSource -ne 'LifecycleMarker') { $decision='SKIP'; $reason='No verified disabled-date marker' }
+                    elseif ($null -eq $age.DisabledAgeDays -or [int]$age.DisabledAgeDays -lt $ThresholdDays) { $decision='SKIP'; $reason='Below disabled-age threshold' }
+                    elseif ($live.ProtectedFromAccidentalDeletion) { $decision='SKIP'; $reason='Protected from accidental deletion' }
+                    else { $reason='Would delete after production confirmation and evidence export' }
+                }
+            }
+        }
+        catch {
+            $decision='ERROR'
+            $reason=$_.Exception.Message
+        }
+        $entry = [pscustomobject]@{
+            Time=(Get-Date).ToString('o'); Mode='DRY-RUN'; Action=$Action; Domain=$DomainFqdn
+            SamAccountName=[string]$record.SamAccountName; ObjectGuid=[string]$record.ObjectGuid
+            Decision=$decision; Reason=$reason; DisabledDays=$disabledDays
+            DateSource=$source; DestinationOU=$destination
+        }
+        [void]$results.Add($entry)
+        Write-Log -Message ("DRY-RUN {0}: {1} -> {2}: {3}" -f $Action,$entry.SamAccountName,$decision,$reason) -Level INFO
+    }
+    $folder=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ADUserLifecycle-DryRun'
+    if (-not (Test-Path -LiteralPath $folder)) { [void](New-Item -ItemType Directory -Path $folder -Force -ErrorAction Stop) }
+    $path=Join-Path $folder ("DryRun-{0}-{1}.csv" -f $Action,(Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+    $results | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+    Show-AppMessage -Message ("DRY-RUN completed. No AD changes made.`r`nAction: {0}`r`nReviewed: {1}`r`nWould apply: {2}`r`nReport: {3}" -f $Action,$results.Count,@($results | Where-Object Decision -eq 'WOULD_APPLY').Count,$path) -Type Information
+}
+
 function Disable-ExpiredGridRecords {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)][string]$DomainFqdn,
         [Parameter(Mandatory = $true)][System.Windows.Forms.DataGridView]$Grid
     )
+
+    if ($Script:DryRun) {
+        Invoke-LifecycleDryRun -Action 'DisableExpired' -DomainFqdn $DomainFqdn -Grid $Grid
+        return
+    }
 
     $records = @(Get-CheckedGridRecords -Grid $Grid)
     if ($records.Count -eq 0) {
@@ -1813,6 +1967,11 @@ function Remove-DisabledGridRecordsFromGroups {
         [Parameter(Mandatory = $true)][System.Windows.Forms.DataGridView]$Grid,
         [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStripProgressBar]$ProgressBar
     )
+
+    if ($Script:DryRun) {
+        Invoke-LifecycleDryRun -Action 'RemoveGroups' -DomainFqdn $DomainFqdn -Grid $Grid
+        return
+    }
 
     $records = @(Get-CheckedGridRecords -Grid $Grid)
     if ($records.Count -eq 0) {
@@ -1870,6 +2029,11 @@ function Move-DisabledGridRecords {
         [System.Windows.Forms.ToolStripProgressBar]$ProgressBar
     )
 
+    if ($Script:DryRun) {
+        Invoke-LifecycleDryRun -Action 'MoveToInactiveOU' -DomainFqdn $DomainFqdn -Grid $Grid -TargetOuDn $TargetOuDn
+        return
+    }
+
     $records = @(Get-CheckedGridRecords -Grid $Grid)
     if ($records.Count -eq 0) {
         Show-AppMessage -Message 'No disabled accounts selected.' -Type Warning
@@ -1911,38 +2075,23 @@ function Move-DisabledGridRecords {
                 continue
             }
 
-            if ([string]$live.DistinguishedName -like "*,$resolvedOuDn") {
+            if (Test-AccountWithinInactiveOu -AccountDn ([string]$live.DistinguishedName) -InactiveOuDn $resolvedOuDn) {
                 $skipped++
                 continue
             }
 
-            # Moving an AD object updates whenChanged. If the account still relies on
-            # whenChanged-fallback, persist the currently calculated disabled date before
-            # Move-ADObject so its lifecycle age is not reset by the OU movement.
+            # Preserve existing lifecycle markers without rewriting their timestamp.
+            # Do not turn whenChanged into a verified DisabledOn marker: it records
+            # arbitrary object changes, not necessarily the disable operation.
             $markerInfo = Get-DisabledTimestampInfo `
                 -Info ([string]$live.info) `
                 -WhenChanged $live.whenChanged
 
             if ($markerInfo.DisabledDateSource -ne 'LifecycleMarker') {
-                if ($null -ne $record.DisabledDate) {
-                    Set-UserLifecycleDisabledMarker `
-                        -DistinguishedName ([string]$live.DistinguishedName) `
-                        -DomainFqdn $DomainFqdn `
-                        -DisabledOn ([datetime]$record.DisabledDate)
-
-                    Write-Log -Message (
-                        "Preserved disabled date before OU movement. User={0} | DisabledOn={1:o} | Source={2}" -f
-                        $record.SamAccountName,
-                        ([datetime]$record.DisabledDate),
-                        $record.DisabledDateSource
-                    ) -Level SUCCESS
-                }
-                else {
-                    Write-Log -Message (
-                        "Disabled date is unavailable for '{0}'. OU movement will proceed, but this account will not be deletion-eligible until a lifecycle disabled-date marker exists." -f
-                        $record.SamAccountName
-                    ) -Level WARNING
-                }
+                Write-Log -Message (
+                    "Moving '{0}' without a verified disable timestamp. The account remains ineligible for automatic deletion; whenChanged may change on movement." -f
+                    $record.SamAccountName
+                ) -Level WARNING
             }
 
             Move-ADObject `
@@ -1954,7 +2103,7 @@ function Move-DisabledGridRecords {
 
             $moved++
             Write-Log -Message (
-                "Disabled account '{0}' moved to '{1}' with disabled date preserved." -f
+                "Disabled account '{0}' moved to '{1}' (existing lifecycle marker retained if present)." -f
                 $record.SamAccountName,
                 $resolvedOuDn
             ) -Level SUCCESS
@@ -1986,9 +2135,20 @@ function Remove-EligibleGridRecords {
         [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStripProgressBar]$ProgressBar
     )
 
+    if ($Script:DryRun) {
+        Invoke-LifecycleDryRun -Action 'DeleteEligible' -DomainFqdn $DomainFqdn -Grid $Grid -ThresholdDays $DisabledAgeDays
+        return
+    }
+
     $records = @(Get-CheckedGridRecords -Grid $Grid)
     if ($records.Count -eq 0) {
         Show-AppMessage -Message 'No deletion-eligible disabled accounts selected.' -Type Warning
+        return
+    }
+
+    $unverified = @($records | Where-Object { $_.DisabledDateSource -ne 'LifecycleMarker' })
+    if ($unverified.Count -gt 0) {
+        Show-AppMessage -Message 'Deletion blocked: selected records include accounts without a verified lifecycle disabled-date marker.' -Type Warning
         return
     }
 
@@ -2032,6 +2192,12 @@ function Remove-EligibleGridRecords {
             $liveAge = Get-DisabledTimestampInfo `
                 -Info ([string]$live.info) `
                 -WhenChanged $live.whenChanged
+
+            if ($liveAge.DisabledDateSource -ne 'LifecycleMarker') {
+                $skipped++
+                Write-DisabledDeletionJournal -Record $record -Result 'SKIPPED' -Message 'No verified lifecycle marker; whenChanged is not deletion evidence.' -ThresholdDays $DisabledAgeDays
+                continue
+            }
 
             if (
                 $null -eq $liveAge.DisabledAgeDays -or
@@ -2198,7 +2364,17 @@ function Update-MainActionButtonStates {
 
     $SelectDisabledButton.Enabled = $disabledCount -gt 0
     $RemoveGroupsButton.Enabled = $disabledSelected -gt 0
-    $MoveOuButton.Enabled = ($disabledSelected -gt 0 -and $hasInactiveOu)
+    $moveCandidates = 0
+    if ($hasInactiveOu) {
+        foreach ($row in $DisabledGrid.Rows) {
+            if (-not $row.IsNewRow -and $null -ne $row.Tag -and
+                [bool]$row.Cells['Selected'].Value -and
+                -not (Test-AccountWithinInactiveOu -AccountDn ([string]$row.Tag.DistinguishedName) -InactiveOuDn $InactiveOuTextBox.Text)) {
+                $moveCandidates++
+            }
+        }
+    }
+    $MoveOuButton.Enabled = ($moveCandidates -gt 0)
 
     $SelectEligibleButton.Enabled = $eligibleCount -gt 0
     $DeleteEligibleButton.Enabled = $eligibleSelected -gt 0
@@ -2236,7 +2412,7 @@ function Show-Gui {
     $headerLayout = New-Object System.Windows.Forms.TableLayoutPanel
     $headerLayout.Dock = [System.Windows.Forms.DockStyle]::Fill
     $headerLayout.RowCount = 1
-    $headerLayout.ColumnCount = 7
+    $headerLayout.ColumnCount = 8
     $headerLayout.Margin = New-Object System.Windows.Forms.Padding(0)
     $headerLayout.Padding = New-Object System.Windows.Forms.Padding(0)
 
@@ -2277,6 +2453,13 @@ function Show-Gui {
         (New-Object System.Windows.Forms.ColumnStyle(
             [System.Windows.Forms.SizeType]::Absolute,
             115
+        ))
+    )
+
+    [void]$headerLayout.ColumnStyles.Add(
+        (New-Object System.Windows.Forms.ColumnStyle(
+            [System.Windows.Forms.SizeType]::Absolute,
+            205
         ))
     )
 
@@ -2328,26 +2511,54 @@ function Show-Gui {
     $headerLayout.Controls.Add($labelOu, 4, 0)
     $headerLayout.Controls.Add($txtInactiveOu, 5, 0)
     $headerLayout.Controls.Add($btnSearchOu, 6, 0)
+    # DRY-RUN is positioned in the space recovered from the Inactive OU field.
+    # It is added after creation of the checkbox below.
 
     $headerPanel.Controls.Add($headerLayout)
 
+    # Restore the original single-row action toolbar.
     $toolbar = New-Object System.Windows.Forms.FlowLayoutPanel
     $toolbar.Dock = [System.Windows.Forms.DockStyle]::Top
     $toolbar.Height = 42
-    $toolbar.Padding = New-Object System.Windows.Forms.Padding(8,4,8,4)
     $toolbar.WrapContents = $false
     $toolbar.AutoScroll = $true
+    $toolbar.Padding = New-Object System.Windows.Forms.Padding(8,3,8,3)
 
-    $btnScan = New-ToolbarButton -Text 'Scan Domain' -Width 125
-    $btnSelectExpired = New-ToolbarButton -Text 'Select Expired' -Width 125
-    $btnDisableExpired = New-ToolbarButton -Text 'Disable Expired' -Width 130
-    $btnSelectDisabled = New-ToolbarButton -Text 'Select Disabled' -Width 130
-    $btnClearAll = New-ToolbarButton -Text 'Clear Selection' -Width 125
-    $btnRemoveGroups = New-ToolbarButton -Text 'Remove Groups' -Width 125
-    $btnMoveOu = New-ToolbarButton -Text 'Move to Inactive OU' -Width 155
-    $btnSelectEligible = New-ToolbarButton -Text 'Select Eligible' -Width 125
-    $btnDeleteEligible = New-ToolbarButton -Text 'Delete Eligible' -Width 125
-    $btnExport = New-ToolbarButton -Text 'Export Disabled CSV' -Width 150
+    $chkDryRun = New-Object System.Windows.Forms.CheckBox
+    $chkDryRun.Text = 'DRY-RUN (no AD changes)'
+    $chkDryRun.Checked = $true
+    $chkDryRun.AutoSize = $true
+    $chkDryRun.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $chkDryRun.AutoSize = $false
+    $chkDryRun.Margin = New-Object System.Windows.Forms.Padding(12,0,0,0)
+    $chkDryRun.Add_CheckedChanged({
+        if (-not $chkDryRun.Checked) {
+            $confirmation = [System.Windows.Forms.MessageBox]::Show(
+                'Enable COMMIT mode? Actions may modify or permanently delete Active Directory accounts. Each action still requires confirmation.',
+                'Enable AD write operations',
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            if ($confirmation -ne [System.Windows.Forms.DialogResult]::Yes) {
+                $chkDryRun.Checked = $true
+                return
+            }
+        }
+        $Script:DryRun = [bool]$chkDryRun.Checked
+        $modeLabel.Text = if ($Script:DryRun) { 'Mode: DRY-RUN' } else { 'Mode: COMMIT' }
+        Write-Log -Message ("Execution mode changed: {0}" -f $(if ($Script:DryRun) {'DRY-RUN'} else {'COMMIT'})) -Level WARNING
+    })
+
+    $btnScan = New-ToolbarButton -Text 'Scan Domain' -Width 115
+    $btnSelectExpired = New-ToolbarButton -Text 'Select Expired' -Width 115
+    $btnDisableExpired = New-ToolbarButton -Text 'Disable Expired' -Width 120
+    $btnSelectDisabled = New-ToolbarButton -Text 'Select Disabled' -Width 120
+    $btnClearAll = New-ToolbarButton -Text 'Clear Selection' -Width 115
+    $btnRemoveGroups = New-ToolbarButton -Text 'Remove Groups' -Width 115
+    $btnMoveOu = New-ToolbarButton -Text 'Move to Inactive OU' -Width 145
+    $btnSelectEligible = New-ToolbarButton -Text 'Select Eligible' -Width 115
+    $btnDeleteEligible = New-ToolbarButton -Text 'Delete Eligible' -Width 115
+    $btnExport = New-ToolbarButton -Text 'Export Disabled CSV' -Width 140
 
     foreach ($actionButton in @(
         $btnSelectExpired,
@@ -2363,9 +2574,11 @@ function Show-Gui {
         $actionButton.Enabled = $false
     }
 
+    $headerLayout.Controls.Add($chkDryRun, 7, 0)
     $toolbar.Controls.AddRange(@(
-        $btnScan,$btnSelectExpired,$btnDisableExpired,$btnSelectDisabled,$btnClearAll,
-        $btnRemoveGroups,$btnMoveOu,$btnSelectEligible,$btnDeleteEligible,$btnExport
+        $btnScan,$btnSelectExpired,$btnDisableExpired,$btnSelectDisabled,
+        $btnClearAll,$btnRemoveGroups,$btnMoveOu,$btnSelectEligible,
+        $btnDeleteEligible,$btnExport
     ))
 
     $mainSplit = New-Object System.Windows.Forms.SplitContainer
@@ -2405,9 +2618,10 @@ function Show-Gui {
         @{Name='Domain'; Header='Domain'; Width=145},
         @{Name='SamAccountName'; Header='SAM Account Name'; Width=145},
         @{Name='DisplayName'; Header='Display Name'; Width=190},
-        @{Name='DisabledDate'; Header='Disabled Date'; Width=140},
+        @{Name='DisabledDate'; Header='Date (estimated if fallback)'; Width=180},
         @{Name='DisabledAgeDays'; Header='Disabled Days'; Width=105},
         @{Name='DisabledDateSource'; Header='Date Source'; Width=125},
+        @{Name='InactiveOuStatus'; Header='Inactive OU Status'; Width=175},
         @{Name='Protected'; Header='Protected'; Width=80},
         @{Name='DistinguishedName'; Header='Distinguished Name'; Width=330}
     )
@@ -2445,7 +2659,10 @@ function Show-Gui {
     $progressBar.Maximum = 100
     $progressBar.Value = 0
 
+    $modeLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
+    $modeLabel.Text = 'Mode: DRY-RUN'
     [void]$statusStrip.Items.Add($statusLabel)
+    [void]$statusStrip.Items.Add($modeLabel)
     [void]$statusStrip.Items.Add($progressBar)
 
     $form.Controls.Add($mainSplit)
@@ -2517,16 +2734,18 @@ function Show-Gui {
                     -not $row.IsNewRow -and
                     $null -ne $row.Tag -and
                     $null -ne $row.Tag.DisabledAgeDays -and
-                    [int]$row.Tag.DisabledAgeDays -ge [int]$numDisabledAge.Value
+                    [int]$row.Tag.DisabledAgeDays -ge [int]$numDisabledAge.Value -and
+                    $row.Tag.DisabledDateSource -eq 'LifecycleMarker'
                 ) {
                     Add-RecordToGrid -Grid $eligibleGrid -Record $row.Tag -Mode Disabled
                 }
             }
 
             Set-AllGridChecks -Grid $eligibleGrid -Checked $false
+            Update-InactiveOuMembership -Grid $eligibleGrid -InactiveOuDn ([string]$txtInactiveOu.Text)
 
             $eligibleGroup.Text = (
-                'Deletion-Eligible Disabled Accounts (Days >= {0})' -f
+                'Verified Disabled Accounts Eligible for Deletion (Days >= {0})' -f
                 [int]$numDisabledAge.Value
             )
 
@@ -2549,6 +2768,8 @@ function Show-Gui {
     })
 
     $txtInactiveOu.Add_TextChanged({
+        Update-InactiveOuMembership -Grid $disabledGrid -InactiveOuDn ([string]$txtInactiveOu.Text)
+        Update-InactiveOuMembership -Grid $eligibleGrid -InactiveOuDn ([string]$txtInactiveOu.Text)
         & $refreshSelection
     })
 
@@ -2561,7 +2782,8 @@ function Show-Gui {
                 -DisabledGrid $disabledGrid `
                 -EligibleGrid $eligibleGrid `
                 -StatusLabel $statusLabel `
-                -ProgressBar $progressBar
+                -ProgressBar $progressBar `
+                -InactiveOuDn ([string]$txtInactiveOu.Text)
         }
     })
 
@@ -2624,7 +2846,8 @@ function Show-Gui {
                 -DisabledGrid $disabledGrid `
                 -EligibleGrid $eligibleGrid `
                 -StatusLabel $statusLabel `
-                -ProgressBar $progressBar
+                -ProgressBar $progressBar `
+                -InactiveOuDn ([string]$txtInactiveOu.Text)
         }
     })
 
@@ -2673,7 +2896,8 @@ function Show-Gui {
                 -DisabledGrid $disabledGrid `
                 -EligibleGrid $eligibleGrid `
                 -StatusLabel $statusLabel `
-                -ProgressBar $progressBar
+                -ProgressBar $progressBar `
+                -InactiveOuDn ([string]$txtInactiveOu.Text)
         }
     })
 
@@ -2692,7 +2916,8 @@ function Show-Gui {
                 -DisabledGrid $disabledGrid `
                 -EligibleGrid $eligibleGrid `
                 -StatusLabel $statusLabel `
-                -ProgressBar $progressBar
+                -ProgressBar $progressBar `
+                -InactiveOuDn ([string]$txtInactiveOu.Text)
         }
     })
 
