@@ -101,6 +101,7 @@ All notable repository changes are documented in this file.
 - Rename Inventory-ADComputers-Collector.ps1 file (`712f1e8`)
 - Upgrade Inventory-ADComputers script to v1.4.0 (`75a0ef0`)
 - Clarify Inventory-ADComputers-by-Domain.ps1 description (`11be1e4`)
+- Update Manage-Disabled-Expired-ADUserAccounts.ps1 to v4.2.4 (`0431a60`)
 
 ### Security
 
@@ -306,6 +307,7 @@ All notable repository changes are documented in this file.
 - Rename Inventory-ADComputers-Collector.ps1 file (`712f1e8`)
 - Upgrade Inventory-ADComputers script to v1.4.0 (`75a0ef0`)
 - Clarify Inventory-ADComputers-by-Domain.ps1 description (`11be1e4`)
+- Update Manage-Disabled-Expired-ADUserAccounts.ps1 to v4.2.4 (`0431a60`)
 
 ### Security
 
